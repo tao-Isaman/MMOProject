@@ -2,7 +2,7 @@
 
 usage: python3 tools/sprite_cells.py [--size 96] [--frames 8] out.png south.png south-west.png ... south-east.png
 
-With eight preview sheets (one per direction, Oriverse order: front then clockwise from above,
+With one preview sheet per direction (1, 4 or 8; Oriverse order: front then clockwise from above,
 height_px equal to the sprite's canvas), writes a sheet with one row per direction and one
 column per frame: the first `frames` samples of each preview (default 1, the rest view).
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
             frames = int(args[1])
         args = args[2:]
     out, sheets = args[0], args[1:]
-    assert len(sheets) == 8, "need one preview sheet per direction"
+    assert len(sheets) in (1, 4, 8), "need one preview sheet per direction (1, 4 or 8)"
     rows = []
     for p in sheets:
         got = samples(p, size)
