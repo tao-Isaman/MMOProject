@@ -1,9 +1,10 @@
-"""Cut the 128x128 frame cells out of Oriverse preview_sprite sheets.
+"""Cut the frame cells out of Oriverse preview_sprite sheets.
 
-usage: python3 tools/sprite_cells.py assets/mage_idle.png south.png south-west.png ... south-east.png
+usage: python3 tools/sprite_cells.py [--size 96] [--frames 8] out.png south.png south-west.png ... south-east.png
 
 With eight preview sheets (one per direction, Oriverse order: front then clockwise from above,
-height_px=128), writes the idle sheet: one 128 px row per direction.
+height_px equal to the sprite's canvas), writes a sheet with one row per direction and one
+column per frame: the first `frames` samples of each preview (default 1, the rest view).
 
 Cells are drawn on an 8 px checkerboard of (88,88,88)/(136,136,136) over a dark sheet
 background; pixels showing the checkerboard become transparent, the rest are the sprite's
@@ -43,9 +44,30 @@ def cells(path, size=128):
         out.append(cell)
     return out
 
+def samples(path, size=128):
+    """One cell per preview sample: with height_px equal to the canvas, the preview draws
+    each sample twice (native and gameplay view) at the same size, so keep the first of each
+    identical pair."""
+    found = cells(path, size)
+    if len(found) % 2 == 0 and all((found[i] == found[i + 1]).all() for i in range(0, len(found), 2)):
+        found = found[0::2]
+    return found
+
 if __name__ == "__main__":
-    out, sheets = sys.argv[1], sys.argv[2:]
+    args = sys.argv[1:]
+    size, frames = 128, 1
+    while args[0].startswith("--"):
+        if args[0] == "--size":
+            size = int(args[1])
+        elif args[0] == "--frames":
+            frames = int(args[1])
+        args = args[2:]
+    out, sheets = args[0], args[1:]
     assert len(sheets) == 8, "need one preview sheet per direction"
-    rows = [cells(p)[0] for p in sheets]
+    rows = []
+    for p in sheets:
+        got = samples(p, size)
+        assert len(got) >= frames, f"{p}: {len(got)} samples, need {frames}"
+        rows.append(np.concatenate(got[:frames], axis=1))
     Image.fromarray(np.concatenate(rows, axis=0), "RGBA").save(out, optimize=True)
-    print(out, len(rows), "directions")
+    print(out, len(rows), "directions x", frames, "frames")
