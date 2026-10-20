@@ -19,7 +19,7 @@ const WALK_CYCLE = 170;   // cm walked per walk loop (two steps)
 const HOVER = 24;         // cm the caster floats during the spell
 const HOVER_RAMP = 40 / 60;
 // frame where the weapon lands, per attack clip (8 frames each)
-const HIT_FRAME = { swing: 4, thrust: 4, shoot: 5 };
+const HIT_FRAME = { swing: 3, thrust: 4, shoot: 4 };
 const WINDUP_FRAME = 3;   // the cast holds this frame while the cast bar fills
 
 export const DIRECTIONS = ["south", "south-west", "west", "north-west", "north", "north-east", "east", "south-east"];
@@ -218,13 +218,16 @@ export class Player {
     const breathe = this.moving || this.busy ? 1 : 1 + 0.012 * Math.sin(this.time * 2.2);
     const fy = mapY(this.x, lift) * k + oy;
 
-    // the weapon shows while attacking or casting; behind her when she faces away
-    const hand = weapon && (this.attack || this.casting) ? this.handFor(clip, col) : null;
+    // the weapon shows while attacking or casting (unless the clip already draws it); behind
+    // her when she faces away
+    const showWeapon = weapon && (this.casting || (this.attack && !this.attack.w.builtin));
+    const hand = showWeapon ? this.handFor(clip, col) : null;
     const behind = this.dir >= 3 && this.dir <= 5;
     const drawHeld = () => {
       if (!hand) return;
       const toScreen = ([hx, hy]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
-      const angle = weaponAngle(hand.r, hand.c, screenAngle(this.facing()));
+      const facing = screenAngle(this.facing());
+      const angle = this.attack?.w.chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
       const [x, y] = toScreen(hand.r);
       const wscale = s * (weapon.art.scale ?? 1);
       drawWeapon(ctx, weapon.img, weapon.art, x, y, angle, wscale);
@@ -249,6 +252,16 @@ export class Player {
     if (!behind) drawHeld();
 
     if (this.casting) this.drawCastBar(ctx, gx, fy - HEIGHT * HEAD * k - 6 * k, k);
+  }
+
+  // Axes and maces come down from overhead: raised behind her at the start of the swing, they
+  // sweep over (or past the side, seen from the front) and land pointing where she faces.
+  chopAngle(facing) {
+    const a = this.attack;
+    const hit = HIT_FRAME[a.motion] / a.frames;
+    const u = Math.min(1, a.t / a.dur / hit);
+    const side = this.facing().y > 0.1 ? -1 : 1; // facing screen left swings the other way
+    return facing - side * 2.5 * (1 - u * u);
   }
 
   // Hand positions (sprite px) for a frame; falls back to a point beside the body.

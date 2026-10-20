@@ -17,7 +17,7 @@ export const WEAPON_ART = {
   spear_2h: { grip: 0.69 },
   dagger: { grip: 0.75 },
   dual_daggers: { grip: 0.75, art: "dagger", pair: true },
-  staff: { grip: 0.6, scale: 0.75 }, // drawn at the 128 px sprite's pixel size
+  staff: { grip: 0.6, scale: 0.75, upright: true }, // drawn at the 128 px sprite's pixel size
   bow: { grip: 0.5, upright: true },
 };
 

@@ -5,68 +5,73 @@
 
 export const MOTIONS = ["swing", "thrust", "shoot"];
 
+// Swords and the bow use clips where Oriverse drew the weapon in (swing: a sword and its slash,
+// shoot: a bow and arrow), so nothing is drawn over them (builtin). Every other weapon uses the
+// empty-handed thrust clip with its art drawn into the hand; "chop" swings that art down from
+// overhead instead of pointing it along the arm. hit: "arc" (in front) or "line" (straight ahead).
+
 export const WEAPON_TYPES = {
   sword_1h: {
-    name: "ดาบมือเดียว", motion: "swing", reach: 125, arc: 110, interval: 0.62, damage: [18, 24],
+    name: "ดาบมือเดียว", motion: "swing", builtin: true, hit: "arc", reach: 125, arc: 110, interval: 0.62, damage: [18, 24],
     note: "ฟันเป็นแนวโค้งหน้าตัว",
   },
   sword_2h: {
-    name: "ดาบสองมือ", motion: "swing", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], knock: 60,
+    name: "ดาบสองมือ", motion: "swing", builtin: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], knock: 60,
     note: "ฟันกว้าง ช้าแต่แรง",
   },
   axe: {
-    name: "ขวาน", motion: "swing", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.18,
+    name: "ขวาน", motion: "thrust", chop: true, hit: "arc", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.18,
     note: "โอกาสคริติคอลสูง",
   },
   mace: {
-    name: "ค้อน", motion: "swing", reach: 110, arc: 90, interval: 0.9, damage: [28, 36], knock: 110,
+    name: "ค้อน", motion: "thrust", chop: true, hit: "arc", reach: 110, arc: 90, interval: 0.9, damage: [28, 36], knock: 110,
     note: "กระแทกจนกระเด็น",
   },
   spear_1h: {
-    name: "หอกมือเดียว", motion: "thrust", reach: 185, width: 46, interval: 0.7, damage: [20, 26],
+    name: "หอกมือเดียว", motion: "thrust", hit: "line", reach: 185, width: 46, interval: 0.7, damage: [20, 26],
     note: "แทงไกล",
   },
   spear_2h: {
-    name: "หอกสองมือ", motion: "thrust", reach: 235, width: 56, interval: 1.0, damage: [30, 40], pierce: true,
+    name: "หอกสองมือ", motion: "thrust", hit: "line", reach: 235, width: 56, interval: 1.0, damage: [30, 40], pierce: true,
     note: "แทงทะลุทุกตัวในแนว",
   },
   dagger: {
-    name: "มีดสั้น", motion: "thrust", reach: 95, width: 40, interval: 0.4, damage: [11, 15], crit: 0.15,
+    name: "มีดสั้น", motion: "thrust", hit: "line", reach: 95, width: 40, interval: 0.4, damage: [11, 15], crit: 0.15,
     note: "แทงเร็ว",
   },
   dual_daggers: {
-    name: "มีดคู่", motion: "thrust", reach: 95, width: 44, interval: 0.55, damage: [9, 12], hits: 2,
+    name: "มีดคู่", motion: "thrust", hit: "line", reach: 95, width: 44, interval: 0.55, damage: [9, 12], hits: 2,
     note: "แทงสองครั้งต่อการโจมตี",
   },
   staff: {
-    name: "ไม้เท้า", motion: "swing", interval: 1.1, damage: [26, 34],
+    name: "ไม้เท้า", motion: "thrust", interval: 1.1, damage: [26, 34],
     projectile: { kind: "bolt", speed: 900, range: 520, radius: 34 },
     note: "ยิงลูกเวทระยะกลาง",
   },
   bow: {
-    name: "ธนู", motion: "shoot", interval: 0.9, damage: [16, 22],
+    name: "ธนู", motion: "shoot", builtin: true, interval: 0.9, damage: [16, 22],
     projectile: { kind: "arrow", speed: 1400, range: 780, radius: 26 },
     note: "ยิงไกลที่สุด",
   },
 };
 
-// Outfit dyes: tops recolour the coat, bottoms the skirt.
+// Outfit dyes: tops recolour the coat, bottoms the leggings.
 export const DYES = {
   white: { name: "ขาว", hue: null, sat: 0, light: 0 },
-  sky: { name: "ฟ้า", hue: 205, sat: 0.55, light: -0.02 },
-  rose: { name: "ชมพู", hue: 340, sat: 0.5, light: -0.02 },
-  mint: { name: "เขียวมิ้นต์", hue: 150, sat: 0.42, light: -0.03 },
-  lilac: { name: "ม่วง", hue: 270, sat: 0.4, light: -0.03 },
+  sky: { name: "ฟ้า", hue: 205, sat: 0.62, light: -0.1 },
+  rose: { name: "ชมพู", hue: 340, sat: 0.6, light: -0.1 },
+  mint: { name: "เขียวมิ้นต์", hue: 150, sat: 0.5, light: -0.11 },
+  lilac: { name: "ม่วง", hue: 270, sat: 0.5, light: -0.11 },
   black: { name: "ดำ", hue: null, sat: 0, light: 0 },
-  navy: { name: "กรมท่า", hue: 225, sat: 0.55, light: 0.06 },
-  wine: { name: "แดงไวน์", hue: 350, sat: 0.6, light: 0.06 },
-  forest: { name: "เขียวเข้ม", hue: 140, sat: 0.45, light: 0.05 },
-  cocoa: { name: "น้ำตาล", hue: 28, sat: 0.45, light: 0.08 },
+  navy: { name: "กรมท่า", hue: 225, sat: 0.6, light: 0.12 },
+  wine: { name: "แดงไวน์", hue: 350, sat: 0.62, light: 0.12 },
+  forest: { name: "เขียวเข้ม", hue: 140, sat: 0.5, light: 0.11 },
+  cocoa: { name: "น้ำตาล", hue: 28, sat: 0.5, light: 0.14 },
 };
 
 const weapon = (type) => ({ kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type } });
 const top = (dye) => ({ kind: "top", dye, name: `เสื้อคลุม${DYES[dye].name}`, icon: { top: dye } });
-const bottom = (dye) => ({ kind: "bottom", dye, name: `กระโปรง${DYES[dye].name}`, icon: { bottom: dye } });
+const bottom = (dye) => ({ kind: "bottom", dye, name: `กางเกง${DYES[dye].name}`, icon: { bottom: dye } });
 
 export const ITEMS = {
   ...Object.fromEntries(Object.keys(WEAPON_TYPES).map((t) => [t, weapon(t)])),
@@ -87,7 +92,7 @@ export const ITEMS = {
 export const EQUIP_SLOTS = [
   { slot: "weapon", name: "อาวุธ" },
   { slot: "top", name: "เสื้อ" },
-  { slot: "bottom", name: "กระโปรง" },
+  { slot: "bottom", name: "กางเกง" },
 ];
 
 export function itemSlot(id) {
@@ -109,6 +114,7 @@ export function describe(id) {
     const hits = w.hits ? ` × ${w.hits}` : "";
     return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}`;
   }
-  if (item.kind === "top" || item.kind === "bottom") return "ใส่แล้วเปลี่ยนสีชุด";
+  if (item.kind === "top") return "ใส่แล้วเปลี่ยนสีเสื้อคลุม";
+  if (item.kind === "bottom") return "ใส่แล้วเปลี่ยนสีกางเกง";
   return item.note ?? "";
 }

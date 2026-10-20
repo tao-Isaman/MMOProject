@@ -4,7 +4,7 @@ import { mapX, mapY, S2 } from "./projection.js";
 import { WEAPON_TYPES } from "./items.js";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles.js";
 
-export const UNARMED = { name: "มือเปล่า", motion: "swing", reach: 90, arc: 90, interval: 0.6, damage: [4, 7] };
+export const UNARMED = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
 
 export function weaponStats(weaponId) {
   return (weaponId && WEAPON_TYPES[weaponId]) || UNARMED;
@@ -74,7 +74,7 @@ function meleeTargets(origin, dir, w, monsters) {
     const along = dx * dir.x + dy * dir.y;
     const side = -dx * dir.y + dy * dir.x;
     const dist = Math.hypot(dx, dy) - m.radius;
-    if (w.motion === "thrust") {
+    if (w.hit === "line") {
       if (along > -m.radius && along - m.radius < w.reach && Math.abs(side) < w.width / 2 + m.radius) out.push({ m, along });
     } else {
       const ang = (Math.atan2(side, along) * 180) / Math.PI;
@@ -111,7 +111,7 @@ export class Combat {
       return;
     }
     const hits = meleeTargets(origin, dir, w, this.monsters);
-    const targets = w.pierce || w.motion === "swing" ? hits : hits.slice(0, 1);
+    const targets = w.pierce || w.hit !== "line" ? hits : hits.slice(0, 1);
     for (const m of targets) this.damage(m, w, dir);
     this.slashFx(origin, dir, w);
     if (w.hits > 1) this.pending.push({ t: 0.14, origin, dir, w });
@@ -127,11 +127,12 @@ export class Combat {
   }
 
   slashFx(origin, dir, w) {
-    const reach = w.motion === "thrust" ? w.reach : w.reach * 0.75;
-    const n = w.motion === "thrust" ? 6 : 9;
+    const line = w.hit === "line";
+    const reach = line ? w.reach : w.reach * 0.75;
+    const n = line ? 6 : 9;
     for (let i = 0; i < n; i++) {
       let px, py;
-      if (w.motion === "thrust") {
+      if (w.hit === "line") {
         const f = (i + 1) / n;
         px = origin.x + dir.x * reach * f;
         py = origin.y + dir.y * reach * f;

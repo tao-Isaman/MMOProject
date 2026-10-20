@@ -13,7 +13,7 @@ import { Combat, Floaters, weaponStats, attackRange } from "./combat.js";
 import { slimeSheets, spawnMonsters, rollDrops } from "./monsters.js";
 import { buildLook, lookKey } from "./look.js";
 import { WEAPON_ART } from "./weapons.js";
-import { dyePixel, mapColors } from "./recolor.js";
+import { dyePixel, mapColors, rgbToHsl } from "./recolor.js";
 
 const SKILLS = [
   {
@@ -69,7 +69,11 @@ function makeIcon(img, { diagonal = false, dye = null } = {}) {
   c.width = c.height = ICON * dpr;
   const g = c.getContext("2d");
   g.imageSmoothingEnabled = false;
-  const src = dye ? mapColors(img, (r, gg, b) => dyePixel(r, gg, b, dye)) : img;
+  // dye only the grey cloth, not the gold trim or the outline
+  const src = dye ? mapColors(img, (r, gg, b) => {
+    const [, sat, l] = rgbToHsl(r, gg, b);
+    return sat < 0.2 && l > 0.25 ? dyePixel(r, gg, b, dye) : null;
+  }) : img;
   const size = ICON * dpr * 0.86;
   if (diagonal) {
     const s = size / Math.hypot(img.width, img.height) * 1.0;
@@ -97,7 +101,7 @@ async function boot() {
     slime_hurt: "assets/slime_hurt.png",
     slime_die: "assets/slime_die.png",
     coat: "assets/items/coat.png",
-    skirt: "assets/items/skirt.png",
+    legs: "assets/items/legs.png",
     jelly: "assets/items/jelly.png",
     sprout: "assets/items/sprout.png",
     arrow: "assets/items/arrow.png",
@@ -161,7 +165,7 @@ async function boot() {
         g.restore();
       }
     } else if (item.kind === "top") c = makeIcon(images.coat, { dye: DYES[item.dye] });
-    else if (item.kind === "bottom") c = makeIcon(images.skirt, { dye: DYES[item.dye].hue === null && item.dye === "black" ? { hue: 230, sat: 0.12, light: -0.45 } : DYES[item.dye] });
+    else if (item.kind === "bottom") c = makeIcon(images.legs, { dye: item.dye === "black" ? { hue: 250, sat: 0.2, light: -0.55 } : { ...DYES[item.dye], light: -0.45 } });
     else c = makeIcon(images[item.icon.sheet]);
     icons.set(id, c);
     return c;

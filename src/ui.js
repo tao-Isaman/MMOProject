@@ -118,7 +118,7 @@ export class InventoryUI {
       return;
     }
     const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กระโปรง", material: "วัตถุดิบ" }[item.kind];
+    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กางเกง", material: "วัตถุดิบ" }[item.kind];
     this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}`;
     this.tip.classList.remove("hidden");
     const r = this.tip.getBoundingClientRect();
@@ -272,7 +272,7 @@ export class WardrobeUI {
     this.group(right, "ทรงผม", HAIRSTYLES, "hair", (o) => o.name);
     this.group(right, "สีผม", HAIR_COLORS, "hairColor");
     this.group(right, "สีตา", EYE_COLORS, "eyes");
-    el("p", "wr-note", right).textContent = "เสื้อกับกระโปรงเปลี่ยนได้จากไอเท็มในกระเป๋า (ปุ่ม I)";
+    el("p", "wr-note", right).textContent = "เสื้อกับกางเกงเปลี่ยนได้จากไอเท็มในกระเป๋า (ปุ่ม I)";
   }
 
   group(parent, title, options, key, label) {

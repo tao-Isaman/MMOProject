@@ -337,21 +337,24 @@ def coat():
     return cv.outline()
 
 
-def skirt():
-    """Pleated skirt icon in neutral grey (dyeable)."""
-    cv = Canvas(30, 26)
-    for y in range(3, 24):
-        k = (y - 3) / 20
-        hw = 7 + 6.5 * k
-        for x in range(int(15 - hw), int(15 + hw) + 1):
-            pleat = int((x - (15 - hw)) / (2 * hw) * 7)
-            c = WHITE[2] if pleat % 2 == 0 else WHITE[1]
-            if x < 15 - hw + 2:
-                c = WHITE[3]
-            cv.set(x, y, c)
-    for x in range(8, 23):
-        cv.set(x, 3, WHITE[3]); cv.set(x, 4, WHITE[2])
-    cv.set(15, 4, GOLD[3])
+def leggings():
+    """Leggings icon in neutral grey (dyeable): waistband, two tapering legs."""
+    cv = Canvas(26, 32)
+    for y in range(2, 5):
+        for x in range(4, 22):
+            cv.set(x, y, WHITE[3] if y == 2 else WHITE[2])
+    for side in (-1, 1):
+        for y in range(5, 30):
+            k = (y - 5) / 25
+            cx = 13 + side * (4.2 + 1.2 * k)
+            hw = 4.6 - 1.6 * k
+            for x in range(int(round(cx - hw)), int(round(cx + hw)) + 1):
+                t = (x - (cx - hw)) / (2 * hw)
+                c = WHITE[3] if t < 0.3 else WHITE[2] if t < 0.75 else WHITE[1]
+                cv.set(x, y, c)
+    for x in range(10, 17):
+        cv.set(x, 5, WHITE[2])
+    cv.set(13, 3, GOLD[3])
     return cv.outline()
 
 
@@ -390,7 +393,7 @@ def sprout():
 
 WEAPONS = {"sword_1h": sword_1h, "sword_2h": sword_2h, "axe": axe, "mace": mace, "spear_1h": spear_1h,
            "spear_2h": spear_2h, "dagger": dagger, "bow": bow}
-ITEMS = {"arrow": arrow, "coat": coat, "skirt": skirt, "jelly": jelly, "sprout": sprout}
+ITEMS = {"arrow": arrow, "coat": coat, "legs": leggings, "jelly": jelly, "sprout": sprout}
 
 if __name__ == "__main__":
     for name, fn in WEAPONS.items():
