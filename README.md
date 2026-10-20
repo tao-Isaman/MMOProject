@@ -46,6 +46,7 @@ python3 -m http.server 8000
   ```sh
   python3 tools/sprite_cells.py assets/mage_idle.png south.png south-west.png west.png north-west.png north.png north-east.png east.png south-east.png
   ```
+- ภาพหน้าตรงที่ได้มาแขนเป็นกล่องแยกจากตัว แก้ไหล่ให้ต่อกับแขนด้วย `python3 tools/touchup_front.py assets/mage_idle.png`
 - ท่าเดินกับท่าโจมตีสร้างจาก 8 ทิศนั้นด้วย `python3 tools/animate_sprite.py assets/mage_idle.png assets`
   (สั่งให้ Oriverse สร้างแอนิเมชันเดิน/โจมตีแล้วล้มเหลวทุกงานด้วย "Animation first frame differs from its retained input" และได้เครดิตคืน)
 - ทุกชีตมี 1 แถวต่อทิศ (ลำดับของ Oriverse: หน้า แล้ววนตามเข็มนาฬิกามองจากด้านบน) และ 1 คอลัมน์ 128 px ต่อเฟรม
@@ -63,4 +64,4 @@ python3 -m http.server 8000
 | `src/motes.js` | ละอองเรืองแสงลอยทั่วลาน |
 | `src/hud.js` | แถบสกิล 10 ช่อง, คูลดาวน์ |
 | `assets/` | `map.jpg` ภาพฉากจาก Oriverse, `mage_*.png` ชีตตัวละคร 8 ทิศ, texture ดอกไม้/กลีบ/วงเวท (bake จากสูตร `#texture` เดียวกับใน Weave) |
-| `tools/` | ต่อภาพฉาก (`stitch_map.py`), ดึงเฟรมสไปรต์ (`sprite_cells.py`), สร้างท่าเดิน/โจมตี (`animate_sprite.py`) |
+| `tools/` | ต่อภาพฉาก (`stitch_map.py`), ดึงเฟรมสไปรต์ (`sprite_cells.py`), แก้ไหล่ภาพหน้าตรง (`touchup_front.py`), สร้างท่าเดิน/โจมตี (`animate_sprite.py`) |
