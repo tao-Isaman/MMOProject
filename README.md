@@ -22,7 +22,7 @@ python3 -m http.server 8000
 ## ฉากจาก Oriverse
 
 ฉากต้นฉบับอยู่ใน repo the-hero-fighter ที่ `oriverse/frieren/courtyard.weave`
-Oriverse ไม่มีการ export เป็นโมเดล 3D เว็บนี้จึงใช้ภาพฉากที่ render จาก Oriverse เป็นพื้น แล้ววาดตัวละคร เวท และ HUD เอง
+การเชื่อมต่อ Oriverse ที่ใช้ทำงานนี้ export ฉากเป็นไฟล์ 3D ไม่ได้ (export ได้แค่ไฟล์ `.oripak` ของ Oriverse เองกับเกมสำหรับ Windows) เว็บนี้จึงใช้ภาพฉากที่ render จาก Oriverse เป็นพื้น แล้ววาดตัวละคร เวท และ HUD เอง
 
 `assets/map.jpg` ทำแบบนี้ (ถ้าแก้ฉากใน Oriverse ให้ทำซ้ำ):
 
