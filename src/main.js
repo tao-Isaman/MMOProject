@@ -3,7 +3,6 @@ import { loadAll, mipChain, bakeGround, glow, tint } from "./assets.js";
 import { SPAWN, debugShapes } from "./world.js";
 import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles.js";
 import { Player, directionIndex } from "./player.js";
-import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell.js";
 import { SkillBar, slotForCode } from "./hud.js";
 import { Motes } from "./motes.js";
 import { ITEMS, WEAPON_TYPES, DYES } from "./items.js";
@@ -14,19 +13,12 @@ import { slimeSheets, spawnMonsters, rollDrops } from "./monsters.js";
 import { Looks } from "./look.js";
 import { WEAPON_ART } from "./weapons.js";
 import { dyePixel, mapColors, rgbToHsl } from "./recolor.js";
-
-const SKILLS = [
-  {
-    name: "ทุ่งดอกไม้",
-    icon: "assets/icon_flower.png",
-    cast: CAST_TIME,
-    cooldown: 9,
-    // explicit breaks: Thai has no spaces to wrap at
-    description:
-      "ร่าย 1.5 วินาที · คูลดาวน์ 9 วินาที<br>วงเวทเปิดใต้เท้า ผู้ร่ายลอยขึ้น<br>ดอกไม้บานเป็นวงกว้างรอบตัว<br>แล้วสลายเป็นกลีบลอยขึ้นฟ้า",
-  },
-  null, null, null, null, null, null, null, null, null,
-];
+import { Progress, ACTIVES, BOOKS } from "./progression.js";
+import { Hero } from "./hero.js";
+import { Skills } from "./skills.js";
+import { monsterDamage } from "./stats.js";
+import { Vitals, ClassPicker, StatusUI, SkillUI, skillTip } from "./charui.js";
+import { icon } from "./icons.js";
 
 const MOVE_KEYS = {
   KeyW: [1, 0], ArrowUp: [1, 0],
@@ -147,10 +139,24 @@ async function boot() {
     dissolve: glow("rgba(205, 218, 255, 1)"),
     flowers: bakeGround(images.flowers, 3, 3, 128, 8, 2),
     petals: { levels: mipChain(images.petals, 2), cols: 2, rows: 2 },
+    ember: glow("rgba(255, 140, 70, 1)"),
+  };
+  // tinted glows and rings for skill effects, made on first use
+  const tinted = new Map();
+  const hexRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ");
+  tex.glowFor = (color) => {
+    if (!tinted.has(`g${color}`)) tinted.set(`g${color}`, glow(`rgba(${hexRgb(color)}, 1)`));
+    return tinted.get(`g${color}`);
+  };
+  tex.ringFor = (color) => {
+    if (!tinted.has(`r${color}`)) tinted.set(`r${color}`, tint(images.ring, color));
+    return tinted.get(`r${color}`);
   };
 
-  // ---- inventory, looks, icons ----
+  // ---- inventory, character, looks, icons ----
   const inv = new Inventory();
+  const progress = new Progress();
+  const hero = new Hero(progress, () => inv.equipped.weapon);
   const looks = new Looks({ bodies, hair });
   const look = loadLook(looks.hairstyles);
   // Rebuild the player's sheets when the look or the clothes change; a newer change wins
@@ -163,7 +169,7 @@ async function boot() {
     currentLook = key;
     const seq = ++lookSeq;
     const built = await looks.build(look, inv.equipped);
-    if (seq === lookSeq) player.setSheets(built.sheets, built.hands);
+    if (seq === lookSeq) player.setSheets(built.sheets, built.hands, built.builtin);
   };
 
   const weapons = {};
@@ -200,6 +206,10 @@ async function boot() {
         g.drawImage(art, (c.width - art.width * s) / 2, (c.height - art.height * s) / 2, art.width * s, art.height * s);
         invUI.render();
       });
+    } else if (item.kind === "book") {
+      c = document.createElement("canvas");
+      c.width = c.height = ICON * 2;
+      c.getContext("2d").drawImage(icon(item.icon.glyph, item.icon.color), 4, 4, c.width - 8, c.height - 8);
     } else if (item.kind === "top") c = makeIcon(images.coat, { dye: DYES[item.dye] });
     else if (item.kind === "bottom") c = makeIcon(images.legs, { dye: item.dye === "black" ? { hue: 250, sat: 0.2, light: -0.55 } : { ...DYES[item.dye], light: -0.45 } });
     else c = makeIcon(images[item.icon.sheet]);
@@ -210,31 +220,100 @@ async function boot() {
   // ---- world ----
   const fx = new Particles();
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
+  player.builtin = first.builtin;
   applyLook();
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
   motes.prewarm();
   const spells = [];
-  const cooldowns = SKILLS.map(() => 0);
   const floaters = new Floaters();
   const monsters = spawnMonsters(slimeSheets({
     idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
   }));
   const combat = new Combat({
-    fx, tex, floaters, monsters,
+    fx, tex, floaters, monsters, hero,
     onKill(m) {
-      for (const id of rollDrops(m.variant)) {
+      for (const id of rollDrops(m.variant, hero.stats.drop)) {
         const left = inv.add(id, 1);
         floaters.add(m.x, m.y, m.height + 20, left ? "กระเป๋าเต็ม" : `+ ${ITEMS[id].name}`, left ? "info" : "loot");
       }
+      // experience shrinks for monsters far below the player's level
+      const gap = progress.level - m.level;
+      const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
+      floaters.add(m.x, m.y, m.height + 45, `+${xp} EXP`, "loot");
+      if (progress.addXp(xp) > 0) levelUp();
     },
   });
+  const skills = new Skills({ progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => inv.equipped.weapon });
 
-  const hud = new SkillBar(document.getElementById("skillbar"), SKILLS, useSlot);
-  const invUI = new InventoryUI(inv, iconFor);
+  function levelUp() {
+    hero.refill();
+    floaters.add(player.x, player.y, 150, `LEVEL UP! Lv ${progress.level}`, "level");
+    skills.ring(player.x, player.y, "#ffe27a", 260, 0.8);
+    skills.sparkleUp(player.x, player.y, tex.flash, 40);
+  }
+
+  // ---- skill bar ----
+  const hud = new SkillBar(document.getElementById("skillbar"), useSlot, (i) => {
+    progress.hotbar[i] = null;
+    progress.changed();
+  });
+  function refreshBar() {
+    progress.hotbar.forEach((id, i) => {
+      const a = id && ACTIVES[id];
+      if (!a) return hud.set(i, null);
+      const rank = progress.skillRank(id);
+      hud.set(i, { id, name: a.name, icon: icon(a.glyph, a.color), tip: skillTip(id, rank), missing: !rank });
+    });
+  }
+  progress.onChange(() => {
+    refreshBar();
+    hero.recompute();
+  });
+  refreshBar();
+
+  const invUI = new InventoryUI(inv, iconFor, (i) => {
+    const id = inv.slots[i].id;
+    const msg = progress.readBook(id);
+    if (!msg) return "อ่านเล่มนี้ไปแล้ว";
+    inv.slots[i].count -= 1;
+    if (inv.slots[i].count <= 0) inv.slots[i] = null;
+    inv.changed();
+    statusUI.render();
+    skillUI.render();
+    return `ปลดล็อค${msg}แล้ว`;
+  });
+
+  // ---- character windows ----
+  const vitals = new Vitals(document.getElementById("vitals"), progress, hero);
+  const picker = new ClassPicker((cls) => {
+    const first = !progress.cls;
+    const level = progress.level, xp = progress.xp, unlocked = progress.unlocked;
+    progress.reset(cls);
+    if (!first) Object.assign(progress, { level, xp, unlocked });
+    progress.changed();
+    hero.refill();
+    // a new character starts with the class's weapon in hand
+    if (first && inv.equipped.weapon !== CLASS_WEAPON[cls]) {
+      const i = inv.slots.findIndex((s) => s?.id === CLASS_WEAPON[cls]);
+      if (i >= 0) inv.equip(i);
+    }
+  });
+  const CLASS_WEAPON = { mage: "staff", warrior: "sword_1h" };
+  const statusUI = new StatusUI(progress, hero, () => picker.show());
+  const skillUI = new SkillUI(progress, hero, {
+    weapon: () => inv.equipped.weapon,
+    weaponImg: (t) => weapons[t]?.img,
+    onDropSkill: (id, x, y) => {
+      const i = hud.slotAt(x, y);
+      if (i >= 0) progress.setSlot(i, id);
+    },
+  });
+  if (!progress.cls) picker.show();
   const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook(), looks.hairstyles, (lk) => looks.note(lk, inv.equipped));
   inv.onChange(() => {
     applyLook();
+    hero.recompute();
     if (!wardrobe.win.classList.contains("hidden")) wardrobe.sync();
   });
 
@@ -251,21 +330,39 @@ async function boot() {
     g.drawImage(sheets.idle, 0, turn * cell, cell, cell, 0, 0, cv.width, cv.height);
   }
 
-  function useSlot(i) {
-    const skill = SKILLS[i];
-    if (!skill || cooldowns[i] > 0 || player.casting) {
-      hud.pulse(i, "denied");
-      return;
-    }
-    cooldowns[i] = skill.cooldown;
-    hud.pulse(i, "flash");
-    player.startCast(skill.cast, HOVER_END);
-    spells.push(new FlowerSpell(fx, tex, player.x, player.y, player));
+  // The ground point under the mouse, or null without a mouse.
+  function aimPoint() {
+    if (!pointer || !view) return null;
+    const p = toMap(pointer);
+    return groundFromMap(p.x, p.y);
   }
 
-  // Space: hit the nearest slime within reach, else swing where she faces.
+  let denyText = 0;
+  function useSlot(i) {
+    const id = progress.hotbar[i];
+    const aim = aimPoint() ?? (player.target?.alive ? player.target : null);
+    const why = id ? skills.use(id, aim) : "ช่องว่าง";
+    if (why) {
+      hud.pulse(i, "denied");
+      if (id && performance.now() - denyText > 600) {
+        denyText = performance.now();
+        floaters.add(player.x, player.y, 150, why, "info");
+      }
+      return;
+    }
+    hud.pulse(i, "flash");
+  }
+
+  // Space: attack toward the mouse pointer; without one (touch), the nearest slime in reach.
   function quickAttack() {
-    const w = weaponStats(inv.equipped.weapon);
+    if (!hero.alive) return;
+    const w = weaponStats(inv.equipped.weapon, hero.stats);
+    if (pointer && view) {
+      const p = toMap(pointer);
+      player.target = null;
+      player.startAttack(w, groundFromMap(p.x, p.y));
+      return;
+    }
     let best = null, bestD = attackRange(w) + 40;
     for (const m of monsters) {
       if (!m.alive) continue;
@@ -302,13 +399,18 @@ async function boot() {
     }
     if (e.code === "KeyI" && !e.repeat) invUI.toggle();
     if (e.code === "KeyC" && !e.repeat) wardrobe.toggle();
+    if (e.code === "KeyP" && !e.repeat) statusUI.toggle();
+    if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "Escape") {
       invUI.toggle(false);
       wardrobe.toggle(false);
+      statusUI.toggle(false);
+      skillUI.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
   });
-  for (const [id, fn] of [["btn-inventory", () => invUI.toggle()], ["btn-wardrobe", () => wardrobe.toggle()]]) {
+  for (const [id, fn] of [["btn-inventory", () => invUI.toggle()], ["btn-wardrobe", () => wardrobe.toggle()],
+    ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()]]) {
     document.getElementById(id).addEventListener("click", (e) => {
       e.currentTarget.blur();
       fn();
@@ -316,16 +418,22 @@ async function boot() {
   }
   // click a slime to walk up to it and keep attacking; click the ground to swing that way
   let view = null;
+  let pointer = null; // last mouse position on screen (the camera may move under it)
+  const toMap = (e) => ({ x: (e.clientX * screen.dpr - view.ox) / view.k, y: (e.clientY * screen.dpr - view.oy) / view.k });
+  canvas.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "mouse") pointer = { clientX: e.clientX, clientY: e.clientY };
+  });
+  canvas.addEventListener("pointerleave", () => (pointer = null));
   canvas.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || !view) return;
-    const mx = (e.clientX * screen.dpr - view.ox) / view.k, my = (e.clientY * screen.dpr - view.oy) / view.k;
+    if (e.button !== 0 || !view || !hero.alive) return;
+    const { x: mx, y: my } = toMap(e);
     const m = monsters.find((mon) => mon.contains(mx, my));
     if (m) {
       player.target = m;
       return;
     }
     player.target = null;
-    player.startAttack(weaponStats(inv.equipped.weapon), groundFromMap(mx, my));
+    player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundFromMap(mx, my));
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
   window.addEventListener("blur", () => held.clear());
@@ -336,6 +444,24 @@ async function boot() {
   const cam = { x: mapX(player.y), y: mapY(player.x) - 50 };
   const hint = document.getElementById("hint");
   let walkedFor = 0;
+  let uiClock = 0;
+  const deathNote = document.getElementById("death");
+  // what monsters need from the player: where to chase and how a bite lands
+  const monsterCtx = {
+    player,
+    hero,
+    bite(m) {
+      const dmg = monsterDamage(m.atk, hero.stats);
+      const r = hero.takeDamage(dmg);
+      if (r.absorbed) floaters.add(player.x, player.y, 120, `-${Math.round(r.absorbed)}`, "shield");
+      if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
+      if (r.died) {
+        player.target = null;
+        player.attack = null;
+        player.cast = null;
+      }
+    },
+  };
   let last = performance.now();
   let fps = 60;
 
@@ -350,14 +476,23 @@ async function boot() {
       move.x += MOVE_KEYS[code][0];
       move.y += MOVE_KEYS[code][1];
     }
-    const w = weaponStats(inv.equipped.weapon);
-    if (player.update(dt, move, w)) combat.strike(player, inv.equipped.weapon);
+    if (hero.update(dt) === "respawn") {
+      player.x = SPAWN.x;
+      player.y = SPAWN.y;
+      floaters.add(player.x, player.y, 140, "ฟื้นแล้ว", "heal");
+    }
+    player.dead = !hero.alive;
+    player.speedMul = 1 + hero.stats.move;
+    player.hurtFlash = hero.hurt;
+    const w = weaponStats(inv.equipped.weapon, hero.stats);
+    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon);
     if (player.moving) {
       walkedFor += dt;
       if (walkedFor > 1.5) hint.classList.add("faded");
     }
-    for (const m of monsters) m.update(dt);
+    for (const m of monsters) m.update(dt, monsterCtx);
     combat.update(dt);
+    skills.update(dt);
     floaters.update(dt);
     for (let i = spells.length - 1; i >= 0; i--) {
       spells[i].update(dt);
@@ -365,10 +500,14 @@ async function boot() {
     }
     fx.update(dt);
     motes.update(dt, { x: player.x, y: player.y });
-    for (let i = 0; i < cooldowns.length; i++) {
-      if (!SKILLS[i]) continue;
-      cooldowns[i] = Math.max(0, cooldowns[i] - dt);
-      hud.setCooldown(i, cooldowns[i], SKILLS[i].cooldown);
+    progress.hotbar.forEach((id, i) => hud.setCooldown(i, hero.cooldowns.get(id) ?? 0, hero.cdTotal?.get(id) ?? 1));
+    vitals.update();
+    uiClock += dt;
+    if (uiClock > 0.25) {
+      uiClock = 0;
+      statusUI.render();
+      deathNote.classList.toggle("hidden", hero.alive);
+      if (!hero.alive) deathNote.textContent = `ล้มลงแล้ว · ฟื้นที่จุดเกิดในอีก ${Math.ceil(hero.dead)} วินาที`;
     }
 
     // ---- camera: follow the player, stay inside the map ----
@@ -450,7 +589,8 @@ async function boot() {
   }
 
   // Exposed for automated checks and console poking.
-  window.__game = { player, fx, spells, cooldowns, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex };
+  window.__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex,
+    progress, hero, skills, statusUI, skillUI, picker };
 
   document.getElementById("loading").classList.add("done");
   requestAnimationFrame((t) => {

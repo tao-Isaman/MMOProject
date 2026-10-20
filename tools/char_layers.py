@@ -4,9 +4,10 @@ A body sprite (generated with short hair) loses its head in every frame; a hairs
 (generated standing, in red clothes so the hair separates by colour) gives up its head and hair
 as a layer. The game draws the head layer back onto every body frame (src/look.js).
 
-  python3 tools/char_layers.py body NAME NECK0..NECK7 SHEETS...
-      SHEETS are assets/chars/NAME_<clip>.png (idle first). Tracks the head through every frame
-      (offset from the idle head), erases it in place, and writes head.anchor/head.offsets into
+  python3 tools/char_layers.py body NAME RAW_DIR NECK[,NECK1..NECK7]
+      RAW_DIR holds the sheets NAME_<clip>.png as cut from Oriverse (tools/sprite_cells.py).
+      The head above the neck row of the idle frame is tracked through every frame, erased,
+      and the headless sheets go to assets/chars; head.anchor and head.offsets go into
       assets/chars/bodies.json under NAME.
   python3 tools/char_layers.py hair NAME REST.png [--drape]
       REST.png is the 8-direction rest sheet of a hairstyle sprite. Writes
@@ -114,12 +115,9 @@ def find_neck(cell):
 
 
 def head_anchor(cell, neck):
-    """Centre of the face and ears (skin above the neck); the head's middle in views without."""
-    a = cell[..., 3] > 0
-    xs = [x for y in range(neck) for x in range(CELL) if a[y, x] and is_skin(cell[y, x, :3])]
-    if len(xs) < 4:
-        xs = list(np.nonzero(a[:neck].any(0))[0])
-    return [round(float(np.median(xs)), 1), neck]
+    """Where the head joins the body. Oriverse centres every character on the same pivot, so
+    heads from different sprites line up by canvas column; only the neck height differs."""
+    return [CELL / 2, neck]
 
 
 def split_hair(cell, neck, front_all):
@@ -170,5 +168,69 @@ def make_hair(name, rest_path, drape=False):
     print(name, "neck", neck, "necks", necks)
 
 
+def erase_head_loose(cell, tpl, off, reach=2, tol=48):
+    """Clear the head where it sits in this frame, allowing for a slightly turned or squashed
+    head: a pixel within `reach` of the shifted template (sideways or above, never below the
+    neck) goes if its colour is close to any template colour near that spot."""
+    ys, xs, col = tpl
+    dx, dy = off
+    lut = {}
+    for y, x, c in zip(ys + dy, xs + dx, col):
+        lut[(int(y), int(x))] = c
+    out = cell.copy()
+    neck = int(ys.max()) + dy
+    for (y, x), _ in list(lut.items()):
+        for ny in range(y - reach, y + reach + 1):
+            if ny < 0 or ny >= CELL or ny > neck:
+                continue
+            for nx in range(x - reach, x + reach + 1):
+                if nx < 0 or nx >= CELL or out[ny, nx, 3] == 0:
+                    continue
+                px = out[ny, nx, :3].astype(int)
+                for qy in range(ny - reach, ny + reach + 1):
+                    for qx in range(nx - reach, nx + reach + 1):
+                        c = lut.get((qy, qx))
+                        if c is not None and np.abs(px - c).sum() < tol * 3:
+                            out[ny, nx, 3] = 0
+                            break
+                    if out[ny, nx, 3] == 0:
+                        break
+    return out
+
+
+def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "shoot", "cast")):
+    """raw_dir holds the untouched sheets NAME_<clip>.png; writes headless ones to assets/chars."""
+    idle = cells(f"{raw_dir}/{name}_idle.png")
+    tpls = [head_template(idle[d][0], necks[d]) for d in range(8)]
+    anchors = [head_anchor(idle[d][0], necks[d]) for d in range(8)]
+    offsets = {}
+    for clip in clips:
+        grid = cells(f"{raw_dir}/{name}_{clip}.png")
+        offsets[clip] = []
+        for d in range(8):
+            row = []
+            for f, cell in enumerate(grid[d]):
+                off = (0, 0) if clip == "idle" else track(tpls[d], cell)[0]
+                grid[d][f] = erase_head_loose(cell, tpls[d], off)
+                row.append(list(off))
+            offsets[clip].append(row)
+        save_cells(grid, f"assets/chars/{name}_{clip}.png")
+        print(clip, "done")
+    path = "assets/chars/bodies.json"
+    bodies = json.load(open(path))
+    bodies.setdefault(name, {})
+    bodies[name]["hairless"] = True
+    bodies[name]["head"] = {"anchor": anchors, "offsets": offsets}
+    json.dump(bodies, open(path, "w"), separators=(",", ":"))
+
+
 if __name__ == "__main__":
-    print(__doc__)
+    cmd = sys.argv[1:2]
+    if cmd == ["body"]:
+        name, raw = sys.argv[2], sys.argv[3]
+        necks = [int(v) for v in sys.argv[4].split(",")]
+        make_body(name, raw, necks if len(necks) == 8 else necks * 8)
+    elif cmd == ["hair"]:
+        make_hair(sys.argv[2], sys.argv[3], "--drape" in sys.argv)
+    else:
+        print(__doc__)

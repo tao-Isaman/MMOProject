@@ -6,7 +6,7 @@
 import { ITEMS, EQUIP_SLOTS, describe, itemSlot } from "./items.js";
 import { COLS } from "./inventory.js";
 
-function el(tag, cls, parent) {
+export function el(tag, cls, parent) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (parent) parent.append(e);
@@ -14,7 +14,7 @@ function el(tag, cls, parent) {
 }
 
 // A draggable window with a title bar and a close button.
-function makeWindow(id, title, key) {
+export function makeWindow(id, title, key) {
   const win = el("section", "window hidden");
   win.id = id;
   win.setAttribute("aria-label", title);
@@ -50,10 +50,12 @@ function makeWindow(id, title, key) {
 }
 
 export class InventoryUI {
-  // icons(id) -> canvas or image for an item; onChange() after equipment changes
-  constructor(inv, icons) {
+  // icons(id) -> canvas or image for an item; use(index) reads a book or other usable item
+  // and returns a message
+  constructor(inv, icons, use) {
     this.inv = inv;
     this.icons = icons;
+    this.use = use;
     this.win = makeWindow("inventory", "กระเป๋า", "I");
     const body = el("div", "inv-body", this.win);
     const equip = el("div", "inv-equip", body);
@@ -102,7 +104,7 @@ export class InventoryUI {
     this.inv.slots.forEach((s, i) => this.fill(this.cells[i], s?.id, s?.count));
     for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot], 1);
     const used = this.inv.slots.filter(Boolean).length;
-    this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่หรือถอด`;
+    this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด หรืออ่าน`;
   }
 
   // What item a cell shows.
@@ -118,7 +120,7 @@ export class InventoryUI {
       return;
     }
     const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กางเกง", material: "วัตถุดิบ" }[item.kind];
+    const kind = { weapon: "อาวุธ", costume: "ชุด", top: "สีย้อมเสื้อ", bottom: "สีย้อมกางเกง", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
     this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}`;
     this.tip.classList.remove("hidden");
     const r = this.tip.getBoundingClientRect();
@@ -140,7 +142,11 @@ export class InventoryUI {
       const c = cellFrom(e.target);
       if (!c) return;
       if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip) ? null : "ถอดไม่ได้: กระเป๋าเต็ม หรือไม่มีชุดอื่นให้ใส่แทน");
-      else if (this.inv.slots[Number(c.dataset.index)]) this.flash(this.inv.equip(Number(c.dataset.index)) ? null : "ไอเท็มนี้สวมใส่ไม่ได้");
+      else if (this.inv.slots[Number(c.dataset.index)]) {
+        const i = Number(c.dataset.index);
+        if (ITEMS[this.inv.slots[i].id].kind === "book") this.flash(this.use(i), true);
+        else this.flash(this.inv.equip(i) ? null : "ไอเท็มนี้สวมใส่ไม่ได้");
+      }
       this.tip.classList.add("hidden");
     });
     this.win.addEventListener("pointerdown", (e) => {
@@ -197,9 +203,10 @@ export class InventoryUI {
     inv.move(fi, Number(to.dataset.index));
   }
 
-  flash(msg) {
+  flash(msg, good = false) {
     if (!msg) return;
     this.status.textContent = msg;
+    this.status.classList.toggle("good", good);
     this.status.classList.remove("warn");
     void this.status.offsetWidth;
     this.status.classList.add("warn");
@@ -226,7 +233,7 @@ export const HAIRSTYLES = [
   { id: "crown", name: "เปียมงกุฎ" },
 ];
 export const HAIR_COLORS = [
-  { id: "silver", name: "เงิน", hue: null },
+  { id: "silver", name: "สีเดิม", hue: null },
   { id: "gold", name: "ทอง", hue: 44, sat: 0.62, light: 0.02 },
   { id: "rose", name: "ชมพู", hue: 335, sat: 0.55, light: 0 },
   { id: "sky", name: "ฟ้า", hue: 200, sat: 0.6, light: -0.02 },

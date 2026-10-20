@@ -10,6 +10,7 @@ import { mapX, mapY } from "./projection.js";
 import { resolve } from "./world.js";
 import { attackRange } from "./combat.js";
 import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip } from "./weapons.js";
+import { silhouette } from "./recolor.js";
 
 const SPEED = 380;        // cm/s
 const RADIUS = 24;        // collision radius, cm
@@ -18,9 +19,11 @@ const HEAD = 0.93;        // fraction of the height from the pivot up to just ab
 const WALK_CYCLE = 170;   // cm walked per walk loop (two steps)
 const HOVER = 24;         // cm the caster floats during the spell
 const HOVER_RAMP = 40 / 60;
-// frame where the weapon lands, per attack clip (8 frames each)
-const HIT_FRAME = { swing: 3, thrust: 4, shoot: 4 };
-const WINDUP_FRAME = 3;   // the cast holds this frame while the cast bar fills
+// how far into each attack clip the weapon lands (the mage's clips have 8 frames, the
+// costume bodies' attacks 4; both play over the same time)
+const HIT_AT = { swing: 3 / 8, thrust: 4 / 8, shoot: 4 / 8 };
+const ATTACK_TIME = 8 / 12;
+const WINDUP_AT = 3 / 8;  // the cast holds this frame while the cast bar fills
 
 export const DIRECTIONS = ["south", "south-west", "west", "north-west", "north", "north-east", "east", "south-east"];
 
@@ -54,14 +57,27 @@ export class Player {
     this.attack = null; // { t, motion, dur, hit, w }
     this.cooldown = 0;
     this.target = null; // monster to walk to and keep attacking
+    this.dash = null;   // { vx, vy, t, onStep }
+    this.speedMul = 1;  // from the hero's move speed
+    this.dead = false;
   }
 
-  setSheets(sheets, anchors) {
+  // builtin: clips whose Oriverse animation already draws the weapon (the mage's swing has a
+  // sword, her shoot a bow); other bodies get the weapon art drawn in for those too
+  setSheets(sheets, anchors, builtin = {}) {
     this.sheets = sheets;
+    this.flashes = {};
     this.anchors = anchors;
+    this.builtin = builtin;
     this.cell = sheets.idle.height / 8;
     // measured once: how tall the character stands in the idle front cell
     this.scale = HEIGHT / (this.cell * 0.92);
+  }
+
+  // Red silhouette of a sheet, made on first use.
+  flashSheet(clip) {
+    if (!this.flashes[clip]) this.flashes[clip] = silhouette(this.sheets[clip], "#ff3a2a");
+    return this.flashes[clip];
   }
 
   get casting() {
@@ -69,11 +85,35 @@ export class Player {
   }
 
   get busy() {
-    return this.casting || !!this.attack;
+    return this.casting || !!this.attack || !!this.dash;
+  }
+
+  get dashing() {
+    return !!this.dash;
+  }
+
+  // A skill's animation: play `motion` toward `dir` without a weapon hit of its own.
+  startMotion(motion, dir, w, dur = 0.45) {
+    const sheet = this.sheets[motion] ?? this.sheets.thrust;
+    if (dir) this.dir = directionIndex(dir.x, dir.y);
+    this.attack = { t: 0, motion: this.sheets[motion] ? motion : "thrust", dur, frames: sheet.width / this.cell, hit: true,
+      w: { ...w, motion, skill: true }, aim: dir ?? this.facing() };
+  }
+
+  // Rush `distance` cm along unit `dir` in `time` s; onStep() runs every frame of the rush.
+  startDash(dir, distance, time, onStep) {
+    this.startMotion("thrust", dir, this.attack?.w ?? { motion: "thrust" }, time + 0.2);
+    this.dash = { vx: (dir.x * distance) / time, vy: (dir.y * distance) / time, t: time, onStep };
   }
 
   facing() {
     return directionVector(this.dir);
+  }
+
+  // Exact direction of the current attack (toward the click or the target); the sprite only
+  // turns to the nearest of its 8 directions.
+  aimDir() {
+    return this.attack?.aim ?? this.facing();
   }
 
   startCast(duration, hoverEnd) {
@@ -87,15 +127,19 @@ export class Player {
   // Returns false while busy or recovering.
   startAttack(w, toward) {
     if (this.busy || this.cooldown > 0) return false;
+    let aim = this.facing();
     if (toward) {
-      const dx = toward.x - this.x, dy = toward.y - this.y;
-      if (Math.hypot(dx, dy) > 1) this.dir = directionIndex(dx, dy);
+      const dx = toward.x - this.x, dy = toward.y - this.y, d = Math.hypot(dx, dy);
+      if (d > 1) {
+        this.dir = directionIndex(dx, dy);
+        aim = { x: dx / d, y: dy / d };
+      }
     }
     const sheet = this.sheets[w.motion];
     const frames = sheet.width / this.cell;
-    // the clip plays faster for quick weapons, never slower than 12 fps
-    const dur = Math.min(w.interval * 0.92, frames / 12);
-    this.attack = { t: 0, motion: w.motion, dur, frames, hit: false, w };
+    // the clip plays faster for quick weapons
+    const dur = Math.min(w.interval * 0.92, ATTACK_TIME);
+    this.attack = { t: 0, motion: w.motion, dur, frames, hit: false, w, aim };
     this.cooldown = w.interval;
     return true;
   }
@@ -110,7 +154,7 @@ export class Player {
     if (this.target && !this.target.alive) this.target = null;
 
     // walk to the target until it is in reach, then keep attacking it
-    if (this.target && !this.busy) {
+    if (this.target && !this.busy && !this.dead) {
       const dx = this.target.x - this.x, dy = this.target.y - this.y;
       const d = Math.hypot(dx, dy) - this.target.radius;
       if (d > attackRange(w)) {
@@ -122,13 +166,23 @@ export class Player {
       }
     }
 
-    if (this.busy) mx = my = 0; // rooted while casting or swinging
+    if (this.busy || this.dead) mx = my = 0; // rooted while casting or swinging
+    if (this.dash) {
+      const d = this.dash;
+      const p = { x: this.x + d.vx * dt, y: this.y + d.vy * dt };
+      resolve(p, RADIUS);
+      this.x = p.x;
+      this.y = p.y;
+      d.onStep?.();
+      if ((d.t -= dt) <= 0) this.dash = null;
+    }
     const len = Math.hypot(mx, my);
     this.moving = len > 0;
     if (this.moving) {
       mx /= len;
       my /= len;
-      const p = { x: this.x + mx * SPEED * dt, y: this.y + my * SPEED * dt };
+      const v = SPEED * this.speedMul;
+      const p = { x: this.x + mx * v * dt, y: this.y + my * v * dt };
       resolve(p, RADIUS);
       this.walked += Math.hypot(p.x - this.x, p.y - this.y);
       this.x = p.x;
@@ -143,7 +197,7 @@ export class Player {
       const a = this.attack;
       a.t += dt;
       const frame = Math.floor((a.t / a.dur) * a.frames);
-      if (!a.hit && frame >= HIT_FRAME[a.motion]) {
+      if (!a.hit && frame >= HIT_AT[a.motion] * a.frames) {
         a.hit = true;
         hit = "hit";
       }
@@ -176,9 +230,10 @@ export class Player {
       const clip = this.sheets.cast ? "cast" : "swing";
       const n = cols(this.sheets[clip]);
       const c = this.cast;
+      const windup = Math.floor(WINDUP_AT * n);
       const col = c.t < c.duration
-        ? Math.min(WINDUP_FRAME, Math.floor((c.t / 0.35) * WINDUP_FRAME))
-        : Math.min(n - 1, WINDUP_FRAME + 1 + Math.floor((c.t - c.duration) * 10));
+        ? Math.min(windup, Math.floor((c.t / 0.35) * windup))
+        : Math.min(n - 1, windup + 1 + Math.floor((c.t - c.duration) * 10 * (n / 8)));
       return { clip, col };
     }
     if (this.attack) {
@@ -221,20 +276,23 @@ export class Player {
 
     // the weapon shows while attacking or casting (unless the clip already draws it); behind
     // her when she faces away
-    const showWeapon = weapon && (this.casting || (this.attack && !this.attack.w.builtin));
+    const a = this.attack;
+    const showWeapon = weapon && (this.casting || (a && !(a.w.builtin && this.builtin[a.motion])));
     const hand = showWeapon ? this.handFor(clip, col) : null;
     const behind = this.dir >= 3 && this.dir <= 5;
     const drawHeld = () => {
       if (!hand) return;
       const toScreen = ([hx, hy]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
-      const facing = screenAngle(this.facing());
-      const angle = this.attack?.w.chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
+      const facing = screenAngle(this.aimDir());
+      // swords drawn into a swing come down from overhead like axes
+      const chop = a && (a.w.chop || a.motion === "swing");
+      const angle = chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
       const [x, y] = toScreen(hand.r);
       const wscale = s * (weapon.art.scale ?? 1);
       drawWeapon(ctx, weapon.img, weapon.art, x, y, angle, wscale);
       if (weapon.art.pair && hand.l) {
         const [lx, ly] = toScreen(hand.l);
-        drawWeapon(ctx, weapon.img, weapon.art, lx, ly, weaponAngle(hand.l, hand.c, screenAngle(this.facing())), wscale);
+        drawWeapon(ctx, weapon.img, weapon.art, lx, ly, weaponAngle(hand.l, hand.c, facing), wscale);
       }
       if (this.casting && this.gemGlow) {
         const tip = weaponTip(weapon.img, weapon.art, x, y, angle, wscale);
@@ -245,11 +303,18 @@ export class Player {
       }
     };
 
+    if (this.dead) ctx.globalAlpha = 0.45;
     if (behind) drawHeld();
     // pivot (bottom centre of the cell) on the feet; breathing stretches up from the ground
     ctx.setTransform(s, 0, 0, s * breathe, gx, fy);
     ctx.drawImage(sheet, col * cell, this.dir * cell, cell, cell, -cell / 2, -cell, cell, cell);
+    if (this.hurtFlash > 0 && this.flashSheet) {
+      // red tint over the sprite when hit
+      ctx.globalAlpha = Math.min(1, this.hurtFlash * 3) * 0.6;
+      ctx.drawImage(this.flashSheet(clip), col * cell, this.dir * cell, cell, cell, -cell / 2, -cell, cell, cell);
+    }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
     if (!behind) drawHeld();
 
     if (this.casting) this.drawCastBar(ctx, gx, fy - HEIGHT * HEAD * k - 6 * k, k);
@@ -259,9 +324,9 @@ export class Player {
   // sweep over (or past the side, seen from the front) and land pointing where she faces.
   chopAngle(facing) {
     const a = this.attack;
-    const hit = HIT_FRAME[a.motion] / a.frames;
+    const hit = HIT_AT[a.motion];
     const u = Math.min(1, a.t / a.dur / hit);
-    const side = this.facing().y > 0.1 ? -1 : 1; // facing screen left swings the other way
+    const side = this.aimDir().y > 0.1 ? -1 : 1; // facing screen left swings the other way
     return facing - side * 2.5 * (1 - u * u);
   }
 

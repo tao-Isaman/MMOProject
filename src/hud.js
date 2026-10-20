@@ -1,4 +1,5 @@
-// Skill bar: ten slots bound to keys 1-9 and 0.
+// Skill bar: ten slots bound to keys 1-9 and 0, filled from the character's hotbar. Learned
+// skills are dragged in from the skill window; right-click empties a slot.
 
 export const SLOT_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
@@ -10,44 +11,66 @@ export function slotForCode(code) {
 }
 
 export class SkillBar {
-  constructor(root, skills, onUse) {
-    this.slots = skills.map((skill, i) => {
+  // onUse(i): slot pressed; onClear(i): right-click
+  constructor(root, onUse, onClear) {
+    this.root = root;
+    this.slots = SLOT_KEYS.map((key, i) => {
       const el = document.createElement("button");
       el.type = "button";
-      el.className = skill ? "slot" : "slot empty";
-      el.setAttribute("aria-label", skill ? `${skill.name} (ปุ่ม ${SLOT_KEYS[i]})` : `ช่องว่าง ${SLOT_KEYS[i]}`);
-      if (skill) {
-        const img = document.createElement("img");
-        img.src = skill.icon;
-        img.alt = "";
-        el.append(img);
-      }
-      const key = document.createElement("span");
-      key.className = "key";
-      key.textContent = SLOT_KEYS[i];
+      el.className = "slot empty";
+      el.dataset.slot = i;
+      const art = document.createElement("span");
+      art.className = "slot-art";
+      const k = document.createElement("span");
+      k.className = "key";
+      k.textContent = key;
       const cd = document.createElement("span");
       cd.className = "cd";
       const cdText = document.createElement("span");
       cdText.className = "cdtext";
-      el.append(key, cd, cdText);
-      if (skill) {
-        const tip = document.createElement("span");
-        tip.className = "tooltip";
-        tip.innerHTML = `<strong>${skill.name}</strong>${skill.description}`;
-        el.append(tip);
-      }
+      const tip = document.createElement("span");
+      tip.className = "tooltip";
+      el.append(art, k, cd, cdText, tip);
       el.addEventListener("click", () => {
         el.blur(); // keep keyboard focus on the game
         onUse(i);
       });
+      el.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        onClear(i);
+      });
       root.append(el);
-      return { el, cd, cdText };
+      return { el, art, cd, cdText, tip, id: null };
     });
+  }
+
+  // entry: { id, name, icon (canvas), tip (html), missing } or null
+  set(i, entry) {
+    const s = this.slots[i];
+    s.id = entry?.id ?? null;
+    s.el.classList.toggle("empty", !entry);
+    s.el.classList.toggle("missing", !!entry?.missing);
+    s.el.setAttribute("aria-label", entry ? `${entry.name} (ปุ่ม ${SLOT_KEYS[i]})` : `ช่องว่าง ${SLOT_KEYS[i]}`);
+    s.art.replaceChildren();
+    if (entry) {
+      const c = document.createElement("canvas");
+      c.width = entry.icon.width;
+      c.height = entry.icon.height;
+      c.getContext("2d").drawImage(entry.icon, 0, 0);
+      s.art.append(c);
+    }
+    s.tip.innerHTML = entry ? entry.tip : "";
+  }
+
+  // Slot under a screen point, for drops from the skill window; -1 if none.
+  slotAt(x, y) {
+    const el = document.elementFromPoint(x, y)?.closest?.(".slot");
+    return el && this.root.contains(el) ? Number(el.dataset.slot) : -1;
   }
 
   setCooldown(i, remaining, total) {
     const s = this.slots[i];
-    const f = remaining > 0 ? remaining / total : 0;
+    const f = remaining > 0 && total > 0 ? remaining / total : 0;
     s.el.style.setProperty("--cd", f.toFixed(4));
     const text = remaining > 0 ? (remaining < 1 ? remaining.toFixed(1) : Math.ceil(remaining).toString()) : "";
     if (s.cdText.textContent !== text) s.cdText.textContent = text;

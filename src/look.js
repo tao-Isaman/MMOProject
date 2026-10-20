@@ -23,12 +23,17 @@ function inRange(v, [a, b]) {
   return a <= b ? v >= a && v <= b : v >= a || v <= b;
 }
 
-export function classify(regions, r, g, b) {
+// Every region a colour falls in, in the order they are listed.
+function matches(regions, r, g, b) {
   const [h, s, l] = rgbToHsl(r, g, b);
-  for (const [name, q] of Object.entries(regions)) {
-    if (inRange(h, q.h) && s >= q.s[0] && s <= q.s[1] && l >= q.l[0] && l <= q.l[1]) return name;
-  }
-  return null;
+  return Object.keys(regions).filter((name) => {
+    const q = regions[name];
+    return inRange(h, q.h) && s >= q.s[0] && s <= q.s[1] && l >= q.l[0] && l <= q.l[1];
+  });
+}
+
+export function classify(regions, r, g, b) {
+  return matches(regions, r, g, b)[0] ?? null;
 }
 
 const clamp01 = (v) => Math.max(0.02, Math.min(0.98, v));
@@ -42,7 +47,9 @@ function paint(r, g, b, dye, mean) {
 }
 
 // Recolour images by region: dyes { region: dye }, means { region: average lightness }.
-function recolor(images, regions, dyes, means = {}) {
+// A region with side "above" or "below" only counts on that side of the neck (the warrior's
+// hair and jacket share their reds); split = { neck, offsets } follows the head per frame.
+function recolor(images, regions, dyes, means = {}, split = null) {
   const live = Object.entries(dyes).filter(([, d]) => d && d.hue !== null && d.hue !== undefined);
   if (!live.length) return images;
   const use = Object.fromEntries(live);
@@ -50,9 +57,42 @@ function recolor(images, regions, dyes, means = {}) {
     const region = classify(regions, r, g, b);
     return region && use[region] ? paint(r, g, b, use[region], means[region] ?? 0.5) : null;
   };
+  const sided = split && live.some(([name]) => regions[name]?.side);
   const out = {};
-  for (const [k, img] of Object.entries(images)) out[k] = mapColors(img, fn);
+  for (const [k, img] of Object.entries(images)) out[k] = sided ? recolorSided(img, k, regions, use, means, split) : mapColors(img, fn);
   return out;
+}
+
+function recolorSided(img, clip, regions, use, means, split) {
+  const c = document.createElement("canvas");
+  c.width = img.width;
+  c.height = img.height;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  const data = g.getImageData(0, 0, c.width, c.height);
+  const px = data.data;
+  const regionsOf = new Map();
+  for (let i = 0; i < px.length; i += 4) {
+    if (px[i + 3] === 0) continue;
+    const key = (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
+    let found = regionsOf.get(key);
+    if (found === undefined) {
+      found = matches(regions, px[i], px[i + 1], px[i + 2]);
+      regionsOf.set(key, found);
+    }
+    if (!found.length) continue;
+    const p = i / 4, x = p % c.width, y = Math.floor(p / c.width);
+    const dy = split.offsets?.[clip]?.[Math.floor(y / CELL)]?.[Math.floor(x / CELL)]?.[1] ?? 0;
+    const below = y % CELL >= split.neck + dy;
+    const region = found.find((name) => !regions[name].side || (regions[name].side === "below") === below);
+    if (!region || !use[region]) continue;
+    const [r, gg, b] = paint(px[i], px[i + 1], px[i + 2], use[region], means[region] ?? 0.5);
+    px[i] = r;
+    px[i + 1] = gg;
+    px[i + 2] = b;
+  }
+  g.putImageData(data, 0, 0);
+  return c;
 }
 
 export class Looks {
@@ -72,11 +112,13 @@ export class Looks {
   // Which body and hairstyle a look and costume end up using.
   resolve(look, equipped) {
     const costume = COSTUMES[ITEMS[equipped.costume]?.costume] ?? COSTUMES.mage;
-    const body = look.gender === "male" ? "warrior" : costume.body;
-    const def = this.bodies[body] ?? this.bodies.mage;
+    // a body is used once all its clips are in (bodies.json lists them)
+    const want = look.gender === "male" ? "warrior" : costume.body;
+    const body = this.bodies[want]?.clips?.length === CLIPS.length ? want : "mage";
+    const def = this.bodies[body];
     // a costume body has no hair of its own: fall back to the first hairstyle that is ready
     const hair = !def.hairless ? null : this.hair.styles[look.hair] ? look.hair : Object.keys(this.hair.styles)[0] ?? null;
-    return { body: this.bodies[body] ? body : "mage", def, hair, costume };
+    return { body, def, hair, costume };
   }
 
   note(look, equipped) {
@@ -106,7 +148,8 @@ export class Looks {
     return this.heads.get(style);
   }
 
-  // Build the sheets for a look: { sheets, hands } (hands: weapon hand anchors per clip).
+  // Build the sheets for a look: { sheets, hands, builtin } (hands: weapon hand anchors per
+  // clip; builtin: clips that already show the weapon).
   async build(look, equipped, clips = CLIPS) {
     const { body, def, hair, costume } = this.resolve(look, equipped);
     const base = await this.loadBody(body, clips);
@@ -121,12 +164,12 @@ export class Looks {
     };
     const dyes = Object.fromEntries([cloth("top"), cloth("bottom")].filter(Boolean));
     if (!def.hairless) Object.assign(dyes, { hair: hairDye, eyes: eyeDye });
-    let sheets = recolor(base, def.regions, dyes, def.mean);
+    let sheets = recolor(base, def.regions, dyes, def.mean, def.split && { neck: def.split, offsets: def.head?.offsets });
     if (hair) {
       const head = recolor({ head: await this.loadHead(hair) }, this.hair.regions, { hair: hairDye, eyes: eyeDye }).head;
       sheets = this.attachHead(sheets, def, head, this.hair.styles[hair]);
     }
-    return { sheets, hands: def.hands };
+    return { sheets, hands: def.hands, builtin: def.builtin ?? {} };
   }
 
   // Draw the head layer onto every frame: back column under the body, front column over it.

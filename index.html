@@ -5,7 +5,7 @@
 <title>Flower Field — MMO prototype</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16210f">
-<meta name="description" content="ลานหมู่บ้านจาก Oriverse: ตีสไลม์ด้วยอาวุธ 10 ชนิด เก็บของเข้ากระเป๋า แต่งตัว และร่ายเวททุ่งดอกไม้">
+<meta name="description" content="ลานหมู่บ้านจาก Oriverse: เลือกคลาสจอมเวทหรือนักรบ ตีสไลม์เก็บเลเวล ลงแต้มต้นสกิล ความเชี่ยวชาญ และธาตุ แต่งตัว และเก็บของเข้ากระเป๋า">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&display=swap">
@@ -18,15 +18,22 @@
 
 <div class="hint" id="hint">
   <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> เดิน</span>
-  <span>คลิกสไลม์ หรือ <kbd>Space</kbd> โจมตี</span>
-  <span><kbd>1</kbd> ร่ายเวท ทุ่งดอกไม้</span>
+  <span>คลิก หรือ <kbd>Space</kbd> โจมตีไปทางเมาส์</span>
+  <span><kbd>1</kbd>–<kbd>0</kbd> สกิล</span>
+  <span><kbd>K</kbd> สกิล</span>
+  <span><kbd>P</kbd> สถานะ</span>
   <span><kbd>I</kbd> กระเป๋า</span>
   <span><kbd>C</kbd> แต่งตัว</span>
 </div>
 
+<div class="vitals" id="vitals" aria-label="HP MP และค่าประสบการณ์"></div>
+<p class="death hidden" id="death" role="status"></p>
+
 <div class="hud">
   <div class="skillbar" id="skillbar" aria-label="แถบสกิล"></div>
   <div class="menu">
+    <button type="button" class="menu-btn" id="btn-skills"><kbd>K</kbd>สกิล</button>
+    <button type="button" class="menu-btn" id="btn-status"><kbd>P</kbd>สถานะ</button>
     <button type="button" class="menu-btn" id="btn-inventory"><kbd>I</kbd>กระเป๋า</button>
     <button type="button" class="menu-btn" id="btn-wardrobe"><kbd>C</kbd>แต่งตัว</button>
   </div>

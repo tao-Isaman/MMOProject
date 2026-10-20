@@ -111,6 +111,9 @@ export const ITEMS = {
   bottom_wine: bottom("wine"),
   bottom_forest: bottom("forest"),
   bottom_cocoa: bottom("cocoa"),
+  book_survivor: { kind: "book", name: "คัมภีร์สกิล: ผู้รอดชีวิต", stack: 5, icon: { glyph: "heart", color: "#c9a86a" }, note: "อ่านเพื่อปลดล็อคต้นสกิลผู้รอดชีวิต (ใช้ได้ทุกคลาส)" },
+  book_gathering: { kind: "book", name: "คัมภีร์ความเชี่ยวชาญ: เก็บเกี่ยว", stack: 5, icon: { glyph: "leaf", color: "#8fbf6a" }, note: "อ่านเพื่อปลดล็อคความเชี่ยวชาญเก็บเกี่ยว" },
+  book_lightning: { kind: "book", name: "คัมภีร์ธาตุ: สายฟ้า", stack: 5, icon: { glyph: "bolt", color: "#d9c24a" }, note: "อ่านเพื่อปลดล็อคธาตุสายฟ้า" },
   jelly: { kind: "material", name: "เยลลี่", stack: 99, icon: { sheet: "jelly" }, note: "หยดเยลลี่จากสไลม์" },
   sprout: { kind: "material", name: "ใบอ่อน", stack: 99, icon: { sheet: "sprout" }, note: "ใบไม้บนหัวสไลม์ หายาก" },
 };
@@ -145,6 +148,7 @@ export function describe(id) {
     const c = COSTUMES[item.costume];
     return `${c.note ? `${c.note}<br>` : ""}ตัวละครชายใส่แล้วได้สีของชุด`;
   }
+  if (item.kind === "book") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
   if (item.kind === "top") return "ย้อมท่อนบนของชุดที่ใส่อยู่<br>ถอดออกเพื่อกลับเป็นสีของชุด";
   if (item.kind === "bottom") return "ย้อมท่อนล่างของชุดที่ใส่อยู่<br>ถอดออกเพื่อกลับเป็นสีของชุด";
   return item.note ?? "";

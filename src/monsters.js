@@ -1,5 +1,6 @@
-// Jelly slimes: hop around their spawn point, flinch and get knocked back when hit, pop when
-// defeated, drop loot and come back after a while.
+// Jelly slimes: hop around their spawn point, flinch and get knocked back when hit, chase and
+// bite back once angered (violet ones attack on sight), pop when defeated, drop loot and come
+// back after a while. Skills can stun, freeze, slow and burn them.
 //
 // Sheets come from the Oriverse sprite `jelly_slime`: four directions per sheet (front, then
 // clockwise seen from above: south, west, north, east), one 64 px column per frame. Colour
@@ -16,12 +17,23 @@ const HOP_SPEED = 95;    // cm/s while hopping
 const HOP_FPS = 10;
 const RESPAWN = 9;       // s
 
+// level, hp, atk, def, mdef and xp feed stats.js; aggro: radius (cm) in which it attacks first
+const BOOK_DROPS = [["book_survivor", 0.015], ["book_gathering", 0.015], ["book_lightning", 0.015]];
 export const VARIANTS = [
-  { id: "green", name: "สไลม์เขียว", hue: 0, hp: 60, weight: 6, drops: [["jelly", 0.9], ["sprout", 0.08], ["top_mint", 0.03], ["bottom_forest", 0.03]] },
-  { id: "pink", name: "สไลม์ชมพู", hue: 185, hp: 90, weight: 4, drops: [["jelly", 1], ["top_rose", 0.05], ["bottom_wine", 0.05]] },
-  { id: "blue", name: "สไลม์ฟ้า", hue: 70, hp: 120, weight: 3, drops: [["jelly", 1], ["jelly", 0.5], ["top_sky", 0.06], ["bottom_navy", 0.06]] },
-  { id: "violet", name: "สไลม์ม่วง", hue: 125, hp: 200, weight: 1, drops: [["sprout", 0.6], ["top_lilac", 0.12], ["bottom_cocoa", 0.12], ["jelly", 1]] },
+  { id: "green", name: "สไลม์เขียว", hue: 0, level: 1, hp: 60, atk: 8, def: 2, mdef: 2, xp: 8, aggro: 0, weight: 6,
+    drops: [["jelly", 0.9], ["sprout", 0.08], ["top_mint", 0.03], ["bottom_forest", 0.03], ...BOOK_DROPS] },
+  { id: "pink", name: "สไลม์ชมพู", hue: 185, level: 3, hp: 110, atk: 13, def: 5, mdef: 4, xp: 15, aggro: 0, weight: 4,
+    drops: [["jelly", 1], ["top_rose", 0.05], ["bottom_wine", 0.05], ...BOOK_DROPS] },
+  { id: "blue", name: "สไลม์ฟ้า", hue: 70, level: 5, hp: 170, atk: 18, def: 8, mdef: 10, xp: 24, aggro: 0, weight: 3,
+    drops: [["jelly", 1], ["jelly", 0.5], ["top_sky", 0.06], ["bottom_navy", 0.06], ...BOOK_DROPS] },
+  { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 320, atk: 28, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
+    drops: [["sprout", 0.6], ["top_lilac", 0.12], ["bottom_cocoa", 0.12], ["jelly", 1],
+      ["book_survivor", 0.08], ["book_gathering", 0.08], ["book_lightning", 0.08]] },
 ];
+const BITE_REACH = 95;   // cm between centres
+const BITE_TIME = 1.6;   // s between bites
+const CHASE_LEASH = 900; // gives up past this far from home
+const ANGER = 12;        // s it stays angry after being hit
 
 // Spawn spots on open ground (world cm), clear of the house, well and hedges.
 const SPAWNS = [
@@ -43,7 +55,7 @@ export function slimeSheets(images) {
     const set = {};
     for (const clip of ["idle", "hop", "hurt", "die"]) {
       const img = v.hue ? hueShift(images[clip], v.hue, 1.1) : images[clip];
-      set[clip] = { img, flash: silhouette(img), frames: img.width / CELL };
+      set[clip] = { img, flash: silhouette(img), ice: silhouette(img, "#9fd8ff"), frames: img.width / CELL };
     }
     out[v.id] = set;
   }
@@ -66,6 +78,17 @@ export class Monster {
     this.x = p.x;
     this.y = p.y;
     this.hp = this.variant.hp;
+    this.maxHp = this.variant.hp;
+    this.level = this.variant.level;
+    this.atk = this.variant.atk;
+    this.def = this.variant.def;
+    this.mdef = this.variant.mdef;
+    this.angry = 0;
+    this.biteCd = 0;
+    this.stun = 0;
+    this.freeze = 0;
+    this.slow = 0;
+    this.burns = []; // { dps, t } ticked by combat.js
     this.alive = true;
     this.state = "idle"; // idle | hop | hurt | die | gone
     this.t = 0;
@@ -83,6 +106,7 @@ export class Monster {
     if (!this.alive) return false;
     this.hp -= damage;
     this.flash = 0.12;
+    this.angry = ANGER;
     this.vx = dir.x * knock * 6;
     this.vy = dir.y * knock * 6;
     this.row = row4(-dir.x, -dir.y); // turn to face the attacker
@@ -92,16 +116,87 @@ export class Monster {
       this.t = 0;
       return true;
     }
-    this.state = "hurt";
-    this.t = 0;
+    if (this.state !== "bite") {
+      this.state = "hurt";
+      this.t = 0;
+    }
     return false;
   }
 
-  update(dt) {
+  get held() {
+    return this.stun > 0 || this.freeze > 0;
+  }
+
+  // ctx: { player, hero, bite(monster) } — bite() is called when a bite lands.
+  update(dt, ctx) {
     this.t += dt;
     this.flash = Math.max(0, this.flash - dt);
+    this.stun = Math.max(0, this.stun - dt);
+    this.freeze = Math.max(0, this.freeze - dt);
+    this.slow = Math.max(0, this.slow - dt);
+    this.biteCd = Math.max(0, this.biteCd - dt);
+    this.angry = Math.max(0, this.angry - dt);
+    if (this.alive && this.held) {
+      // frozen or stunned: only knockback still slides it
+      this.slide(dt);
+      if (this.state === "hop" || this.state === "bite") {
+        this.state = "idle";
+        this.wait = 0.2;
+      }
+      return;
+    }
+    const pl = ctx.player, alive = ctx.hero.alive;
+    const toPlayer = Math.hypot(pl.x - this.x, pl.y - this.y);
+    const fromHome = Math.hypot(this.x - this.home.x, this.y - this.home.y);
+    if (this.alive && alive && this.variant.aggro && toPlayer < this.variant.aggro) this.angry = Math.max(this.angry, 2);
+    if (!alive || fromHome > CHASE_LEASH) this.angry = 0;
+    const chasing = this.alive && this.angry > 0 && (this.state === "idle" || this.state === "hop");
+    if (chasing) {
+      if (toPlayer < BITE_REACH && this.biteCd <= 0) {
+        this.state = "bite";
+        this.t = 0;
+        this.bitten = false;
+        this.row = row4(pl.x - this.x, pl.y - this.y);
+      } else if (toPlayer >= BITE_REACH * 0.8) {
+        this.goal = { x: pl.x, y: pl.y };
+        if (this.state !== "hop") {
+          this.state = "hop";
+          this.t = 0;
+        }
+      } else if (this.state === "hop") {
+        this.state = "idle";
+        this.wait = 0.3;
+      }
+    }
+    if (this.state === "bite") {
+      // lunge on the way up, the bite lands at the top of the hop
+      const lunge = this.t < 0.3 ? 1 : 0;
+      if (lunge) {
+        const d = toPlayer || 1;
+        const p = { x: this.x + ((pl.x - this.x) / d) * 160 * dt, y: this.y + ((pl.y - this.y) / d) * 160 * dt };
+        if (toPlayer > 60) {
+          resolve(p, this.radius);
+          this.x = p.x;
+          this.y = p.y;
+        }
+      }
+      if (!this.bitten && this.t >= 0.3) {
+        this.bitten = true;
+        if (toPlayer < BITE_REACH + 30 && alive) ctx.bite(this);
+      }
+      if (this.t >= 0.55) {
+        this.state = "idle";
+        this.wait = 0.15;
+        this.biteCd = BITE_TIME;
+      }
+    }
+    this.slide(dt);
+    this.step(dt);
+  }
+
+  // knockback slides and decays
+  slide(dt) {
     this.spawnFade = Math.max(0, this.spawnFade - dt);
-    // knockback slides and decays
     if (this.vx || this.vy) {
       const p = { x: this.x + this.vx * dt, y: this.y + this.vy * dt };
       resolve(p, this.radius);
@@ -112,6 +207,9 @@ export class Monster {
       this.vy *= decay;
       if (Math.hypot(this.vx, this.vy) < 4) this.vx = this.vy = 0;
     }
+  }
+
+  step(dt) {
     switch (this.state) {
       case "gone":
         this.respawn -= dt;
@@ -132,7 +230,9 @@ export class Monster {
         break;
       case "idle":
         this.wait -= dt;
-        if (this.wait <= 0) {
+        if (this.wait <= 0 && this.angry <= 0) {
+          // calm again: wander, healing up if it was hurt
+          this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.25);
           const a = rand(0, Math.PI * 2), r = rand(60, LEASH);
           this.goal = { x: this.home.x + Math.cos(a) * r, y: this.home.y + Math.sin(a) * r };
           this.state = "hop";
@@ -144,14 +244,16 @@ export class Monster {
         // only move while airborne: the middle of each hop cycle
         const phase = (this.t * HOP_FPS) % this.sheets.hop.frames / this.sheets.hop.frames;
         const air = phase > 0.25 && phase < 0.75;
-        if (d < 12 || this.t > 6) {
+        if ((d < 12 || this.t > 6) && this.angry <= 0) {
           this.state = "idle";
           this.wait = rand(1, 3.5);
           break;
         }
+        if (d < 12) break;
         this.row = row4(dx, dy);
         if (air) {
-          const p = { x: this.x + (dx / d) * HOP_SPEED * 2 * dt, y: this.y + (dy / d) * HOP_SPEED * 2 * dt };
+          const v = HOP_SPEED * 2 * (this.slow > 0 ? 0.5 : 1) * (this.angry > 0 ? 1.25 : 1);
+          const p = { x: this.x + (dx / d) * v * dt, y: this.y + (dy / d) * v * dt };
           resolve(p, this.radius);
           this.x = p.x;
           this.y = p.y;
@@ -169,6 +271,7 @@ export class Monster {
     const s = this.sheets;
     switch (this.state) {
       case "hop": return { clip: s.hop, col: Math.floor(this.t * HOP_FPS) % s.hop.frames };
+      case "bite": return { clip: s.hop, col: Math.min(s.hop.frames - 1, Math.floor(this.t * HOP_FPS * 2)) };
       case "hurt": return { clip: s.hurt, col: Math.min(s.hurt.frames - 1, Math.floor(this.t * HOP_FPS)) };
       case "die": return { clip: s.die, col: Math.min(s.die.frames - 1, Math.floor(this.t * HOP_FPS)) };
       default: return { clip: s.idle, col: 0 };
@@ -193,8 +296,24 @@ export class Monster {
       ctx.globalAlpha = fade * Math.min(1, this.flash / 0.08) * 0.85;
       ctx.drawImage(clip.flash, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
     }
+    if (this.freeze > 0 && this.alive) {
+      ctx.globalAlpha = fade * 0.55;
+      ctx.drawImage(clip.ice ?? clip.flash, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
+    }
     ctx.globalAlpha = 1;
-    if (this.alive && this.hp < this.variant.hp) this.drawHp(ctx, gx, gy - (CELL * 0.82) * s - 8 * k, k);
+    const top = gy - (CELL * 0.82) * s - 8 * k;
+    if (this.stun > 0 && this.alive) this.drawStars(ctx, gx, top - 6 * k, k);
+    if (this.alive && (this.hp < this.maxHp || this.angry > 0)) this.drawHp(ctx, gx, top, k);
+  }
+
+  drawStars(ctx, cx, y, k) {
+    ctx.fillStyle = "#ffe27a";
+    for (let i = 0; i < 3; i++) {
+      const a = this.t * 5 + (i * Math.PI * 2) / 3;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * 16 * k, y + Math.sin(a) * 5 * k, 3.2 * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   drawHp(ctx, cx, y, k) {
@@ -203,8 +322,16 @@ export class Monster {
     ctx.fillRect(cx - w / 2 - k, y - k, w + 2 * k, h + 2 * k);
     ctx.fillStyle = "#4b1c18";
     ctx.fillRect(cx - w / 2, y, w, h);
-    ctx.fillStyle = "#ff6a5a";
-    ctx.fillRect(cx - w / 2, y, (w * Math.max(0, this.hp)) / this.variant.hp, h);
+    ctx.fillStyle = this.angry > 0 ? "#ff6a5a" : "#e0a090";
+    ctx.fillRect(cx - w / 2, y, (w * Math.max(0, this.hp)) / this.maxHp, h);
+    ctx.font = `600 ${11 * k}px Kanit, system-ui, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.lineWidth = 3 * k;
+    ctx.strokeStyle = "rgba(10, 12, 8, 0.85)";
+    ctx.fillStyle = "#fff6d8";
+    ctx.strokeText(`Lv ${this.level}`, cx - w / 2 - 4 * k, y + h);
+    ctx.fillText(`Lv ${this.level}`, cx - w / 2 - 4 * k, y + h);
+    ctx.textAlign = "start";
   }
 
   // Screen-space pick radius test for clicks (map px).
@@ -232,8 +359,8 @@ export function spawnMonsters(sheets) {
 }
 
 // Roll a variant's drop table.
-export function rollDrops(variant) {
-  return variant.drops.filter(([, chance]) => Math.random() < chance).map(([id]) => id);
+export function rollDrops(variant, bonus = 0) {
+  return variant.drops.filter(([, chance]) => Math.random() < chance * (1 + bonus)).map(([id]) => id);
 }
 
 export { SOLIDS, BOUNDS };
