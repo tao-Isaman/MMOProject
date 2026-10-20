@@ -55,26 +55,52 @@ export const WEAPON_TYPES = {
   },
 };
 
-// Outfit dyes: tops recolour the coat, bottoms the leggings.
+// Dyes. On a body region a dye keeps each pixel's shading and moves the region to its hue,
+// saturation and average lightness (target). A dye on the region it was drawn in (the region's
+// "natural" dye, e.g. white on the mage coat) leaves it untouched.
 export const DYES = {
-  white: { name: "ขาว", hue: null, sat: 0, light: 0 },
-  sky: { name: "ฟ้า", hue: 205, sat: 0.62, light: -0.1 },
-  rose: { name: "ชมพู", hue: 340, sat: 0.6, light: -0.1 },
-  mint: { name: "เขียวมิ้นต์", hue: 150, sat: 0.5, light: -0.11 },
-  lilac: { name: "ม่วง", hue: 270, sat: 0.5, light: -0.11 },
-  black: { name: "ดำ", hue: null, sat: 0, light: 0 },
-  navy: { name: "กรมท่า", hue: 225, sat: 0.6, light: 0.12 },
-  wine: { name: "แดงไวน์", hue: 350, sat: 0.62, light: 0.12 },
-  forest: { name: "เขียวเข้ม", hue: 140, sat: 0.5, light: 0.11 },
-  cocoa: { name: "น้ำตาล", hue: 28, sat: 0.5, light: 0.14 },
+  white: { name: "ขาว", hue: 222, sat: 0.3, target: 0.93 },
+  sky: { name: "ฟ้า", hue: 205, sat: 0.62, target: 0.86 },
+  rose: { name: "ชมพู", hue: 340, sat: 0.6, target: 0.86 },
+  mint: { name: "เขียวมิ้นต์", hue: 150, sat: 0.5, target: 0.85 },
+  lilac: { name: "ม่วง", hue: 270, sat: 0.5, target: 0.85 },
+  black: { name: "ดำ", hue: 245, sat: 0.2, target: 0.17 },
+  navy: { name: "กรมท่า", hue: 225, sat: 0.6, target: 0.29 },
+  wine: { name: "แดงไวน์", hue: 350, sat: 0.62, target: 0.29 },
+  forest: { name: "เขียวเข้ม", hue: 140, sat: 0.5, target: 0.28 },
+  cocoa: { name: "น้ำตาล", hue: 28, sat: 0.5, target: 0.31 },
+  crimson: { name: "แดงเลือดนก", hue: 352, sat: 0.62, target: 0.42 },
+  ochre: { name: "เหลืองมัสตาร์ด", hue: 42, sat: 0.62, target: 0.55 },
+  teal: { name: "เขียวหัวเป็ด", hue: 178, sat: 0.5, target: 0.4 },
+  plum: { name: "ม่วงพลัม", hue: 290, sat: 0.4, target: 0.33 },
+  sand: { name: "ทราย", hue: 38, sat: 0.4, target: 0.74 },
+};
+
+// Costumes pick the body shape (each one is its own Oriverse sprite) and its colours: top and
+// bottom are the body's two main cloth regions (bodies.json says which ones). An equipped
+// top or bottom item dyes over the costume.
+export const COSTUMES = {
+  mage: { name: "ชุดจอมเวท", body: "mage", top: null, bottom: null, note: "เสื้อคลุมขาวขลิบทอง มาพร้อมผมทวินเทล" },
+  priestess_navy: { name: "ชุดนักบวชกรมท่า", body: "priestess", top: null, bottom: null, note: "เสื้อคลุมยาวกับผ้าคาดหน้า" },
+  priestess_wine: { name: "ชุดนักบวชแดงไวน์", body: "priestess", top: "wine", bottom: null },
+  priestess_forest: { name: "ชุดนักบวชป่าลึก", body: "priestess", top: "forest", bottom: "sand" },
+  priestess_black: { name: "ชุดนักบวชรัตติกาล", body: "priestess", top: "black", bottom: "lilac" },
+  priestess_white: { name: "ชุดนักบวชหิมะ", body: "priestess", top: "white", bottom: "sky" },
+  adventurer_red: { name: "ชุดนักผจญภัย", body: "adventurer", top: null, bottom: null, note: "เสื้อกั๊กหนัง สายสะพาย ผ้าพันแขน" },
+  adventurer_navy: { name: "ชุดนักผจญภัยทะเล", body: "adventurer", top: "navy", bottom: "sand" },
+  adventurer_teal: { name: "ชุดพรานป่า", body: "adventurer", top: "teal", bottom: "cocoa" },
+  adventurer_plum: { name: "ชุดนักผจญภัยพลบค่ำ", body: "adventurer", top: "plum", bottom: "black" },
+  adventurer_ochre: { name: "ชุดนักผจญภัยทะเลทราย", body: "adventurer", top: "ochre", bottom: "wine" },
 };
 
 const weapon = (type) => ({ kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type } });
-const top = (dye) => ({ kind: "top", dye, name: `เสื้อคลุม${DYES[dye].name}`, icon: { top: dye } });
-const bottom = (dye) => ({ kind: "bottom", dye, name: `กางเกง${DYES[dye].name}`, icon: { bottom: dye } });
+const top = (dye) => ({ kind: "top", dye, name: `เสื้อสี${DYES[dye].name}`, icon: { top: dye } });
+const bottom = (dye) => ({ kind: "bottom", dye, name: `กางเกงสี${DYES[dye].name}`, icon: { bottom: dye } });
+const costume = (id) => ({ kind: "costume", costume: id, name: COSTUMES[id].name, icon: { costume: id } });
 
 export const ITEMS = {
   ...Object.fromEntries(Object.keys(WEAPON_TYPES).map((t) => [t, weapon(t)])),
+  ...Object.fromEntries(Object.keys(COSTUMES).map((c) => [`costume_${c}`, costume(c)])),
   top_white: top("white"),
   top_sky: top("sky"),
   top_rose: top("rose"),
@@ -91,13 +117,14 @@ export const ITEMS = {
 
 export const EQUIP_SLOTS = [
   { slot: "weapon", name: "อาวุธ" },
+  { slot: "costume", name: "ชุด" },
   { slot: "top", name: "เสื้อ" },
   { slot: "bottom", name: "กางเกง" },
 ];
 
 export function itemSlot(id) {
   const kind = ITEMS[id]?.kind;
-  return kind === "weapon" || kind === "top" || kind === "bottom" ? kind : null;
+  return kind === "weapon" || kind === "costume" || kind === "top" || kind === "bottom" ? kind : null;
 }
 
 export function stackLimit(id) {
@@ -114,7 +141,11 @@ export function describe(id) {
     const hits = w.hits ? ` × ${w.hits}` : "";
     return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}`;
   }
-  if (item.kind === "top") return "ใส่แล้วเปลี่ยนสีเสื้อคลุม";
-  if (item.kind === "bottom") return "ใส่แล้วเปลี่ยนสีกางเกง";
+  if (item.kind === "costume") {
+    const c = COSTUMES[item.costume];
+    return `${c.note ? `${c.note}<br>` : ""}ตัวละครชายใส่แล้วได้สีของชุด`;
+  }
+  if (item.kind === "top") return "ย้อมท่อนบนของชุดที่ใส่อยู่<br>ถอดออกเพื่อกลับเป็นสีของชุด";
+  if (item.kind === "bottom") return "ย้อมท่อนล่างของชุดที่ใส่อยู่<br>ถอดออกเพื่อกลับเป็นสีของชุด";
   return item.note ?? "";
 }

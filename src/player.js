@@ -37,14 +37,14 @@ export function directionVector(i) {
 }
 
 export class Player {
-  // sheets: { idle, walk, swing, thrust, shoot, cast? }; anchors: hand positions per clip;
+  // sheets: { idle, walk, swing, thrust, shoot, cast? }; anchors: hand positions per clip
+  // (they change with the body, see setSheets);
   // gemGlow: soft glow drawn on the staff tip while casting
   constructor(x, y, sheets, anchors, gemGlow) {
     this.x = x;
     this.y = y;
     this.z = 0;
-    this.setSheets(sheets);
-    this.anchors = anchors;
+    this.setSheets(sheets, anchors);
     this.gemGlow = gemGlow;
     this.dir = 0;
     this.walked = 0;
@@ -56,8 +56,9 @@ export class Player {
     this.target = null; // monster to walk to and keep attacking
   }
 
-  setSheets(sheets) {
+  setSheets(sheets, anchors) {
     this.sheets = sheets;
+    this.anchors = anchors;
     this.cell = sheets.idle.height / 8;
     // measured once: how tall the character stands in the idle front cell
     this.scale = HEIGHT / (this.cell * 0.92);

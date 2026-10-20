@@ -1,12 +1,13 @@
 """Find the hands in every attack and cast frame, for drawing weapons into them.
 
-usage: python3 tools/hand_anchors.py assets/hand_anchors.json assets/mage_swing.png assets/mage_thrust.png ...
+usage: python3 tools/hand_anchors.py BODY assets/chars/BODY_thrust.png assets/chars/BODY_cast.png ...
 
 Each sheet has one row per direction and one square cell per frame (tools/sprite_cells.py);
-its clip name is the file name after "mage_". Hands are the skin-coloured blobs other than the
+its clip name is the file name after "BODY_". Hands are the skin-coloured blobs other than the
 face. In each frame the hand farthest from the body centre is the one holding the weapon ("r"),
 the other one ("l") takes the second dagger. Frames where a hand is hidden behind the body
-borrow it from the nearest frame where it shows. Writes, per clip, direction and frame:
+borrow it from the nearest frame where it shows. Writes into assets/chars/bodies.json under
+BODY.hands, per clip, direction and frame:
 {"r": [x, y], "l": [x, y] or null, "c": [x, y]} in cell pixels.
 """
 import colorsys
@@ -81,10 +82,10 @@ def fill_gaps(frames, key):
 
 
 def main():
-    out_path, sheets = sys.argv[1], sys.argv[2:]
+    body, sheets = sys.argv[1], sys.argv[2:]
     result = {}
     for path in sheets:
-        clip = path.rsplit("/", 1)[-1].removeprefix("mage_").removesuffix(".png")
+        clip = path.rsplit("/", 1)[-1].removeprefix(f"{body}_").removesuffix(".png")
         img = np.array(Image.open(path).convert("RGBA"))
         size = img.shape[0] // 8
         rows = []
@@ -100,8 +101,12 @@ def main():
         result[clip] = rows
         found = sum(1 for row in rows for f in row if f["r"])
         print(f"{clip}: hand found in {found}/{sum(len(r) for r in rows)} frames")
-    with open(out_path, "w") as fh:
-        json.dump(result, fh, separators=(",", ":"))
+    path = "assets/chars/bodies.json"
+    with open(path) as fh:
+        bodies = json.load(fh)
+    bodies.setdefault(body, {})["hands"] = result
+    with open(path, "w") as fh:
+        json.dump(bodies, fh, separators=(",", ":"))
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ import { Inventory } from "./inventory.js";
 import { InventoryUI, WardrobeUI, loadLook } from "./ui.js";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat.js";
 import { slimeSheets, spawnMonsters, rollDrops } from "./monsters.js";
-import { buildLook, lookKey } from "./look.js";
+import { Looks } from "./look.js";
 import { WEAPON_ART } from "./weapons.js";
 import { dyePixel, mapColors, rgbToHsl } from "./recolor.js";
 
@@ -35,7 +35,6 @@ const MOVE_KEYS = {
   KeyD: [0, -1], ArrowRight: [0, -1],
 };
 
-const CLIPS = ["idle", "walk", "swing", "thrust", "shoot", "cast"];
 const ICON = 40; // inventory icon size, css px
 
 const canvas = document.getElementById("game");
@@ -87,6 +86,27 @@ function makeIcon(img, { diagonal = false, dye = null } = {}) {
   return c;
 }
 
+// One cell of a sheet cropped to its opaque pixels.
+function trimmed(sheet, row, cell = 96) {
+  const c = document.createElement("canvas");
+  c.width = c.height = cell;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(sheet, 0, row * cell, cell, cell, 0, 0, cell, cell);
+  const px = g.getImageData(0, 0, cell, cell).data;
+  let x0 = cell, y0 = cell, x1 = 0, y1 = 0;
+  for (let i = 3; i < px.length; i += 4) {
+    if (!px[i]) continue;
+    const p = (i - 3) / 4, x = p % cell, y = Math.floor(p / cell);
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  if (x1 < x0) return c;
+  const out = document.createElement("canvas");
+  out.width = x1 - x0 + 1;
+  out.height = y1 - y0 + 1;
+  out.getContext("2d").drawImage(c, -x0, -y0);
+  return out;
+}
+
 async function boot() {
   const bar = document.getElementById("loading-bar");
   const files = {
@@ -106,13 +126,12 @@ async function boot() {
     sprout: "assets/items/sprout.png",
     arrow: "assets/items/arrow.png",
   };
-  for (const clip of CLIPS) files[`mage_${clip}`] = `assets/mage_${clip}.png`;
   const weaponArt = new Set(Object.keys(WEAPON_TYPES).map((t) => WEAPON_ART[t].art ?? t));
   for (const id of weaponArt) files[`weapon_${id}`] = `assets/weapons/${id}.png`;
-  const [images, anchors, regions] = await Promise.all([
+  const [images, bodies, hair] = await Promise.all([
     loadAll(files, (f) => (bar.value = f)),
-    fetch("assets/hand_anchors.json").then((r) => r.json()),
-    fetch("assets/palette_regions.json").then((r) => r.json()),
+    fetch("assets/chars/bodies.json").then((r) => r.json()),
+    fetch("assets/chars/hair.json").then((r) => r.json()),
   ]);
 
   // stitched Oriverse capture; the scale allows tiles captured below 1 px per cm
@@ -132,14 +151,19 @@ async function boot() {
 
   // ---- inventory, looks, icons ----
   const inv = new Inventory();
-  const look = loadLook();
-  const baseSheets = Object.fromEntries(CLIPS.map((c) => [c, images[`mage_${c}`]]));
-  let currentLook = "";
-  const applyLook = () => {
-    const key = lookKey(look, inv.equipped);
+  const looks = new Looks({ bodies, hair });
+  const look = loadLook(looks.hairstyles);
+  // Rebuild the player's sheets when the look or the clothes change; a newer change wins
+  // over one still loading.
+  let currentLook = looks.key(look, inv.equipped), lookSeq = 0;
+  const first = await looks.build(look, inv.equipped);
+  const applyLook = async () => {
+    const key = looks.key(look, inv.equipped);
     if (key === currentLook) return;
     currentLook = key;
-    player.setSheets(buildLook(baseSheets, regions, look, inv.equipped));
+    const seq = ++lookSeq;
+    const built = await looks.build(look, inv.equipped);
+    if (seq === lookSeq) player.setSheets(built.sheets, built.hands);
   };
 
   const weapons = {};
@@ -164,6 +188,18 @@ async function boot() {
         g.drawImage(makeIcon(w.img, { diagonal: true }), 0, 0);
         g.restore();
       }
+    } else if (item.kind === "costume") {
+      // the costume's body in its own colours, filled in once its sheet has loaded
+      c = document.createElement("canvas");
+      c.width = c.height = ICON * 2;
+      looks.build(look, { costume: id, top: null, bottom: null }, ["idle"]).then(({ sheets }) => {
+        const art = trimmed(sheets.idle, 7);
+        const s = (c.width * 0.94) / Math.max(art.width, art.height);
+        const g = c.getContext("2d");
+        g.imageSmoothingEnabled = false;
+        g.drawImage(art, (c.width - art.width * s) / 2, (c.height - art.height * s) / 2, art.width * s, art.height * s);
+        invUI.render();
+      });
     } else if (item.kind === "top") c = makeIcon(images.coat, { dye: DYES[item.dye] });
     else if (item.kind === "bottom") c = makeIcon(images.legs, { dye: item.dye === "black" ? { hue: 250, sat: 0.2, light: -0.55 } : { ...DYES[item.dye], light: -0.45 } });
     else c = makeIcon(images[item.icon.sheet]);
@@ -173,7 +209,7 @@ async function boot() {
 
   // ---- world ----
   const fx = new Particles();
-  const player = new Player(SPAWN.x, SPAWN.y, baseSheets, anchors, glow("rgba(255, 110, 120, 1)"));
+  const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
   applyLook();
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
@@ -196,14 +232,20 @@ async function boot() {
 
   const hud = new SkillBar(document.getElementById("skillbar"), SKILLS, useSlot);
   const invUI = new InventoryUI(inv, iconFor);
-  const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook());
-  inv.onChange(() => applyLook());
+  const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook(), looks.hairstyles, (lk) => looks.note(lk, inv.equipped));
+  inv.onChange(() => {
+    applyLook();
+    if (!wardrobe.win.classList.contains("hidden")) wardrobe.sync();
+  });
 
   // Wardrobe preview: the idle frame of the chosen direction, recoloured, scaled up.
-  function drawPreview(cv, lk, turn) {
-    const sheets = buildLook({ idle: baseSheets.idle }, regions, lk, inv.equipped);
+  let previewSeq = 0;
+  async function drawPreview(cv, lk, turn) {
+    const seq = ++previewSeq;
+    const { sheets } = await looks.build(lk, inv.equipped, ["idle"]);
+    if (seq !== previewSeq) return;
     const g = cv.getContext("2d");
-    const cell = baseSheets.idle.height / 8;
+    const cell = sheets.idle.height / 8;
     g.clearRect(0, 0, cv.width, cv.height);
     g.imageSmoothingEnabled = false;
     g.drawImage(sheets.idle, 0, turn * cell, cell, cell, 0, 0, cv.width, cv.height);
@@ -408,7 +450,7 @@ async function boot() {
   }
 
   // Exposed for automated checks and console poking.
-  window.__game = { player, fx, spells, cooldowns, useSlot, inv, monsters, combat, look, invUI, wardrobe, quickAttack, directionIndex };
+  window.__game = { player, fx, spells, cooldowns, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex };
 
   document.getElementById("loading").classList.add("done");
   requestAnimationFrame((t) => {

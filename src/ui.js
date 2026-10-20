@@ -206,11 +206,24 @@ export class InventoryUI {
   }
 }
 
-// Wardrobe: hairstyle, hair colour, eye colour, with a live preview.
+// Wardrobe: character, hairstyle, hair colour, eye colour, with a live preview. A hairstyle
+// is locked until its head layer is in assets/chars/hair.json.
+export const GENDERS = [
+  { id: "female", name: "หญิง" },
+  { id: "male", name: "ชาย" },
+];
 export const HAIRSTYLES = [
   { id: "twintail", name: "ทวินเทลยาว" },
-  { id: "bob", name: "ผมสั้นบ็อบ", locked: true },
-  { id: "long", name: "ผมยาวปล่อย", locked: true },
+  { id: "hime", name: "ยาวหน้าม้าตรง" },
+  { id: "bob", name: "บ็อบสั้น" },
+  { id: "ponytail", name: "หางม้าสูง" },
+  { id: "sidebraid", name: "เปียข้างพาดไหล่" },
+  { id: "buns", name: "ซาลาเปาคู่" },
+  { id: "wavy", name: "ยาวลอนใหญ่" },
+  { id: "pixie", name: "พิกซี่สั้น" },
+  { id: "halfup", name: "ยาวมัดครึ่งหัว" },
+  { id: "twinbraids", name: "เปียคู่" },
+  { id: "crown", name: "เปียมงกุฎ" },
 ];
 export const HAIR_COLORS = [
   { id: "silver", name: "เงิน", hue: null },
@@ -231,23 +244,28 @@ export const EYE_COLORS = [
 
 const LOOK_KEY = "mmoproject.look.v1";
 
-export function loadLook() {
-  const look = { hair: "twintail", hairColor: "silver", eyes: "teal" };
+// available: hairstyle ids that have head layers
+export function loadLook(available) {
+  const look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
   try {
     Object.assign(look, JSON.parse(localStorage.getItem(LOOK_KEY) || "{}"));
   } catch {
     // keep the defaults
   }
-  if (!HAIRSTYLES.some((h) => h.id === look.hair && !h.locked)) look.hair = "twintail";
+  if (!GENDERS.some((g) => g.id === look.gender)) look.gender = "female";
+  if (look.hair !== "twintail" && !available.has(look.hair)) look.hair = "twintail";
   if (!HAIR_COLORS.some((c) => c.id === look.hairColor)) look.hairColor = "silver";
   if (!EYE_COLORS.some((c) => c.id === look.eyes)) look.eyes = "teal";
   return look;
 }
 
 export class WardrobeUI {
-  // drawPreview(canvas, look) paints the character; onChange(look) applies it in game
-  constructor(look, drawPreview, onChange) {
+  // drawPreview(canvas, look) paints the character; onChange(look) applies it in game;
+  // available: hairstyle ids with head layers; note(look) explains what the costume overrides
+  constructor(look, drawPreview, onChange, available, note) {
     this.look = look;
+    this.available = available;
+    this.noteFor = note;
     this.drawPreview = drawPreview;
     this.onChange = onChange;
     this.win = makeWindow("wardrobe", "แต่งตัว", "C");
@@ -269,10 +287,12 @@ export class WardrobeUI {
       });
     }
     const right = el("div", "wr-options", body);
-    this.group(right, "ทรงผม", HAIRSTYLES, "hair", (o) => o.name);
+    this.group(right, "ตัวละคร", GENDERS, "gender", (o) => o.name);
+    const hairs = HAIRSTYLES.map((h) => ({ ...h, locked: h.id !== "twintail" && !available.has(h.id) }));
+    this.group(right, "ทรงผม", hairs, "hair", (o) => o.name);
     this.group(right, "สีผม", HAIR_COLORS, "hairColor");
     this.group(right, "สีตา", EYE_COLORS, "eyes");
-    el("p", "wr-note", right).textContent = "เสื้อกับกางเกงเปลี่ยนได้จากไอเท็มในกระเป๋า (ปุ่ม I)";
+    this.note = el("p", "wr-note", right);
   }
 
   group(parent, title, options, key, label) {
@@ -302,6 +322,7 @@ export class WardrobeUI {
 
   sync() {
     for (const b of this.win.querySelectorAll("[data-key]")) b.classList.toggle("on", this.look[b.dataset.key] === b.dataset.id);
+    this.note.textContent = this.noteFor(this.look);
     this.preview();
   }
 

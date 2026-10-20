@@ -1,20 +1,28 @@
-// Inventory: a grid of slots plus the equipped weapon, top and bottom, saved in the browser.
+// Inventory: a grid of slots plus the equipped weapon, costume, top and bottom dyes, saved in
+// the browser.
 
 import { ITEMS, itemSlot, stackLimit } from "./items.js";
 
 export const COLS = 8;
 export const ROWS = 5;
-const SAVE_KEY = "mmoproject.inventory.v1";
+const SAVE_KEY = "mmoproject.inventory.v2";
+const OLD_KEY = "mmoproject.inventory.v1";
+
+// The ten costumes added with the new bodies; old saves receive them once.
+const NEW_COSTUMES = [
+  "costume_priestess_navy", "costume_priestess_wine", "costume_priestess_forest", "costume_priestess_black", "costume_priestess_white",
+  "costume_adventurer_red", "costume_adventurer_navy", "costume_adventurer_teal", "costume_adventurer_plum", "costume_adventurer_ochre",
+];
 
 export const STARTER = {
-  equipped: { weapon: "staff", top: "top_white", bottom: "bottom_black" },
-  items: ["sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "dual_daggers", "bow", "top_sky", "bottom_navy"],
+  equipped: { weapon: "staff", costume: "costume_mage", top: null, bottom: null },
+  items: ["sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "dual_daggers", "bow", "top_sky", "bottom_navy", ...NEW_COSTUMES],
 };
 
 export class Inventory {
   constructor() {
     this.slots = new Array(COLS * ROWS).fill(null); // { id, count } | null
-    this.equipped = { weapon: null, top: null, bottom: null };
+    this.equipped = { weapon: null, costume: null, top: null, bottom: null };
     this.listeners = new Set();
     if (!this.load()) this.reset();
   }
@@ -89,8 +97,8 @@ export class Inventory {
     return true;
   }
 
-  // Take an equipped item off into the given grid slot, or the first free one. The weapon
-  // can always come off (bare hands); clothes always need something worn.
+  // Take an equipped item off into the given grid slot, or the first free one. Everything but
+  // the costume can come off (bare hands, the costume's own colours); a costume only swaps.
   unequip(slot, index = -1) {
     const id = this.equipped[slot];
     if (!id) return false;
@@ -98,7 +106,7 @@ export class Inventory {
     if (index < 0) return false;
     const there = this.slots[index];
     if (there && itemSlot(there.id) !== slot) return false;
-    if (!there && slot !== "weapon") return false;
+    if (!there && slot === "costume") return false;
     this.equipped[slot] = there ? there.id : null;
     this.slots[index] = { id, count: 1 };
     this.changed();
@@ -118,9 +126,13 @@ export class Inventory {
   }
 
   load() {
-    let data = null;
+    let data = null, migrated = false;
     try {
       data = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (!data) {
+        data = JSON.parse(localStorage.getItem(OLD_KEY) || "null");
+        migrated = !!data;
+      }
     } catch {
       return false;
     }
@@ -130,8 +142,20 @@ export class Inventory {
       const id = data.equipped?.[slot];
       this.equipped[slot] = id && itemSlot(id) === slot ? id : STARTER.equipped[slot];
     }
-    if (!this.equipped.top) this.equipped.top = STARTER.equipped.top;
-    if (!this.equipped.bottom) this.equipped.bottom = STARTER.equipped.bottom;
+    if (migrated) {
+      // v1 had no costume slot and always wore a top and bottom: white and black are the mage
+      // costume's own colours, so drop them back into the bag
+      for (const slot of ["top", "bottom"]) {
+        const id = data.equipped?.[slot];
+        if (id === "top_white" || id === "bottom_black") {
+          this.equipped[slot] = null;
+          this.add(id, 1, { silent: true });
+        }
+      }
+      for (const id of NEW_COSTUMES) this.add(id, 1, { silent: true });
+      this.save();
+    }
+    if (!this.equipped.costume) this.equipped.costume = STARTER.equipped.costume;
     return true;
   }
 }
