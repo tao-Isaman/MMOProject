@@ -1,7 +1,7 @@
 // The elf mage: WASD movement over the courtyard, 8-direction sprite animation (idle, walk,
 // attack), hover while casting.
 //
-// The idle sheet holds the eight directions of the Oriverse sprite `elf_mage_walk`; walk and
+// The idle sheet holds the eight directions of the Oriverse sprite `elf_mage_rest`; walk and
 // attack are built from them by tools/animate_sprite.py. Every sheet has one row per
 // direction in Oriverse order (front, then clockwise seen from above), one 128 px column per
 // frame, pivot at the bottom centre of each cell.
@@ -23,7 +23,7 @@ const HOVER_RAMP = 40 / 60;
 
 export const DIRECTIONS = ["south", "south-west", "west", "north-west", "north", "north-east", "east", "south-east"];
 // staff gem in each direction's cell (sprite px), printed by tools/animate_sprite.py
-const GEMS = [[93, 32], [88, 34], [69, 36], [36, 31], [30, 32], [41, 27], [53, 5], [81, 26]];
+const GEMS = [[93, 32], [87, 30], [73, 36], [48, 30], [33, 31], [35, 28], [55, 28], [69, 21]];
 
 // World direction (x = +X up the screen, y = +Y screen left) -> sheet row.
 export function directionIndex(x, y) {

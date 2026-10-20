@@ -40,8 +40,8 @@ python3 -m http.server 8000
 
 ## ตัวละคร
 
-- `assets/mage_idle.png` คือ 8 ทิศของสไปรต์ Oriverse `Ori.sprite.@taoisaman.elf_mage_walk#1`
-  สร้างจากภาพอ้างอิงท่ายืนปล่อยแขน (`oriverse/frieren/elf_mage_relaxed.png` ใน the-hero-fighter ซึ่งแก้จาก character sheet ที่เป็นท่า T-pose)
+- `assets/mage_idle.png` คือ 8 ทิศของสไปรต์ Oriverse `Ori.sprite.@taoisaman.elf_mage_rest#1`
+  สร้างจากภาพอ้างอิงท่ายืนแขนแนบลำตัว (`oriverse/frieren/elf_mage_relaxed.png` ใน the-hero-fighter ซึ่งวาดแขนใหม่จาก character sheet ที่เป็นท่า T-pose)
   ดึงเฟรมออกจากภาพ preview ของ Oriverse ด้วย
   ```sh
   python3 tools/sprite_cells.py assets/mage_idle.png south.png south-west.png west.png north-west.png north.png north-east.png east.png south-east.png
