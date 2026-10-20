@@ -4,17 +4,44 @@
 // the house. Each cutout carries the depth (map y) of the front of its footprint and is sorted
 // with the characters; it turns see-through while it hides the player.
 
-import { loadImage } from "./assets.js";
-import { yaw } from "./projection.js";
+import { loadImage } from "./assets";
+import { yaw } from "./projection";
+import type { Img, View } from "./types";
+
+// One cutout: where it sits in the atlas (sx, sy) and on the map (mx, my), its size, the map y
+// of its footprint's front, and a coarse solid/clear grid ("1"/"0" rows).
+export interface Cutout {
+  kind: string;
+  sx: number;
+  sy: number;
+  mx: number;
+  my: number;
+  w: number;
+  h: number;
+  depth: number;
+  mask?: string[];
+}
+
+interface CutoutSet {
+  atlas: string;
+  items: Cutout[];
+  image?: Img;
+}
+
+export interface OccluderData {
+  yaws: Record<string, CutoutSet>;
+}
 
 export class Occluders {
   // data: assets/maps/occluders.json { yaws: { "<yaw>": { atlas, items: [{ sx, sy, w, h, mx, my, depth }] } } }
-  constructor(data) {
+  data: OccluderData | null;
+  atlases: Promise<Img | null>[] = [];
+
+  constructor(data: OccluderData | null) {
     this.data = data;
-    this.atlases = [];
   }
 
-  load(k) {
+  load(k: number): Promise<Img | null> {
     const set = this.data?.yaws?.[k];
     if (!set) return Promise.resolve(null);
     this.atlases[k] ??= loadImage(`assets/maps/${set.atlas}`).then((img) => (set.image = img));
@@ -22,17 +49,17 @@ export class Occluders {
   }
 
   // Cutouts for the current camera angle (empty until its atlas has loaded).
-  get items() {
+  get items(): Cutout[] {
     const set = this.data?.yaws?.[yaw];
     return set?.image ? set.items : [];
   }
 
-  get image() {
+  get image(): Img | undefined {
     return this.data?.yaws?.[yaw]?.image;
   }
 
   // Whether the cutout has solid pixels over a map box (its alpha mask, sampled coarsely).
-  covers(it, box) {
+  covers(it: Cutout, box: { x: number; y: number; w: number; h: number }): boolean {
     const m = it.mask;
     if (!m) return true;
     const cols = m[0].length, rows = m.length;
@@ -49,8 +76,9 @@ export class Occluders {
 
   // Draw one cutout at its place on the map; `hides` is the player's screen box in map px
   // when the cutout covers the player.
-  draw(ctx, view, it, hides) {
+  draw(ctx: CanvasRenderingContext2D, view: View, it: Cutout, hides: boolean): void {
     const { k, ox, oy } = view;
+    if (!this.image) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (hides) ctx.globalAlpha = 0.5;
     ctx.drawImage(this.image, it.sx, it.sy, it.w, it.h, it.mx * k + ox, it.my * k + oy, it.w * k, it.h * k);

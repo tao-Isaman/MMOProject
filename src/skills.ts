@@ -9,40 +9,83 @@
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point) · nova, storm (around the
 // caster) · cone (in front) · beam (a line) · dash · heal · shield · buff · flower.
 
-import { ACTIVES, MASTERIES } from "./progression.js";
-import { skillDamage } from "./stats.js";
-import { shapeTargets } from "./combat.js";
-import { AIR_GLOW, GROUND_GLOW, rand } from "./particles.js";
-import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell.js";
-import { WEAPON_TYPES } from "./items.js";
+import { ACTIVES, MASTERIES } from "./progression";
+import type { Progress, SkillDef } from "./progression";
+import { skillDamage } from "./stats";
+import { shapeTargets } from "./combat";
+import type { Combat, Floaters } from "./combat";
+import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
+import type { Particles } from "./particles";
+import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell";
+import { WEAPON_TYPES } from "./items";
+import type { WeaponId } from "./items";
+import type { Hero } from "./hero";
+import type { Player, AttackWeapon } from "./player";
+import type { Monster } from "./monsters";
+import type { Img, Textures, Vec2 } from "./types";
+
+interface SkillDeps {
+  progress: Progress;
+  hero: Hero;
+  player: Player;
+  combat: Combat;
+  monsters: Monster[];
+  fx: Particles;
+  tex: Textures;
+  floaters: Floaters;
+  spells: FlowerSpell[];
+  weapon: () => string | null;
+}
+
+// A rank-scaled number of a skill (missing ones count as 0).
+const at = (f: ((r: number) => number) | undefined, rank: number) => f?.(rank) ?? 0;
 
 const LEAD = 0.22; // s from the start of the animation to the hit
 
 export class Skills {
-  constructor({ progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon }) {
-    Object.assign(this, { progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon });
-    this.timers = []; // { t, fn }
+  progress: Progress;
+  hero: Hero;
+  player: Player;
+  combat: Combat;
+  monsters: Monster[];
+  fx: Particles;
+  tex: Textures;
+  floaters: Floaters;
+  spells: FlowerSpell[];
+  weapon: () => string | null;
+  timers: { t: number; fn: () => void }[] = [];
+
+  constructor(deps: SkillDeps) {
+    this.progress = deps.progress;
+    this.hero = deps.hero;
+    this.player = deps.player;
+    this.combat = deps.combat;
+    this.monsters = deps.monsters;
+    this.fx = deps.fx;
+    this.tex = deps.tex;
+    this.floaters = deps.floaters;
+    this.spells = deps.spells;
+    this.weapon = deps.weapon;
   }
 
-  get el() {
+  get el(): Record<string, number> {
     return this.progress.elements;
   }
 
   // Try a skill toward a world point. Returns null when it goes off, or why not.
-  use(id, aim) {
+  use(id: string, aim: Vec2 | null): string | null {
     const a = ACTIVES[id];
     if (!a) return "ช่องว่าง";
     const rank = this.progress.skillRank(id);
     if (!rank) return "ยังไม่ได้เรียนสกิลนี้";
     if (!this.hero.alive) return "ล้มอยู่";
     const weapons = a.source.weapons;
-    if (weapons && !weapons.includes(this.weapon())) return `ต้องถือ${MASTERIES[a.source.mastery].name}`;
+    if (weapons && !weapons.includes(this.weapon() as WeaponId)) return `ต้องถือ${MASTERIES[a.source.mastery!].name}`;
     if (this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
     const s = a.skill;
     if (!this.hero.spend(s.mp)) return "MP ไม่พอ";
     this.hero.cooldowns.set(id, s.cd * (1 - this.hero.stats.cdr));
-    this.hero.cdTotal = this.hero.cdTotal ?? new Map();
     this.hero.cdTotal.set(id, s.cd * (1 - this.hero.stats.cdr));
 
     const p = this.player;
@@ -59,16 +102,15 @@ export class Skills {
     return null;
   }
 
-  weaponStats() {
-    const w = WEAPON_TYPES[this.weapon()];
-    return w ?? { motion: "thrust" };
+  weaponStats(): AttackWeapon {
+    return WEAPON_TYPES[this.weapon() as WeaponId] ?? { motion: "thrust" };
   }
 
-  later(t, fn) {
+  later(t: number, fn: () => void): void {
     this.timers.push({ t, fn });
   }
 
-  update(dt) {
+  update(dt: number): void {
     for (let i = this.timers.length - 1; i >= 0; i--) {
       const tm = this.timers[i];
       tm.t -= dt;
@@ -80,7 +122,7 @@ export class Skills {
   }
 
   // Element effects that follow any skill.
-  afterCast() {
+  afterCast(): void {
     const earth = this.el.earth ?? 0, wind = this.el.wind ?? 0;
     if (earth) {
       this.hero.addShield(this.hero.stats.maxHp * 0.004 * earth, 4);
@@ -90,9 +132,9 @@ export class Skills {
   }
 
   // Damage a monster with a skill, then the element riders.
-  hit(m, s, rank, dir, knock = 20, chained = false) {
+  hit(m: Monster, s: SkillDef, rank: number, dir: Vec2, knock = 20, chained = false): void {
     if (!m.alive) return;
-    const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon()]);
+    const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon() as WeaponId]);
     if (chained) r.dmg = Math.max(1, Math.round(r.dmg * 0.3));
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);
@@ -111,83 +153,88 @@ export class Skills {
     }
   }
 
-  healAmount(raw) {
+  healAmount(raw: number): number {
     return raw * (1 + 0.02 * (this.el.water ?? 0));
   }
 
-  effect(id, s, rank, dir, aim) {
+  effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null): void {
     const p = this.player, origin = { x: p.x, y: p.y };
-    const hitAll = (list, knock) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
+    const hitAll = (list: Monster[], knock: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
     switch (s.type) {
       case "bolt":
         this.later(LEAD, () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
-          kind: s.pierce ? "wave" : "skill", speed: s.speed, range: s.range, radius: s.radius, pierce: s.pierce,
+          kind: s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
           onHit: (m, d) => this.hit(m, s, rank, d),
         }));
         break;
       case "fan":
         this.later(LEAD, () => {
-          const base = Math.atan2(dir.y, dir.x), spread = (s.spread * Math.PI) / 180;
-          for (let i = 0; i < s.count; i++) {
-            const a = base + (i / (s.count - 1) - 0.5) * spread;
+          const base = Math.atan2(dir.y, dir.x), spread = ((s.spread ?? 40) * Math.PI) / 180, count = s.count ?? 3;
+          for (let i = 0; i < count; i++) {
+            const a = base + (i / (count - 1) - 0.5) * spread;
             this.combat.shoot({ x: p.x, y: p.y }, { x: Math.cos(a), y: Math.sin(a) }, {
-              kind: s.arrow ? "arrow" : "bolt", speed: s.speed, range: s.range, radius: s.radius,
+              kind: s.arrow ? "arrow" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
               onHit: (m, d) => this.hit(m, s, rank, d),
             });
           }
         });
         break;
       case "blast": {
-        const dist = aim ? Math.min(s.range, Math.hypot(aim.x - p.x, aim.y - p.y)) : s.range * 0.6;
-        const at = { x: p.x + dir.x * dist, y: p.y + dir.y * dist };
-        this.ring(at.x, at.y, s.color, s.radius * 2, s.delay + LEAD, true);
-        this.later(s.delay + LEAD, () => {
-          hitAll(shapeTargets(at, dir, { hit: "circle", reach: s.radius }, this.monsters), 30);
-          this.burst(at.x, at.y, s.color, s.radius);
+        const range = s.range ?? 500, radius = s.radius ?? 150, delay = s.delay ?? 0.3;
+        const dist = aim ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : range * 0.6;
+        const spot = { x: p.x + dir.x * dist, y: p.y + dir.y * dist };
+        this.ring(spot.x, spot.y, s.color, radius * 2, delay + LEAD, true);
+        this.later(delay + LEAD, () => {
+          hitAll(shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters), 30);
+          this.burst(spot.x, spot.y, s.color, radius);
         });
         break;
       }
-      case "nova":
+      case "nova": {
+        const radius = s.radius ?? 200;
         this.later(LEAD * 0.8, () => {
-          for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.radius }, this.monsters)) {
+          for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
             const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
             this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock ?? 20);
           }
-          this.ring(p.x, p.y, s.color, s.radius * 2, 0.45);
-          this.burst(p.x, p.y, s.color, s.radius * 0.7);
+          this.ring(p.x, p.y, s.color, radius * 2, 0.45);
+          this.burst(p.x, p.y, s.color, radius * 0.7);
         });
         break;
-      case "storm":
-        for (let i = 0; i < s.pulses; i++) {
-          this.later(LEAD * 0.5 + i * s.every, () => {
-            for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.radius }, this.monsters)) {
+      }
+      case "storm": {
+        const radius = s.radius ?? 200, pulses = s.pulses ?? 3;
+        for (let i = 0; i < pulses; i++) {
+          this.later(LEAD * 0.5 + i * (s.every ?? 0.2), () => {
+            for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
               const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
               this.hit(m, s, rank, { x: dx / d, y: dy / d }, 10);
             }
-            this.ring(p.x, p.y, s.color, s.radius * 2, 0.25);
-            if (i < s.pulses - 1) p.startMotion(i % 2 ? "swing" : "thrust", dir, this.weaponStats(), 0.2);
+            this.ring(p.x, p.y, s.color, radius * 2, 0.25);
+            if (i < pulses - 1) p.startMotion(i % 2 ? "swing" : "thrust", dir, this.weaponStats(), 0.2);
           });
         }
         break;
+      }
       case "cone":
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * 0.16, () => {
-            hitAll(shapeTargets(origin, dir, { hit: "arc", reach: s.reach, arc: s.arc }, this.monsters), s.knock ?? 30);
-            this.fan(origin, dir, s.reach, s.arc, s.color);
+            hitAll(shapeTargets(origin, dir, { hit: "arc", reach: s.reach ?? 150, arc: s.arc }, this.monsters), s.knock ?? 30);
+            this.fan(origin, dir, s.reach ?? 150, s.arc ?? 90, s.color);
             if (i > 0) p.startMotion(s.motion, dir, this.weaponStats(), 0.25);
           });
         }
         break;
       case "beam":
         this.later(LEAD, () => {
-          hitAll(shapeTargets({ x: p.x, y: p.y }, dir, { hit: "line", reach: s.length, width: s.width }, this.monsters), 20);
-          this.line({ x: p.x, y: p.y }, dir, s.length, s.color);
+          hitAll(shapeTargets({ x: p.x, y: p.y }, dir, { hit: "line", reach: s.length ?? 500, width: s.width }, this.monsters), 20);
+          this.line({ x: p.x, y: p.y }, dir, s.length ?? 500, s.color);
         });
         break;
       case "dash": {
-        const hit = new Set();
-        p.startDash(dir, s.distance, 0.2, () => {
-          for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.width }, this.monsters)) {
+        const hit = new Set<Monster>();
+        p.startDash(dir, s.distance ?? 200, 0.2, () => {
+          for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.width ?? 60 }, this.monsters)) {
             if (hit.has(m)) continue;
             hit.add(m);
             this.hit(m, s, rank, dir, 30);
@@ -199,24 +246,24 @@ export class Skills {
       }
       case "heal":
         this.later(LEAD, () => {
-          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * s.heal(rank) + this.hero.stats[s.stat] * s.mult(rank)));
+          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank) + this.hero.stats[s.stat ?? "matk"] * at(s.mult, rank)));
           this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
           this.sparkleUp(p.x, p.y, this.tex.mint, 26);
         });
         break;
       case "shield":
         this.later(LEAD, () => {
-          const amount = this.hero.stats.maxMp * s.base(rank) + this.hero.stats.matk * s.mult(rank);
-          this.hero.addShield(amount, s.duration);
+          const amount = this.hero.stats.maxMp * at(s.base, rank) + this.hero.stats.matk * at(s.mult, rank);
+          this.hero.addShield(amount, s.duration ?? 8);
           this.floaters.add(p.x, p.y, 130, `โล่ ${Math.round(amount)}`, "shield");
           this.ring(p.x, p.y, s.color, 140, 0.6);
         });
         break;
       case "buff":
         this.later(LEAD, () => {
-          this.hero.addBuff(id, ACTIVES[id].name, s.buff(rank), s.duration);
+          this.hero.addBuff(id, ACTIVES[id].name, s.buff?.(rank) ?? {}, s.duration ?? 8);
           if (s.heal) {
-            const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * s.heal(rank)));
+            const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
             if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
           }
           this.floaters.add(p.x, p.y, 150, ACTIVES[id].name, "level");
@@ -225,16 +272,17 @@ export class Skills {
         });
         break;
       case "flower": {
-        const at = { x: p.x, y: p.y };
-        this.spells.push(new FlowerSpell(this.fx, this.tex, at.x, at.y, p));
+        const spot = { x: p.x, y: p.y };
+        this.spells.push(new FlowerSpell(this.fx, this.tex, spot.x, spot.y, p));
         this.later(CAST_TIME, () => {
-          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * s.heal(rank)));
+          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
           if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
         });
-        for (let i = 0; i < s.ticks; i++) {
+        const radius = s.radius ?? 450;
+        for (let i = 0; i < (s.ticks ?? 4); i++) {
           this.later(CAST_TIME + 0.4 + i * 1, () => {
-            for (const m of shapeTargets(at, dir, { hit: "circle", reach: s.radius }, this.monsters)) {
-              const dx = m.x - at.x, dy = m.y - at.y, d = Math.hypot(dx, dy) || 1;
+            for (const m of shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters)) {
+              const dx = m.x - spot.x, dy = m.y - spot.y, d = Math.hypot(dx, dy) || 1;
               this.hit(m, s, rank, { x: dx / d, y: dy / d }, 5);
             }
           });
@@ -245,12 +293,12 @@ export class Skills {
   }
 
   // ---- effects ----
-  ring(x, y, color, size, life, ground = false) {
+  ring(x: number, y: number, color: string, size: number, life: number, ground = false): void {
     this.fx.add({ x, y, z: 2, layer: GROUND_GLOW, tex: this.tex.ringFor(color), flat: true, life,
       size: ground ? [[0, size * 0.9], [1, size]] : [[0, size * 0.3], [1, size]], alpha: [[0, 0.9], [0.7, 0.6], [1, 0]] });
   }
 
-  burst(x, y, color, radius) {
+  burst(x: number, y: number, color: string, radius: number): void {
     const tex = this.tex.glowFor(color);
     for (let i = 0; i < 18; i++) {
       const a = rand(0, Math.PI * 2), r = rand(0, radius);
@@ -260,7 +308,7 @@ export class Skills {
     this.fx.add({ x, y, z: 30, layer: AIR_GLOW, tex: this.tex.flash, life: 0.3, size: [[0, radius], [1, radius * 1.8]], alpha: [[0, 0.8], [1, 0]] });
   }
 
-  fan(origin, dir, reach, arc, color) {
+  fan(origin: Vec2, dir: Vec2, reach: number, arc: number, color: string): void {
     const tex = this.tex.glowFor(color), n = 10;
     for (let i = 0; i < n; i++) {
       const a = Math.atan2(dir.y, dir.x) + (i / (n - 1) - 0.5) * ((arc * Math.PI) / 180);
@@ -269,7 +317,7 @@ export class Skills {
     }
   }
 
-  line(origin, dir, length, color) {
+  line(origin: Vec2, dir: Vec2, length: number, color: string): void {
     const tex = this.tex.glowFor(color);
     for (let d = 40; d < length; d += 22) {
       this.fx.add({ x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: 55, layer: AIR_GLOW, tex, life: 0.45,
@@ -277,7 +325,7 @@ export class Skills {
     }
   }
 
-  zap(a, b) {
+  zap(a: Vec2, b: Vec2): void {
     for (let i = 0; i <= 8; i++) {
       const f = i / 8;
       this.fx.add({ x: a.x + (b.x - a.x) * f + rand(-10, 10), y: a.y + (b.y - a.y) * f + rand(-10, 10), z: 50, layer: AIR_GLOW,
@@ -285,7 +333,7 @@ export class Skills {
     }
   }
 
-  sparkleUp(x, y, tex, n) {
+  sparkleUp(x: number, y: number, tex: Img, n: number): void {
     for (let i = 0; i < n; i++) {
       const a = rand(0, Math.PI * 2), r = rand(10, 60);
       this.fx.add({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, z: rand(0, 40), layer: AIR_GLOW, tex, life: rand(0.6, 1),

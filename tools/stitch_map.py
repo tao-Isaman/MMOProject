@@ -1,6 +1,6 @@
-"""Stitch the six Oriverse ortho captures into assets/map.jpg.
+"""Stitch the six Oriverse ortho captures of one camera angle into public/assets/maps/map_y<yaw>.jpg.
 
-usage: python3 tools/stitch_map.py r0c0 r0c1 r1c0 r1c1 r2c0 r2c1 [-o assets/map.jpg]
+usage: python3 tools/stitch_map.py r0c0 r0c1 r1c0 r1c1 r2c0 r2c1 [-o public/assets/maps/map_y0.jpg]
 
 Tiles are the playtest views listed in tools/capture_tiles.json, row-major: row 0 is the far
 (top) band, column 0 the left half. Each covers 2048 x 1024 cm of the image plane; at the
@@ -17,7 +17,7 @@ COLS, ROWS = 2, 3
 
 ap = argparse.ArgumentParser()
 ap.add_argument("tiles", nargs=COLS * ROWS)
-ap.add_argument("-o", "--out", default="assets/map.jpg")
+ap.add_argument("-o", "--out", default="public/assets/maps/map_y0.jpg")
 ap.add_argument("-q", "--quality", type=int, default=86)
 ap.add_argument("--caption", type=int, nargs=2, default=(144, 21), metavar=("W", "H"),
                 help="size of the capture caption to cover, in pixels of a 2048-wide tile")

@@ -1,42 +1,59 @@
 // The player's live state in a fight: HP, MP, shield, buffs, skill cooldowns, death.
 
-import { computeStats } from "./stats.js";
+import { computeStats } from "./stats";
+import type { Stats } from "./stats";
+import type { Progress, StatBag } from "./progression";
+
+export interface Buff {
+  id: string;
+  name: string;
+  stats: StatBag;
+  t: number;
+  duration: number;
+}
 
 export const RESPAWN_TIME = 4;
 
 export class Hero {
+  progress: Progress;
+  weapon: () => string | null;
+  buffs: Buff[] = [];
+  shield: { amount: number; max: number; t: number } | null = null;
+  cooldowns = new Map<string, number>();  // skill id -> seconds left
+  cdTotal = new Map<string, number>();    // skill id -> the cooldown it started with
+  dead = 0;  // seconds until respawn while dead
+  hurt = 0;  // red flash after being hit
+  stats!: Stats;
+  hp = Infinity;
+  mp = Infinity;
+
   // weapon(): the equipped weapon id
-  constructor(progress, weapon) {
+  constructor(progress: Progress, weapon: () => string | null) {
     this.progress = progress;
     this.weapon = weapon;
-    this.buffs = [];       // { id, stats, t, name }
-    this.shield = null;    // { amount, t }
-    this.cooldowns = new Map();
-    this.dead = 0;         // seconds until respawn while dead
-    this.hurt = 0;         // red flash after being hit
     this.recompute();
     this.hp = this.stats.maxHp;
     this.mp = this.stats.maxMp;
   }
 
-  get alive() {
+  get alive(): boolean {
     return this.dead <= 0;
   }
 
-  recompute() {
+  recompute(): void {
     this.stats = computeStats(this.progress, this.weapon(), this.buffs);
-    this.hp = Math.min(this.hp ?? Infinity, this.stats.maxHp);
-    this.mp = Math.min(this.mp ?? Infinity, this.stats.maxMp);
+    this.hp = Math.min(this.hp, this.stats.maxHp);
+    this.mp = Math.min(this.mp, this.stats.maxMp);
   }
 
-  refill() {
+  refill(): void {
     this.recompute();
     this.hp = this.stats.maxHp;
     this.mp = this.stats.maxMp;
   }
 
   // Returns "respawn" on the frame the hero comes back.
-  update(dt) {
+  update(dt: number): "respawn" | null {
     this.hurt = Math.max(0, this.hurt - dt);
     for (const [id, t] of this.cooldowns) {
       if (t - dt <= 0) this.cooldowns.delete(id);
@@ -62,7 +79,7 @@ export class Hero {
   }
 
   // Returns the HP actually lost; "died" is set on the hit that kills.
-  takeDamage(amount) {
+  takeDamage(amount: number): { lost: number; absorbed: number; died?: boolean } {
     if (!this.alive) return { lost: 0, absorbed: 0 };
     let absorbed = 0;
     if (this.shield) {
@@ -81,25 +98,25 @@ export class Hero {
     return { lost, absorbed };
   }
 
-  heal(amount) {
+  heal(amount: number): number {
     const before = this.hp;
     this.hp = Math.min(this.stats.maxHp, this.hp + amount);
     return this.hp - before;
   }
 
-  spend(mp) {
+  spend(mp: number): boolean {
     if (this.mp < mp) return false;
     this.mp -= mp;
     return true;
   }
 
-  addBuff(id, name, stats, duration) {
+  addBuff(id: string, name: string, stats: StatBag, duration: number): void {
     this.buffs = this.buffs.filter((b) => b.id !== id);
     this.buffs.push({ id, name, stats, t: duration, duration });
     this.recompute();
   }
 
-  addShield(amount, duration) {
+  addShield(amount: number, duration: number): void {
     const cur = this.shield?.amount ?? 0;
     this.shield = { amount: Math.max(cur, amount), max: Math.max(cur, amount), t: duration };
   }

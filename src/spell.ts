@@ -5,7 +5,16 @@
 //          each clump lives 4.6 s + 0.2 s per ring, then sheds petals that rise and fade
 //   6.0 s  blue-white sparkles drift up while the carpet dissolves
 
-import { Emitter, AIR_GLOW, GROUND_GLOW, SORTED, rand } from "./particles.js";
+import { Emitter, AIR_GLOW, GROUND_GLOW, SORTED, rand } from "./particles";
+import type { Particles } from "./particles";
+import type { Curve, Textures } from "./types";
+
+// The caster the spell lifts and lights.
+interface Caster {
+  x: number;
+  y: number;
+  z: number;
+}
 
 export const CAST_TIME = 1.5;
 export const HOVER_END = 7.0; // the caster floats until the carpet starts to clear
@@ -15,26 +24,33 @@ const DISSOLVE_T = 4.6;
 const DISSOLVE_STEP = 0.2;
 // [ring radius cm, clumps on the ring, flowers per clump]; no centre clump, so the caster
 // keeps a small clearing and is never buried in flowers.
-const RINGS = [[95, 7, 20], [183, 13, 20], [271, 19, 20], [359, 26, 20], [447, 32, 20]];
+const RINGS: [number, number, number][] = [[95, 7, 20], [183, 13, 20], [271, 19, 20], [359, 26, 20], [447, 32, 20]];
 const CLUMP_BOX = 100;
 const FLOWER_SIZE = 42;
-const FLOWER_SIZE_SEQ = [[0, 0], [0.035, 1.3], [0.065, 0.94], [0.095, 1], [0.5, 1.07], [0.9, 1], [1, 0.55]];
+const FLOWER_SIZE_SEQ: Curve = [[0, 0], [0.035, 1.3], [0.065, 0.94], [0.095, 1], [0.5, 1.07], [0.9, 1], [1, 0.55]];
 const SPARKLE_AT = CAST_TIME + DISSOLVE_T - 0.1;
 const END = 12;
 
-const scaled = (seq, k) => seq.map(([t, v]) => [t, v * k]);
+const scaled = (seq: Curve, k: number): Curve => seq.map(([t, v]) => [t, v * k]);
 
 export class FlowerSpell {
-  constructor(fx, tex, x, y, caster) {
+  fx: Particles;
+  tex: Textures;
+  x: number;
+  y: number;
+  caster: Caster;
+  t = 0;
+  released = false;
+  ringsSpawned = 0;
+  clumps: { petals: Emitter }[] = [];
+  emitters: Emitter[];
+
+  constructor(fx: Particles, tex: Textures, x: number, y: number, caster: Caster) {
     this.fx = fx;
     this.tex = tex;
     this.x = x;
     this.y = y;
     this.caster = caster;
-    this.t = 0;
-    this.released = false;
-    this.ringsSpawned = 0;
-    this.clumps = [];
     this.emitters = [
       new Emitter(55, 0, 1.6, () => this.streak()),
       new Emitter(34, 0, 1.6, () => this.castSparkle()),
@@ -43,11 +59,11 @@ export class FlowerSpell {
     this.open();
   }
 
-  get done() {
+  get done(): boolean {
     return this.t > END;
   }
 
-  update(dt) {
+  update(dt: number): void {
     this.t += dt;
     const t = this.t;
     if (!this.released && t >= CAST_TIME) {
@@ -62,7 +78,7 @@ export class FlowerSpell {
   }
 
   // --- cast -----------------------------------------------------------------------------
-  open() {
+  open(): void {
     const { fx, tex, x, y } = this;
     fx.add({ x, y, z: 2, flat: true, layer: GROUND_GLOW, tex: tex.rune, life: 1.75, spin: 0.3,
       size: [[0, 140], [0.08, 305], [0.14, 280], [1, 280]], alpha: [[0, 0], [0.07, 1], [0.9, 1], [1, 0.6]] });
@@ -70,13 +86,13 @@ export class FlowerSpell {
       size: [[0, 150], [0.1, 360], [1, 360]], alpha: [[0, 0], [0.1, 0.3], [1, 0.34]] });
   }
 
-  streak() {
+  streak(): void {
     this.fx.add({ x: this.x + rand(-40, 40), y: this.y + rand(-40, 40), z: rand(15, 25), az: 500,
       layer: AIR_GLOW, tex: this.tex.column, life: rand(0.6, 0.9), squash: 4,
       size: [[0, 8], [0.3, 14], [1, 4]], alpha: [[0, 0], [0.25, 0.8], [1, 0]] });
   }
 
-  castSparkle() {
+  castSparkle(): void {
     const [vx, vy, vz] = randomDir(rand(0, 15));
     this.fx.add({ x: this.x + rand(-120, 120), y: this.y + rand(-120, 120), z: rand(20, 30), vx, vy, vz,
       az: 90, turb: 60, layer: AIR_GLOW, tex: this.tex.sparkle, life: rand(0.9, 1.5),
@@ -84,7 +100,7 @@ export class FlowerSpell {
   }
 
   // --- release --------------------------------------------------------------------------
-  release() {
+  release(): void {
     const { fx, tex, x, y } = this;
     fx.add({ x, y, z: 3, flat: true, layer: GROUND_GLOW, tex: tex.flash, life: 0.55,
       size: [[0, 280], [0.35, 440], [1, 520]], alpha: [[0, 1], [1, 0]] });
@@ -103,7 +119,7 @@ export class FlowerSpell {
     });
   }
 
-  spawnRing(r) {
+  spawnRing(r: number): void {
     const [rad, n, per] = RINGS[r];
     const L = DISSOLVE_T + DISSOLVE_STEP * r;
     const size = scaled(FLOWER_SIZE_SEQ, FLOWER_SIZE + r);
@@ -124,7 +140,7 @@ export class FlowerSpell {
     }
   }
 
-  petal(cx, cy) {
+  petal(cx: number, cy: number): void {
     // up within a 60 degree cone
     const sp = rand(0, 20), th = rand(0, Math.PI * 2), tilt = rand(0, Math.PI / 3);
     this.fx.add({ x: cx + rand(-CLUMP_BOX / 2, CLUMP_BOX / 2), y: cy + rand(-CLUMP_BOX / 2, CLUMP_BOX / 2), z: rand(8, 20),
@@ -134,7 +150,7 @@ export class FlowerSpell {
       size: [[0, 15], [1, 9]], alpha: [[0, 0], [0.06, 1], [0.55, 0.85], [1, 0]] });
   }
 
-  dissolveSparkle() {
+  dissolveSparkle(): void {
     const r = 480 * Math.sqrt(Math.random()), a = rand(0, Math.PI * 2);
     const [vx, vy, vz] = randomDir(rand(0, 15));
     this.fx.add({ x: this.x + r * Math.cos(a), y: this.y + r * Math.sin(a), z: rand(40, 80), vx, vy, vz,
@@ -144,7 +160,7 @@ export class FlowerSpell {
 }
 
 // Random direction scaled to `speed`; minZ limits how far below the horizon it may point.
-function randomDir(speed, minZ = -1) {
+function randomDir(speed: number, minZ = -1): [number, number, number] {
   const z = rand(minZ, 1), a = rand(0, Math.PI * 2), s = Math.sqrt(1 - z * z);
   return [s * Math.cos(a) * speed, s * Math.sin(a) * speed, z * speed];
 }

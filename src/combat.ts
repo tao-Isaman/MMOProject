@@ -1,16 +1,23 @@
 // Hits: normal attacks per weapon type, projectiles (arrows, staff bolts and skill shots),
 // burning, and the floating numbers. Damage numbers come from stats.js.
 
-import { mapX, mapY, S2, toView } from "./projection.js";
-import { WEAPON_TYPES } from "./items.js";
-import { AIR_GLOW, GROUND_GLOW, rand } from "./particles.js";
-import { basicDamage } from "./stats.js";
+import { mapX, mapY, S2, toView } from "./projection";
+import { WEAPON_TYPES } from "./items";
+import type { WeaponId, WeaponType } from "./items";
+import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
+import type { Particles } from "./particles";
+import { basicDamage } from "./stats";
+import type { Hit, Stats } from "./stats";
+import type { Hero } from "./hero";
+import type { Monster } from "./monsters";
+import type { Target } from "./player";
+import type { Img, Textures, Vec2, View } from "./types";
 
-export const UNARMED = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
+export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
 
 // Weapon stats with the wielder's attack speed and reach bonuses (stats.js) folded in.
-export function weaponStats(weaponId, stats = null) {
-  const w = (weaponId && WEAPON_TYPES[weaponId]) || UNARMED;
+export function weaponStats(weaponId: string | null, stats: Stats | null = null): WeaponType {
+  const w = (weaponId && WEAPON_TYPES[weaponId as WeaponId]) || UNARMED;
   if (!stats) return w;
   const reach = 1 + stats.reach;
   return {
@@ -22,22 +29,33 @@ export function weaponStats(weaponId, stats = null) {
 }
 
 // How close the player walks before attacking a target with this weapon.
-export function attackRange(w) {
+export function attackRange(w: WeaponType): number {
   return w.projectile ? w.projectile.range * 0.85 : w.reach * 0.85;
 }
 
 // Floating numbers and short labels that rise and fade over a world point.
-export class Floaters {
-  constructor() {
-    this.list = [];
-  }
+export type FloaterStyle = "damage" | "crit" | "loot" | "info" | "hurt" | "heal" | "level" | "shield" | "magic";
 
-  add(x, y, z, text, style = "damage") {
+interface Floater {
+  x: number;
+  y: number;
+  z: number;
+  text: string;
+  style: FloaterStyle;
+  t: number;
+  life: number;
+  dx: number;
+}
+
+export class Floaters {
+  list: Floater[] = [];
+
+  add(x: number, y: number, z: number, text: string, style: FloaterStyle = "damage"): void {
     const long = style === "loot" || style === "level";
     this.list.push({ x, y, z, text, style, t: 0, life: long ? 1.8 : 0.9, dx: style === "level" ? 0 : rand(-14, 14) });
   }
 
-  update(dt) {
+  update(dt: number): void {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const f = this.list[i];
       f.t += dt;
@@ -45,12 +63,12 @@ export class Floaters {
     }
   }
 
-  draw(ctx, view) {
+  draw(ctx: CanvasRenderingContext2D, view: View): void {
     const { k, ox, oy } = view;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
-    const colors = { damage: "#fff6d8", crit: "#ffb347", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff" };
+    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffb347", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff" };
     for (const f of this.list) {
       const u = f.t / f.life;
       const rise = f.style === "loot" || f.style === "level" ? 40 * u : 60 * Math.sqrt(u);
@@ -62,7 +80,7 @@ export class Floaters {
       ctx.font = `600 ${size}px Kanit, system-ui, sans-serif`;
       ctx.lineWidth = Math.max(2, size * 0.16);
       ctx.strokeStyle = "rgba(20, 14, 10, 0.9)";
-      ctx.fillStyle = colors[f.style] ?? colors.damage;
+      ctx.fillStyle = colors[f.style];
       ctx.strokeText(f.text, px, py);
       ctx.fillText(f.text, px, py);
     }
@@ -73,8 +91,15 @@ export class Floaters {
 
 // Monsters inside a hit shape, nearest first. dir: unit vector in world axes.
 //   line: a strip `width` wide, `reach` long; arc: within `reach` and `arc` degrees.
-export function shapeTargets(origin, dir, shape, monsters) {
-  const out = [];
+export interface Shape {
+  hit?: "arc" | "line" | "circle";
+  reach: number;
+  arc?: number;
+  width?: number;
+}
+
+export function shapeTargets(origin: Vec2, dir: Vec2, shape: Shape, monsters: Monster[]): Monster[] {
+  const out: { m: Monster; along: number }[] = [];
   for (const m of monsters) {
     if (!m.alive) continue;
     const dx = m.x - origin.x, dy = m.y - origin.y;
@@ -82,29 +107,76 @@ export function shapeTargets(origin, dir, shape, monsters) {
     const side = -dx * dir.y + dy * dir.x;
     const dist = Math.hypot(dx, dy) - m.radius;
     if (shape.hit === "line") {
-      if (along > -m.radius && along - m.radius < shape.reach && Math.abs(side) < shape.width / 2 + m.radius) out.push({ m, along });
+      if (along > -m.radius && along - m.radius < shape.reach && Math.abs(side) < (shape.width ?? 40) / 2 + m.radius) out.push({ m, along });
     } else if (shape.hit === "circle") {
       if (dist < shape.reach) out.push({ m, along: dist });
     } else {
       const ang = (Math.atan2(side, along) * 180) / Math.PI;
-      if (dist < shape.reach && Math.abs(ang) < shape.arc / 2 + 20) out.push({ m, along });
+      if (dist < shape.reach && Math.abs(ang) < (shape.arc ?? 90) / 2 + 20) out.push({ m, along });
     }
   }
   out.sort((a, b) => a.along - b.along);
   return out.map((o) => o.m);
 }
 
+export interface ShotSpec {
+  kind: "bolt" | "arrow" | "wave" | "skill";
+  speed: number;
+  range: number;
+  radius: number;
+  pierce?: boolean;
+  color?: string;
+  onHit: (m: Monster, dir: Vec2) => void;
+}
+
+interface Projectile {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  left: number;
+  kind: ShotSpec["kind"];
+  radius: number;
+  color?: string;
+  pierce: boolean;
+  onHit: ShotSpec["onHit"];
+  hitSet: Set<Monster>;
+  age: number;
+}
+
+interface CombatDeps {
+  fx: Particles;
+  tex: Textures;
+  floaters: Floaters;
+  monsters: Monster[];
+  hero: Hero;
+  onKill: (m: Monster) => void;
+}
+
 export class Combat {
-  // hero: stats for damage; onKill(monster); onHit(monster, result): after any damage lands
-  constructor({ fx, tex, floaters, monsters, hero, onKill }) {
-    Object.assign(this, { fx, tex, floaters, monsters, hero, onKill });
-    this.projectiles = [];
-    this.pending = []; // delayed second hits (dual daggers)
-    this.burnClock = 0;
+  fx: Particles;
+  tex: Textures;
+  floaters: Floaters;
+  monsters: Monster[];
+  hero: Hero;
+  onKill: (m: Monster) => void;
+  projectiles: Projectile[] = [];
+  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType }[] = []; // delayed second hits (dual daggers)
+  burnClock = 0;
+
+  // hero: stats for damage; onKill(monster)
+  constructor({ fx, tex, floaters, monsters, hero, onKill }: CombatDeps) {
+    this.fx = fx;
+    this.tex = tex;
+    this.floaters = floaters;
+    this.monsters = monsters;
+    this.hero = hero;
+    this.onKill = onKill;
   }
 
   // The player's weapon lands: resolve a melee hit or launch a projectile.
-  strike(player, weaponId) {
+  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, weaponId: string | null): void {
     const w = weaponStats(weaponId, this.hero.stats);
     const dir = player.aimDir();
     const origin = { x: player.x, y: player.y };
@@ -123,12 +195,12 @@ export class Combat {
     const targets = w.pierce || w.hit !== "line" ? hits : hits.slice(0, 1);
     for (const m of targets) this.damage(m, w, dir);
     this.slashFx(origin, dir, w);
-    if (w.hits > 1) this.pending.push({ t: 0.14, origin, dir, w });
+    if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir, w });
   }
 
   // Launch a projectile from `origin` along unit `aim`: { kind, speed, range, radius, pierce,
   // color, onHit(monster, dir) }.
-  shoot(origin, aim, p) {
+  shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
     this.projectiles.push({
       x: origin.x + aim.x * 40, y: origin.y + aim.y * 40, z: 60,
       vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
@@ -137,14 +209,14 @@ export class Combat {
   }
 
   // A normal attack lands on a monster.
-  damage(m, w, dir) {
+  damage(m: Monster, w: WeaponType, dir: Vec2): void {
     const r = basicDamage(this.hero.stats, w, m);
     if (this.hero.stats.stunHit && Math.random() < this.hero.stats.stunHit) m.stun = Math.max(m.stun, 1);
     this.apply(m, r, dir, w.knock ?? 25);
   }
 
   // Land a computed hit { dmg, crit, magic } on a monster.
-  apply(m, r, dir, knock = 25) {
+  apply(m: Monster, r: Hit, dir: Vec2, knock = 25): boolean {
     if (!m.alive) return false;
     const died = m.hit(r.dmg, dir, knock);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
@@ -154,18 +226,18 @@ export class Combat {
     return died;
   }
 
-  slashFx(origin, dir, w) {
+  slashFx(origin: Vec2, dir: Vec2, w: WeaponType): void {
     const line = w.hit === "line";
     const reach = line ? w.reach : w.reach * 0.75;
     const n = line ? 6 : 9;
     for (let i = 0; i < n; i++) {
-      let px, py;
+      let px: number, py: number;
       if (line) {
         const f = (i + 1) / n;
         px = origin.x + dir.x * reach * f;
         py = origin.y + dir.y * reach * f;
       } else {
-        const a = Math.atan2(dir.y, dir.x) + ((i / (n - 1)) - 0.5) * ((w.arc * Math.PI) / 180);
+        const a = Math.atan2(dir.y, dir.x) + ((i / (n - 1)) - 0.5) * (((w.arc ?? 90) * Math.PI) / 180);
         px = origin.x + Math.cos(a) * reach;
         py = origin.y + Math.sin(a) * reach;
       }
@@ -174,7 +246,7 @@ export class Combat {
     }
   }
 
-  update(dt) {
+  update(dt: number): void {
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       p.t -= dt;
@@ -238,7 +310,7 @@ export class Combat {
   }
 
   // Projectiles drawn over the scene (arrows as sprites, magic as a glowing core).
-  draw(ctx, view, arrowImg) {
+  draw(ctx: CanvasRenderingContext2D, view: View, arrowImg: Img | undefined): void {
     const { k, ox, oy } = view;
     for (const p of this.projectiles) {
       const px = mapX(p.x, p.y) * k + ox, py = mapY(p.x, p.y, p.z) * k + oy;

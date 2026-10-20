@@ -2,14 +2,17 @@
 // at 40 px. icon(glyph, color) returns a cached 96 px canvas.
 
 const SIZE = 96;
-const cache = new Map();
+const cache = new Map<string, HTMLCanvasElement>();
+type G = CanvasRenderingContext2D;
+type Pt = [number, number];
 
-export function icon(glyph, color) {
+export function icon(glyph: string, color: string): HTMLCanvasElement {
   const key = `${glyph}|${color}`;
-  if (cache.has(key)) return cache.get(key);
+  const hit = cache.get(key);
+  if (hit) return hit;
   const c = document.createElement("canvas");
   c.width = c.height = SIZE;
-  const g = c.getContext("2d");
+  const g = c.getContext("2d")!;
   // gem: dark rim, coloured body lit from the top left
   const r = 14;
   rounded(g, 3, 3, SIZE - 6, SIZE - 6, r);
@@ -44,7 +47,7 @@ export function icon(glyph, color) {
   return c;
 }
 
-function rounded(g, x, y, w, h, r) {
+function rounded(g: G, x: number, y: number, w: number, h: number, r: number): void {
   g.beginPath();
   g.moveTo(x + r, y);
   g.arcTo(x + w, y, x + w, y + h, r);
@@ -54,35 +57,35 @@ function rounded(g, x, y, w, h, r) {
   g.closePath();
 }
 
-function mix(a, b, t) {
+function mix(a: string, b: string, t: number): string {
   const pa = parse(a), pb = parse(b);
   return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(",")})`;
 }
 
-function parse(hex) {
+function parse(hex: string): number[] {
   const h = hex.replace("#", "");
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
 }
 
 // Each glyph draws centred on 0,0 within about ±30 px; `under` is the outline pass.
-const line = (g, pts) => {
+const line = (g: G, pts: Pt[]) => {
   g.beginPath();
   pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
   g.stroke();
 };
-const poly = (g, pts) => {
+const poly = (g: G, pts: Pt[]) => {
   g.beginPath();
   pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
   g.closePath();
   g.fill();
 };
-const dot = (g, x, y, r, under) => {
+const dot = (g: G, x: number, y: number, r: number, under: boolean) => {
   g.beginPath();
   g.arc(x, y, r + (under ? 3 : 0), 0, Math.PI * 2);
   g.fill();
 };
-const star = (g, x, y, r, under) => {
-  const k = under ? 3 : 0, pts = [];
+const star = (g: G, x: number, y: number, r: number, under: boolean) => {
+  const k = under ? 3 : 0, pts: Pt[] = [];
   for (let i = 0; i < 8; i++) {
     const a = (i * Math.PI) / 4, rr = (i % 2 ? r * 0.35 : r) + k;
     pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
@@ -90,7 +93,7 @@ const star = (g, x, y, r, under) => {
   poly(g, pts);
 };
 
-const GLYPHS = {
+const GLYPHS: Record<string, (g: G, under: boolean) => void> = {
   star: (g, u) => star(g, 0, 0, 26, u),
   bolt: (g, u) => {
     line(g, [[-24, 22], [10, -12]]);
@@ -153,7 +156,8 @@ const GLYPHS = {
     for (let t = 0; t < 4 * Math.PI; t += 0.2) {
       const r = 3 + t * 2.2;
       const x = Math.cos(t) * r, y = Math.sin(t) * r;
-      t ? g.lineTo(x, y) : g.moveTo(x, y);
+      if (t) g.lineTo(x, y);
+      else g.moveTo(x, y);
     }
     g.stroke();
   },
@@ -242,12 +246,12 @@ const GLYPHS = {
     line(g, [[-22, -24], [10, 26]]);
     line(g, [[-6, -26], [24, 22]]);
   },
-  storm: (g) => {
+  storm: (g, u) => {
     for (let i = 0; i < 4; i++) {
       const a = (i * Math.PI) / 2 + 0.4;
       line(g, [[Math.cos(a) * 8, Math.sin(a) * 8], [Math.cos(a + 0.5) * 28, Math.sin(a + 0.5) * 28]]);
     }
-    GLYPHS.swirl(g);
+    GLYPHS.swirl(g, u);
   },
   fan: (g) => {
     for (const a of [-0.55, -0.28, 0, 0.28, 0.55]) {

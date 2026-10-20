@@ -1,7 +1,14 @@
 // Inventory: a grid of slots plus the equipped weapon, costume, top and bottom dyes, saved in
 // the browser.
 
-import { ITEMS, itemSlot, stackLimit } from "./items.js";
+import { ITEMS, itemSlot, stackLimit } from "./items";
+import type { EquipSlot } from "./items";
+
+export interface Stack {
+  id: string;
+  count: number;
+}
+export type Equipped = Record<EquipSlot, string | null>;
 
 export const COLS = 8;
 export const ROWS = 5;
@@ -14,38 +21,39 @@ const NEW_COSTUMES = [
   "costume_adventurer_red", "costume_adventurer_navy", "costume_adventurer_teal", "costume_adventurer_plum", "costume_adventurer_ochre",
 ];
 
-export const STARTER = {
+export const STARTER: { equipped: Equipped; items: string[] } = {
   equipped: { weapon: "staff", costume: "costume_mage", top: null, bottom: null },
   items: ["sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "dual_daggers", "bow", "top_sky", "bottom_navy", ...NEW_COSTUMES],
 };
 
 export class Inventory {
+  slots: (Stack | null)[] = new Array(COLS * ROWS).fill(null);
+  equipped: Equipped = { weapon: null, costume: null, top: null, bottom: null };
+  listeners = new Set<(inv: Inventory) => void>();
+
   constructor() {
-    this.slots = new Array(COLS * ROWS).fill(null); // { id, count } | null
-    this.equipped = { weapon: null, costume: null, top: null, bottom: null };
-    this.listeners = new Set();
     if (!this.load()) this.reset();
   }
 
-  reset() {
+  reset(): void {
     this.slots.fill(null);
     this.equipped = { ...STARTER.equipped };
     for (const id of STARTER.items) this.add(id, 1, { silent: true });
     this.changed();
   }
 
-  onChange(fn) {
+  onChange(fn: (inv: Inventory) => void): () => boolean {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }
 
-  changed() {
+  changed(): void {
     this.save();
     for (const fn of this.listeners) fn(this);
   }
 
   // Add items, filling existing stacks first. Returns how many did not fit.
-  add(id, count = 1, { silent = false } = {}) {
+  add(id: string, count = 1, { silent = false } = {}): number {
     if (!ITEMS[id]) return count;
     const max = stackLimit(id);
     let left = count;
@@ -69,7 +77,7 @@ export class Inventory {
   }
 
   // Drag one slot onto another: merge equal stacks, otherwise swap.
-  move(from, to) {
+  move(from: number, to: number): void {
     if (from === to) return;
     const a = this.slots[from], b = this.slots[to];
     if (!a) return;
@@ -86,7 +94,7 @@ export class Inventory {
   }
 
   // Equip the item in a grid slot; whatever was equipped there goes back into that slot.
-  equip(index) {
+  equip(index: number): boolean {
     const s = this.slots[index];
     const slot = s && itemSlot(s.id);
     if (!slot) return false;
@@ -99,7 +107,7 @@ export class Inventory {
 
   // Take an equipped item off into the given grid slot, or the first free one. Everything but
   // the costume can come off (bare hands, the costume's own colours); a costume only swaps.
-  unequip(slot, index = -1) {
+  unequip(slot: EquipSlot, index = -1): boolean {
     const id = this.equipped[slot];
     if (!id) return false;
     if (index < 0) index = this.slots.indexOf(null);
@@ -113,11 +121,11 @@ export class Inventory {
     return true;
   }
 
-  get full() {
+  get full(): boolean {
     return !this.slots.includes(null);
   }
 
-  save() {
+  save(): void {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ slots: this.slots, equipped: this.equipped }));
     } catch {
@@ -125,8 +133,8 @@ export class Inventory {
     }
   }
 
-  load() {
-    let data = null, migrated = false;
+  load(): boolean {
+    let data: { slots?: (Stack | null)[]; equipped?: Partial<Equipped> } | null = null, migrated = false;
     try {
       data = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
       if (!data) {
@@ -138,14 +146,14 @@ export class Inventory {
     }
     if (!data || !Array.isArray(data.slots) || data.slots.length !== this.slots.length) return false;
     this.slots = data.slots.map((s) => (s && ITEMS[s.id] && s.count > 0 ? { id: s.id, count: s.count } : null));
-    for (const slot of Object.keys(this.equipped)) {
+    for (const slot of Object.keys(this.equipped) as EquipSlot[]) {
       const id = data.equipped?.[slot];
       this.equipped[slot] = id && itemSlot(id) === slot ? id : STARTER.equipped[slot];
     }
     if (migrated) {
       // v1 had no costume slot and always wore a top and bottom: white and black are the mage
       // costume's own colours, so drop them back into the bag
-      for (const slot of ["top", "bottom"]) {
+      for (const slot of ["top", "bottom"] as const) {
         const id = data.equipped?.[slot];
         if (id === "top_white" || id === "bottom_black") {
           this.equipped[slot] = null;

@@ -8,23 +8,147 @@
 //                strengthen every active skill. Four to start, more from element books.
 // stats.js turns this into numbers, skills.js runs the actives.
 
+import type { WeaponId } from "./items";
+
 export const MAX_LEVEL = 200;
 
+// Stat changes keyed by stat name (stats.ts lists them).
+export type StatBag = Partial<Record<string, number>>;
+type ByRank<T> = (rank: number) => T;
+
+export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower";
+
+// An active skill's numbers; which fields matter depends on `type` (skills.ts).
+export interface SkillDef {
+  type: SkillType;
+  stat?: "atk" | "matk";
+  mult?: ByRank<number>;
+  mp: number;
+  cd: number;
+  motion: string;
+  cast?: number;
+  color: string;
+  speed?: number;
+  range?: number;
+  radius?: number;
+  pierce?: boolean;
+  delay?: number;
+  length?: number;
+  width?: number;
+  knock?: number;
+  stun?: ByRank<number>;
+  slow?: ByRank<number>;
+  freeze?: ByRank<number>;
+  heal?: ByRank<number>;
+  base?: ByRank<number>;
+  duration?: number;
+  buff?: ByRank<StatBag>;
+  hits?: number;
+  pulses?: number;
+  every?: number;
+  reach?: number;
+  arc?: number;
+  count?: number;
+  spread?: number;
+  arrow?: boolean;
+  distance?: number;
+  ticks?: number;
+}
+
+export interface TreeNode {
+  id: string;
+  name: string;
+  kind: "active" | "passive";
+  max: number;
+  need: number;
+  glyph: string;
+  desc: ByRank<string>;
+  stats?: ByRank<StatBag>;
+  skill?: SkillDef;
+}
+
+export interface Tree {
+  name: string;
+  cls: ClassId | null;
+  book?: string;
+  color: string;
+  glyph: string;
+  note: string;
+  nodes: TreeNode[];
+}
+
+export interface MasteryReward {
+  at: number;
+  kind: "passive" | "active";
+  name: string;
+  desc: string;
+  stats?: StatBag;
+  id?: string;
+  glyph?: string;
+  skill?: SkillDef;
+}
+
+export interface Mastery {
+  name: string;
+  kind: "weapon" | "life";
+  weapons?: WeaponId[];
+  glyph: string;
+  max: number;
+  per: StatBag;
+  perDesc: string;
+  rewards: MasteryReward[];
+  book?: string;
+}
+
+export interface ElementDef {
+  name: string;
+  color: string;
+  glyph: string;
+  max: number;
+  side: string;
+  per: StatBag;
+  skill: string;
+  at10: string;
+  book?: string;
+}
+
+export type ClassId = "mage" | "warrior";
+
+export interface ClassDef {
+  name: string;
+  note: string;
+  trees: string[];
+  base: StatBag;
+  growth: StatBag;
+  weapon: WeaponId;
+}
+
+export interface Active {
+  id: string;
+  name: string;
+  glyph: string;
+  color: string;
+  max: number;
+  skill: SkillDef;
+  desc: string | ByRank<string>;
+  source: { tree?: string; mastery?: string; at?: number; weapons?: WeaponId[] };
+}
+
 // Experience to go from `level` to the next.
-export function xpToNext(level) {
+export function xpToNext(level: number): number {
   return Math.round(25 * level ** 1.55 + 15);
 }
 
 // Stats every character has (see stats.js for what they do). crit, critDmg, aspd, move, cdr
 // and dmgRed are fractions.
-export const STAT_NAMES = {
+export const STAT_NAMES: Record<string, string> = {
   maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", atk: "พลังโจมตี", matk: "พลังเวท", def: "ป้องกัน", mdef: "ต้านเวท",
   crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", dmgRed: "ลดความเสียหาย",
 };
 export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "dmgRed"]);
 
-export const CLASSES = {
+export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
     name: "จอมเวท",
     note: "พลังเวทสูง ตีจากระยะไกล HP น้อย",
@@ -47,10 +171,10 @@ export const CLASSES = {
 // node: { id, name, kind: active|passive, max, need (points already in the tree), glyph,
 //         desc(rank), stats(rank) for passives, skill for actives (skills.js) }
 // skill: { type, stat: atk|matk, mult(rank), mp, cd, motion, cast?, ... } — see skills.js.
-const pct = (v) => `${Math.round(v * 100)}%`;
-const lin = (a, b) => (r) => a + b * (r - 1);
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+const lin = (a: number, b: number) => (r: number) => a + b * (r - 1);
 
-export const TREES = {
+export const TREES: Record<string, Tree> = {
   arcane: {
     name: "เวทโจมตี", cls: "mage", color: "#8fb6ff", glyph: "bolt",
     note: "ยิงเวทใส่ศัตรูจากระยะไกล ดาเมจสูง",
@@ -184,7 +308,8 @@ export const TREES = {
 // ---- masteries ----
 // Weapon masteries cover weapon types (items.js); each level adds damage and attack speed with
 // them, and set levels open a passive or an active that needs that weapon in hand.
-const weaponMastery = (name, weapons, glyph, p5, s15, p30) => ({
+type RewardSpec = Omit<MasteryReward, "at" | "kind">;
+const weaponMastery = (name: string, weapons: WeaponId[], glyph: string, p5: RewardSpec, s15: RewardSpec): Mastery => ({
   name, kind: "weapon", weapons, glyph, max: 30,
   per: { dmg: 0.02, aspd: 0.005 },
   perDesc: "ดาเมจ +2% ความเร็วโจมตี +0.5% ต่อระดับ เมื่อถืออาวุธนี้",
@@ -195,7 +320,7 @@ const weaponMastery = (name, weapons, glyph, p5, s15, p30) => ({
   ],
 });
 
-export const MASTERIES = {
+export const MASTERIES: Record<string, Mastery> = {
   sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword",
     { name: "คมดาบ", stats: { crit: 0.05 }, desc: "โอกาสคริติคอล +5% เมื่อถือดาบ" },
     { id: "sword_wave", name: "คลื่นดาบ", glyph: "wave",
@@ -245,7 +370,7 @@ export const MASTERIES = {
 // ---- elements ----
 // Each level adds base stats (the element's strong side most); levels also strengthen every
 // active skill (skill line), and at level 10 the element adds an effect to skill hits.
-export const ELEMENTS = {
+export const ELEMENTS: Record<string, ElementDef> = {
   earth: {
     name: "ดิน", color: "#d6a35c", glyph: "earth", max: 50, side: "ป้องกัน",
     per: { def: 1.4, mdef: 0.8, maxHp: 10, atk: 0.3, matk: 0.3 },
@@ -280,42 +405,64 @@ export const ELEMENTS = {
 };
 
 // Books are items (items.js) that open a tree, mastery or element when read.
-export const BOOKS = {
+export const BOOKS: Record<string, { kind: "tree" | "mastery" | "element"; id: string }> = {
   book_survivor: { kind: "tree", id: "survivor" },
   book_gathering: { kind: "mastery", id: "gathering" },
   book_lightning: { kind: "element", id: "lightning" },
 };
 
 // Every active skill by id: { name, glyph, color, skill, rankOf(progress) }.
-export const ACTIVES = {};
+export const ACTIVES: Record<string, Active> = {};
 for (const [treeId, tree] of Object.entries(TREES)) {
   for (const n of tree.nodes) {
-    if (n.kind === "active") ACTIVES[n.id] = { ...n, source: { tree: treeId }, color: tree.color };
+    if (n.kind === "active" && n.skill) ACTIVES[n.id] = { ...n, skill: n.skill, source: { tree: treeId }, color: tree.color };
   }
 }
 for (const [mid, m] of Object.entries(MASTERIES)) {
   for (const r of m.rewards) {
-    if (r.kind === "active") ACTIVES[r.id] = { ...r, max: 1, source: { mastery: mid, at: r.at, weapons: m.weapons }, color: "#ffe6a8", desc: () => r.desc };
+    if (r.kind === "active" && r.id && r.skill) {
+      ACTIVES[r.id] = { id: r.id, name: r.name, glyph: r.glyph ?? "star", skill: r.skill, max: 1, source: { mastery: mid, at: r.at, weapons: m.weapons }, color: "#ffe6a8", desc: r.desc };
+    }
   }
 }
 
 const SAVE_KEY = "mmoproject.character.v1";
 
+interface SaveData {
+  cls?: ClassId | null;
+  level?: number;
+  xp?: number;
+  ranks?: Record<string, number>;
+  mastery?: Record<string, number>;
+  elements?: Record<string, number>;
+  unlocked?: { trees?: string[]; masteries?: string[]; elements?: string[] };
+  hotbar?: (string | null)[];
+}
+
 export class Progress {
+  listeners = new Set<(p: Progress) => void>();
+  cls: ClassId | null = null;
+  level = 1;
+  xp = 0;
+  ranks: Record<string, number> = {};    // tree node id -> rank
+  mastery: Record<string, number> = {};  // mastery id -> level
+  elements: Record<string, number> = {}; // element id -> level
+  unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // from books
+  hotbar: (string | null)[] = new Array(10).fill(null);
+
   constructor() {
-    this.listeners = new Set();
     if (!this.load()) this.reset(null);
   }
 
   // A fresh character of a class (null: not chosen yet).
-  reset(cls) {
+  reset(cls: ClassId | null): void {
     this.cls = cls;
     this.level = 1;
     this.xp = 0;
-    this.ranks = {};       // tree node id -> rank
-    this.mastery = {};     // mastery id -> level
-    this.elements = {};    // element id -> level
-    this.unlocked = { trees: [], masteries: [], elements: [] }; // from books
+    this.ranks = {};
+    this.mastery = {};
+    this.elements = {};
+    this.unlocked = { trees: [], masteries: [], elements: [] };
     this.hotbar = new Array(10).fill(null);
     if (cls === "mage") this.hotbar[0] = "magic_bolt";
     if (cls === "warrior") this.hotbar[0] = "whirlwind";
@@ -323,18 +470,18 @@ export class Progress {
   }
 
   // Keep the level and books, give every point back.
-  refund() {
+  refund(): void {
     this.ranks = {};
     this.mastery = {};
     this.elements = {};
     this.changed();
   }
 
-  onChange(fn) {
+  onChange(fn: (p: Progress) => void): void {
     this.listeners.add(fn);
   }
 
-  changed() {
+  changed(): void {
     this.save();
     for (const fn of this.listeners) fn(this);
   }
@@ -344,7 +491,7 @@ export class Progress {
   }
 
   get spent() {
-    const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+    const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
     return sum(this.ranks) + sum(this.mastery) + sum(this.elements);
   }
 
@@ -357,7 +504,7 @@ export class Progress {
   }
 
   // Add experience; returns how many levels were gained.
-  addXp(amount) {
+  addXp(amount: number): number {
     if (this.level >= MAX_LEVEL) return 0;
     this.xp += amount;
     let gained = 0;
@@ -371,29 +518,29 @@ export class Progress {
     return gained;
   }
 
-  trees() {
+  trees(): string[] {
     const own = this.cls ? CLASSES[this.cls].trees : [];
     return [...own, ...this.unlocked.trees.filter((t) => !own.includes(t))];
   }
 
-  lockedTrees() {
+  lockedTrees(): string[] {
     return Object.keys(TREES).filter((t) => !this.trees().includes(t) && TREES[t].book);
   }
 
-  masteries() {
+  masteries(): string[] {
     return Object.keys(MASTERIES).filter((m) => MASTERIES[m].kind === "weapon" || this.unlocked.masteries.includes(m));
   }
 
-  elementsOpen() {
+  elementsOpen(): string[] {
     return Object.keys(ELEMENTS).filter((e) => !ELEMENTS[e].book || this.unlocked.elements.includes(e));
   }
 
-  pointsIn(treeId) {
+  pointsIn(treeId: string): number {
     return TREES[treeId].nodes.reduce((a, n) => a + (this.ranks[n.id] ?? 0), 0);
   }
 
   // Why a node can't take a point, or null when it can.
-  blockNode(treeId, node) {
+  blockNode(treeId: string, node: TreeNode): string | null {
     if (!this.trees().includes(treeId)) return "ยังไม่ได้ปลดล็อคต้นสกิลนี้";
     if ((this.ranks[node.id] ?? 0) >= node.max) return "เต็มแล้ว";
     if (this.pointsIn(treeId) < node.need) return `ต้องลงแต้มในต้นนี้ ${node.need} แต้มก่อน`;
@@ -401,7 +548,7 @@ export class Progress {
     return null;
   }
 
-  raiseNode(treeId, nodeId) {
+  raiseNode(treeId: string, nodeId: string): boolean {
     const node = TREES[treeId].nodes.find((n) => n.id === nodeId);
     if (!node || this.blockNode(treeId, node)) return false;
     this.ranks[nodeId] = (this.ranks[nodeId] ?? 0) + 1;
@@ -411,16 +558,16 @@ export class Progress {
     return true;
   }
 
-  raiseMastery(id) {
+  raiseMastery(id: string): boolean {
     const m = MASTERIES[id];
     if (!m || !this.masteries().includes(id) || (this.mastery[id] ?? 0) >= m.max || this.free <= 0) return false;
     this.mastery[id] = (this.mastery[id] ?? 0) + 1;
-    for (const r of m.rewards) if (r.kind === "active" && r.at === this.mastery[id]) this.autoSlot(r.id);
+    for (const r of m.rewards) if (r.kind === "active" && r.id && r.at === this.mastery[id]) this.autoSlot(r.id);
     this.changed();
     return true;
   }
 
-  raiseElement(id) {
+  raiseElement(id: string): boolean {
     const e = ELEMENTS[id];
     if (!e || !this.elementsOpen().includes(id) || (this.elements[id] ?? 0) >= e.max || this.free <= 0) return false;
     this.elements[id] = (this.elements[id] ?? 0) + 1;
@@ -429,7 +576,7 @@ export class Progress {
   }
 
   // Read a book item: returns a message, or null if it was already known.
-  readBook(bookId) {
+  readBook(bookId: string): string | null {
     const b = BOOKS[bookId];
     if (!b) return null;
     const list = { tree: this.unlocked.trees, mastery: this.unlocked.masteries, element: this.unlocked.elements }[b.kind];
@@ -440,13 +587,13 @@ export class Progress {
     return { tree: "ต้นสกิล", mastery: "ความเชี่ยวชาญ", element: "ธาตุ" }[b.kind] + name;
   }
 
-  autoSlot(skillId) {
+  autoSlot(skillId: string): void {
     if (this.hotbar.includes(skillId)) return;
     const i = this.hotbar.indexOf(null);
     if (i >= 0) this.hotbar[i] = skillId;
   }
 
-  setSlot(i, skillId) {
+  setSlot(i: number, skillId: string): void {
     const j = this.hotbar.indexOf(skillId);
     if (j >= 0) this.hotbar[j] = this.hotbar[i];
     this.hotbar[i] = skillId;
@@ -454,14 +601,14 @@ export class Progress {
   }
 
   // Rank of an active skill (mastery skills are rank 1 once their level is reached).
-  skillRank(id) {
+  skillRank(id: string): number {
     const a = ACTIVES[id];
     if (!a) return 0;
     if (a.source.tree) return this.trees().includes(a.source.tree) ? this.ranks[id] ?? 0 : 0;
-    return (this.mastery[a.source.mastery] ?? 0) >= a.source.at ? 1 : 0;
+    return (this.mastery[a.source.mastery!] ?? 0) >= a.source.at! ? 1 : 0;
   }
 
-  save() {
+  save(): void {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
@@ -472,28 +619,32 @@ export class Progress {
     }
   }
 
-  load() {
-    let d = null;
+  load(): boolean {
+    let d: SaveData | null = null;
     try {
       d = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
     } catch {
       return false;
     }
     if (!d || (d.cls && !CLASSES[d.cls])) return false;
+    const saved = d;
     this.cls = d.cls ?? null;
-    this.level = Math.max(1, Math.min(MAX_LEVEL, d.level | 0 || 1));
-    this.xp = Math.max(0, +d.xp || 0);
-    const known = (o, ok) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
+    this.level = Math.max(1, Math.min(MAX_LEVEL, (d.level ?? 1) | 0 || 1));
+    this.xp = Math.max(0, Number(d.xp) || 0);
+    const known = (o: Record<string, number> | undefined, ok: (k: string) => boolean) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
     const nodes = new Set(Object.values(TREES).flatMap((t) => t.nodes.map((n) => n.id)));
     this.ranks = known(d.ranks, (k) => nodes.has(k));
-    this.mastery = known(d.mastery, (k) => MASTERIES[k]);
-    this.elements = known(d.elements, (k) => ELEMENTS[k]);
+    this.mastery = known(d.mastery, (k) => !!MASTERIES[k]);
+    this.elements = known(d.elements, (k) => !!ELEMENTS[k]);
     this.unlocked = {
       trees: (d.unlocked?.trees ?? []).filter((t) => TREES[t]),
       masteries: (d.unlocked?.masteries ?? []).filter((m) => MASTERIES[m]),
       elements: (d.unlocked?.elements ?? []).filter((e) => ELEMENTS[e]),
     };
-    this.hotbar = Array.from({ length: 10 }, (_, i) => (ACTIVES[d.hotbar?.[i]] ? d.hotbar[i] : null));
+    this.hotbar = Array.from({ length: 10 }, (_, i) => {
+      const id = saved.hotbar?.[i];
+      return id && ACTIVES[id] ? id : null;
+    });
     if (this.spent > this.points) this.refund();
     return true;
   }

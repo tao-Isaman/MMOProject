@@ -1,6 +1,8 @@
 // Image loading and the small textures built at runtime.
 
-export function loadImage(src) {
+import type { Atlas, Img } from "./types";
+
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.decoding = "async";
@@ -11,7 +13,7 @@ export function loadImage(src) {
 }
 
 // Load { key: url } in parallel, reporting progress as a 0..1 fraction.
-export async function loadAll(list, onProgress) {
+export async function loadAll(list: Record<string, string>, onProgress: (f: number) => void): Promise<Record<string, HTMLImageElement>> {
   const keys = Object.keys(list);
   let done = 0;
   const images = await Promise.all(
@@ -25,7 +27,7 @@ export async function loadAll(list, onProgress) {
   return Object.fromEntries(keys.map((k, i) => [k, images[i]]));
 }
 
-function canvas(w, h) {
+function canvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
@@ -34,12 +36,12 @@ function canvas(w, h) {
 
 // Halved copies of an image, so small on-screen sprites sample a texture close to their size
 // (canvas drawImage does no mipmapping and shimmers when shrinking a large texture a lot).
-export function mipChain(img, levels) {
-  const chain = [img];
+export function mipChain(img: Img, levels: number): Img[] {
+  const chain: Img[] = [img];
   for (let i = 1; i < levels; i++) {
     const prev = chain[i - 1];
     const c = canvas(Math.max(1, prev.width >> 1), Math.max(1, prev.height >> 1));
-    const g = c.getContext("2d");
+    const g = c.getContext("2d")!;
     g.imageSmoothingQuality = "high";
     g.drawImage(prev, 0, 0, c.width, c.height);
     chain.push(c);
@@ -49,11 +51,11 @@ export function mipChain(img, levels) {
 
 // Pre-rotated, ground-projected copies of an atlas: row = atlas frame, column = one of
 // `turns` rotations, each cell squashed by cos 45 like a sprite lying on the ground.
-export function bakeGround(img, cols, rows, cell, turns, levels) {
+export function bakeGround(img: Img, cols: number, rows: number, cell: number, turns: number, levels: number): Atlas {
   const src = img.width / cols;
   const ch = Math.round(cell * Math.SQRT1_2);
   const c = canvas(cell * turns, ch * cols * rows);
-  const g = c.getContext("2d");
+  const g = c.getContext("2d")!;
   g.imageSmoothingQuality = "high";
   for (let f = 0; f < cols * rows; f++) {
     for (let t = 0; t < turns; t++) {
@@ -66,9 +68,9 @@ export function bakeGround(img, cols, rows, cell, turns, levels) {
 }
 
 // Soft round glow in one colour (the GlowDot texture of the Oriverse spell).
-export function glow(color, size = 64) {
+export function glow(color: string, size = 64): HTMLCanvasElement {
   const c = canvas(size, size);
-  const g = c.getContext("2d");
+  const g = c.getContext("2d")!;
   const r = size / 2;
   const grad = g.createRadialGradient(r, r, 0, r, r, r);
   grad.addColorStop(0, "#ffffff");
@@ -81,9 +83,9 @@ export function glow(color, size = 64) {
 }
 
 // Multiply an image's colour by a tint, keeping its alpha.
-export function tint(img, color) {
+export function tint(img: Img, color: string): HTMLCanvasElement {
   const c = canvas(img.width, img.height);
-  const g = c.getContext("2d");
+  const g = c.getContext("2d")!;
   g.drawImage(img, 0, 0);
   g.globalCompositeOperation = "multiply";
   g.fillStyle = color;

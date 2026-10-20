@@ -5,10 +5,10 @@ usage: python3 tools/occluders.py CAPTURES [--yaws 0,1,2,3]
 CAPTURES holds the playtest tiles of the-hero-fighter oriverse/frieren/courtyard_occluders.weave
 (the capture world on a flat magenta plane, no terrain or grass) named B_y<yaw>_r<row>c<col>.png,
 taken with the same cameras as the map (tools/capture_tiles.json turned to each yaw). For each
-yaw the magenta is keyed out into an alpha mask; the colours come from assets/maps/map_y<yaw>.jpg
-so a cutout matches the map exactly. Every masked pixel is given to the object (src/world.js
+yaw the magenta is keyed out into an alpha mask; the colours come from public/assets/maps/map_y<yaw>.jpg
+so a cutout matches the map exactly. Every masked pixel is given to the object (src/world.ts
 SOLIDS) standing under it, each object becomes one cutout, and the cutouts are packed into
-assets/maps/occluders_y<yaw>.png. assets/maps/occluders.json lists, per yaw, where each cutout
+public/assets/maps/occluders_y<yaw>.png. public/assets/maps/occluders.json lists, per yaw, where each cutout
 sits on the map, the depth (map y) of the front of its footprint, and a coarse mask the game
 uses to tell whether it covers the player (src/occluders.js).
 """
@@ -33,7 +33,7 @@ SHAPE = {
 
 
 def solids():
-    src = open("src/world.js").read()
+    src = open("src/world.ts").read()
     out = []
     for m in re.finditer(r"\{ kind: \"(\w+)\", ([^}]*)\}", src):
         kind, body = m.group(1), m.group(2)
@@ -90,11 +90,11 @@ def main():
     args = ap.parse_args()
     objs = [s for s in solids() if s["kind"] in SHAPE]
     try:
-        data = json.load(open("assets/maps/occluders.json"))
+        data = json.load(open("public/assets/maps/occluders.json"))
     except FileNotFoundError:
         data = {"yaws": {}}
     for yaw in [int(v) for v in args.yaws.split(",")]:
-        color = np.array(Image.open(f"assets/maps/map_y{yaw}.jpg").convert("RGB"))
+        color = np.array(Image.open(f"public/assets/maps/map_y{yaw}.jpg").convert("RGB"))
         alpha = key_alpha(stitch(args.captures, yaw))
         alpha[alpha < 0.08] = 0
         # every object's screen box: footprint front/back depth, horizontal reach, top
@@ -157,10 +157,10 @@ def main():
             atlas[py:py + h, px:px + w] = crops[i]
             items[i]["sx"], items[i]["sy"] = px, py
         name = f"occluders_y{yaw}.png"
-        Image.fromarray(atlas).save(f"assets/maps/{name}", optimize=True)
+        Image.fromarray(atlas).save(f"public/assets/maps/{name}", optimize=True)
         data["yaws"][str(yaw)] = {"atlas": name, "items": items}
         print(f"yaw {yaw}: {len(items)} cutouts, atlas {atlas.shape[1]}x{atlas.shape[0]}")
-    json.dump(data, open("assets/maps/occluders.json", "w"), separators=(",", ":"))
+    json.dump(data, open("public/assets/maps/occluders.json", "w"), separators=(",", ":"))
 
 
 if __name__ == "__main__":

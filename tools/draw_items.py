@@ -1,9 +1,9 @@
 """Draw the weapon and item pixel art.
 
-usage: python3 tools/draw_items.py assets
+usage: python3 tools/draw_items.py public/assets
 
-Writes assets/weapons/<type>.png (upright: tip at the top, grip at the bottom, at the
-character's pixel size) and assets/items/<name>.png (inventory icons and the arrow). The art
+Writes <out>/weapons/<type>.png (upright: tip at the top, grip at the bottom, at the
+character's pixel size) and <out>/items/<name>.png (inventory icons and the arrow). The art
 follows the Oriverse sprites: black outline, flat shading ramps lit from the upper left,
 one bright specular line per surface.
 """

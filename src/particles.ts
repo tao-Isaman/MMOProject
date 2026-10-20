@@ -5,7 +5,8 @@
 //   SORTED       normal blend, depth-sorted against the player (flowers, petals)
 //   AIR_GLOW     additive, over everything (light streaks, sparkles, motes)
 
-import { S2, mapX, mapY } from "./projection.js";
+import { S2, mapX, mapY } from "./projection";
+import type { Atlas, Curve, Img, View } from "./types";
 
 export const GROUND_GLOW = 0;
 export const SORTED = 1;
@@ -13,10 +14,10 @@ export const AIR_GLOW = 2;
 
 const MAX_PARTICLES = 12000;
 
-export const rand = (a, b) => a + Math.random() * (b - a);
+export const rand = (a: number, b: number): number => a + Math.random() * (b - a);
 
 // Piecewise-linear curve over normalised life, as [[t, value], ...] (the Oriverse sequences).
-export function curve(points, t) {
+export function curve(points: Curve, t: number): number {
   if (t <= points[0][0]) return points[0][1];
   for (let i = 1; i < points.length; i++) {
     const [t1, v1] = points[i];
@@ -30,10 +31,19 @@ export function curve(points, t) {
 
 // Accumulates fractional spawns so a rate of N per second stays exact at any frame rate.
 export class Emitter {
-  constructor(rate, start, duration, spawn) {
-    Object.assign(this, { rate, start, end: start + duration, spawn, acc: 0 });
+  rate: number;
+  start: number;
+  end: number;
+  spawn: () => void;
+  acc = 0;
+
+  constructor(rate: number, start: number, duration: number, spawn: () => void) {
+    this.rate = rate;
+    this.start = start;
+    this.end = start + duration;
+    this.spawn = spawn;
   }
-  update(t, dt) {
+  update(t: number, dt: number): void {
     const a = Math.max(t - dt, this.start), b = Math.min(t, this.end);
     if (b <= a) return;
     this.acc += (b - a) * this.rate;
@@ -42,19 +52,61 @@ export class Emitter {
       this.spawn();
     }
   }
-  done(t) {
+  done(t: number): boolean {
     return t >= this.end;
   }
 }
 
-export class Particles {
-  constructor() {
-    this.list = [];
-    this.time = 0;
-  }
+// What callers pass to Particles.add; the motion fields default to zero.
+export interface ParticleSpec {
+  x: number;
+  y: number;
+  z: number;
+  life: number;
+  layer: number;
+  size: Curve;
+  alpha: Curve;
+  tex?: Img;
+  atlas?: Atlas;
+  baked?: Atlas;  // ground atlas from assets.ts bakeGround
+  frame?: number;
+  turn?: number;
+  flat?: boolean; // lies on the ground plane
+  age?: number;   // negative: born later
+  vx?: number;
+  vy?: number;
+  vz?: number;
+  az?: number;
+  drag?: number;
+  turb?: number;
+  turbScale?: number;
+  rot?: number;
+  spin?: number;
+  squash?: number;
+}
 
-  // p: { x, y, z, life, tex | atlas, size: curve, alpha: curve, layer, flat?, ... }
-  add(p) {
+export interface Particle extends ParticleSpec {
+  age: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  az: number;
+  drag: number;
+  turb: number;
+  turbScale: number;
+  rot: number;
+  spin: number;
+  squash: number;
+  seed: number;
+  depth?: number; // set while depth-sorting
+}
+
+export class Particles {
+  list: Particle[] = [];
+  time = 0;
+
+  add(spec: ParticleSpec): Particle | null {
+    const p = spec as Particle;
     if (this.list.length >= MAX_PARTICLES) return null;
     p.age = p.age ?? 0;
     p.vx = p.vx ?? 0; p.vy = p.vy ?? 0; p.vz = p.vz ?? 0;
@@ -70,7 +122,7 @@ export class Particles {
     return p;
   }
 
-  update(dt) {
+  update(dt: number): void {
     this.time += dt;
     const t = this.time;
     const list = this.list;
@@ -103,7 +155,7 @@ export class Particles {
   }
 
   // Living particles of one layer, in insertion order.
-  layer(layer) {
+  layer(layer: number): Particle[] {
     return this.list.filter((p) => p.layer === layer && p.age >= 0);
   }
 
@@ -112,7 +164,7 @@ export class Particles {
   // Sprites that need no rotation are drawn axis-aligned under an identity transform, which is
   // several times cheaper than a transformed draw when the canvas falls back to the CPU. Ground
   // flowers use `baked`: an atlas already rotated and squashed onto the ground plane.
-  draw(ctx, view, particles) {
+  draw(ctx: CanvasRenderingContext2D, view: View, particles: Particle[]): void {
     const { k, ox, oy, mipFor } = view;
     let identity = false;
     for (const p of particles) {
@@ -136,8 +188,8 @@ export class Particles {
         if (p.baked) {
           const b = p.baked, lvl = mipFor(b, r), img = b.levels[lvl];
           const cw = img.width / b.cols, ch = img.height / b.rows;
-          ctx.drawImage(img, p.turn * cw, p.frame * ch, cw, ch, mx - r / 2, my - h / 2, r, h);
-        } else {
+          ctx.drawImage(img, (p.turn ?? 0) * cw, (p.frame ?? 0) * ch, cw, ch, mx - r / 2, my - h / 2, r, h);
+        } else if (p.tex) {
           ctx.drawImage(p.tex, mx - r / 2, my - h / 2, r, h);
         }
         continue;
@@ -150,9 +202,9 @@ export class Particles {
       if (p.atlas) {
         const img = p.atlas.levels[mipFor(p.atlas, r)];
         const cw = img.width / p.atlas.cols, ch = img.height / p.atlas.rows;
-        const f = p.frame;
+        const f = p.frame ?? 0;
         ctx.drawImage(img, (f % p.atlas.cols) * cw, Math.floor(f / p.atlas.cols) * ch, cw, ch, -0.5, -0.5, 1, 1);
-      } else {
+      } else if (p.tex) {
         ctx.drawImage(p.tex, -0.5, -0.5, 1, 1);
       }
     }

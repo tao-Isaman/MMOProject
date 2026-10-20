@@ -3,10 +3,14 @@
 // Both are plain DOM panels over the canvas. Items are dragged with pointer events (works with
 // mouse, pen and touch); double-click equips or takes off.
 
-import { ITEMS, EQUIP_SLOTS, describe, itemSlot } from "./items.js";
-import { COLS } from "./inventory.js";
+import { ITEMS, EQUIP_SLOTS, describe, itemSlot } from "./items";
+import type { EquipSlot } from "./items";
+import { COLS } from "./inventory";
+import type { Inventory } from "./inventory";
+import type { Dye } from "./recolor";
+import type { Img } from "./types";
 
-export function el(tag, cls, parent) {
+export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (parent) parent.append(e);
@@ -14,7 +18,7 @@ export function el(tag, cls, parent) {
 }
 
 // A draggable window with a title bar and a close button.
-export function makeWindow(id, title, key) {
+export function makeWindow(id: string, title: string, key: string): HTMLElement {
   const win = el("section", "window hidden");
   win.id = id;
   win.setAttribute("aria-label", title);
@@ -33,7 +37,7 @@ export function makeWindow(id, title, key) {
     const r = win.getBoundingClientRect();
     const dx = e.clientX - r.left, dy = e.clientY - r.top;
     bar.setPointerCapture(e.pointerId);
-    const move = (ev) => {
+    const move = (ev: PointerEvent) => {
       win.style.left = `${Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx))}px`;
       win.style.top = `${Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy))}px`;
       win.style.right = "auto";
@@ -50,16 +54,25 @@ export function makeWindow(id, title, key) {
 }
 
 export class InventoryUI {
+  inv: Inventory;
+  icons: (id: string) => Img | null;
+  use: (index: number) => string;
+  win: HTMLElement;
+  equipEls: Record<string, HTMLElement> = {};
+  grid: HTMLElement;
+  cells: HTMLElement[];
+  tip: HTMLElement;
+  status: HTMLElement;
+
   // icons(id) -> canvas or image for an item; use(index) reads a book or other usable item
   // and returns a message
-  constructor(inv, icons, use) {
+  constructor(inv: Inventory, icons: (id: string) => Img | null, use: (index: number) => string) {
     this.inv = inv;
     this.icons = icons;
     this.use = use;
     this.win = makeWindow("inventory", "กระเป๋า", "I");
     const body = el("div", "inv-body", this.win);
     const equip = el("div", "inv-equip", body);
-    this.equipEls = {};
     for (const { slot, name } of EQUIP_SLOTS) {
       const box = el("div", "inv-equip-row", equip);
       const cell = el("div", "inv-cell equip", box);
@@ -68,10 +81,10 @@ export class InventoryUI {
       this.equipEls[slot] = cell;
     }
     this.grid = el("div", "inv-grid", body);
-    this.grid.style.setProperty("--cols", COLS);
+    this.grid.style.setProperty("--cols", String(COLS));
     this.cells = inv.slots.map((_, i) => {
       const c = el("div", "inv-cell", this.grid);
-      c.dataset.index = i;
+      c.dataset.index = String(i);
       return c;
     });
     this.tip = el("div", "inv-tip hidden", document.body);
@@ -81,39 +94,39 @@ export class InventoryUI {
     this.render();
   }
 
-  toggle(show = this.win.classList.contains("hidden")) {
+  toggle(show = this.win.classList.contains("hidden")): void {
     this.win.classList.toggle("hidden", !show);
     this.tip.classList.add("hidden");
   }
 
-  fill(cell, id, count) {
+  fill(cell: HTMLElement, id: string | null | undefined, count: number | undefined): void {
     cell.replaceChildren();
     cell.classList.toggle("filled", !!id);
     if (!id) return;
     const icon = this.icons(id);
     if (icon) {
-      const c = icon.cloneNode ? icon.cloneNode(true) : icon;
-      if (c instanceof HTMLCanvasElement) c.getContext("2d").drawImage(icon, 0, 0);
+      const c = icon.cloneNode(true) as Img;
+      if (c instanceof HTMLCanvasElement) c.getContext("2d")!.drawImage(icon, 0, 0);
       c.classList.add("inv-icon");
       cell.append(c);
     }
-    if (count > 1) el("span", "inv-count", cell).textContent = count;
+    if (count && count > 1) el("span", "inv-count", cell).textContent = String(count);
   }
 
-  render() {
+  render(): void {
     this.inv.slots.forEach((s, i) => this.fill(this.cells[i], s?.id, s?.count));
-    for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot], 1);
+    for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot as EquipSlot], 1);
     const used = this.inv.slots.filter(Boolean).length;
     this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด หรืออ่าน`;
   }
 
   // What item a cell shows.
-  itemAt(cell) {
-    if (cell.dataset.equip) return this.inv.equipped[cell.dataset.equip];
+  itemAt(cell: HTMLElement): string | null | undefined {
+    if (cell.dataset.equip) return this.inv.equipped[cell.dataset.equip as EquipSlot];
     return this.inv.slots[Number(cell.dataset.index)]?.id;
   }
 
-  showTip(cell, x, y) {
+  showTip(cell: HTMLElement, x: number, y: number): void {
     const id = this.itemAt(cell);
     if (!id) {
       this.tip.classList.add("hidden");
@@ -128,9 +141,9 @@ export class InventoryUI {
     this.tip.style.top = `${Math.min(innerHeight - r.height - 8, y + 16)}px`;
   }
 
-  bindPointer() {
-    let drag = null;
-    const cellFrom = (target) => target?.closest?.(".inv-cell");
+  bindPointer(): void {
+    let drag: { from: HTMLElement; ghost: Img | undefined; x: number; y: number; moved: boolean } | null = null;
+    const cellFrom = (target: EventTarget | null) => (target instanceof Element ? target.closest<HTMLElement>(".inv-cell") : null);
     this.win.addEventListener("pointerover", (e) => {
       const c = cellFrom(e.target);
       if (c && !drag) this.showTip(c, e.clientX, e.clientY);
@@ -141,10 +154,10 @@ export class InventoryUI {
     this.win.addEventListener("dblclick", (e) => {
       const c = cellFrom(e.target);
       if (!c) return;
-      if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip) ? null : "ถอดไม่ได้: กระเป๋าเต็ม หรือไม่มีชุดอื่นให้ใส่แทน");
+      if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip as EquipSlot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม หรือไม่มีชุดอื่นให้ใส่แทน");
       else if (this.inv.slots[Number(c.dataset.index)]) {
         const i = Number(c.dataset.index);
-        if (ITEMS[this.inv.slots[i].id].kind === "book") this.flash(this.use(i), true);
+        if (ITEMS[this.inv.slots[i]!.id].kind === "book") this.flash(this.use(i), true);
         else this.flash(this.inv.equip(i) ? null : "ไอเท็มนี้สวมใส่ไม่ได้");
       }
       this.tip.classList.add("hidden");
@@ -153,8 +166,9 @@ export class InventoryUI {
       const c = cellFrom(e.target);
       if (!c || e.button !== 0 || !this.itemAt(c)) return;
       e.preventDefault();
-      const ghost = c.querySelector(".inv-icon")?.cloneNode(true);
-      if (ghost instanceof HTMLCanvasElement) ghost.getContext("2d").drawImage(c.querySelector(".inv-icon"), 0, 0);
+      const src = c.querySelector<HTMLCanvasElement | HTMLImageElement>(".inv-icon");
+      const ghost = src?.cloneNode(true) as Img | undefined;
+      if (src && ghost instanceof HTMLCanvasElement) ghost.getContext("2d")!.drawImage(src, 0, 0);
       drag = { from: c, ghost, x: e.clientX, y: e.clientY, moved: false };
       this.tip.classList.add("hidden");
     });
@@ -186,24 +200,27 @@ export class InventoryUI {
     });
   }
 
-  drop(from, to) {
+  drop(from: HTMLElement, to: HTMLElement): void {
     const inv = this.inv;
     if (from.dataset.equip) {
       // taking something off onto a grid cell
       if (to.dataset.equip) return;
-      if (!inv.unequip(from.dataset.equip, Number(to.dataset.index))) this.flash("วางตรงนั้นไม่ได้");
+      if (!inv.unequip(from.dataset.equip as EquipSlot, Number(to.dataset.index))) this.flash("วางตรงนั้นไม่ได้");
       return;
     }
     const fi = Number(from.dataset.index);
     if (to.dataset.equip) {
-      if (itemSlot(inv.slots[fi]?.id) !== to.dataset.equip) return this.flash("ใส่ช่องนี้ไม่ได้");
+      if (itemSlot(inv.slots[fi]?.id) !== to.dataset.equip) {
+        this.flash("ใส่ช่องนี้ไม่ได้");
+        return;
+      }
       inv.equip(fi);
       return;
     }
     inv.move(fi, Number(to.dataset.index));
   }
 
-  flash(msg, good = false) {
+  flash(msg: string | null, good = false): void {
     if (!msg) return;
     this.status.textContent = msg;
     this.status.classList.toggle("good", good);
@@ -215,11 +232,18 @@ export class InventoryUI {
 
 // Wardrobe: character, hairstyle, hair colour, eye colour, with a live preview. A hairstyle
 // is locked until its head layer is in assets/chars/hair.json.
-export const GENDERS = [
+export interface Choice {
+  id: string;
+  name: string;
+  locked?: boolean;
+}
+export interface ColorChoice extends Choice, Dye {}
+
+export const GENDERS: Choice[] = [
   { id: "female", name: "หญิง" },
   { id: "male", name: "ชาย" },
 ];
-export const HAIRSTYLES = [
+export const HAIRSTYLES: Choice[] = [
   { id: "twintail", name: "ทวินเทลยาว" },
   { id: "hime", name: "ยาวหน้าม้าตรง" },
   { id: "bob", name: "บ็อบสั้น" },
@@ -232,8 +256,8 @@ export const HAIRSTYLES = [
   { id: "twinbraids", name: "เปียคู่" },
   { id: "crown", name: "เปียมงกุฎ" },
 ];
-export const HAIR_COLORS = [
-  { id: "silver", name: "สีเดิม", hue: null },
+export const HAIR_COLORS: ColorChoice[] = [
+  { id: "silver", name: "สีเดิม", hue: null, sat: 0 },
   { id: "gold", name: "ทอง", hue: 44, sat: 0.62, light: 0.02 },
   { id: "rose", name: "ชมพู", hue: 335, sat: 0.55, light: 0 },
   { id: "sky", name: "ฟ้า", hue: 200, sat: 0.6, light: -0.02 },
@@ -241,8 +265,8 @@ export const HAIR_COLORS = [
   { id: "ink", name: "ดำ", hue: 240, sat: 0.18, light: -0.42 },
   { id: "auburn", name: "แดงน้ำตาล", hue: 12, sat: 0.6, light: -0.18 },
 ];
-export const EYE_COLORS = [
-  { id: "teal", name: "เขียวมรกต", hue: null },
+export const EYE_COLORS: ColorChoice[] = [
+  { id: "teal", name: "เขียวมรกต", hue: null, sat: 0 },
   { id: "amber", name: "อำพัน", hue: 38, sat: 0.85, light: 0 },
   { id: "violet", name: "ม่วง", hue: 275, sat: 0.6, light: 0 },
   { id: "crimson", name: "แดง", hue: 355, sat: 0.75, light: 0 },
@@ -252,8 +276,15 @@ export const EYE_COLORS = [
 const LOOK_KEY = "mmoproject.look.v1";
 
 // available: hairstyle ids that have head layers
-export function loadLook(available) {
-  const look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
+export interface Look {
+  gender: string;
+  hair: string;
+  hairColor: string;
+  eyes: string;
+}
+
+export function loadLook(available: Set<string>): Look {
+  const look: Look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
   try {
     Object.assign(look, JSON.parse(localStorage.getItem(LOOK_KEY) || "{}"));
   } catch {
@@ -267,9 +298,20 @@ export function loadLook(available) {
 }
 
 export class WardrobeUI {
+  look: Look;
+  available: Set<string>;
+  noteFor: (look: Look) => string;
+  drawPreview: (cv: HTMLCanvasElement, look: Look, turn: number) => void;
+  onChange: (look: Look) => void;
+  win: HTMLElement;
+  canvas: HTMLCanvasElement;
+  turn = 0;
+  note: HTMLElement;
+
   // drawPreview(canvas, look) paints the character; onChange(look) applies it in game;
   // available: hairstyle ids with head layers; note(look) explains what the costume overrides
-  constructor(look, drawPreview, onChange, available, note) {
+  constructor(look: Look, drawPreview: (cv: HTMLCanvasElement, look: Look, turn: number) => void, onChange: (look: Look) => void,
+    available: Set<string>, note: (look: Look) => string) {
     this.look = look;
     this.available = available;
     this.noteFor = note;
@@ -281,9 +323,8 @@ export class WardrobeUI {
     this.canvas = el("canvas", "", left);
     this.canvas.width = 192;
     this.canvas.height = 192;
-    this.turn = 0;
     const turn = el("div", "wr-turn", left);
-    for (const [label, d] of [["◀", 1], ["▶", -1]]) {
+    for (const [label, d] of [["◀", 1], ["▶", -1]] as const) {
       const b = el("button", "wr-btn", turn);
       b.type = "button";
       b.textContent = label;
@@ -302,7 +343,7 @@ export class WardrobeUI {
     this.note = el("p", "wr-note", right);
   }
 
-  group(parent, title, options, key, label) {
+  group(parent: HTMLElement, title: string, options: (Choice | ColorChoice)[], key: keyof Look, label?: (o: Choice) => string): void {
     el("h3", "", parent).textContent = title;
     const row = el("div", label ? "wr-choices" : "wr-swatches", parent);
     for (const o of options) {
@@ -312,7 +353,7 @@ export class WardrobeUI {
       b.dataset.id = o.id;
       b.title = o.locked ? `${o.name} (เร็วๆ นี้)` : o.name;
       if (label) b.textContent = o.locked ? `${o.name} · เร็วๆ นี้` : o.name;
-      else b.style.setProperty("--swatch", swatchColor(o, key));
+      else b.style.setProperty("--swatch", swatchColor(o as ColorChoice, key));
       b.disabled = !!o.locked;
       b.addEventListener("click", () => {
         this.look[key] = o.id;
@@ -327,23 +368,23 @@ export class WardrobeUI {
     }
   }
 
-  sync() {
-    for (const b of this.win.querySelectorAll("[data-key]")) b.classList.toggle("on", this.look[b.dataset.key] === b.dataset.id);
+  sync(): void {
+    for (const b of this.win.querySelectorAll<HTMLElement>("[data-key]")) b.classList.toggle("on", this.look[b.dataset.key as keyof Look] === b.dataset.id);
     this.note.textContent = this.noteFor(this.look);
     this.preview();
   }
 
-  preview() {
+  preview(): void {
     this.drawPreview(this.canvas, this.look, this.turn);
   }
 
-  toggle(show = this.win.classList.contains("hidden")) {
+  toggle(show = this.win.classList.contains("hidden")): void {
     this.win.classList.toggle("hidden", !show);
     if (show) this.sync();
   }
 }
 
-function swatchColor(o, key) {
+function swatchColor(o: ColorChoice, key: string): string {
   if (o.hue === null) return key === "eyes" ? "#2bb5a3" : "#d8d4ec";
   const l = key === "eyes" ? 45 : Math.round(62 + (o.light || 0) * 100);
   return `hsl(${o.hue} ${Math.round(o.sat * 100)}% ${l}%)`;

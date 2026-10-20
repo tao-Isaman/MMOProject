@@ -1,8 +1,10 @@
 // Stats and damage. computeStats folds class, level, passives, masteries, elements, the weapon
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
-import { CLASSES, TREES, MASTERIES, ELEMENTS } from "./progression.js";
-import { rand } from "./particles.js";
+import { CLASSES, TREES, MASTERIES, ELEMENTS } from "./progression";
+import type { Progress, SkillDef, StatBag } from "./progression";
+import type { WeaponType } from "./items";
+import { rand } from "./particles";
 
 const ZERO = {
   maxHp: 0, maxMp: 0, atk: 0, matk: 0, def: 0, mdef: 0, crit: 0, critDmg: 0, aspd: 0, move: 0,
@@ -13,31 +15,46 @@ const ZERO = {
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };
 
-function add(into, from, k = 1) {
-  for (const [key, v] of Object.entries(from)) into[key] = (into[key] ?? 0) + v * k;
+export type Stats = typeof ZERO;
+
+// What a hit is measured against.
+export interface Defender {
+  def: number;
+  mdef: number;
+}
+
+export interface Hit {
+  dmg: number;
+  crit: boolean;
+  magic: boolean;
+}
+
+function add(into: Record<string, number>, from: StatBag, k = 1): void {
+  for (const [key, v] of Object.entries(from)) into[key] = (into[key] ?? 0) + (v ?? 0) * k;
 }
 
 // progress: Progress; weaponId: equipped weapon or null; buffs: [{ stats }]
-export function computeStats(progress, weaponId, buffs = []) {
+export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = []): Stats {
   const cls = CLASSES[progress.cls ?? "mage"];
-  const s = { ...ZERO };
-  add(s, cls.base);
-  add(s, cls.growth, progress.level - 1);
-  for (const [id, lv] of Object.entries(progress.elements)) add(s, ELEMENTS[id].per, lv);
+  const s: Stats = { ...ZERO };
+  const bag = s as unknown as Record<string, number>;
+  add(bag, cls.base);
+  add(bag, cls.growth, progress.level - 1);
+  for (const [id, lv] of Object.entries(progress.elements)) add(bag, ELEMENTS[id].per, lv);
   for (const treeId of progress.trees()) {
     for (const n of TREES[treeId].nodes) {
       const r = progress.ranks[n.id];
-      if (r && n.kind === "passive") add(s, n.stats(r));
+      if (r && n.kind === "passive" && n.stats) add(bag, n.stats(r));
     }
   }
   for (const [id, lv] of Object.entries(progress.mastery)) {
     const m = MASTERIES[id];
     // weapon masteries count while that weapon is in hand
-    if (m.kind === "weapon" && !m.weapons.includes(weaponId)) continue;
-    add(s, m.per, lv);
-    for (const r of m.rewards) if (r.kind === "passive" && lv >= r.at) add(s, r.stats);
+    if (m.kind === "weapon" && !m.weapons?.includes(weaponId as never)) continue;
+    add(bag, m.per, lv);
+    for (const r of m.rewards) if (r.kind === "passive" && r.stats && lv >= r.at) add(bag, r.stats);
   }
-  for (const b of buffs) add(s, b.stats);
+  for (const b of buffs) add(bag, b.stats);
   s.maxHp *= 1 + s.maxHpPct;
   s.maxMp *= 1 + s.maxMpPct;
   s.atk *= 1 + s.atkPct;
@@ -54,17 +71,17 @@ export function computeStats(progress, weaponId, buffs = []) {
 }
 
 // Defence curve: 100 defence halves the damage.
-export function mitigate(amount, defence, pierce = 0) {
+export function mitigate(amount: number, defence: number, pierce = 0): number {
   return amount * 100 / (100 + Math.max(0, defence) * (1 - pierce));
 }
 
 // Staves cast magic; everything else hits physically.
-export function isMagic(w) {
+export function isMagic(w: WeaponType): boolean {
   return w.projectile?.kind === "bolt";
 }
 
 // A normal attack: weapon roll plus the matching attack stat.
-export function basicDamage(stats, w, target) {
+export function basicDamage(stats: Stats, w: WeaponType, target: Defender): Hit {
   const magic = isMagic(w);
   const [a, b] = w.damage;
   const raw = (rand(a, b) + (magic ? stats.matk : stats.atk)) * (1 + stats.dmg);
@@ -75,22 +92,22 @@ export function basicDamage(stats, w, target) {
 
 // Average damage of the weapon in hand when it matches the skill's kind (a staff for spells,
 // any other weapon for physical skills), added to the attack stat before the multiplier.
-export function weaponPower(w, magic) {
+export function weaponPower(w: WeaponType | null | undefined, magic: boolean): number {
   return w && isMagic(w) === magic ? (w.damage[0] + w.damage[1]) / 2 : 0;
 }
 
 // A skill hit: the skill's multiplier of attack stat plus weapon power, fire and lightning
 // levels on top.
-export function skillDamage(stats, elements, skill, rank, target, weapon = null) {
+export function skillDamage(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, target: Defender, weapon: WeaponType | null = null): Hit {
   const magic = skill.stat === "matk";
   const base = (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic);
-  const raw = base * skill.mult(rank) * (1 + stats.dmg) * (1 + 0.01 * (elements.fire ?? 0));
+  const raw = base * (skill.mult?.(rank) ?? 1) * (1 + stats.dmg) * (1 + 0.01 * (elements.fire ?? 0));
   const crit = Math.random() < stats.crit + 0.003 * (elements.lightning ?? 0);
   const hit = mitigate(raw * (crit ? 1 + stats.critDmg : 1) * rand(0.92, 1.08), magic ? target.mdef : target.def, stats.pierce);
   return { dmg: Math.max(1, Math.round(hit)), crit, magic };
 }
 
 // A monster hitting the player.
-export function monsterDamage(atk, stats) {
+export function monsterDamage(atk: number, stats: Stats): number {
   return Math.max(1, Math.round(mitigate(atk * rand(0.85, 1.15), stats.def) * (1 - stats.dmgRed)));
 }

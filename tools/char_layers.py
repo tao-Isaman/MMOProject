@@ -7,12 +7,12 @@ as a layer. The game draws the head layer back onto every body frame (src/look.j
   python3 tools/char_layers.py body NAME RAW_DIR NECK[,NECK1..NECK7]
       RAW_DIR holds the sheets NAME_<clip>.png as cut from Oriverse (tools/sprite_cells.py).
       The head above the neck row of the idle frame is tracked through every frame, erased,
-      and the headless sheets go to assets/chars; head.anchor and head.offsets go into
-      assets/chars/bodies.json under NAME.
+      and the headless sheets go to public/assets/chars; head.anchor and head.offsets go into
+      public/assets/chars/bodies.json under NAME.
   python3 tools/char_layers.py hair NAME REST.png [--drape]
       REST.png is the 8-direction rest sheet of a hairstyle sprite. Writes
-      assets/chars/hair_NAME.png (column 0: hair that hangs behind the body, column 1: head and
-      hair in front) and its anchor into assets/chars/hair.json. --drape keeps hair below the
+      public/assets/chars/hair_NAME.png (column 0: hair that hangs behind the body, column 1: head and
+      hair in front) and its anchor into public/assets/chars/hair.json. --drape keeps hair below the
       neck in front of the body in every view (braids worn over the shoulder).
 
 Directions are rows in Oriverse order: 0 front, then clockwise seen from above (1 front-left,
@@ -161,10 +161,10 @@ def make_hair(name, rest_path, drape=False):
         back, front = split_hair(rest[d][0], neck, drape or d in BACK_VIEWS)
         grid.append([back, front])
         anchors.append(head_anchor(rest[d][0], neck))
-    save_cells(grid, f"assets/chars/hair_{name}.png")
-    data = json.load(open("assets/chars/hair.json"))
+    save_cells(grid, f"public/assets/chars/hair_{name}.png")
+    data = json.load(open("public/assets/chars/hair.json"))
     data["styles"][name] = {"anchor": anchors, "neck": neck}
-    json.dump(data, open("assets/chars/hair.json", "w"), indent=1)
+    json.dump(data, open("public/assets/chars/hair.json", "w"), indent=1)
     print(name, "neck", neck, "necks", necks)
 
 
@@ -199,7 +199,7 @@ def erase_head_loose(cell, tpl, off, reach=2, tol=48):
 
 
 def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "shoot", "cast")):
-    """raw_dir holds the untouched sheets NAME_<clip>.png; writes headless ones to assets/chars."""
+    """raw_dir holds the untouched sheets NAME_<clip>.png; writes headless ones to public/assets/chars."""
     idle = cells(f"{raw_dir}/{name}_idle.png")
     tpls = [head_template(idle[d][0], necks[d]) for d in range(8)]
     anchors = [head_anchor(idle[d][0], necks[d]) for d in range(8)]
@@ -214,9 +214,9 @@ def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "s
                 grid[d][f] = erase_head_loose(cell, tpls[d], off)
                 row.append(list(off))
             offsets[clip].append(row)
-        save_cells(grid, f"assets/chars/{name}_{clip}.png")
+        save_cells(grid, f"public/assets/chars/{name}_{clip}.png")
         print(clip, "done")
-    path = "assets/chars/bodies.json"
+    path = "public/assets/chars/bodies.json"
     bodies = json.load(open(path))
     bodies.setdefault(name, {})
     bodies[name]["hairless"] = True
