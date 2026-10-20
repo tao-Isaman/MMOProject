@@ -1,0 +1,108 @@
+:root {
+  --ink: #16210f;        /* page ground behind the map */
+  --panel: rgba(20, 28, 18, 0.78);
+  --rim: rgba(255, 244, 214, 0.28);
+  --gold: #f4d27a;       /* hotkeys, highlights */
+  --mint: #c9ffe0;       /* spell accent */
+  --text: #fbf6e8;
+  --muted: #c9c2ad;
+  --font: "Kanit", "Noto Sans Thai", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+/* Tilt-shift: blur the top and bottom bands of the view like the reference reel. */
+.tilt {
+  position: fixed; left: 0; right: 0; height: 26vh; pointer-events: none;
+  backdrop-filter: blur(2.6px); -webkit-backdrop-filter: blur(2.6px);
+}
+.tilt-top { top: 0; mask-image: linear-gradient(#000, transparent); -webkit-mask-image: linear-gradient(#000, transparent); }
+.tilt-bottom { bottom: 0; mask-image: linear-gradient(transparent, #000); -webkit-mask-image: linear-gradient(transparent, #000); }
+
+.hint {
+  position: fixed; top: 14px; left: 16px; display: flex; flex-wrap: wrap; gap: 6px 14px;
+  padding: 8px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--rim);
+  font-size: 14px; color: var(--muted); transition: opacity 0.6s;
+}
+.hint.faded { opacity: 0.35; }
+kbd {
+  display: inline-block; min-width: 1.6em; padding: 0 4px; margin-right: 2px; border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12); border: 1px solid var(--rim); color: var(--gold);
+  font: 600 13px/1.5 var(--font); text-align: center;
+}
+
+.hud { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; justify-content: center; pointer-events: none; }
+.skillbar {
+  display: grid; grid-template-columns: repeat(10, 54px); gap: 6px; padding: 8px;
+  border-radius: 14px; background: var(--panel); border: 1px solid var(--rim); pointer-events: auto;
+}
+.slot {
+  position: relative; width: 54px; height: 54px; border-radius: 10px; padding: 0; cursor: pointer;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.25));
+  border: 1px solid rgba(255, 255, 255, 0.18); color: inherit; font: inherit;
+}
+.slot:hover { border-color: var(--gold); }
+.slot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.slot.empty { cursor: default; opacity: 0.7; }
+.slot.empty:hover { border-color: rgba(255, 255, 255, 0.18); }
+.slot img { position: absolute; inset: 5px; width: 44px; height: 44px; image-rendering: auto; }
+.slot .key {
+  position: absolute; left: 4px; top: 2px; font-size: 12px; font-weight: 600; color: var(--gold);
+  text-shadow: 0 1px 0 #000;
+}
+/* Cooldown sweep: --cd runs 1 -> 0 while the skill recharges. */
+.slot .cd {
+  position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: conic-gradient(rgba(10, 12, 8, 0.72) calc(var(--cd, 0) * 360deg), transparent 0);
+}
+.slot .cdtext {
+  position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; font-weight: 600;
+  text-shadow: 0 1px 2px #000; pointer-events: none;
+}
+.slot.flash { animation: flash 0.35s ease-out; }
+@keyframes flash { from { box-shadow: inset 0 0 0 30px rgba(201, 255, 224, 0.55); } to { box-shadow: inset 0 0 0 30px rgba(201, 255, 224, 0); } }
+/* pressed while empty, recharging or mid-cast */
+.slot.denied { animation: denied 0.3s ease-out; }
+@keyframes denied {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -3px 0; border-color: #ff8a7a; }
+  75% { translate: 3px 0; }
+}
+
+.tooltip {
+  position: absolute; bottom: 64px; left: 0; width: max-content; max-width: 300px; padding: 10px 12px;
+  border-radius: 10px; background: rgba(16, 22, 14, 0.94); border: 1px solid var(--rim);
+  font-size: 13px; line-height: 1.45; color: var(--muted); text-align: left; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+}
+.tooltip strong { display: block; color: var(--mint); font-size: 15px; font-weight: 600; }
+.slot:hover .tooltip, .slot:focus-visible .tooltip { opacity: 1; }
+
+/* shown while assets/map.jpg (the stitched Oriverse capture) is missing */
+.badge {
+  position: fixed; top: 14px; right: 16px; padding: 6px 10px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--rim); color: var(--gold); font-size: 13px;
+}
+
+.loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--ink); transition: opacity 0.5s; }
+.loading.done { opacity: 0; pointer-events: none; }
+.loading-box { text-align: center; }
+.loading-title { margin: 0 0 10px; font-size: 18px; }
+.loading progress { width: 240px; accent-color: var(--mint); }
+
+@media (max-width: 720px) {
+  .skillbar { grid-template-columns: repeat(5, 48px); gap: 5px; }
+  .slot { width: 48px; height: 48px; }
+  .slot img { inset: 4px; width: 40px; height: 40px; }
+  .hint { font-size: 12px; }
+}

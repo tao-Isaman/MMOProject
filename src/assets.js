@@ -1,0 +1,99 @@
+// Image loading and the small textures built at runtime.
+
+export function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`failed to load ${src}`));
+    img.src = src;
+  });
+}
+
+// Load { key: url } in parallel; optional entries resolve to null when missing.
+export async function loadAll(list, onProgress) {
+  const keys = Object.keys(list);
+  let done = 0;
+  const out = {};
+  await Promise.all(
+    keys.map(async (k) => {
+      const { src, optional } = typeof list[k] === "string" ? { src: list[k] } : list[k];
+      try {
+        out[k] = await loadImage(src);
+      } catch (err) {
+        if (!optional) throw err;
+        out[k] = null;
+      }
+      onProgress(++done / keys.length);
+    }),
+  );
+  return out;
+}
+
+function canvas(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
+// Halved copies of an image, so small on-screen sprites sample a texture close to their size
+// (canvas drawImage does no mipmapping and shimmers when shrinking a large texture a lot).
+export function mipChain(img, levels) {
+  const chain = [img];
+  for (let i = 1; i < levels; i++) {
+    const prev = chain[i - 1];
+    const c = canvas(Math.max(1, prev.width >> 1), Math.max(1, prev.height >> 1));
+    const g = c.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    g.drawImage(prev, 0, 0, c.width, c.height);
+    chain.push(c);
+  }
+  return chain;
+}
+
+// Pre-rotated, ground-projected copies of an atlas: row = atlas frame, column = one of
+// `turns` rotations, each cell squashed by cos 45 like a sprite lying on the ground.
+export function bakeGround(img, cols, rows, cell, turns, levels) {
+  const src = img.width / cols;
+  const ch = Math.round(cell * Math.SQRT1_2);
+  const c = canvas(cell * turns, ch * cols * rows);
+  const g = c.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  for (let f = 0; f < cols * rows; f++) {
+    for (let t = 0; t < turns; t++) {
+      g.setTransform(1, 0, 0, Math.SQRT1_2, (t + 0.5) * cell, (f + 0.5) * ch);
+      g.rotate((t / turns) * Math.PI * 2);
+      g.drawImage(img, (f % cols) * src, Math.floor(f / cols) * src, src, src, -cell / 2, -cell / 2, cell, cell);
+    }
+  }
+  return { levels: mipChain(c, levels), cols: turns, rows: cols * rows };
+}
+
+// Soft round glow in one colour (the GlowDot texture of the Oriverse spell).
+export function glow(color, size = 64) {
+  const c = canvas(size, size);
+  const g = c.getContext("2d");
+  const r = size / 2;
+  const grad = g.createRadialGradient(r, r, 0, r, r, r);
+  grad.addColorStop(0, "#ffffff");
+  grad.addColorStop(0.18, color);
+  grad.addColorStop(0.55, color.replace(/[\d.]+\)$/, (a) => `${parseFloat(a) * 0.35})`));
+  grad.addColorStop(1, color.replace(/[\d.]+\)$/, "0)"));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+
+// Multiply an image's colour by a tint, keeping its alpha.
+export function tint(img, color) {
+  const c = canvas(img.width, img.height);
+  const g = c.getContext("2d");
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = "multiply";
+  g.fillStyle = color;
+  g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = "destination-in";
+  g.drawImage(img, 0, 0);
+  return c;
+}
