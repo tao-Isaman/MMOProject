@@ -46,9 +46,10 @@ python3 -m http.server 8000
   ```sh
   python3 tools/sprite_cells.py assets/mage_idle.png south.png south-west.png west.png north-west.png north.png north-east.png east.png south-east.png
   ```
-- ภาพหน้าตรงที่ได้มาแขนเป็นกล่องแยกจากตัว จึงวาดแขนใหม่เป็นท่าแขนกางลงเล็กน้อย (A-pose) โดยยืมแขนจากภาพเฉียงหน้าซ้าย/ขวา สอดใต้ผ้าคลุมไหล่
+- ภาพหน้าตรงที่ได้มาแขนเป็นกล่องแยกจากตัว จึงวาดไหล่กับแขนใหม่ด้วยสีชุดเดิมของสไปรต์:
+  ผ้าคลุมจากคอคลุมไหล่ทั้งสองข้าง ขอบล่างขลิบทอง แขนเสื้อยื่นออกมาจากใต้ผ้าคลุม เอียงออกจากตัวเล็กน้อย แล้วบานกว้างขึ้นตรงข้อมือ (มือขวากำไม้เท้า)
   ```sh
-  python3 tools/front_arms.py assets/mage_idle.png south.png south-west.png south-east.png
+  python3 tools/front_arms.py assets/mage_idle.png south.png
   ```
 - ท่าเดินกับท่าโจมตีสร้างจาก 8 ทิศนั้นด้วย `python3 tools/animate_sprite.py assets/mage_idle.png assets`
   (สั่งให้ Oriverse สร้างแอนิเมชันเดิน/โจมตีแล้วล้มเหลวทุกงานด้วย "Animation first frame differs from its retained input" และได้เครดิตคืน)
@@ -67,4 +68,4 @@ python3 -m http.server 8000
 | `src/motes.js` | ละอองเรืองแสงลอยทั่วลาน |
 | `src/hud.js` | แถบสกิล 10 ช่อง, คูลดาวน์ |
 | `assets/` | `map.jpg` ภาพฉากจาก Oriverse, `mage_*.png` ชีตตัวละคร 8 ทิศ, texture ดอกไม้/กลีบ/วงเวท (bake จากสูตร `#texture` เดียวกับใน Weave) |
-| `tools/` | ต่อภาพฉาก (`stitch_map.py`), ดึงเฟรมสไปรต์ (`sprite_cells.py`), วาดแขนภาพหน้าตรง (`front_arms.py`), สร้างท่าเดิน/โจมตี (`animate_sprite.py`) |
+| `tools/` | ต่อภาพฉาก (`stitch_map.py`), ดึงเฟรมสไปรต์ (`sprite_cells.py`), วาดไหล่และแขนภาพหน้าตรง (`front_arms.py`), สร้างท่าเดิน/โจมตี (`animate_sprite.py`) |
