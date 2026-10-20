@@ -1,7 +1,7 @@
-import { MAP_W, MAP_H, mapX, mapY } from "./projection.js";
+import { MAP_W, MAP_H, mapX, mapY, groundFromMap } from "./projection.js";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets.js";
 import { SPAWN, debugShapes } from "./world.js";
-import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles.js";
+import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, rand } from "./particles.js";
 import { Player } from "./player.js";
 import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell.js";
 import { SkillBar, slotForCode } from "./hud.js";
@@ -56,10 +56,9 @@ async function boot() {
   const images = await loadAll(
     {
       map: "assets/map.jpg",
-      front: "assets/mage_front.png",
-      back: "assets/mage_back.png",
-      left: "assets/mage_left.png",
-      right: "assets/mage_right.png",
+      idle: "assets/mage_idle.png",
+      walk: "assets/mage_walk.png",
+      attack: "assets/mage_attack.png",
       flowers: "assets/flower_atlas.png",
       petals: "assets/petal_atlas.png",
       rune: "assets/rune_circle.png",
@@ -85,9 +84,8 @@ async function boot() {
   };
 
   const fx = new Particles();
-  const player = new Player(SPAWN.x, SPAWN.y, {
-    front: images.front, back: images.back, left: images.left, right: images.right,
-  });
+  const player = new Player(SPAWN.x, SPAWN.y, { idle: images.idle, walk: images.walk, attack: images.attack },
+    glow("rgba(255, 110, 120, 1)"));
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
   motes.prewarm();
@@ -108,6 +106,16 @@ async function boot() {
     spells.push(new FlowerSpell(fx, tex, player.x, player.y, player));
   }
 
+  // Staff strike: a white-mint pop where the staff lands, with a few sparks thrown outward.
+  function strike(hit) {
+    fx.add({ ...hit, layer: AIR_GLOW, tex: tex.flash, life: 0.28, size: [[0, 30], [0.3, 80], [1, 95]], alpha: [[0, 0.95], [1, 0]] });
+    for (let i = 0; i < 14; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(120, 240);
+      fx.add({ x: hit.x, y: hit.y, z: hit.z, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: rand(-40, 120), drag: 2.5,
+        layer: AIR_GLOW, tex: tex.sparkle, life: rand(0.3, 0.5), size: [[0, 8], [1, 2]], alpha: [[0, 1], [1, 0]] });
+    }
+  }
+
   // ---- input ----
   const held = new Set();
   window.addEventListener("keydown", (e) => {
@@ -123,7 +131,19 @@ async function boot() {
       if (!e.repeat) useSlot(slot);
       return;
     }
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (!e.repeat) player.startAttack();
+      return;
+    }
     if (e.code === "Backquote") showDebug = !showDebug;
+  });
+  // click the ground to swing towards that point
+  let view = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !view) return;
+    const mx = (e.clientX * screen.dpr - view.ox) / view.k, my = (e.clientY * screen.dpr - view.oy) / view.k;
+    player.startAttack(groundFromMap(mx, my));
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
   window.addEventListener("blur", () => held.clear());
@@ -148,7 +168,8 @@ async function boot() {
       move.x += MOVE_KEYS[code][0];
       move.y += MOVE_KEYS[code][1];
     }
-    player.update(dt, move);
+    const hit = player.update(dt, move);
+    if (hit) strike(hit);
     if (player.moving) {
       walkedFor += dt;
       if (walkedFor > 1.5) hint.classList.add("faded");
@@ -174,7 +195,7 @@ async function boot() {
     cam.y += (ty - cam.y) * ease;
     cam.x = halfW * 2 >= MAP_W ? MAP_W / 2 : Math.max(halfW, Math.min(MAP_W - halfW, cam.x));
     cam.y = halfH * 2 >= MAP_H ? MAP_H / 2 : Math.max(halfH, Math.min(MAP_H - halfH, cam.y));
-    const view = {
+    view = {
       k,
       ox: Math.round(canvas.width / 2 - cam.x * k),
       oy: Math.round(canvas.height / 2 - cam.y * k),

@@ -14,7 +14,8 @@ python3 -m http.server 8000
 
 | ปุ่ม | ทำอะไร |
 | --- | --- |
-| <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> หรือปุ่มลูกศร | เดิน |
+| <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> หรือปุ่มลูกศร | เดิน 8 ทิศ (กดสองปุ่มพร้อมกันเดินเฉียง) |
+| <kbd>Space</kbd> หรือคลิกที่พื้น | ฟาดไม้เท้า (คลิกแล้วหันไปทางจุดที่คลิก) |
 | <kbd>1</kbd> หรือคลิกช่อง 1 | ทุ่งดอกไม้: ร่าย 1.5 วินาที, คูลดาวน์ 9 วินาที |
 | <kbd>2</kbd>–<kbd>0</kbd> | ช่องว่าง |
 | <kbd>`</kbd> หรือเปิดด้วย `?debug` | แสดงกรอบชนและ fps |
@@ -37,6 +38,18 @@ python3 -m http.server 8000
 สูตรแปลงพิกัดโลก (ซม. ของ Oriverse) เป็นพิกเซลบนแผนที่อยู่ที่ `src/projection.js` กรอบชนใน `src/world.js` ใช้ตำแหน่งวัตถุจาก world ชุดเดียวกัน
 ตอนนี้ฉากเป็นภาพแผ่นเดียว ตัวละครจึงยังเดินลอดหลังต้นไม้หรือหลังคาบ้านไม่ได้ (จะถูกวาดทับด้านบน)
 
+## ตัวละคร
+
+- `assets/mage_idle.png` คือ 8 ทิศของสไปรต์ Oriverse `Ori.sprite.@taoisaman.elf_mage_walk#1`
+  สร้างจากภาพอ้างอิงท่ายืนปล่อยแขน (`oriverse/frieren/elf_mage_relaxed.png` ใน the-hero-fighter ซึ่งแก้จาก character sheet ที่เป็นท่า T-pose)
+  ดึงเฟรมออกจากภาพ preview ของ Oriverse ด้วย
+  ```sh
+  python3 tools/sprite_cells.py assets/mage_idle.png south.png south-west.png west.png north-west.png north.png north-east.png east.png south-east.png
+  ```
+- ท่าเดินกับท่าโจมตีสร้างจาก 8 ทิศนั้นด้วย `python3 tools/animate_sprite.py assets/mage_idle.png assets`
+  (สั่งให้ Oriverse สร้างแอนิเมชันเดิน/โจมตีแล้วล้มเหลวทุกงานด้วย "Animation first frame differs from its retained input" และได้เครดิตคืน)
+- ทุกชีตมี 1 แถวต่อทิศ (ลำดับของ Oriverse: หน้า แล้ววนตามเข็มนาฬิกามองจากด้านบน) และ 1 คอลัมน์ 128 px ต่อเฟรม
+
 ## โครงสร้าง
 
 | ไฟล์ | หน้าที่ |
@@ -44,9 +57,10 @@ python3 -m http.server 8000
 | `src/main.js` | โหลด asset, game loop, กล้อง, รับปุ่ม, ลำดับการวาด |
 | `src/projection.js` | แปลงพิกัดโลก ↔ แผนที่ |
 | `src/world.js` | ขอบเขตเดินได้, กรอบชนของบ้าน/บ่อน้ำ/รถเข็น/ต้นไม้/พุ่มไม้ |
-| `src/player.js` | ตัวละคร: เดิน 4 ทิศ, ลอยตัวตอนร่าย, cast bar |
+| `src/player.js` | ตัวละคร: แอนิเมชัน 8 ทิศ (ยืน/เดิน/โจมตี), ลอยตัวตอนร่าย, cast bar |
 | `src/spell.js` | timeline ของเวททุ่งดอกไม้ (ย้ายมาจาก Weave เป็นวินาที) |
 | `src/particles.js` | ระบบ particle บนพิกัดโลก |
 | `src/motes.js` | ละอองเรืองแสงลอยทั่วลาน |
 | `src/hud.js` | แถบสกิล 10 ช่อง, คูลดาวน์ |
-| `assets/` | `map.jpg` ภาพฉากจาก Oriverse, texture ดอกไม้/กลีบ/วงเวท (bake จากสูตร `#texture` เดียวกับใน Weave), สไปรต์ตัวละครจาก character sheet |
+| `assets/` | `map.jpg` ภาพฉากจาก Oriverse, `mage_*.png` ชีตตัวละคร 8 ทิศ, texture ดอกไม้/กลีบ/วงเวท (bake จากสูตร `#texture` เดียวกับใน Weave) |
+| `tools/` | ต่อภาพฉาก (`stitch_map.py`), ดึงเฟรมสไปรต์ (`sprite_cells.py`), สร้างท่าเดิน/โจมตี (`animate_sprite.py`) |
