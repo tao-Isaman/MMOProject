@@ -47,7 +47,7 @@ python3 -m http.server 8000
   python3 tools/sprite_cells.py assets/mage_idle.png south.png south-west.png west.png north-west.png north.png north-east.png east.png south-east.png
   ```
 - ภาพหน้าตรงที่ได้มาแขนเป็นกล่องแยกจากตัว จึงวาดไหล่กับแขนใหม่ด้วยสีชุดเดิมของสไปรต์:
-  ผ้าคลุมจากคอคลุมไหล่ทั้งสองข้าง ขอบล่างขลิบทอง แขนเสื้อยื่นออกมาจากใต้ผ้าคลุม เอียงออกจากตัวเล็กน้อย แล้วบานกว้างขึ้นตรงข้อมือ (มือขวากำไม้เท้า)
+  ไหล่โค้งจากปกเสื้อแล้วต่อเป็นแขนเสื้อชิ้นเดียวแบบใน character sheet แขนเสื้อห้อยเอียงออกจากตัวเล็กน้อย แล้วบานกว้างขึ้นตรงข้อมือ มีขลิบทองที่ปลายแขน
   ```sh
   python3 tools/front_arms.py assets/mage_idle.png south.png
   ```

@@ -1,13 +1,13 @@
-"""Redraw the front-facing frame's shoulders and arms: a capelet over the shoulders, bell
-sleeves hanging from under it.
+"""Redraw the front-facing frame's shoulders and arms: each sleeve runs in one piece from the
+collar over the shoulder and down to a bell cuff.
 
 usage: python3 tools/front_arms.py assets/mage_idle.png south.png
 
 The generated front view draws each sleeve as a flat-topped box standing beside the coat, so
 the arms look detached. This replaces the boxes with hair and paints, in the sprite's own flat
-palette: a capelet spreading from the collar over both shoulders with a gold hem, and under it
-sleeves angled slightly away from the body that widen into a bell at the wrist, with a gold cuff
-and the hand below (the right hand grips the staff). `south.png` is the Oriverse preview sheet
+palette: from the collar the shoulder rounds over and turns straight into the sleeve, as on the
+character sheet; the sleeve hangs slightly away from the body and widens into a bell at the
+wrist, with a gold cuff and the hand below. `south.png` is the Oriverse preview sheet
 of the front direction (as for tools/sprite_cells.py). Writes row 0 of the idle sheet; run
 tools/animate_sprite.py afterwards.
 """
@@ -20,14 +20,13 @@ from sprite_cells import cells
 SHEET, SOUTH = sys.argv[1:3]
 MIRROR = 129     # x + mirrored x: the front view is symmetric about x = 64.5
 COLLAR = 67      # the original collar and lapels (coat pixels above this row) stay on top
-# screen-left half, sprite px
-NECK = (51.0, 51.0)            # where the capelet's shoulder line leaves the collar
-SHOULDER = (44.0, 57.0)        # outer end of the shoulder line
-HEM = (43.0, 65.0, 64.0)       # hem: outer x, row at the outer corner, row at the collar
-# sleeve edges run from row TOP (under the capelet) to the cuff; the outer edge flares out
-TOP, CUFF = 59, 84
+# screen-left sleeve, sprite px: the shoulder line rounds from NECK out to SHOULDER, where the
+# outer edge turns down and flares out to OUTER_CUFF; the body-side edge runs along INNER
+NECK = (51.0, 51.0)
+SHOULDER = (43.5, 59.0)
+CUFF = 84
 INNER = (51.0, 48.0)
-OUTER = (43.0, 35.0)
+OUTER_CUFF = 35.0
 CUFF_RISE = 2    # the cuff's outer corner sits this much higher than its inner corner
 BAND = 2         # gold cuff, rows
 
@@ -95,28 +94,33 @@ def outline(layer, shape, also=None):
 def paint_left_arm():
     """Screen-left sleeve and hand as an RGBA layer, plus a mask of the hand pixels."""
     layer = np.zeros((128, 128, 4), np.uint8)
-    (xi0, xi1), (xo0, xo1) = INNER, OUTER
+    (nx, ny), (sx, sy) = NECK, SHOULDER
+    xi0, xi1 = INNER
 
     def edges(y):
-        t = min(1.0, max(0.0, (y - TOP) / (CUFF - TOP)))
-        return xo0 + (xo1 - xo0) * t ** 1.4, xi0 + (xi1 - xi0) * t
+        hi = xi0 + (xi1 - xi0) * min(1.0, max(0.0, (y - ny) / (CUFF - ny)))
+        if y < sy:  # rounded shoulder
+            k = np.sqrt(max(0.0, 1 - ((sy - y) / (sy - ny)) ** 2))
+            return nx - k * (nx - sx), hi
+        t = (y - sy) / (CUFF - sy)
+        return sx + (OUTER_CUFF - sx) * t ** 1.4, hi
 
     def cuff_y(x):  # bottom of the sleeve under column x
-        return CUFF - CUFF_RISE * (xi1 - x) / (xi1 - xo1)
+        return CUFF - CUFF_RISE * (xi1 - x) / (xi1 - OUTER_CUFF)
 
     sleeve = np.zeros((128, 128), bool)
     across = np.zeros((128, 128))  # 0 outer edge .. 1 body side
-    for y in range(TOP, CUFF + 1):
+    for y in range(int(ny), CUFF + 1):
         lo, hi = edges(y)
         for x in range(int(lo), int(hi) + 2):
             if lo - 0.5 <= x <= hi + 0.5 and y <= cuff_y(x) + 0.5:
                 sleeve[y, x] = True
                 across[y, x] = (x - lo) / max(1.0, hi - lo)
-    mid = (xo1 + xi1) / 2
+    mid = (OUTER_CUFF + xi1) / 2
     hand_c = (mid + 1.0, cuff_y(mid) + 3.5)
     hand = np.zeros((128, 128), bool)
     for y in range(CUFF - 6, CUFF + 9):
-        for x in range(int(xo1) - 2, int(xi1) + 3):
+        for x in range(int(OUTER_CUFF) - 2, int(xi1) + 3):
             if ((x - hand_c[0]) / 4.0) ** 2 + ((y - hand_c[1]) / 4.2) ** 2 <= 1:
                 hand[y, x] = True
     hand &= ~sleeve
@@ -130,52 +134,13 @@ def paint_left_arm():
             continue
         layer[y, x] = LIGHT if u < 0.55 else MID if u < 0.82 else SHADE
         # one crease down the bell
-        lo, hi = edges(y)
-        t = (y - TOP) / (CUFF - TOP)
-        if t > 0.5 and abs(x - (lo + (hi - lo) * (0.62 - 0.3 * t))) < 0.5:
-            layer[y, x] = MID
+        if y > sy:
+            lo, hi = edges(y)
+            t = (y - sy) / (CUFF - sy)
+            if t > 0.5 and abs(x - (lo + (hi - lo) * (0.62 - 0.3 * t))) < 0.5:
+                layer[y, x] = MID
     outline(layer, sleeve | hand, lambda y, x, ny, nx: sleeve[y, x] and hand[ny, nx])
     return layer, hand
-
-
-def paint_left_capelet():
-    """Screen-left half of the capelet: from the collar over the shoulder, gold along the hem."""
-    layer = np.zeros((128, 128, 4), np.uint8)
-    (nx, ny), (sx, sy) = NECK, SHOULDER
-    hem_x, hem_out, hem_in = HEM
-
-    def top(x):  # rounded shoulder line
-        if x >= nx:
-            return ny
-        k = min(1.0, (nx - x) / (nx - sx))
-        return sy - (sy - ny) * np.sqrt(1 - k * k)
-
-    def outer(y):
-        return sx + (hem_x - sx) * max(0.0, (y - sy) / (hem_out - sy))
-
-    def hem(x):
-        return hem_in + (hem_out - hem_in) * min(1.0, max(0.0, (nx - x) / (nx - hem_x)))
-
-    cape = np.zeros((128, 128), bool)
-    for y in range(int(ny) - 1, int(hem_out) + 2):
-        for x in range(int(hem_x) - 1, 60):
-            if y >= top(x) - 0.5 and y <= hem(x) + 0.5 and (y < sy or x >= outer(y) - 0.5):
-                cape[y, x] = True
-    for y, x in zip(*np.where(cape)):
-        if y > hem(x) - 1.5:
-            layer[y, x] = GOLD if x < nx - 3 else GOLD_SHADE
-        elif x > nx - 2:
-            layer[y, x] = SHADE                      # under the collar
-        elif y > hem(x) - 3.5 or x > nx - 5:
-            layer[y, x] = MID
-        else:
-            layer[y, x] = LIGHT
-        # folds hanging from the shoulder to the hem
-        for fx in (sx + 5, sx + 11):
-            if abs(x - fx) < 0.5 and top(x) + 3 < y < hem(x) - 1.5:
-                layer[y, x] = SHADE if y > hem(x) - 4.5 else MID
-    outline(layer, cape)
-    return layer
 
 
 def mirror(img):
@@ -185,9 +150,8 @@ def mirror(img):
 
 
 arm, hand = paint_left_arm()
-cape = paint_left_capelet()
 out = body.copy()
-for layer, grip in ((arm, hand), (mirror(arm), mirror(hand)), (cape, None), (mirror(cape), None)):
+for layer, grip in ((arm, hand), (mirror(arm), mirror(hand))):
     for y, x in zip(*np.where(layer[..., 3] > 0)):
         if collar[y, x]:
             continue  # the original collar and lapels sit on top
