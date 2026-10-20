@@ -1,7 +1,7 @@
 // Hits: normal attacks per weapon type, projectiles (arrows, staff bolts and skill shots),
 // burning, and the floating numbers. Damage numbers come from stats.js.
 
-import { mapX, mapY, S2 } from "./projection.js";
+import { mapX, mapY, S2, toView } from "./projection.js";
 import { WEAPON_TYPES } from "./items.js";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles.js";
 import { basicDamage } from "./stats.js";
@@ -54,8 +54,8 @@ export class Floaters {
     for (const f of this.list) {
       const u = f.t / f.life;
       const rise = f.style === "loot" || f.style === "level" ? 40 * u : 60 * Math.sqrt(u);
-      const px = (mapX(f.y) + f.dx * u) * k + ox;
-      const py = mapY(f.x, f.z + rise) * k + oy;
+      const px = (mapX(f.x, f.y) + f.dx * u) * k + ox;
+      const py = mapY(f.x, f.y, f.z + rise) * k + oy;
       const big = f.style === "crit" || f.style === "level";
       const size = (big ? 30 : f.style === "loot" ? 17 : 22) * k * (big ? 1 + 0.3 * Math.max(0, 1 - u * 4) : 1);
       ctx.globalAlpha = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;
@@ -241,9 +241,10 @@ export class Combat {
   draw(ctx, view, arrowImg) {
     const { k, ox, oy } = view;
     for (const p of this.projectiles) {
-      const px = mapX(p.y) * k + ox, py = mapY(p.x, p.z) * k + oy;
-      // screen direction of travel: right = -Y, up = +X (squashed by the 45 degree view)
-      const sx = -p.vy, sy = -p.vx * S2;
+      const px = mapX(p.x, p.y) * k + ox, py = mapY(p.x, p.y, p.z) * k + oy;
+      // screen direction of travel (forward is squashed by the 45 degree view)
+      const v = toView(p.vx, p.vy);
+      const sx = -v.left, sy = -v.fwd * S2;
       const ang = Math.atan2(sy, sx);
       if (p.kind === "arrow" && arrowImg) {
         const len = 46 * k;

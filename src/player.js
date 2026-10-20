@@ -6,7 +6,7 @@
 // bottom centre of each cell. The character is empty-handed; the weapon is drawn into her hand
 // during attacks and casts (src/weapons.js).
 
-import { mapX, mapY } from "./projection.js";
+import { mapX, mapY, yaw } from "./projection.js";
 import { resolve } from "./world.js";
 import { attackRange } from "./combat.js";
 import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip } from "./weapons.js";
@@ -27,13 +27,19 @@ const WINDUP_AT = 3 / 8;  // the cast holds this frame while the cast bar fills
 
 export const DIRECTIONS = ["south", "south-west", "west", "north-west", "north", "north-east", "east", "south-east"];
 
-// World direction (x = +X up the screen, y = +Y screen left) -> sheet row.
+// World direction -> facing index, counted like the sheet rows as seen from the yaw-0 camera
+// (x = +X up the screen, y = +Y screen left). The sheet row on screen is viewRow(index).
 export function directionIndex(x, y) {
   const a = Math.atan2(y, -x); // 0 = towards the camera, +90 = screen left
   return ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8;
 }
 
-// Unit world vector a sheet row faces.
+// Sheet row showing facing index i from the current camera.
+export function viewRow(i) {
+  return (i + 2 * yaw) % 8;
+}
+
+// Unit world vector a facing index points along.
 export function directionVector(i) {
   const a = (i * Math.PI) / 4;
   return { x: -Math.cos(a), y: Math.sin(a) };
@@ -120,7 +126,7 @@ export class Player {
     this.cast = { t: 0, duration, hoverEnd, x: this.x, y: this.y };
     this.attack = null;
     this.target = null;
-    this.dir = 0; // face the camera like the Oriverse cast
+    this.dir = (8 - 2 * yaw) % 8; // face the camera like the Oriverse cast
   }
 
   // Normal attack with weapon stats w, optionally turning toward a world point first.
@@ -249,14 +255,14 @@ export class Player {
 
   // Ground point on the map, for depth sorting.
   get depth() {
-    return mapY(this.x, 0);
+    return mapY(this.x, this.y);
   }
 
   // weaponImg/art: what to draw in the hand during attacks and casts (null: bare hands)
   draw(ctx, view, weapon) {
     const { k, ox, oy } = view;
-    const gx = mapX(this.y) * k + ox;
-    const gy = mapY(this.x, 0) * k + oy;
+    const gx = mapX(this.x, this.y) * k + ox;
+    const gy = mapY(this.x, this.y) * k + oy;
 
     // shadow shrinks and fades as she rises
     const lift = Math.max(0, this.z);
@@ -272,14 +278,15 @@ export class Player {
     const cell = this.cell;
     const s = this.scale * k;
     const breathe = this.moving || this.busy ? 1 : 1 + 0.012 * Math.sin(this.time * 2.2);
-    const fy = mapY(this.x, lift) * k + oy;
+    const fy = mapY(this.x, this.y, lift) * k + oy;
 
     // the weapon shows while attacking or casting (unless the clip already draws it); behind
     // her when she faces away
     const a = this.attack;
     const showWeapon = weapon && (this.casting || (a && !(a.w.builtin && this.builtin[a.motion])));
     const hand = showWeapon ? this.handFor(clip, col) : null;
-    const behind = this.dir >= 3 && this.dir <= 5;
+    const row = viewRow(this.dir);
+    const behind = row >= 3 && row <= 5;
     const drawHeld = () => {
       if (!hand) return;
       const toScreen = ([hx, hy]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
@@ -307,11 +314,11 @@ export class Player {
     if (behind) drawHeld();
     // pivot (bottom centre of the cell) on the feet; breathing stretches up from the ground
     ctx.setTransform(s, 0, 0, s * breathe, gx, fy);
-    ctx.drawImage(sheet, col * cell, this.dir * cell, cell, cell, -cell / 2, -cell, cell, cell);
+    ctx.drawImage(sheet, col * cell, row * cell, cell, cell, -cell / 2, -cell, cell, cell);
     if (this.hurtFlash > 0 && this.flashSheet) {
       // red tint over the sprite when hit
       ctx.globalAlpha = Math.min(1, this.hurtFlash * 3) * 0.6;
-      ctx.drawImage(this.flashSheet(clip), col * cell, this.dir * cell, cell, cell, -cell / 2, -cell, cell, cell);
+      ctx.drawImage(this.flashSheet(clip), col * cell, row * cell, cell, cell, -cell / 2, -cell, cell, cell);
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
@@ -332,9 +339,10 @@ export class Player {
 
   // Hand positions (sprite px) for a frame; falls back to a point beside the body.
   handFor(clip, col) {
-    const a = this.anchors?.[clip]?.[this.dir]?.[col];
+    const row = viewRow(this.dir);
+    const a = this.anchors?.[clip]?.[row]?.[col];
     const c = a?.c ?? [this.cell / 2, this.cell * 0.62];
-    const r = a?.r ?? [c[0] + (this.dir >= 5 ? 10 : -10), c[1] + 6];
+    const r = a?.r ?? [c[0] + (row >= 5 ? 10 : -10), c[1] + 6];
     return { r, l: a?.l ?? null, c };
   }
 

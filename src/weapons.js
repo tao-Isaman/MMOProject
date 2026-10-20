@@ -4,6 +4,8 @@
 // and cast frame (assets/hand_anchors.json); the weapon is drawn with its grip on the hand,
 // pointing out from the body along the arm.
 
+import { toView } from "./projection.js";
+
 const DEG = Math.PI / 180;
 
 // Weapon art: where the grip is (fraction of the sprite's height from the top), how far the
@@ -38,9 +40,10 @@ function lerpAngle(a, b, t) {
   return a + d * t;
 }
 
-// Screen angle (0 = up, clockwise) of a world facing vector: right = -Y, up = +X, X squashed.
+// Screen angle (0 = up, clockwise) of a world facing vector; the forward axis is squashed.
 export function screenAngle(v) {
-  return Math.atan2(-v.y, v.x * Math.SQRT1_2);
+  const s = toView(v.x, v.y);
+  return Math.atan2(-s.left, s.fwd * Math.SQRT1_2);
 }
 
 // Draw one weapon sprite with its grip at (x, y) screen px.

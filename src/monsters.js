@@ -6,7 +6,7 @@
 // clockwise seen from above: south, west, north, east), one 64 px column per frame. Colour
 // variants are hue-rotated copies.
 
-import { mapX, mapY } from "./projection.js";
+import { mapX, mapY, yaw } from "./projection.js";
 import { resolve, SOLIDS, BOUNDS } from "./world.js";
 import { hueShift, silhouette } from "./recolor.js";
 import { rand } from "./particles.js";
@@ -42,7 +42,8 @@ const SPAWNS = [
 ];
 const LEASH = 260;
 
-// 8-direction world vector -> slime sheet row (south, west, north, east).
+// World vector -> slime facing (south, west, north, east as seen from the yaw-0 camera); the
+// sheet row on screen adds the camera yaw.
 function row4(dx, dy) {
   const a = Math.atan2(dy, -dx); // 0 = towards the camera, +90 = screen left
   return ((Math.round(a / (Math.PI / 2)) % 4) + 4) % 4;
@@ -264,7 +265,7 @@ export class Monster {
   }
 
   get depth() {
-    return mapY(this.x, 0);
+    return mapY(this.x, this.y);
   }
 
   frame() {
@@ -281,7 +282,7 @@ export class Monster {
   draw(ctx, view) {
     if (this.state === "gone") return;
     const { k, ox, oy } = view;
-    const gx = mapX(this.y) * k + ox, gy = mapY(this.x, 0) * k + oy;
+    const gx = mapX(this.x, this.y) * k + ox, gy = mapY(this.x, this.y) * k + oy;
     const fade = this.state === "die" ? Math.max(0, 1 - Math.max(0, this.t - 0.5) / 0.5) : 1 - this.spawnFade / 0.6;
     ctx.globalAlpha = fade;
     ctx.fillStyle = "rgba(16, 30, 10, 0.3)";
@@ -290,7 +291,7 @@ export class Monster {
     ctx.fill();
     const { clip, col } = this.frame();
     const s = SCALE * k;
-    const sx = col * CELL, sy = this.row * CELL;
+    const sx = col * CELL, sy = ((this.row + yaw) % 4) * CELL;
     ctx.drawImage(clip.img, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
     if (this.flash > 0) {
       ctx.globalAlpha = fade * Math.min(1, this.flash / 0.08) * 0.85;
@@ -337,7 +338,7 @@ export class Monster {
   // Screen-space pick radius test for clicks (map px).
   contains(mx, my) {
     if (!this.alive) return false;
-    const gx = mapX(this.y), gy = mapY(this.x, 0) - 30;
+    const gx = mapX(this.x, this.y), gy = mapY(this.x, this.y) - 30;
     return Math.hypot(mx - gx, (my - gy) * 1.3) < 52;
   }
 }

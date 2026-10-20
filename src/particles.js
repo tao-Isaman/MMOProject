@@ -120,8 +120,8 @@ export class Particles {
       const a = curve(p.alpha, u);
       const s = curve(p.size, u);
       if (a <= 0.003 || s <= 0.05) continue;
-      const mx = mapX(p.y) * k + ox;
-      const my = mapY(p.x, p.z) * k + oy;
+      const mx = mapX(p.x, p.y) * k + ox;
+      const my = mapY(p.x, p.y, p.z) * k + oy;
       const r = s * k;
       const reach = r * Math.max(1, p.squash);
       if (mx < -reach || my < -reach || mx > view.w + reach || my > view.h + reach) continue;

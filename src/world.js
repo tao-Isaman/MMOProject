@@ -100,7 +100,7 @@ function boxCorners(s, z) {
 export function debugShapes() {
   return SOLIDS.map((s) =>
     s.r !== undefined
-      ? { circle: [mapX(s.y), mapY(s.x), s.r] }
-      : { poly: boxCorners(s, 0).map(([x, y]) => [mapX(y), mapY(x)]) },
+      ? { circle: [mapX(s.x, s.y), mapY(s.x, s.y), s.r] }
+      : { poly: boxCorners(s, 0).map(([x, y]) => [mapX(x, y), mapY(x, y)]) },
   );
 }

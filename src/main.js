@@ -1,5 +1,6 @@
-import { MAP_W, MAP_H, mapX, mapY, groundFromMap } from "./projection.js";
-import { loadAll, mipChain, bakeGround, glow, tint } from "./assets.js";
+import { MAP_W, MAP_H, mapX, mapY, groundFromMap, fromView, setYaw, yaw } from "./projection.js";
+import { loadAll, loadImage, mipChain, bakeGround, glow, tint } from "./assets.js";
+import { Occluders } from "./occluders.js";
 import { SPAWN, debugShapes } from "./world.js";
 import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles.js";
 import { Player, directionIndex } from "./player.js";
@@ -102,7 +103,7 @@ function trimmed(sheet, row, cell = 96) {
 async function boot() {
   const bar = document.getElementById("loading-bar");
   const files = {
-    map: "assets/map.jpg",
+    map: "assets/maps/map_y0.jpg",
     flowers: "assets/flower_atlas.png",
     petals: "assets/petal_atlas.png",
     rune: "assets/rune_circle.png",
@@ -120,14 +121,20 @@ async function boot() {
   };
   const weaponArt = new Set(Object.keys(WEAPON_TYPES).map((t) => WEAPON_ART[t].art ?? t));
   for (const id of weaponArt) files[`weapon_${id}`] = `assets/weapons/${id}.png`;
-  const [images, bodies, hair] = await Promise.all([
+  const [images, bodies, hair, occluderData] = await Promise.all([
     loadAll(files, (f) => (bar.value = f)),
     fetch("assets/chars/bodies.json").then((r) => r.json()),
     fetch("assets/chars/hair.json").then((r) => r.json()),
+    fetch("assets/maps/occluders.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]);
 
   // stitched Oriverse capture; the scale allows tiles captured below 1 px per cm
   const map = { image: images.map, scale: images.map.width / MAP_W };
+  // the other camera angles load on first use (assets/maps/map_y<yaw>.jpg)
+  const maps = [Promise.resolve(images.map)];
+  const mapFor = (k) => (maps[k] ??= loadImage(`assets/maps/map_y${k}.jpg`));
+  const occluders = new Occluders(occluderData);
+  occluders.load(0);
 
   const tex = {
     rune: images.rune,
@@ -408,6 +415,7 @@ async function boot() {
       skillUI.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
+    if ((e.code === "KeyQ" || e.code === "KeyE") && !e.repeat) rotateCamera(e.code === "KeyQ" ? -1 : 1);
   });
   for (const [id, fn] of [["btn-inventory", () => invUI.toggle()], ["btn-wardrobe", () => wardrobe.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()]]) {
@@ -441,10 +449,62 @@ async function boot() {
   resize();
   window.addEventListener("resize", resize);
 
-  const cam = { x: mapX(player.y), y: mapY(player.x) - 50 };
+  const cam = { x: mapX(player.x, player.y), y: mapY(player.x, player.y) - 50 };
   const hint = document.getElementById("hint");
   let walkedFor = 0;
   let uiClock = 0;
+
+  // ---- camera turns in 90 degree steps (Q / E) ----
+  let turning = null, turnBusy = false;
+  const turnBuf = document.createElement("canvas");
+  async function rotateCamera(delta) {
+    if (turning || turnBusy) return;
+    turnBusy = true;
+    const k = (yaw + delta + 4) % 4;
+    try {
+      const [img] = await Promise.all([mapFor(k), occluders.load(k)]);
+      const snap = document.createElement("canvas");
+      snap.width = canvas.width;
+      snap.height = canvas.height;
+      snap.getContext("2d").drawImage(canvas, 0, 0);
+      setYaw(k);
+      map.image = img;
+      map.scale = img.width / MAP_W;
+      cam.x = mapX(player.x, player.y);
+      cam.y = mapY(player.x, player.y) - 50;
+      turning = { t: 0, dur: 0.45, snap, delta };
+    } catch {
+      floaters.add(player.x, player.y, 150, "มุมกล้องนี้ยังโหลดไม่ได้", "info");
+    }
+    turnBusy = false;
+  }
+  // The new view swings in from the side while the old one swings out and fades.
+  function drawTurn(dt) {
+    const tr = turning;
+    tr.t += dt;
+    const u = Math.min(1, tr.t / tr.dur), e = 1 - (1 - u) ** 3;
+    if (turnBuf.width !== canvas.width || turnBuf.height !== canvas.height) {
+      turnBuf.width = canvas.width;
+      turnBuf.height = canvas.height;
+    }
+    const tb = turnBuf.getContext("2d");
+    tb.setTransform(1, 0, 0, 1, 0, 0);
+    tb.drawImage(canvas, 0, 0);
+    const cx = canvas.width / 2, cy = canvas.height / 2, q = (tr.delta * Math.PI) / 2;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#16210f";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const spin = (img, a, alpha) => {
+      ctx.globalAlpha = alpha;
+      ctx.setTransform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), cx, cy);
+      ctx.drawImage(img, -cx, -cy);
+    };
+    spin(turnBuf, -q * (1 - e), 1);
+    spin(tr.snap, q * e, 1 - e);
+    ctx.globalAlpha = 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (u >= 1) turning = null;
+  }
   const deathNote = document.getElementById("death");
   // what monsters need from the player: where to chase and how a bite lands
   const monsterCtx = {
@@ -471,11 +531,13 @@ async function boot() {
     fps += (1 / Math.max(dt, 1e-3) - fps) * 0.05;
 
     // ---- update ----
-    const move = { x: 0, y: 0 };
+    // keys move relative to the camera: W is always up the screen
+    let fwd = 0, left = 0;
     for (const code of held) {
-      move.x += MOVE_KEYS[code][0];
-      move.y += MOVE_KEYS[code][1];
+      fwd += MOVE_KEYS[code][0];
+      left += MOVE_KEYS[code][1];
     }
+    const move = fromView(fwd, left);
     if (hero.update(dt) === "respawn") {
       player.x = SPAWN.x;
       player.y = SPAWN.y;
@@ -513,7 +575,7 @@ async function boot() {
     // ---- camera: follow the player, stay inside the map ----
     const k = screen.zoom * screen.dpr;
     const halfW = screen.w / screen.zoom / 2, halfH = screen.h / screen.zoom / 2;
-    const tx = mapX(player.y), ty = mapY(player.x) - 50;
+    const tx = mapX(player.x, player.y), ty = mapY(player.x, player.y) - 50;
     const ease = 1 - Math.exp(-dt * 6);
     cam.x += (tx - cam.x) * ease;
     cam.y += (ty - cam.y) * ease;
@@ -555,17 +617,24 @@ async function boot() {
       ctx.strokeStyle = "rgba(255, 214, 120, 0.9)";
       ctx.lineWidth = 2.5 * k;
       ctx.beginPath();
-      ctx.ellipse(mapX(t.y) * k + view.ox, mapY(t.x, 0) * k + view.oy, 34 * k, 15 * k, 0, 0, Math.PI * 2);
+      ctx.ellipse(mapX(t.x, t.y) * k + view.ox, mapY(t.x, t.y) * k + view.oy, 34 * k, 15 * k, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
 
     // characters, flowers and petals sorted by their ground point
     const sorted = fx.layer(SORTED);
-    for (const p of sorted) p.depth = mapY(p.x, 0);
+    for (const p of sorted) p.depth = mapY(p.x, p.y);
     sorted.sort((a, b) => a.depth - b.depth);
     const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon] : null;
+    // the player's box on the map, to see which cutouts hide them
+    const pb = { x: mapX(player.x, player.y) - 40, y: mapY(player.x, player.y) - 140, w: 80, h: 140 };
     const actors = [...monsters.map((m) => ({ depth: m.depth, draw: () => m.draw(ctx, view) })),
-      { depth: player.depth, draw: () => player.draw(ctx, view, inHand) }];
+      { depth: player.depth, draw: () => player.draw(ctx, view, inHand) },
+      ...occluders.items.map((it) => {
+        const hides = player.depth < it.depth && pb.x < it.mx + it.w && pb.x + pb.w > it.mx && pb.y < it.my + it.h && pb.y + pb.h > it.my
+          && occluders.covers(it, pb);
+        return { depth: it.depth, draw: () => occluders.draw(ctx, view, it, hides) };
+      })];
     actors.sort((a, b) => a.depth - b.depth);
     let from = 0;
     for (const a of actors) {
@@ -584,13 +653,14 @@ async function boot() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     floaters.draw(ctx, view);
 
+    if (turning) drawTurn(dt);
     if (showDebug) drawDebug(view, player, fx, fps);
     requestAnimationFrame(frame);
   }
 
   // Exposed for automated checks and console poking.
   window.__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker };
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, occluders };
 
   document.getElementById("loading").classList.add("done");
   requestAnimationFrame((t) => {
