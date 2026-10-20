@@ -1,11 +1,19 @@
 import { MAP_W, MAP_H, mapX, mapY, groundFromMap } from "./projection.js";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets.js";
 import { SPAWN, debugShapes } from "./world.js";
-import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, rand } from "./particles.js";
-import { Player } from "./player.js";
+import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles.js";
+import { Player, directionIndex } from "./player.js";
 import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell.js";
 import { SkillBar, slotForCode } from "./hud.js";
 import { Motes } from "./motes.js";
+import { ITEMS, WEAPON_TYPES, DYES } from "./items.js";
+import { Inventory } from "./inventory.js";
+import { InventoryUI, WardrobeUI, loadLook } from "./ui.js";
+import { Combat, Floaters, weaponStats, attackRange } from "./combat.js";
+import { slimeSheets, spawnMonsters, rollDrops } from "./monsters.js";
+import { buildLook, lookKey } from "./look.js";
+import { WEAPON_ART } from "./weapons.js";
+import { dyePixel, mapColors } from "./recolor.js";
 
 const SKILLS = [
   {
@@ -26,6 +34,9 @@ const MOVE_KEYS = {
   KeyA: [0, 1], ArrowLeft: [0, 1],
   KeyD: [0, -1], ArrowRight: [0, -1],
 };
+
+const CLIPS = ["idle", "walk", "swing", "thrust", "shoot", "cast"];
+const ICON = 40; // inventory icon size, css px
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -51,22 +62,54 @@ function mipFor(atlas, r) {
   return level;
 }
 
+// An item icon: the art fitted into a square canvas (long weapons lie diagonally, like RO).
+function makeIcon(img, { diagonal = false, dye = null } = {}) {
+  const c = document.createElement("canvas");
+  const dpr = 2;
+  c.width = c.height = ICON * dpr;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  const src = dye ? mapColors(img, (r, gg, b) => dyePixel(r, gg, b, dye)) : img;
+  const size = ICON * dpr * 0.86;
+  if (diagonal) {
+    const s = size / Math.hypot(img.width, img.height) * 1.0;
+    g.translate(c.width / 2, c.height / 2);
+    g.rotate(Math.PI / 4);
+    g.drawImage(src, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
+  } else {
+    const s = size / Math.max(img.width, img.height);
+    g.drawImage(src, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s);
+  }
+  return c;
+}
+
 async function boot() {
   const bar = document.getElementById("loading-bar");
-  const images = await loadAll(
-    {
-      map: "assets/map.jpg",
-      idle: "assets/mage_idle.png",
-      walk: "assets/mage_walk.png",
-      attack: "assets/mage_attack.png",
-      flowers: "assets/flower_atlas.png",
-      petals: "assets/petal_atlas.png",
-      rune: "assets/rune_circle.png",
-      ring: "assets/ring_glow.png",
-      icon: "assets/icon_flower.png",
-    },
-    (f) => (bar.value = f),
-  );
+  const files = {
+    map: "assets/map.jpg",
+    flowers: "assets/flower_atlas.png",
+    petals: "assets/petal_atlas.png",
+    rune: "assets/rune_circle.png",
+    ring: "assets/ring_glow.png",
+    icon: "assets/icon_flower.png",
+    slime_idle: "assets/slime_idle.png",
+    slime_hop: "assets/slime_hop.png",
+    slime_hurt: "assets/slime_hurt.png",
+    slime_die: "assets/slime_die.png",
+    coat: "assets/items/coat.png",
+    skirt: "assets/items/skirt.png",
+    jelly: "assets/items/jelly.png",
+    sprout: "assets/items/sprout.png",
+    arrow: "assets/items/arrow.png",
+  };
+  for (const clip of CLIPS) files[`mage_${clip}`] = `assets/mage_${clip}.png`;
+  const weaponArt = new Set(Object.keys(WEAPON_TYPES).map((t) => WEAPON_ART[t].art ?? t));
+  for (const id of weaponArt) files[`weapon_${id}`] = `assets/weapons/${id}.png`;
+  const [images, anchors, regions] = await Promise.all([
+    loadAll(files, (f) => (bar.value = f)),
+    fetch("assets/hand_anchors.json").then((r) => r.json()),
+    fetch("assets/palette_regions.json").then((r) => r.json()),
+  ]);
 
   // stitched Oriverse capture; the scale allows tiles captured below 1 px per cm
   const map = { image: images.map, scale: images.map.width / MAP_W };
@@ -83,16 +126,84 @@ async function boot() {
     petals: { levels: mipChain(images.petals, 2), cols: 2, rows: 2 },
   };
 
+  // ---- inventory, looks, icons ----
+  const inv = new Inventory();
+  const look = loadLook();
+  const baseSheets = Object.fromEntries(CLIPS.map((c) => [c, images[`mage_${c}`]]));
+  let currentLook = "";
+  const applyLook = () => {
+    const key = lookKey(look, inv.equipped);
+    if (key === currentLook) return;
+    currentLook = key;
+    player.setSheets(buildLook(baseSheets, regions, look, inv.equipped));
+  };
+
+  const weapons = {};
+  for (const t of Object.keys(WEAPON_TYPES)) {
+    const art = WEAPON_ART[t];
+    weapons[t] = { img: images[`weapon_${art.art ?? t}`], art };
+  }
+  const icons = new Map();
+  const iconFor = (id) => {
+    if (icons.has(id)) return icons.get(id);
+    const item = ITEMS[id];
+    let c = null;
+    if (item.kind === "weapon") {
+      const w = weapons[item.weapon];
+      c = makeIcon(w.img, { diagonal: w.img.height > w.img.width * 1.6 });
+      if (w.art.pair) {
+        // two daggers crossed
+        const g = c.getContext("2d");
+        g.save();
+        g.translate(c.width, 0);
+        g.scale(-1, 1);
+        g.drawImage(makeIcon(w.img, { diagonal: true }), 0, 0);
+        g.restore();
+      }
+    } else if (item.kind === "top") c = makeIcon(images.coat, { dye: DYES[item.dye] });
+    else if (item.kind === "bottom") c = makeIcon(images.skirt, { dye: DYES[item.dye].hue === null && item.dye === "black" ? { hue: 230, sat: 0.12, light: -0.45 } : DYES[item.dye] });
+    else c = makeIcon(images[item.icon.sheet]);
+    icons.set(id, c);
+    return c;
+  };
+
+  // ---- world ----
   const fx = new Particles();
-  const player = new Player(SPAWN.x, SPAWN.y, { idle: images.idle, walk: images.walk, attack: images.attack },
-    glow("rgba(255, 110, 120, 1)"));
+  const player = new Player(SPAWN.x, SPAWN.y, baseSheets, anchors, glow("rgba(255, 110, 120, 1)"));
+  applyLook();
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
   motes.prewarm();
   const spells = [];
   const cooldowns = SKILLS.map(() => 0);
+  const floaters = new Floaters();
+  const monsters = spawnMonsters(slimeSheets({
+    idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
+  }));
+  const combat = new Combat({
+    fx, tex, floaters, monsters,
+    onKill(m) {
+      for (const id of rollDrops(m.variant)) {
+        const left = inv.add(id, 1);
+        floaters.add(m.x, m.y, m.height + 20, left ? "กระเป๋าเต็ม" : `+ ${ITEMS[id].name}`, left ? "info" : "loot");
+      }
+    },
+  });
 
   const hud = new SkillBar(document.getElementById("skillbar"), SKILLS, useSlot);
+  const invUI = new InventoryUI(inv, iconFor);
+  const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook());
+  inv.onChange(() => applyLook());
+
+  // Wardrobe preview: the idle frame of the chosen direction, recoloured, scaled up.
+  function drawPreview(cv, lk, turn) {
+    const sheets = buildLook({ idle: baseSheets.idle }, regions, lk, inv.equipped);
+    const g = cv.getContext("2d");
+    const cell = baseSheets.idle.height / 8;
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(sheets.idle, 0, turn * cell, cell, cell, 0, 0, cv.width, cv.height);
+  }
 
   function useSlot(i) {
     const skill = SKILLS[i];
@@ -106,20 +217,27 @@ async function boot() {
     spells.push(new FlowerSpell(fx, tex, player.x, player.y, player));
   }
 
-  // Staff strike: a white-mint pop where the staff lands, with a few sparks thrown outward.
-  function strike(hit) {
-    fx.add({ ...hit, layer: AIR_GLOW, tex: tex.flash, life: 0.28, size: [[0, 30], [0.3, 80], [1, 95]], alpha: [[0, 0.95], [1, 0]] });
-    for (let i = 0; i < 14; i++) {
-      const a = rand(0, Math.PI * 2), sp = rand(120, 240);
-      fx.add({ x: hit.x, y: hit.y, z: hit.z, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: rand(-40, 120), drag: 2.5,
-        layer: AIR_GLOW, tex: tex.sparkle, life: rand(0.3, 0.5), size: [[0, 8], [1, 2]], alpha: [[0, 1], [1, 0]] });
+  // Space: hit the nearest slime within reach, else swing where she faces.
+  function quickAttack() {
+    const w = weaponStats(inv.equipped.weapon);
+    let best = null, bestD = attackRange(w) + 40;
+    for (const m of monsters) {
+      if (!m.alive) continue;
+      const d = Math.hypot(m.x - player.x, m.y - player.y) - m.radius;
+      if (d < bestD) {
+        best = m;
+        bestD = d;
+      }
     }
+    player.target = null;
+    player.startAttack(w, best);
   }
 
   // ---- input ----
   const held = new Set();
+  const typing = (e) => e.target instanceof HTMLInputElement;
   window.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || typing(e)) return;
     if (MOVE_KEYS[e.code]) {
       held.add(e.code);
       e.preventDefault();
@@ -133,17 +251,35 @@ async function boot() {
     }
     if (e.code === "Space") {
       e.preventDefault();
-      if (!e.repeat) player.startAttack();
+      if (!e.repeat) quickAttack();
       return;
+    }
+    if (e.code === "KeyI" && !e.repeat) invUI.toggle();
+    if (e.code === "KeyC" && !e.repeat) wardrobe.toggle();
+    if (e.code === "Escape") {
+      invUI.toggle(false);
+      wardrobe.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
   });
-  // click the ground to swing towards that point
+  for (const [id, fn] of [["btn-inventory", () => invUI.toggle()], ["btn-wardrobe", () => wardrobe.toggle()]]) {
+    document.getElementById(id).addEventListener("click", (e) => {
+      e.currentTarget.blur();
+      fn();
+    });
+  }
+  // click a slime to walk up to it and keep attacking; click the ground to swing that way
   let view = null;
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || !view) return;
     const mx = (e.clientX * screen.dpr - view.ox) / view.k, my = (e.clientY * screen.dpr - view.oy) / view.k;
-    player.startAttack(groundFromMap(mx, my));
+    const m = monsters.find((mon) => mon.contains(mx, my));
+    if (m) {
+      player.target = m;
+      return;
+    }
+    player.target = null;
+    player.startAttack(weaponStats(inv.equipped.weapon), groundFromMap(mx, my));
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
   window.addEventListener("blur", () => held.clear());
@@ -168,12 +304,15 @@ async function boot() {
       move.x += MOVE_KEYS[code][0];
       move.y += MOVE_KEYS[code][1];
     }
-    const hit = player.update(dt, move);
-    if (hit) strike(hit);
+    const w = weaponStats(inv.equipped.weapon);
+    if (player.update(dt, move, w)) combat.strike(player, inv.equipped.weapon);
     if (player.moving) {
       walkedFor += dt;
       if (walkedFor > 1.5) hint.classList.add("faded");
     }
+    for (const m of monsters) m.update(dt);
+    combat.update(dt);
+    floaters.update(dt);
     for (let i = spells.length - 1; i >= 0; i--) {
       spells[i].update(dt);
       if (spells[i].done) spells.splice(i, 1);
@@ -225,28 +364,47 @@ async function boot() {
     fx.draw(ctx, view, fx.layer(GROUND_GLOW));
     ctx.globalCompositeOperation = "source-over";
 
-    // flowers and petals sorted by their ground point, split around the player
+    // target ring under the slime being attacked
+    if (player.target?.alive) {
+      const t = player.target;
+      ctx.strokeStyle = "rgba(255, 214, 120, 0.9)";
+      ctx.lineWidth = 2.5 * k;
+      ctx.beginPath();
+      ctx.ellipse(mapX(t.y) * k + view.ox, mapY(t.x, 0) * k + view.oy, 34 * k, 15 * k, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // characters, flowers and petals sorted by their ground point
     const sorted = fx.layer(SORTED);
     for (const p of sorted) p.depth = mapY(p.x, 0);
     sorted.sort((a, b) => a.depth - b.depth);
-    const pd = player.depth;
-    let split = sorted.findIndex((p) => p.depth > pd);
-    if (split < 0) split = sorted.length;
-    fx.draw(ctx, view, sorted.slice(0, split));
-    player.draw(ctx, view);
-    fx.draw(ctx, view, sorted.slice(split));
+    const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon] : null;
+    const actors = [...monsters.map((m) => ({ depth: m.depth, draw: () => m.draw(ctx, view) })),
+      { depth: player.depth, draw: () => player.draw(ctx, view, inHand) }];
+    actors.sort((a, b) => a.depth - b.depth);
+    let from = 0;
+    for (const a of actors) {
+      let to = from;
+      while (to < sorted.length && sorted[to].depth <= a.depth) to++;
+      if (to > from) fx.draw(ctx, view, sorted.slice(from, to));
+      from = to;
+      a.draw();
+    }
+    if (from < sorted.length) fx.draw(ctx, view, sorted.slice(from));
 
+    combat.draw(ctx, view, images.arrow);
     ctx.globalCompositeOperation = "lighter";
     fx.draw(ctx, view, fx.layer(AIR_GLOW));
     ctx.globalCompositeOperation = "source-over";
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    floaters.draw(ctx, view);
 
     if (showDebug) drawDebug(view, player, fx, fps);
     requestAnimationFrame(frame);
   }
 
   // Exposed for automated checks and console poking.
-  window.__game = { player, fx, spells, cooldowns, useSlot };
+  window.__game = { player, fx, spells, cooldowns, useSlot, inv, monsters, combat, look, invUI, wardrobe, quickAttack, directionIndex };
 
   document.getElementById("loading").classList.add("done");
   requestAnimationFrame((t) => {
@@ -284,3 +442,4 @@ boot().catch((err) => {
   console.error(err);
   document.querySelector(".loading-title").textContent = "โหลดไม่สำเร็จ: " + err.message;
 });
+

@@ -1,29 +1,28 @@
-// The elf mage: WASD movement over the courtyard, 8-direction sprite animation (idle, walk,
-// attack), hover while casting.
+// The elf mage: WASD or click-to-target movement over the courtyard, 8-direction sprite
+// animation, a normal attack that depends on the equipped weapon, hover while casting.
 //
-// The idle sheet holds the eight directions of the Oriverse sprite `elf_mage_rest`; walk and
-// attack are built from them by tools/animate_sprite.py. Every sheet has one row per
-// direction in Oriverse order (front, then clockwise seen from above), one 128 px column per
-// frame, pivot at the bottom centre of each cell.
+// Sheets are the Oriverse sprite `mage_twintail` (tools/sprite_cells.py): one row per direction
+// in Oriverse order (front, then clockwise seen from above), one column per frame, pivot at the
+// bottom centre of each cell. The character is empty-handed; the weapon is drawn into her hand
+// during attacks and casts (src/weapons.js).
 
 import { mapX, mapY } from "./projection.js";
 import { resolve } from "./world.js";
+import { attackRange } from "./combat.js";
+import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip } from "./weapons.js";
 
 const SPEED = 380;        // cm/s
 const RADIUS = 24;        // collision radius, cm
-const CELL = 128;         // sprite cell, px
-const SCALE = 1.05;       // map px per sprite px
-const HEAD = 112;         // sprite px from the pivot up to just above the hair
+const HEIGHT = 128;       // on-screen height of the character, map px
+const HEAD = 0.93;        // fraction of the height from the pivot up to just above the hair
 const WALK_CYCLE = 170;   // cm walked per walk loop (two steps)
-const ATTACK_FPS = 14;
-const HIT_FRAME = 5;      // attack frame where the staff lands
-const WINDUP_FRAME = 3;   // cast holds this attack frame while the cast bar fills
 const HOVER = 24;         // cm the caster floats during the spell
 const HOVER_RAMP = 40 / 60;
+// frame where the weapon lands, per attack clip (8 frames each)
+const HIT_FRAME = { swing: 4, thrust: 4, shoot: 5 };
+const WINDUP_FRAME = 3;   // the cast holds this frame while the cast bar fills
 
 export const DIRECTIONS = ["south", "south-west", "west", "north-west", "north", "north-east", "east", "south-east"];
-// staff gem in each direction's cell (sprite px), printed by tools/animate_sprite.py
-const GEMS = [[93, 32], [87, 30], [73, 36], [48, 30], [33, 31], [35, 28], [55, 28], [69, 21]];
 
 // World direction (x = +X up the screen, y = +Y screen left) -> sheet row.
 export function directionIndex(x, y) {
@@ -38,20 +37,30 @@ export function directionVector(i) {
 }
 
 export class Player {
-  // sheets: { idle, walk, attack } images, rows = 8 directions, columns = frames;
-  // gemGlow: soft glow texture drawn over the staff gem while swinging or casting
-  constructor(x, y, sheets, gemGlow) {
+  // sheets: { idle, walk, swing, thrust, shoot, cast? }; anchors: hand positions per clip;
+  // gemGlow: soft glow drawn on the staff tip while casting
+  constructor(x, y, sheets, anchors, gemGlow) {
     this.x = x;
     this.y = y;
     this.z = 0;
-    this.sheets = sheets;
+    this.setSheets(sheets);
+    this.anchors = anchors;
     this.gemGlow = gemGlow;
     this.dir = 0;
     this.walked = 0;
     this.moving = false;
     this.time = 0;
     this.cast = null;   // { t, duration, hoverEnd, x, y }
-    this.attack = null; // { t, hit }
+    this.attack = null; // { t, motion, dur, hit, w }
+    this.cooldown = 0;
+    this.target = null; // monster to walk to and keep attacking
+  }
+
+  setSheets(sheets) {
+    this.sheets = sheets;
+    this.cell = sheets.idle.height / 8;
+    // measured once: how tall the character stands in the idle front cell
+    this.scale = HEIGHT / (this.cell * 0.92);
   }
 
   get casting() {
@@ -62,28 +71,56 @@ export class Player {
     return this.casting || !!this.attack;
   }
 
+  facing() {
+    return directionVector(this.dir);
+  }
+
   startCast(duration, hoverEnd) {
     this.cast = { t: 0, duration, hoverEnd, x: this.x, y: this.y };
     this.attack = null;
+    this.target = null;
     this.dir = 0; // face the camera like the Oriverse cast
   }
 
-  // Swing the staff, optionally turning towards a world point first. Returns false when busy.
-  startAttack(target) {
-    if (this.busy) return false;
-    if (target) {
-      const dx = target.x - this.x, dy = target.y - this.y;
+  // Normal attack with weapon stats w, optionally turning toward a world point first.
+  // Returns false while busy or recovering.
+  startAttack(w, toward) {
+    if (this.busy || this.cooldown > 0) return false;
+    if (toward) {
+      const dx = toward.x - this.x, dy = toward.y - this.y;
       if (Math.hypot(dx, dy) > 1) this.dir = directionIndex(dx, dy);
     }
-    this.attack = { t: 0, hit: false };
+    const sheet = this.sheets[w.motion];
+    const frames = sheet.width / this.cell;
+    // the clip plays faster for quick weapons, never slower than 12 fps
+    const dur = Math.min(w.interval * 0.92, frames / 12);
+    this.attack = { t: 0, motion: w.motion, dur, frames, hit: false, w };
+    this.cooldown = w.interval;
     return true;
   }
 
   // move = { x, y }: wanted direction in world axes (W = +X, A = +Y), not normalised.
-  // Returns the attack hit point { x, y, z } on the frame the staff lands, else null.
-  update(dt, move) {
+  // w = equipped weapon stats. Returns "hit" on the frame the weapon lands, else null.
+  update(dt, move, w) {
     this.time += dt;
+    this.cooldown = Math.max(0, this.cooldown - dt);
     let mx = move.x, my = move.y;
+    if (mx || my) this.target = null;
+    if (this.target && !this.target.alive) this.target = null;
+
+    // walk to the target until it is in reach, then keep attacking it
+    if (this.target && !this.busy) {
+      const dx = this.target.x - this.x, dy = this.target.y - this.y;
+      const d = Math.hypot(dx, dy) - this.target.radius;
+      if (d > attackRange(w)) {
+        mx = dx;
+        my = dy;
+      } else {
+        this.dir = directionIndex(dx, dy);
+        this.startAttack(w, this.target);
+      }
+    }
+
     if (this.busy) mx = my = 0; // rooted while casting or swinging
     const len = Math.hypot(mx, my);
     this.moving = len > 0;
@@ -104,13 +141,12 @@ export class Player {
     if (this.attack) {
       const a = this.attack;
       a.t += dt;
-      const frame = Math.floor(a.t * ATTACK_FPS);
-      if (!a.hit && frame >= HIT_FRAME) {
+      const frame = Math.floor((a.t / a.dur) * a.frames);
+      if (!a.hit && frame >= HIT_FRAME[a.motion]) {
         a.hit = true;
-        const v = directionVector(this.dir);
-        hit = { x: this.x + v.x * 70, y: this.y + v.y * 70, z: 55 };
+        hit = "hit";
       }
-      if (frame >= this.attackFrames) this.attack = null;
+      if (a.t >= a.dur) this.attack = null;
     }
 
     // hover: ramps up with the cast, bobs gently, settles when the carpet clears or when
@@ -130,27 +166,29 @@ export class Player {
     return hit;
   }
 
-  get attackFrames() {
-    return this.sheets.attack.width / CELL;
-  }
-
-  // Which sheet and column to show this frame.
+  // Which clip and column to show this frame.
   pose() {
-    const { walk, attack, idle } = this.sheets;
-    if (this.cast && this.cast.t < this.cast.duration + 0.4) {
-      // wind up while the cast bar fills, then follow through on release
+    const { walk, idle } = this.sheets;
+    const cols = (s) => s.width / this.cell;
+    if (this.cast && this.cast.t < this.cast.duration + 0.5) {
+      // raise the hands while the cast bar fills, then let them fall on release
+      const clip = this.sheets.cast ? "cast" : "swing";
+      const n = cols(this.sheets[clip]);
       const c = this.cast;
-      const f = c.t < c.duration
+      const col = c.t < c.duration
         ? Math.min(WINDUP_FRAME, Math.floor((c.t / 0.35) * WINDUP_FRAME))
-        : Math.min(this.attackFrames - 1, WINDUP_FRAME + 1 + Math.floor((c.t - c.duration) * ATTACK_FPS));
-      return { sheet: attack, col: f };
+        : Math.min(n - 1, WINDUP_FRAME + 1 + Math.floor((c.t - c.duration) * 10));
+      return { clip, col };
     }
-    if (this.attack) return { sheet: attack, col: Math.min(this.attackFrames - 1, Math.floor(this.attack.t * ATTACK_FPS)) };
+    if (this.attack) {
+      const a = this.attack;
+      return { clip: a.motion, col: Math.min(a.frames - 1, Math.floor((a.t / a.dur) * a.frames)) };
+    }
     if (this.moving) {
-      const n = walk.width / CELL;
-      return { sheet: walk, col: Math.floor((this.walked / WALK_CYCLE) * n) % n };
+      const n = cols(walk);
+      return { clip: "walk", col: Math.floor((this.walked / WALK_CYCLE) * n) % n };
     }
-    return { sheet: idle, col: 0 };
+    return { clip: "idle", col: 0 };
   }
 
   // Ground point on the map, for depth sorting.
@@ -158,7 +196,8 @@ export class Player {
     return mapY(this.x, 0);
   }
 
-  draw(ctx, view) {
+  // weaponImg/art: what to draw in the hand during attacks and casts (null: bare hands)
+  draw(ctx, view, weapon) {
     const { k, ox, oy } = view;
     const gx = mapX(this.y) * k + ox;
     const gy = mapY(this.x, 0) * k + oy;
@@ -172,37 +211,52 @@ export class Player {
     ctx.ellipse(gx, gy, sr, sr * 0.42, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    const { sheet, col } = this.pose();
-    const s = SCALE * k;
+    const { clip, col } = this.pose();
+    const sheet = this.sheets[clip];
+    const cell = this.cell;
+    const s = this.scale * k;
     const breathe = this.moving || this.busy ? 1 : 1 + 0.012 * Math.sin(this.time * 2.2);
     const fy = mapY(this.x, lift) * k + oy;
+
+    // the weapon shows while attacking or casting; behind her when she faces away
+    const hand = weapon && (this.attack || this.casting) ? this.handFor(clip, col) : null;
+    const behind = this.dir >= 3 && this.dir <= 5;
+    const drawHeld = () => {
+      if (!hand) return;
+      const toScreen = ([hx, hy]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
+      const angle = weaponAngle(hand.r, hand.c, screenAngle(this.facing()));
+      const [x, y] = toScreen(hand.r);
+      const wscale = s * (weapon.art.scale ?? 1);
+      drawWeapon(ctx, weapon.img, weapon.art, x, y, angle, wscale);
+      if (weapon.art.pair && hand.l) {
+        const [lx, ly] = toScreen(hand.l);
+        drawWeapon(ctx, weapon.img, weapon.art, lx, ly, weaponAngle(hand.l, hand.c, screenAngle(this.facing())), wscale);
+      }
+      if (this.casting && this.gemGlow) {
+        const tip = weaponTip(weapon.img, weapon.art, x, y, angle, wscale);
+        const r = (18 + 8 * Math.sin(this.cast.t * 9)) * k;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.drawImage(this.gemGlow, tip.x - r, tip.y - r, r * 2, r * 2);
+        ctx.globalCompositeOperation = "source-over";
+      }
+    };
+
+    if (behind) drawHeld();
     // pivot (bottom centre of the cell) on the feet; breathing stretches up from the ground
     ctx.setTransform(s, 0, 0, s * breathe, gx, fy);
-    ctx.drawImage(sheet, col * CELL, this.dir * CELL, CELL, CELL, -CELL / 2, -CELL, CELL, CELL);
+    ctx.drawImage(sheet, col * cell, this.dir * cell, cell, cell, -cell / 2, -cell, cell, cell);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (!behind) drawHeld();
 
-    const glow = this.gemGlowStrength();
-    if (glow > 0.01) {
-      const [ex, ey] = GEMS[this.dir];
-      const r = (10 + 16 * glow) * k;
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = Math.min(1, glow);
-      ctx.drawImage(this.gemGlow, gx + (ex - CELL / 2) * s - r, fy + (ey - CELL) * s - r, r * 2, r * 2);
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
-    }
-
-    if (this.casting) this.drawCastBar(ctx, gx, fy - HEAD * s - 6 * k, k);
+    if (this.casting) this.drawCastBar(ctx, gx, fy - HEIGHT * HEAD * k - 6 * k, k);
   }
 
-  // 0..1: builds through the wind-up, flares when the staff lands; pulses while casting.
-  gemGlowStrength() {
-    if (this.attack) {
-      const f = this.attack.t * ATTACK_FPS;
-      return f < HIT_FRAME ? (f / HIT_FRAME) * 0.6 : Math.max(0, 1 - (f - HIT_FRAME) / 3);
-    }
-    if (this.casting) return 0.55 + 0.35 * Math.sin(this.cast.t * 9);
-    return 0;
+  // Hand positions (sprite px) for a frame; falls back to a point beside the body.
+  handFor(clip, col) {
+    const a = this.anchors?.[clip]?.[this.dir]?.[col];
+    const c = a?.c ?? [this.cell / 2, this.cell * 0.62];
+    const r = a?.r ?? [c[0] + (this.dir >= 5 ? 10 : -10), c[1] + 6];
+    return { r, l: a?.l ?? null, c };
   }
 
   // Ragnarok-style cast bar over the head.
@@ -220,3 +274,5 @@ export class Player {
     ctx.fillRect(cx - w / 2 + pad, y - h + pad, (w - pad * 2) * f, h - pad * 2);
   }
 }
+
+export { WEAPON_ART };

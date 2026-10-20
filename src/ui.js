@@ -1,0 +1,322 @@
+// Inventory window (I) and wardrobe window (C).
+//
+// Both are plain DOM panels over the canvas. Items are dragged with pointer events (works with
+// mouse, pen and touch); double-click equips or takes off.
+
+import { ITEMS, EQUIP_SLOTS, describe, itemSlot } from "./items.js";
+import { COLS } from "./inventory.js";
+
+function el(tag, cls, parent) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (parent) parent.append(e);
+  return e;
+}
+
+// A draggable window with a title bar and a close button.
+function makeWindow(id, title, key) {
+  const win = el("section", "window hidden");
+  win.id = id;
+  win.setAttribute("aria-label", title);
+  const bar = el("header", "window-bar", win);
+  el("h2", "", bar).textContent = title;
+  const k = el("kbd", "", bar);
+  k.textContent = key;
+  const close = el("button", "window-close", bar);
+  close.type = "button";
+  close.setAttribute("aria-label", "ปิด");
+  close.textContent = "×";
+  close.addEventListener("click", () => win.classList.add("hidden"));
+  // drag by the title bar
+  bar.addEventListener("pointerdown", (e) => {
+    if (e.target === close) return;
+    const r = win.getBoundingClientRect();
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    bar.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      win.style.left = `${Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx))}px`;
+      win.style.top = `${Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy))}px`;
+      win.style.right = "auto";
+    };
+    const up = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", up);
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", up);
+  });
+  document.body.append(win);
+  return win;
+}
+
+export class InventoryUI {
+  // icons(id) -> canvas or image for an item; onChange() after equipment changes
+  constructor(inv, icons) {
+    this.inv = inv;
+    this.icons = icons;
+    this.win = makeWindow("inventory", "กระเป๋า", "I");
+    const body = el("div", "inv-body", this.win);
+    const equip = el("div", "inv-equip", body);
+    this.equipEls = {};
+    for (const { slot, name } of EQUIP_SLOTS) {
+      const box = el("div", "inv-equip-row", equip);
+      const cell = el("div", "inv-cell equip", box);
+      cell.dataset.equip = slot;
+      el("span", "inv-equip-label", box).textContent = name;
+      this.equipEls[slot] = cell;
+    }
+    this.grid = el("div", "inv-grid", body);
+    this.grid.style.setProperty("--cols", COLS);
+    this.cells = inv.slots.map((_, i) => {
+      const c = el("div", "inv-cell", this.grid);
+      c.dataset.index = i;
+      return c;
+    });
+    this.tip = el("div", "inv-tip hidden", document.body);
+    this.status = el("p", "inv-status", this.win);
+    inv.onChange(() => this.render());
+    this.bindPointer();
+    this.render();
+  }
+
+  toggle(show = this.win.classList.contains("hidden")) {
+    this.win.classList.toggle("hidden", !show);
+    this.tip.classList.add("hidden");
+  }
+
+  fill(cell, id, count) {
+    cell.replaceChildren();
+    cell.classList.toggle("filled", !!id);
+    if (!id) return;
+    const icon = this.icons(id);
+    if (icon) {
+      const c = icon.cloneNode ? icon.cloneNode(true) : icon;
+      if (c instanceof HTMLCanvasElement) c.getContext("2d").drawImage(icon, 0, 0);
+      c.classList.add("inv-icon");
+      cell.append(c);
+    }
+    if (count > 1) el("span", "inv-count", cell).textContent = count;
+  }
+
+  render() {
+    this.inv.slots.forEach((s, i) => this.fill(this.cells[i], s?.id, s?.count));
+    for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot], 1);
+    const used = this.inv.slots.filter(Boolean).length;
+    this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่หรือถอด`;
+  }
+
+  // What item a cell shows.
+  itemAt(cell) {
+    if (cell.dataset.equip) return this.inv.equipped[cell.dataset.equip];
+    return this.inv.slots[Number(cell.dataset.index)]?.id;
+  }
+
+  showTip(cell, x, y) {
+    const id = this.itemAt(cell);
+    if (!id) {
+      this.tip.classList.add("hidden");
+      return;
+    }
+    const item = ITEMS[id];
+    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กระโปรง", material: "วัตถุดิบ" }[item.kind];
+    this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}`;
+    this.tip.classList.remove("hidden");
+    const r = this.tip.getBoundingClientRect();
+    this.tip.style.left = `${Math.min(innerWidth - r.width - 8, x + 16)}px`;
+    this.tip.style.top = `${Math.min(innerHeight - r.height - 8, y + 16)}px`;
+  }
+
+  bindPointer() {
+    let drag = null;
+    const cellFrom = (target) => target?.closest?.(".inv-cell");
+    this.win.addEventListener("pointerover", (e) => {
+      const c = cellFrom(e.target);
+      if (c && !drag) this.showTip(c, e.clientX, e.clientY);
+    });
+    this.win.addEventListener("pointerout", (e) => {
+      if (!cellFrom(e.relatedTarget)) this.tip.classList.add("hidden");
+    });
+    this.win.addEventListener("dblclick", (e) => {
+      const c = cellFrom(e.target);
+      if (!c) return;
+      if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip) ? null : "ถอดไม่ได้: กระเป๋าเต็ม หรือไม่มีชุดอื่นให้ใส่แทน");
+      else if (this.inv.slots[Number(c.dataset.index)]) this.flash(this.inv.equip(Number(c.dataset.index)) ? null : "ไอเท็มนี้สวมใส่ไม่ได้");
+      this.tip.classList.add("hidden");
+    });
+    this.win.addEventListener("pointerdown", (e) => {
+      const c = cellFrom(e.target);
+      if (!c || e.button !== 0 || !this.itemAt(c)) return;
+      e.preventDefault();
+      const ghost = c.querySelector(".inv-icon")?.cloneNode(true);
+      if (ghost instanceof HTMLCanvasElement) ghost.getContext("2d").drawImage(c.querySelector(".inv-icon"), 0, 0);
+      drag = { from: c, ghost, x: e.clientX, y: e.clientY, moved: false };
+      this.tip.classList.add("hidden");
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 4) {
+        drag.moved = true;
+        if (drag.ghost) {
+          drag.ghost.classList.add("inv-ghost");
+          document.body.append(drag.ghost);
+        }
+        drag.from.classList.add("dragging");
+      }
+      if (drag.moved && drag.ghost) {
+        drag.ghost.style.left = `${e.clientX}px`;
+        drag.ghost.style.top = `${e.clientY}px`;
+      }
+    });
+    window.addEventListener("pointerup", (e) => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      d.ghost?.remove();
+      d.from.classList.remove("dragging");
+      if (!d.moved) return;
+      const to = cellFrom(document.elementFromPoint(e.clientX, e.clientY));
+      if (!to || to === d.from) return;
+      this.drop(d.from, to);
+    });
+  }
+
+  drop(from, to) {
+    const inv = this.inv;
+    if (from.dataset.equip) {
+      // taking something off onto a grid cell
+      if (to.dataset.equip) return;
+      if (!inv.unequip(from.dataset.equip, Number(to.dataset.index))) this.flash("วางตรงนั้นไม่ได้");
+      return;
+    }
+    const fi = Number(from.dataset.index);
+    if (to.dataset.equip) {
+      if (itemSlot(inv.slots[fi]?.id) !== to.dataset.equip) return this.flash("ใส่ช่องนี้ไม่ได้");
+      inv.equip(fi);
+      return;
+    }
+    inv.move(fi, Number(to.dataset.index));
+  }
+
+  flash(msg) {
+    if (!msg) return;
+    this.status.textContent = msg;
+    this.status.classList.remove("warn");
+    void this.status.offsetWidth;
+    this.status.classList.add("warn");
+  }
+}
+
+// Wardrobe: hairstyle, hair colour, eye colour, with a live preview.
+export const HAIRSTYLES = [
+  { id: "twintail", name: "ทวินเทลยาว" },
+  { id: "bob", name: "ผมสั้นบ็อบ", locked: true },
+  { id: "long", name: "ผมยาวปล่อย", locked: true },
+];
+export const HAIR_COLORS = [
+  { id: "silver", name: "เงิน", hue: null },
+  { id: "gold", name: "ทอง", hue: 44, sat: 0.62, light: 0.02 },
+  { id: "rose", name: "ชมพู", hue: 335, sat: 0.55, light: 0 },
+  { id: "sky", name: "ฟ้า", hue: 200, sat: 0.6, light: -0.02 },
+  { id: "mint", name: "เขียว", hue: 150, sat: 0.45, light: -0.02 },
+  { id: "ink", name: "ดำ", hue: 240, sat: 0.18, light: -0.42 },
+  { id: "auburn", name: "แดงน้ำตาล", hue: 12, sat: 0.6, light: -0.18 },
+];
+export const EYE_COLORS = [
+  { id: "teal", name: "เขียวมรกต", hue: null },
+  { id: "amber", name: "อำพัน", hue: 38, sat: 0.85, light: 0 },
+  { id: "violet", name: "ม่วง", hue: 275, sat: 0.6, light: 0 },
+  { id: "crimson", name: "แดง", hue: 355, sat: 0.75, light: 0 },
+  { id: "blue", name: "น้ำเงิน", hue: 215, sat: 0.75, light: 0 },
+];
+
+const LOOK_KEY = "mmoproject.look.v1";
+
+export function loadLook() {
+  const look = { hair: "twintail", hairColor: "silver", eyes: "teal" };
+  try {
+    Object.assign(look, JSON.parse(localStorage.getItem(LOOK_KEY) || "{}"));
+  } catch {
+    // keep the defaults
+  }
+  if (!HAIRSTYLES.some((h) => h.id === look.hair && !h.locked)) look.hair = "twintail";
+  if (!HAIR_COLORS.some((c) => c.id === look.hairColor)) look.hairColor = "silver";
+  if (!EYE_COLORS.some((c) => c.id === look.eyes)) look.eyes = "teal";
+  return look;
+}
+
+export class WardrobeUI {
+  // drawPreview(canvas, look) paints the character; onChange(look) applies it in game
+  constructor(look, drawPreview, onChange) {
+    this.look = look;
+    this.drawPreview = drawPreview;
+    this.onChange = onChange;
+    this.win = makeWindow("wardrobe", "แต่งตัว", "C");
+    const body = el("div", "wr-body", this.win);
+    const left = el("div", "wr-preview", body);
+    this.canvas = el("canvas", "", left);
+    this.canvas.width = 192;
+    this.canvas.height = 192;
+    this.turn = 0;
+    const turn = el("div", "wr-turn", left);
+    for (const [label, d] of [["◀", 1], ["▶", -1]]) {
+      const b = el("button", "wr-btn", turn);
+      b.type = "button";
+      b.textContent = label;
+      b.setAttribute("aria-label", d > 0 ? "หมุนซ้าย" : "หมุนขวา");
+      b.addEventListener("click", () => {
+        this.turn = (this.turn + d + 8) % 8;
+        this.preview();
+      });
+    }
+    const right = el("div", "wr-options", body);
+    this.group(right, "ทรงผม", HAIRSTYLES, "hair", (o) => o.name);
+    this.group(right, "สีผม", HAIR_COLORS, "hairColor");
+    this.group(right, "สีตา", EYE_COLORS, "eyes");
+    el("p", "wr-note", right).textContent = "เสื้อกับกระโปรงเปลี่ยนได้จากไอเท็มในกระเป๋า (ปุ่ม I)";
+  }
+
+  group(parent, title, options, key, label) {
+    el("h3", "", parent).textContent = title;
+    const row = el("div", label ? "wr-choices" : "wr-swatches", parent);
+    for (const o of options) {
+      const b = el("button", label ? "wr-choice" : "wr-swatch", row);
+      b.type = "button";
+      b.dataset.key = key;
+      b.dataset.id = o.id;
+      b.title = o.locked ? `${o.name} (เร็วๆ นี้)` : o.name;
+      if (label) b.textContent = o.locked ? `${o.name} · เร็วๆ นี้` : o.name;
+      else b.style.setProperty("--swatch", swatchColor(o, key));
+      b.disabled = !!o.locked;
+      b.addEventListener("click", () => {
+        this.look[key] = o.id;
+        try {
+          localStorage.setItem(LOOK_KEY, JSON.stringify(this.look));
+        } catch {
+          // not persisted
+        }
+        this.sync();
+        this.onChange(this.look);
+      });
+    }
+  }
+
+  sync() {
+    for (const b of this.win.querySelectorAll("[data-key]")) b.classList.toggle("on", this.look[b.dataset.key] === b.dataset.id);
+    this.preview();
+  }
+
+  preview() {
+    this.drawPreview(this.canvas, this.look, this.turn);
+  }
+
+  toggle(show = this.win.classList.contains("hidden")) {
+    this.win.classList.toggle("hidden", !show);
+    if (show) this.sync();
+  }
+}
+
+function swatchColor(o, key) {
+  if (o.hue === null) return key === "eyes" ? "#2bb5a3" : "#d8d4ec";
+  const l = key === "eyes" ? 45 : Math.round(62 + (o.light || 0) * 100);
+  return `hsl(${o.hue} ${Math.round(o.sat * 100)}% ${l}%)`;
+}
