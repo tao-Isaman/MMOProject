@@ -22,12 +22,12 @@ MIRROR = 129     # x + mirrored x: the front view is symmetric about x = 64.5
 COLLAR = 67      # the original collar and lapels (coat pixels above this row) stay on top
 # screen-left half, sprite px
 NECK = (51.0, 51.0)            # where the capelet's shoulder line leaves the collar
-SHOULDER = (35.0, 62.0)        # outer end of the shoulder line
-HEM = (33.0, 70.0, 67.0)       # hem: outer x, row at the outer corner, row at the collar
+SHOULDER = (44.0, 57.0)        # outer end of the shoulder line
+HEM = (43.0, 65.0, 64.0)       # hem: outer x, row at the outer corner, row at the collar
 # sleeve edges run from row TOP (under the capelet) to the cuff; the outer edge flares out
-TOP, CUFF = 64, 86
-INNER = (49.0, 45.0)
-OUTER = (40.0, 30.0)
+TOP, CUFF = 59, 84
+INNER = (51.0, 48.0)
+OUTER = (43.0, 35.0)
 CUFF_RISE = 2    # the cuff's outer corner sits this much higher than its inner corner
 BAND = 2         # gold cuff, rows
 
