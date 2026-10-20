@@ -10,24 +10,19 @@ export function loadImage(src) {
   });
 }
 
-// Load { key: url } in parallel; optional entries resolve to null when missing.
+// Load { key: url } in parallel, reporting progress as a 0..1 fraction.
 export async function loadAll(list, onProgress) {
   const keys = Object.keys(list);
   let done = 0;
-  const out = {};
-  await Promise.all(
-    keys.map(async (k) => {
-      const { src, optional } = typeof list[k] === "string" ? { src: list[k] } : list[k];
-      try {
-        out[k] = await loadImage(src);
-      } catch (err) {
-        if (!optional) throw err;
-        out[k] = null;
-      }
-      onProgress(++done / keys.length);
-    }),
+  const images = await Promise.all(
+    keys.map((k) =>
+      loadImage(list[k]).then((img) => {
+        onProgress(++done / keys.length);
+        return img;
+      }),
+    ),
   );
-  return out;
+  return Object.fromEntries(keys.map((k, i) => [k, images[i]]));
 }
 
 function canvas(w, h) {

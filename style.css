@@ -88,12 +88,6 @@ kbd {
 .tooltip strong { display: block; color: var(--mint); font-size: 15px; font-weight: 600; }
 .slot:hover .tooltip, .slot:focus-visible .tooltip { opacity: 1; }
 
-/* shown while assets/map.jpg (the stitched Oriverse capture) is missing */
-.badge {
-  position: fixed; top: 14px; right: 16px; padding: 6px 10px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--rim); color: var(--gold); font-size: 13px;
-}
-
 .loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--ink); transition: opacity 0.5s; }
 .loading.done { opacity: 0; pointer-events: none; }
 .loading-box { text-align: center; }

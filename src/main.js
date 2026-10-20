@@ -1,6 +1,6 @@
 import { MAP_W, MAP_H, mapX, mapY } from "./projection.js";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets.js";
-import { SPAWN, paintStandIn, debugShapes } from "./world.js";
+import { SPAWN, debugShapes } from "./world.js";
 import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles.js";
 import { Player } from "./player.js";
 import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell.js";
@@ -55,7 +55,7 @@ async function boot() {
   const bar = document.getElementById("loading-bar");
   const images = await loadAll(
     {
-      map: { src: "assets/map.jpg", optional: true },
+      map: "assets/map.jpg",
       front: "assets/mage_front.png",
       back: "assets/mage_back.png",
       left: "assets/mage_left.png",
@@ -69,13 +69,8 @@ async function boot() {
     (f) => (bar.value = f),
   );
 
-  const map = images.map ? { image: images.map, scale: images.map.width / MAP_W } : paintStandIn();
-  if (!images.map) {
-    const badge = document.createElement("div");
-    badge.className = "badge";
-    badge.textContent = "แผนที่ชั่วคราว · รอภาพฉากจาก Oriverse";
-    document.body.append(badge);
-  }
+  // stitched Oriverse capture; the scale allows tiles captured below 1 px per cm
+  const map = { image: images.map, scale: images.map.width / MAP_W };
 
   const tex = {
     rune: images.rune,
@@ -230,7 +225,7 @@ async function boot() {
   }
 
   // Exposed for automated checks and console poking.
-  window.__game = { player, fx, spells, cooldowns, useSlot, standIn: !images.map };
+  window.__game = { player, fx, spells, cooldowns, useSlot };
 
   document.getElementById("loading").classList.add("done");
   requestAnimationFrame((t) => {
