@@ -536,7 +536,7 @@ const GROUNDS: Record<string, { a: number[]; b: number[]; seed: number; speck?: 
   dirt: { a: [176, 132, 80], b: [214, 178, 118], seed: 157 },
   rock: { a: [120, 116, 108], b: [170, 164, 152], seed: 163 },
 };
-export function groundTexture(kind: string): THREE.CanvasTexture {
+export function groundTexture(kind: string, srgb = true): THREE.CanvasTexture {
   const g = GROUNDS[kind] ?? GROUNDS.grass;
   const n = fbm([[6, 1], [24, 0.6], [96, 0.35]], g.seed), m = noise(48, g.seed + 6);
   return texture(paint((u, v) => {
@@ -544,5 +544,5 @@ export function groundTexture(kind: string): THREE.CanvasTexture {
     if (g.ripple) t = t * 0.7 + 0.3 * (0.5 + 0.5 * Math.sin((v * 9 + n(u, v) * 3) * Math.PI * 2));
     if (g.speck && m(u, v) > 0.84) return g.speck;
     return g.a.map((x, i) => (x + (g.b[i] - x) * t) * (0.94 + (m(u * 2, v * 2) - 0.5) * 0.1));
-  }, 512));
+  }, 512), srgb);
 }

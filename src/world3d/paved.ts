@@ -1,9 +1,10 @@
-// Town ground: one wide plane of grass with roads of cobbles and plazas of flagstones painted
-// into it from polygons (world cm), a darker kerb where they meet the grass. The shader mixes
-// the three by a painted mask, like ground.ts mixes grass and dirt.
+// Town ground: one wide plane of grass (or snow, sand, steppe...) with roads of cobbles and
+// plazas of flagstones painted into it from polygons (world cm), a darker kerb where they meet
+// the open ground. The shader mixes the three by a painted mask, like ground.ts mixes grass and
+// dirt.
 
 import * as THREE from "three";
-import { grassMap, detailCanvas } from "./textures";
+import { grassMap, detailCanvas, groundTexture } from "./textures";
 
 export type Poly = [number, number][];
 
@@ -13,6 +14,9 @@ export interface PavedSpec {
   plazas: Poly[];
   water?: Poly[];    // holes in the ground where the sea comes in (a harbour basin)
   cmPerPx?: number; // mask resolution
+  base?: string;     // the open ground: grass (default), snow, sand, steppe, jungle, dirt, moss, rock
+  road?: [number, number, number];  // tints over the cobbles and flagstones
+  plaza?: [number, number, number];
 }
 
 export interface Paved {
@@ -64,7 +68,10 @@ export function buildPaved(spec: PavedSpec): Paved {
   mask.magFilter = THREE.LinearFilter;
 
   const uniforms = {
-    uGrass: { value: grassMap() },
+    uGrass: { value: !spec.base || spec.base === "grass" ? grassMap() : groundTexture(spec.base, false) },
+    uRoad: { value: new THREE.Vector3(...(spec.road ?? [0.74, 0.70, 0.64])) },
+    uPlaza: { value: new THREE.Vector3(...(spec.plaza ?? [0.90, 0.87, 0.80])) },
+    uBase: { value: !spec.base || spec.base === "grass" ? 0.86 : 1 },
     uCobble: { value: texture(detailCanvas("cobble")) },
     uFlag: { value: texture(detailCanvas("stone")) },
     uMask: { value: mask },
@@ -84,14 +91,16 @@ export function buildPaved(spec: PavedSpec): Paved {
       .replace("#include <common>", `#include <common>
         varying vec3 vGround;
         uniform sampler2D uGrass, uCobble, uFlag, uMask;
-        uniform vec2 uMin, uSize, uTexel;`)
+        uniform vec2 uMin, uSize, uTexel;
+        uniform vec3 uRoad, uPlaza;
+        uniform float uBase;`)
       .replace("#include <map_fragment>", `
         vec2 w = vec2(vGround.x, -vGround.z);
         vec3 grass = mix(texture2D(uGrass, w / 260.0).rgb, texture2D(uGrass, w / 1130.0 + 0.37).rgb, 0.45);
-        grass = pow(grass * 0.86, vec3(2.2));
+        grass = pow(grass * uBase, vec3(2.2));
         // cobbles (1.2 m tiles) a warm grey; flagstones (3 m tiles, big slabs) pale
-        vec3 cobble = texture2D(uCobble, w / 120.0).rgb * vec3(0.74, 0.70, 0.64);
-        vec3 flag = texture2D(uFlag, w.yx / 300.0).rgb * vec3(0.90, 0.87, 0.80);
+        vec3 cobble = texture2D(uCobble, w / 120.0).rgb * uRoad;
+        vec3 flag = texture2D(uFlag, w.yx / 300.0).rgb * uPlaza;
         cobble = pow(cobble, vec3(2.2));
         flag = pow(flag, vec3(2.2));
         vec2 m = (w - uMin) / uSize;

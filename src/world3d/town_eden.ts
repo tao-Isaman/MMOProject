@@ -13,161 +13,46 @@
 // as instanced meshes in 50 m blocks, so a block off screen costs nothing.
 
 import * as THREE from "three";
-import { toThree } from "./geo";
-import type { Geo } from "./geo";
 import { material, defineMaterial } from "./textures";
 import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
-import { flowerFields } from "./courtyard";
 import { KIT as EDEN } from "./kits/eden";
 import { KIT as YODIA } from "./kits/yodia";
-import { COMMON, FLORA } from "./kits/common";
-import type { Kit, KitItem } from "./kits/types";
+import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE } from "./town";
+import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
-import type { Level } from "./view";
-import type { MapLabel } from "../maps";
 
-const KITS: Record<string, Kit> = { eden: EDEN, yodia: YODIA, common: COMMON, flora: FLORA };
+useKits(EDEN, YODIA);
 
 // Pieces the Eden kit may not have yet stand in for each other.
-const FALLBACK: Record<string, string> = {
+fallbacks({
   "eden:corner_house": "eden:townhouse", "eden:row_houses": "eden:townhouse", "eden:weapon_shop": "eden:townhouse_narrow",
   "eden:tool_shop": "eden:townhouse_narrow", "eden:guild_hall": "eden:inn", "eden:warehouse": "yodia:warehouse",
   "eden:cafe": "eden:townhouse_narrow", "eden:cafe_table": "common:bench", "eden:hedge": "flora:Bush", "eden:topiary": "flora:Bush",
   "eden:flower_bed": "eden:flower_planter", "eden:pergola": "common:bench", "eden:park_bench": "common:bench",
   "eden:kiosk": "eden:market_stall_cloth", "eden:notice_board": "common:sign_post", "eden:public_well": "common:gazebo",
   "eden:cargo_stack": "yodia:cargo_pile", "eden:guard_post": "eden:street_lamp",
-};
+});
 
 // Colourways: the same houses with Prontera's red roofs, slate roofs, cream or yellow walls.
 defineMaterial("EdenTown_PlasterCream", { map: "plaster", tint: "#f3e6c8", bump: 0.6 });
 defineMaterial("EdenTown_PlasterYellow", { map: "plaster", tint: "#f4dfa0", bump: 0.6 });
 defineMaterial("EdenTown_ShutterGreen", { map: "wood", tint: "#4f7d4a", bump: 1 });
 defineMaterial("EdenTown_ShutterRed", { map: "wood", tint: "#a8453a", bump: 1 });
-const COLOURS: Record<string, Record<string, string>> = {
+colourways({
   red: { RoofBlue: "RoofTerracotta", Eden_Shutter: "EdenTown_ShutterGreen", FabricBlue: "FabricRed" },
   slate: { RoofBlue: "RoofSlate", Eden_Plaster: "EdenTown_PlasterCream", Eden_Shutter: "EdenTown_ShutterRed" },
   cream: { RoofBlue: "RoofTerracotta", Eden_Plaster: "EdenTown_PlasterCream", Eden_Shutter: "EdenTown_ShutterRed", FabricBlue: "FabricGreen" },
   yellow: { Eden_Plaster: "EdenTown_PlasterYellow", FabricBlue: "FabricGold" },
-};
+});
 
-// ---- the plan's pixels -> the world ----
-// The town is built at full size (18 cm a plan pixel, the kits' own sizes) and then scaled as one:
-// at full size it felt too big next to the characters. The scenery takes the scale on its root;
-// everything the game reads (solids, bounds, places) is scaled to match on the way out.
-export const TOWN_SCALE = 0.85;
-const S = 18; // cm per plan pixel
-const CU = 625, CV = 565; // the crossroads, the world origin
-const P = (u: number, v: number): [number, number] => [(CV - v) * S, (CU - u) * S];
-const rect = (u0: number, v0: number, u1: number, v1: number): Poly => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
-// a quarter ellipse with its corner at (cu, cv), reaching ru along u (signed) and rv along v (signed)
-function quarter(cu: number, cv: number, ru: number, rv: number, n = 16): Poly {
-  const pts: Poly = [P(cu, cv)];
-  for (let i = 0; i <= n; i++) {
-    const t = (i / n) * (Math.PI / 2);
-    pts.push(P(cu + ru * Math.cos(t), cv + rv * Math.sin(t)));
-  }
-  return pts;
-}
-// the heading (degrees) that turns an item's front (-X) toward plan direction (du, dv)
-const facing = (du: number, dv: number) => (Math.atan2(du, dv) * 180) / Math.PI;
-const FACE = { e: 90, w: -90, n: 180, s: 0 } as const;
-type Side = keyof typeof FACE;
-
-function seeded(seed: number): () => number {
-  let s = (seed * 16807) % 2147483647 || 1;
-  return () => ((s = (s * 16807) % 2147483647) / 2147483647);
-}
-
-// ---- placements ----
-interface Placement {
-  ref: string;       // "kit:item"
-  x: number;
-  y: number;
-  z: number;
-  h: number;         // heading, degrees
-  s: number;         // scale
-  sy: number;        // extra stretch along the item's own Y (wall pieces cut to length)
-  colours?: string;
-  solid: "auto" | "none" | SolidSpec[]; // explicit shapes are in the item's own frame
-}
-
-interface Proto {
-  obj: THREE.Object3D;
-  foot: { x0: number; x1: number; y0: number; y1: number };
-  tags: string[];
-  kit: string;
-}
-
-const protos = new Map<string, Proto>();
-function protoOf(ref: string, colours?: string): Proto {
-  const key = `${ref}|${colours ?? ""}`;
-  let p = protos.get(key);
-  if (p) return p;
-  const find = (r: string): [string, KitItem] | null => {
-    const [kit, id] = r.split(":");
-    const item = KITS[kit]?.items.find((i) => i.id === id);
-    return item ? [kit, item] : null;
-  };
-  const found = find(ref) ?? find(FALLBACK[ref] ?? "") ?? find("common:crate")!;
-  const [kit, item] = found;
-  const made = item.make();
-  let obj: THREE.Object3D;
-  if (made instanceof THREE.Object3D) obj = made;
-  else {
-    const map = colours ? COLOURS[colours] : null;
-    const geo: Geo = map ? made.map((part) => ({ geo: part.geo, mat: map[part.mat] ?? part.mat })) : made;
-    obj = toThree(geo, material);
-  }
-  obj.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(obj);
-  p = { obj, foot: { x0: box.min.x, x1: box.max.x, y0: -box.max.z, y1: -box.min.z }, tags: item.tags ?? [], kit };
-  protos.set(key, p);
-  return p;
-}
-
-// The shapes a placed item blocks, in the world.
-function solidsOf(pl: Placement, proto: Proto): SolidSpec[] {
-  const a = (pl.h * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
-  const toWorld = (lx: number, ly: number): [number, number] => [pl.x + (lx * c - ly * s) * pl.s, pl.y + (lx * s + ly * c) * pl.s];
-  if (pl.solid === "none") return [];
-  if (Array.isArray(pl.solid))
-    return pl.solid.map((sp) => {
-      const [x, y] = toWorld(sp.x, sp.y);
-      return "r" in sp ? { ...sp, x, y, r: sp.r * pl.s } : { ...sp, x, y, w: sp.w * pl.s, d: sp.d * pl.s, rot: sp.rot + pl.h };
-    });
-  const t = proto.tags, f = proto.foot;
-  if (t.includes("ground") || t.includes("boat")) return [];
-  const w = f.x1 - f.x0, d = (f.y1 - f.y0) * pl.sy;
-  if (proto.kit === "flora") {
-    const [x, y] = toWorld(0, 0);
-    return [{ kind: "tree", x, y, r: (w < 200 ? 35 : 42) * pl.s }];
-  }
-  const [x, y] = toWorld((f.x0 + f.x1) / 2, ((f.y0 + f.y1) / 2) * pl.sy);
-  if (w < 130 && d < 130) return [{ kind: "post", x, y, r: (Math.max(w, d) / 2) * 0.7 * pl.s }];
-  const k = t.includes("building") || t.includes("landmark") ? 0.94 : 1;
-  return [{ kind: proto.tags[0] ?? "box", x, y, w: w * k * pl.s, d: d * k * pl.s, rot: pl.h }];
-}
-
-// ---- the city ----
-export interface Town {
-  level: Level;
-  solids: SolidSpec[];
-  bounds: { minX: number; maxX: number; minY: number; maxY: number };
-  spawn: { x: number; y: number };
-  npcs: NpcSpec[];
-  warps: { x: number; y: number; r: number; to: string; arrive: { x: number; y: number } }[];
-  closed: { x: number; y: number; r: number; text: string }[];
-  labels: MapLabel[];
-}
+// ---- the plan's pixels -> the world: 18 cm a pixel, the crossroads at the origin ----
+const { P, rect, quarter } = new Plan(18, 625, 565);
 
 export function buildEden(quality: { flowers: number }): Town {
-  const puts: Placement[] = [];
-  const extra: SolidSpec[] = [];
-  const put = (ref: string, at: [number, number], h = 0, o: Partial<Placement> = {}) =>
-    puts.push({ ref, x: at[0], y: at[1], z: 0, h, s: 1, sy: 1, solid: "auto", ...o });
-  const rnd = seeded(11);
+  const town = new TownBuilder(11);
+  const { put, rnd, extra } = town;
 
   // ---- ground: roads (cobbles), plazas (flagstones) and the harbour basin (water) ----
   const roads: Poly[] = [
@@ -203,23 +88,7 @@ export function buildEden(quality: { flowers: number }): Town {
   const GATE_S: [number, number] = [SOUTH, P(645, 0)[1]];
   const GATE_W: [number, number] = [P(0, 562)[0], WEST];
   // a straight run of wall from a to b (world), its outside facing `out`, skipping gaps
-  const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) => {
-    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
-    const spans: [number, number][] = [];
-    let from = 0;
-    for (const g of [...gaps].sort((p, q) => p - q)) {
-      spans.push([from, g - 790]);
-      from = g + 790;
-    }
-    spans.push([from, L]);
-    for (const [s0, s1] of spans) {
-      for (let t = s0; t < s1 - 20; t += 800) {
-        const len = Math.min(800, s1 - t), mid = t + len / 2;
-        put("eden:city_wall", [a[0] + ux * mid, a[1] + uy * mid], FACE[out], { sy: len / 800 });
-      }
-    }
-  };
+  const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) => town.wall(a, b, out, "eden:city_wall", { gaps });
   const corner = (x: number, y: number) => put("eden:wall_tower", [x, y], 0, { solid: [{ kind: "tower", x: 0, y: 0, r: 330 }] });
   run([NORTH, WEST], [NORTH, EAST], "n", [GATE_N[1] < WEST ? WEST - GATE_N[1] : 0]);
   run([NORTH, EAST], [EAST_END, EAST], "e");
@@ -245,33 +114,9 @@ export function buildEden(quality: { flowers: number }): Town {
   const STREET = ["townhouse", "townhouse_narrow", "corner_house", "townhouse_narrow", "row_houses", "townhouse", "townhouse_narrow"];
   const HARBOUR = ["warehouse", "yodia:warehouse", "townhouse_narrow", "warehouse", "townhouse"];
   const TINTS = ["", "red", "slate", "cream", "yellow", "red", "cream"];
-  const doors: Record<string, [number, number]> = {}; // just outside the first of each piece (world)
   // a row with the fronts on the plan line a -> b, facing `side`, the pieces in turn from `start`
-  const terrace = (a: [number, number], b: [number, number], side: Side, pieces = STREET, start = 0) => {
-    const A = P(a[0], a[1]), B = P(b[0], b[1]);
-    const L = Math.hypot(B[0] - A[0], B[1] - A[1]);
-    const dx = (B[0] - A[0]) / L, dy = (B[1] - A[1]) / L;
-    const r = (FACE[side] * Math.PI) / 180;
-    const fx = -Math.cos(r), fy = -Math.sin(r);                      // the way the fronts face
-    const along = -Math.sin(r) * dx + Math.cos(r) * dy > 0 ? 1 : -1; // whether the houses' own +Y runs along the row
-    let t = 0;
-    for (let i = start; ; i++) {
-      let piece = pieces[i % pieces.length];
-      const colours = TINTS[Math.floor(rnd() * TINTS.length)] || undefined;
-      const refOf = (pc: string) => (pc.includes(":") ? pc : `eden:${pc}`);
-      let f = protoOf(refOf(piece), colours).foot;
-      if (t + (f.y1 - f.y0) > L + 40) {
-        // the end of the row: a narrow house if one still fits
-        piece = "townhouse_narrow";
-        f = protoOf(refOf(piece), colours).foot;
-        if (t + (f.y1 - f.y0) > L + 40) break;
-      }
-      const w = f.y1 - f.y0, c = along > 0 ? t - f.y0 : t + f.y1;
-      put(refOf(piece), [A[0] + dx * c + fx * f.x0, A[1] + dy * c + fy * f.x0], FACE[side], { colours });
-      if (!doors[piece]) doors[piece] = [A[0] + dx * (t + w / 2) + fx * 170, A[1] + dy * (t + w / 2) + fy * 170];
-      t += w + 4;
-    }
-  };
+  const terrace = (a: [number, number], b: [number, number], side: Side, pieces = STREET, start = 0) =>
+    town.terrace(P(a[0], a[1]), P(b[0], b[1]), side, pieces, { start, kit: "eden", tints: TINTS, narrow: "townhouse_narrow" });
   // north-west: down the north avenue and along the west avenue (an alley into the cathedral
   // plaza in each), and round the back of the plaza
   terrace([583, 98], [583, 280], "e");
@@ -460,124 +305,47 @@ export function buildEden(quality: { flowers: number }): Town {
   }
 
   // ---- the greens left between: trees and flower beds wherever there is room ----
-  {
-    const G = 100, x0 = SOUTH, y0 = EAST - 200, gw = Math.ceil((NORTH - SOUTH) / G), gh = Math.ceil((WEST - y0) / G);
-    const taken = new Uint8Array(gw * gh);
-    const mark = (x: number, y: number, r: number) => {
-      for (let j = Math.max(0, Math.floor((y - r - y0) / G)); j <= Math.min(gh - 1, Math.floor((y + r - y0) / G)); j++)
-        for (let i = Math.max(0, Math.floor((x - r - x0) / G)); i <= Math.min(gw - 1, Math.floor((x + r - x0) / G)); i++) taken[j * gw + i] = 1;
-    };
-    for (const pl of puts) for (const sp of solidsOf(pl, protoOf(pl.ref, pl.colours))) mark(sp.x, sp.y, ("r" in sp ? sp.r : Math.hypot(sp.w, sp.d) / 2) + 250);
-    const free = (x: number, y: number) => {
-      const i = Math.floor((x - x0) / G), j = Math.floor((y - y0) / G);
-      return i >= 0 && j >= 0 && i < gw && j < gh && !taken[j * gw + i];
-    };
-    const TREES = ["RoundTree", "SmallTree", "Cherry", "RoundTree", "BigOak"];
-    for (let x = SOUTH + 700; x < NORTH - 700; x += 520)
-      for (let y = EAST + 700; y < WEST - 700; y += 520) {
-        const px = x + (rnd() - 0.5) * 300, py = y + (rnd() - 0.5) * 300;
-        // grass all round (not a road, plaza or the basin)
-        if ([[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(px + dx, py + dy) !== 0) || !free(px, py)) continue;
-        if (rnd() < 0.62) put(`flora:${TREES[Math.floor(rnd() * TREES.length)]}`, [px, py], rnd() * 360, { s: 0.6 + rnd() * 0.25 });
-        else put("eden:flower_bed", [px, py], rnd() * 90);
-        mark(px, py, 300);
-      }
-  }
+  town.greens(ground, { x0: SOUTH, x1: NORTH, y0: EAST, y1: WEST }, { trees: ["RoundTree", "SmallTree", "Cherry", "RoundTree", "BigOak"], other: "eden:flower_bed" });
 
   // ---- outside the walls: woods ----
-  const WOODS = ["RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"];
-  const woods: [number, number][] = [];
-  for (let i = 0; i < 2600 && woods.length < 150; i++) {
-    const x = -14000 + rnd() * 28500, y = SHORE + 200 + rnd() * (17000 - SHORE - 200);
+  town.woods({ x0: -14000, x1: 14500, y0: SHORE + 200, y1: 17000 }, ["RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => {
     const inside = x > SOUTH - 900 && x < NORTH + 900 && y < WEST + 900;
     const harbour = y < EAST + 300 && x > SOUTH - 1500;
     const road = (Math.abs(y - GATE_N[1]) < 900 && x > NORTH) || (Math.abs(y - GATE_S[1]) < 900 && x < SOUTH) || (Math.abs(x - GATE_W[0]) < 900 && y > WEST);
-    if (inside || harbour || road || woods.some(([ox, oy]) => Math.hypot(ox - x, oy - y) < 450)) continue;
-    woods.push([x, y]);
-    put(`flora:${WOODS[Math.floor(rnd() * WOODS.length)]}`, [x, y], rnd() * 360, { s: 0.8 + rnd() * 0.4, solid: "none" });
-  }
+    return inside || harbour || road;
+  });
 
-  // ---- build: one instanced mesh per piece, material and 50 m block ----
-  const root = new THREE.Group();
-  root.add(ground.mesh);
+  // ---- build ----
   // the sea reaches a little under the land too, for the basin cut into it
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(40000, 15000).rotateX(-Math.PI / 2), material("WaterSea"));
   sea.position.set(0, -12, -(SHORE - 4500));
   sea.receiveShadow = true;
-  root.add(sea);
-  const groups = new Map<string, Placement[]>();
-  for (const pl of puts) {
-    const key = `${pl.ref}|${pl.colours ?? ""}|${Math.floor(pl.x / 5000)},${Math.floor(pl.y / 5000)}`;
-    const list = groups.get(key);
-    if (list) list.push(pl);
-    else groups.set(key, [pl]);
-  }
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  for (const list of groups.values()) {
-    const proto = protoOf(list[0].ref, list[0].colours);
-    const mats = list.map((pl) => m.clone().compose(new THREE.Vector3(pl.x, pl.z, -pl.y), q.setFromAxisAngle(up, (pl.h * Math.PI) / 180).clone(), new THREE.Vector3(pl.s, pl.s, pl.s * pl.sy)));
-    proto.obj.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const inst = new THREE.InstancedMesh(mesh.geometry, mesh.material, mats.length);
-      mats.forEach((M, i) => inst.setMatrixAt(i, M.clone().multiply(mesh.matrixWorld)));
-      inst.castShadow = mesh.castShadow;
-      inst.receiveShadow = mesh.receiveShadow;
-      if (mesh.customDepthMaterial) inst.customDepthMaterial = mesh.customDepthMaterial;
-      inst.computeBoundingSphere();
-      root.add(inst);
-    });
-  }
-  // flowers on the open grass inside the walls
-  const solids: SolidSpec[] = [...extra];
-  for (const pl of puts) solids.push(...solidsOf(pl, protoOf(pl.ref, pl.colours)));
-  // (not under a house or a prop: their footprints, a little grown, on a 1 m grid)
-  const G = 100, gx0 = SOUTH, gy0 = SHORE, gw = Math.ceil((NORTH - SOUTH) / G), gh = Math.ceil((WEST - SHORE) / G);
-  const taken = new Uint8Array(gw * gh);
-  for (const sp of solids) {
-    const r = "r" in sp ? sp.r + 60 : Math.hypot(sp.w, sp.d) / 2 + 60;
-    const a = (("rot" in sp ? sp.rot : 0) * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
-    for (let j = Math.max(0, Math.floor((sp.y - r - gy0) / G)); j <= Math.min(gh - 1, Math.floor((sp.y + r - gy0) / G)); j++)
-      for (let i = Math.max(0, Math.floor((sp.x - r - gx0) / G)); i <= Math.min(gw - 1, Math.floor((sp.x + r - gx0) / G)); i++) {
-        const dx = gx0 + (i + 0.5) * G - sp.x, dy = gy0 + (j + 0.5) * G - sp.y;
-        const inside = "r" in sp ? Math.hypot(dx, dy) < r
-          : Math.abs(dx * c + dy * sn) < sp.w / 2 + 60 && Math.abs(-dx * sn + dy * c) < sp.d / 2 + 60;
-        if (inside) taken[j * gw + i] = 1;
-      }
-  }
-  const free = (x: number, y: number) => {
-    const i = Math.floor((x - gx0) / G), j = Math.floor((y - gy0) / G);
-    return i >= 0 && j >= 0 && i < gw && j < gh && !taken[j * gw + i];
-  };
-  const open = (x: number, y: number) => ground.kind(x, y) === 0 && x < NORTH - 500 && x > SOUTH + 500 && y < WEST - 500 && y > EAST - 3000 && free(x, y);
-  root.add(flowerFields(open, { x: SOUTH, y: SHORE, w: NORTH - SOUTH, h: WEST - SHORE }, 0.35 * quality.flowers));
-
-  // the north and south gates are shut for now: a bar across the far end of each passage
-  solids.push({ kind: "closed", x: GATE_N[0] + 420, y: GATE_N[1], w: 200, d: 520, rot: 0 });
-  solids.push({ kind: "closed", x: GATE_S[0] - 420, y: GATE_S[1], w: 200, d: 520, rot: 0 });
-
-  const bounds = { minX: SOUTH - 700, maxX: NORTH + 700, minY: SHORE - 2800, maxY: WEST + 1400 };
-  const spawn = { x: P(780, 740)[0], y: P(780, 740)[1] };
   const pt = (u: number, v: number) => ({ x: P(u, v)[0], y: P(u, v)[1] });
-  const warps = [{ x: GATE_W[0], y: WEST + 1050, r: 160, to: "field", arrive: { x: 420, y: -520 } }];
-  // to TOWN_SCALE: the scenery on its root (the portals go under it too), the rest point by point
-  // (a warp's arrival is in the other map, which keeps its own size)
-  const k = TOWN_SCALE;
-  root.scale.setScalar(k);
-  const at = <T extends { x: number; y: number }>(p: T): T => ({ ...p, x: p.x * k, y: p.y * k });
-  return {
-    level: { root, sky: "#4f6e36", warps },
-    solids: solids.map((sp) => ("r" in sp ? { ...at(sp), r: sp.r * k } : { ...at(sp), w: sp.w * k, d: sp.d * k })),
-    bounds: { minX: bounds.minX * k, maxX: bounds.maxX * k, minY: bounds.minY * k, maxY: bounds.maxY * k },
-    spawn: at(spawn),
-    npcs: edenNpcs(doors).map(at),
-    warps: warps.map((w) => ({ ...at(w), r: w.r * k })),
+  return town.finish({
+    ground,
+    scenery: [sea],
+    sky: "#4f6e36",
+    // flowers on the open grass inside the walls
+    flowers: {
+      box: { x: SOUTH, y: SHORE, w: NORTH - SOUTH, h: WEST - SHORE },
+      open: (x, y) => ground.kind(x, y) === 0 && x < NORTH - 500 && x > SOUTH + 500 && y < WEST - 500 && y > EAST - 3000,
+      density: 0.35 * quality.flowers,
+    },
+    // the north and south gates are shut for now: a bar across the far end of each passage
+    late: [
+      { kind: "closed", x: GATE_N[0] + 420, y: GATE_N[1], w: 200, d: 520, rot: 0 },
+      { kind: "closed", x: GATE_S[0] - 420, y: GATE_S[1], w: 200, d: 520, rot: 0 },
+    ],
+    bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: SHORE - 2800, maxY: WEST + 1400 },
+    spawn: pt(780, 740),
+    npcs: edenNpcs(town.doors),
+    warps: [{ x: GATE_W[0], y: WEST + 1050, r: 160, to: "field", arrive: { x: 420, y: -520 } }],
     closed: [
       { x: GATE_N[0] + 250, y: GATE_N[1], r: 260, text: "ประตูเหนือปิดซ่อมอยู่ ทางไปปราสาทยังไม่เปิด" },
       { x: GATE_S[0] - 250, y: GATE_S[1], r: 260, text: "ประตูใต้ยังไม่เปิด ทางไปทะเลทรายบาฮามัสกำลังสำรวจ" },
-    ].map((c) => ({ ...at(c), r: c.r * k })),
+    ],
     // names on the map window
-    labels: ([
+    labels: [
       { ...pt(262, 232), text: "มหาวิหาร" },
       { ...pt(777, 330), text: "ตลาด" },
       { ...pt(255, 760), text: "สวนวีรบุรุษ" },
@@ -587,8 +355,8 @@ export function buildEden(quality: { flowers: number }): Town {
       { ...pt(1090, 335), text: "อู่จอดเรือ", kind: "small" },
       { x: GATE_N[0] + 150, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
       { x: GATE_S[0] - 150, y: GATE_S[1], text: "ประตูใต้ (ปิด)", kind: "gate" },
-    ] as MapLabel[]).map(at),
-  };
+    ],
+  });
 }
 
 // ---- townsfolk, where the plan put its red dots ----

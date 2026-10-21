@@ -5,7 +5,8 @@
 
 import { setMap } from "./world";
 import type { SolidSpec } from "./world";
-import { buildEden, TOWN_SCALE } from "./world3d/town_eden";
+import { buildEden } from "./world3d/town_eden";
+import { TOWN_SCALE } from "./world3d/town";
 import { fieldLevel } from "./world3d/levels";
 import { MERCHANT } from "./shop";
 import type { NpcSpec } from "./npcs";
