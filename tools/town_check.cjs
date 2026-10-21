@@ -3,6 +3,7 @@
 // save the map picture (the scenery from straight above) and a game view at each point asked.
 //
 //   node tools/town_check.cjs <map id> <out dir> ["x,y" ...]   (points in world cm; default: the spawn)
+//   PORT=<port> to use another dev server than 8766
 const { chromium } = require(process.env.PLAYWRIGHT ?? "/opt/node22/lib/node_modules/playwright");
 const fs = require("fs");
 const [id, out, ...pts] = process.argv.slice(2);
@@ -13,11 +14,13 @@ const [id, out, ...pts] = process.argv.slice(2);
   page.setDefaultTimeout(180000); // a busy machine renders slowly
   // no hot reloads mid-check: other edits land on the dev server while it runs
   await page.route("**/@vite/client", (r) => r.fulfill({ contentType: "application/javascript", body: "export function updateStyle(){} export function removeStyle(){} export function createHotContext(){ return { accept(){}, dispose(){}, prune(){}, invalidate(){}, on(){}, off(){}, send(){}, data: {} }; } export function injectQuery(u){ return u; }" }));
+  // (web fonts can hang a page load on a busy machine; the check does not need them)
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
   const ready = () => page.waitForFunction(() => window.__game && window.__game.map && document.getElementById("loading").classList.contains("done"), null, { timeout: 400000 });
-  await page.goto("http://127.0.0.1:8766/");
+  await page.goto(`http://127.0.0.1:${process.env.PORT || 8766}/`);
   await page.waitForSelector(".title-create", { timeout: 120000 });
   await page.fill(".title-name", "ตรวจเมือง");
   await page.click(".title-btn.primary");

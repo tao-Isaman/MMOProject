@@ -102,9 +102,15 @@ export class Terrain {
     return Math.max(0, ...(this.spec.plateaus ?? []).map((p) => p.h)) + hills;
   }
 
-  // whether the ground within r of (x, y) is level enough to stand a thing on (no cliff or
-  // ramp side there): no more than a gentle slope across it
+  // whether the ground within r of (x, y) is level enough to stand a thing on (no cliff, no
+  // ramp): no more than a gentle slope across it
   level(x: number, y: number, r: number): boolean {
+    // not on a ramp (or its walls)
+    for (const p of this.spec.plateaus ?? [])
+      for (const rp of p.ramps ?? []) {
+        const a = along(rp.top, rp.bottom, x, y);
+        if (a.t > -r / a.len && a.t < 1 + r / a.len && Math.abs(a.side) < rp.width / 2 + 70 + r) return false;
+      }
     const h = this.height(x, y);
     return [[r, 0], [-r, 0], [0, r], [0, -r], [r * 0.7, r * 0.7], [-r * 0.7, -r * 0.7], [r * 0.7, -r * 0.7], [-r * 0.7, r * 0.7]]
       .every(([dx, dy]) => Math.abs(this.height(x + dx, y + dy) - h) < 25 + r * 0.25);

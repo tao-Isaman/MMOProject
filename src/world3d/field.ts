@@ -88,8 +88,14 @@ export class FieldBuilder extends TownBuilder {
     const step = o.step ?? 900, away = o.away ?? 1200, rnd = this.rnd;
     const solids: SolidSpec[] = [...this.extra, ...this.terrain.solids()];
     for (const pl of this.puts) solids.push(...solidsOf(pl, protoOf(pl.ref, pl.colours)));
+    // within 1.8 m of a solid (a box measured to its sides, so a long cliff only clears a strip)
     const near = (x: number, y: number) =>
-      solids.some((s) => Math.hypot(s.x - x, s.y - y) < ("r" in s ? s.r : Math.hypot(s.w, s.d) / 2) + 180);
+      solids.some((s) => {
+        if ("r" in s) return Math.hypot(s.x - x, s.y - y) < s.r + 180;
+        const a = (s.rot * Math.PI) / 180, dx = x - s.x, dy = y - s.y;
+        const u = Math.abs(dx * Math.cos(a) + dy * Math.sin(a)) - s.w / 2, v = Math.abs(-dx * Math.sin(a) + dy * Math.cos(a)) - s.d / 2;
+        return Math.hypot(Math.max(0, u), Math.max(0, v)) < 180;
+      });
     for (let x = box.x0 + step / 2; x < box.x1; x += step)
       for (let y = box.y0 + step / 2; y < box.y1; y += step) {
         const px = x + (rnd() - 0.5) * step * 0.6, py = y + (rnd() - 0.5) * step * 0.6;
