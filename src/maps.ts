@@ -13,6 +13,15 @@ import type { Level } from "./world3d/view";
 import type { Vec2 } from "./types";
 
 export type MapId = "eden" | "field";
+export const MAP_NAMES: Record<MapId, string> = { eden: "อีเดน", field: "ทุ่งหญ้าตะวันตก" };
+
+// A name written on the map window: a place (big), a corner of it (small) or a gate.
+export interface MapLabel {
+  x: number;
+  y: number;
+  text: string;
+  kind?: "small" | "gate";
+}
 
 export interface Warp {
   x: number;
@@ -33,6 +42,7 @@ export interface GameMap {
   npcs: NpcSpec[];
   warps: Warp[];
   closed: { x: number; y: number; r: number; text: string }[];
+  labels: MapLabel[];
 }
 
 // The courtyard's footprints (from the Oriverse world), in sim centimetres.
@@ -76,16 +86,17 @@ export function loadMap(id: MapId, quality: { flowers: number }): GameMap {
   if (!map) {
     if (id === "eden") {
       const t = buildEden(quality);
-      map = { id, name: "อีเดน", town: true, ...t, warps: t.warps };
+      map = { id, name: MAP_NAMES.eden, town: true, ...t, warps: t.warps };
     } else {
       // the flowers keep off the solids, so they must be current before the scenery is built
       setMap(FIELD_SOLIDS, FIELD_BOUNDS, { x: 1000, y: 250 });
       map = {
-        id, name: "ทุ่งหญ้าตะวันตก", town: false, spawn: { x: 1000, y: 250 }, bounds: FIELD_BOUNDS, solids: FIELD_SOLIDS,
+        id, name: MAP_NAMES.field, town: false, spawn: { x: 1000, y: 250 }, bounds: FIELD_BOUNDS, solids: FIELD_SOLIDS,
         level: fieldLevel(quality, [FIELD_WARP]),
         npcs: [{ id: "mira", x: MERCHANT.x, y: MERCHANT.y, face: 180, name: MERCHANT.name, title: MERCHANT.title, role: "shop", sprite: "merchant", lines: ["ยินดีต้อนรับจ้า"] }],
         warps: [FIELD_WARP],
         closed: [],
+        labels: [{ x: 1910, y: 1440, text: "บ้านไร่" }, { x: 1100, y: 820, text: "บ่อน้ำ", kind: "small" }],
       };
     }
     built.set(id, map);

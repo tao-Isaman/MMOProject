@@ -29,7 +29,8 @@ import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter } from "./save";
 import { ShopUI } from "./shop";
 import { Npc, TALK_RANGE } from "./npcs";
-import { loadMap } from "./maps";
+import { loadMap, MAP_NAMES } from "./maps";
+import { MapUI, mapArea } from "./mapui";
 import type { GameMap, MapId } from "./maps";
 import { findPath, blocked, SOLIDS } from "./world";
 import { RADIUS } from "./player";
@@ -536,6 +537,11 @@ async function boot(): Promise<void> {
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
   const shopUI = new ShopUI(inv, iconFor);
+  // the minimap and the map window (M); each map's picture from above is taken on the first
+  // frame there (after the canvas has its size) and kept
+  const mapUI = new MapUI(MAP_NAMES);
+  const pictures = new Map<MapId, HTMLCanvasElement>();
+  mapUI.setMap(current, null);
   // walking over to someone after a click on them (path around the solids), then talking
   let toMerchant: { npc: Npc; path: { x: number; y: number }[] } | null = null;
   let shopKeeper: Npc | null = null;
@@ -574,6 +580,7 @@ async function boot(): Promise<void> {
     monsters.length = 0;
     if (!current.town) monsters.push(...spawnMonsters(slimes));
     npcs = townsfolk(current);
+    mapUI.setMap(current, pictures.get(current.id) ?? null);
     player.x = at?.x ?? current.spawn.x;
     player.y = at?.y ?? current.spawn.y;
     player.target = null;
@@ -688,6 +695,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyP" && !e.repeat) statusUI.toggle();
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
+    if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
       else {
@@ -701,13 +709,14 @@ async function boot(): Promise<void> {
       skillUI.toggle(false);
       botUI.toggle(false);
       shopUI.toggle(false);
+      mapUI.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
     if ((e.code === "KeyQ" || e.code === "KeyE") && !e.repeat) rotateCamera(e.code === "KeyQ" ? -1 : 1);
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()],
-    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()]];
+    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()]];
   for (const [id, fn] of buttons) {
     document.getElementById(id)?.addEventListener("click", (e) => {
       (e.currentTarget as HTMLElement).blur();
@@ -986,6 +995,11 @@ async function boot(): Promise<void> {
     view = vw;
 
     // ---- draw: the 3D courtyard with the characters standing in it ----
+    if (!pictures.has(current.id)) {
+      const pic = w3d.snapshot(mapArea(current), isTouch() ? 1280 : 2048);
+      pictures.set(current.id, pic);
+      mapUI.setMap(current, pic);
+    }
     w3d.sync(vw, yaw);
     // the bot's hunting area and the ring under the slime being attacked lie on the ground
     w3d.setArea((bot.on || botUI.open) && !bot.settings.wholeMap ? (bot.on ? bot.anchor : player) : null, bot.settings.radius);
@@ -1033,13 +1047,14 @@ async function boot(): Promise<void> {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     floaters.draw(ctx, vw);
 
+    mapUI.frame(dt, { player, facing: player.facing(), yaw, npcs, monsters });
     if (showDebug) drawDebug(vw, player, fx, fps);
     requestAnimationFrame(frame);
   }
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, drink, enterMap,
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap,
     get npcs() { return npcs; }, get map() { return current; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS } };
 

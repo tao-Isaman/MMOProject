@@ -255,6 +255,66 @@ export class World3D {
     } else CUT.value.w = 0;
     this.renderer.render(this.scene, this.camera);
   }
+
+  // The scenery inside `b` seen from straight above, north (+X) up, `long` pixels along its
+  // longer side: the map window's and the minimap's picture. It is rendered in tiles into a
+  // corner of the game's own canvas (so every material keeps the shader it already has) and
+  // copied out before the frame is shown; the next frame draws over that corner.
+  snapshot(b: { minX: number; maxX: number; minY: number; maxY: number }, long: number): HTMLCanvasElement {
+    const r = this.renderer, gl = r.domElement, pr = r.getPixelRatio();
+    const s = long / Math.max(b.maxX - b.minX, b.maxY - b.minY); // pixels per cm
+    const W = Math.round((b.maxY - b.minY) * s), H = Math.round((b.maxX - b.minX) * s);
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+    const g = out.getContext("2d")!;
+    const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+
+    // put away what is not scenery: the characters, the target ring, the cutaway, the fog
+    const hidden: THREE.Object3D[] = [this.ring, this.area, ...[...this.boards.values()].flatMap((bb) => (bb.ghost ? [bb.sprite, bb.ghost] : [bb.sprite]))].filter((o) => o.visible);
+    for (const o of hidden) o.visible = false;
+    const fog = this.scene.fog as THREE.Fog | null, fogWas = fog ? [fog.near, fog.far] : null;
+    if (fog) [fog.near, fog.far] = [1e7, 2e7];
+    CUT.value.w = 0;
+    // the sun's shadows over the whole map, from higher than in play so they stay short
+    const sc = this.sun.shadow.camera, half = Math.hypot(W, H) / s / 2 + 1000;
+    this.sun.target.position.set(cx, 0, -cy);
+    this.sun.position.set(cx, 0, -cy).add(new THREE.Vector3(-0.35, 1, -0.42).normalize().multiplyScalar(40000));
+    Object.assign(sc, { left: -half, right: half, top: half, bottom: -half, near: 100, far: 80000 });
+    sc.updateProjectionMatrix();
+    r.shadowMap.needsUpdate = true;
+
+    // tiles as large as the canvas allows; the camera looks down with +X up the picture
+    const T = Math.max(64, Math.min(1024, gl.width, gl.height));
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 10, 20000);
+    cam.position.set(cx, 9000, -cy);
+    cam.up.set(1, 0, 0);
+    cam.lookAt(cx, 0, -cy);
+    r.setScissorTest(true);
+    r.setViewport(0, 0, T / pr, T / pr);
+    r.setScissor(0, 0, T / pr, T / pr);
+    for (let y0 = 0; y0 < H; y0 += T)
+      for (let x0 = 0; x0 < W; x0 += T) {
+        cam.left = (x0 - W / 2) / s;
+        cam.right = (x0 + T - W / 2) / s;
+        cam.top = (H / 2 - y0) / s;
+        cam.bottom = (H / 2 - y0 - T) / s;
+        cam.updateProjectionMatrix();
+        r.render(this.scene, cam);
+        g.drawImage(gl, 0, gl.height - T, Math.min(T, W - x0), Math.min(T, H - y0), x0, y0, Math.min(T, W - x0), Math.min(T, H - y0));
+      }
+
+    // and back as it was
+    r.setScissorTest(false);
+    const size = r.getSize(new THREE.Vector2());
+    r.setViewport(0, 0, size.x, size.y);
+    Object.assign(sc, { left: -3400, right: 3400, top: 3400, bottom: -3400, near: 100, far: 11000 });
+    sc.updateProjectionMatrix();
+    this.shadowAt.set(1e9, 0, 0);
+    if (fog && fogWas) [fog.near, fog.far] = fogWas;
+    for (const o of hidden) o.visible = true;
+    return out;
+  }
 }
 
 // ---- the cutaway: lit surfaces more than 70 cm up and nearer the camera than the player are

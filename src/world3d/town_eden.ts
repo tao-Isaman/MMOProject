@@ -25,6 +25,7 @@ import type { Kit, KitItem } from "./kits/types";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
 import type { Level } from "./view";
+import type { MapLabel } from "../maps";
 
 const KITS: Record<string, Kit> = { eden: EDEN, yodia: YODIA, common: COMMON, flora: FLORA };
 
@@ -153,6 +154,7 @@ export interface Town {
   npcs: NpcSpec[];
   warps: { x: number; y: number; r: number; to: string; arrive: { x: number; y: number } }[];
   closed: { x: number; y: number; r: number; text: string }[];
+  labels: MapLabel[];
 }
 
 export function buildEden(quality: { flowers: number }): Town {
@@ -551,6 +553,7 @@ export function buildEden(quality: { flowers: number }): Town {
 
   const bounds = { minX: SOUTH - 700, maxX: NORTH + 700, minY: SHORE - 2800, maxY: WEST + 1400 };
   const spawn = { x: P(780, 740)[0], y: P(780, 740)[1] };
+  const pt = (u: number, v: number) => ({ x: P(u, v)[0], y: P(u, v)[1] });
   const warps = [{ x: GATE_W[0], y: WEST + 1050, r: 160, to: "field", arrive: { x: 420, y: -520 } }];
   return {
     level: { root, sky: "#4f6e36", warps },
@@ -562,6 +565,18 @@ export function buildEden(quality: { flowers: number }): Town {
     closed: [
       { x: GATE_N[0] + 250, y: GATE_N[1], r: 260, text: "ประตูเหนือปิดซ่อมอยู่ ทางไปปราสาทยังไม่เปิด" },
       { x: GATE_S[0] - 250, y: GATE_S[1], r: 260, text: "ประตูใต้ยังไม่เปิด ทางไปทะเลทรายบาฮามัสกำลังสำรวจ" },
+    ],
+    // names on the map window
+    labels: [
+      { ...pt(262, 232), text: "มหาวิหาร" },
+      { ...pt(777, 330), text: "ตลาด" },
+      { ...pt(255, 760), text: "สวนวีรบุรุษ" },
+      { ...pt(770, 860), text: "ลานน้ำพุ" },
+      { ...pt(625, 640), text: "สี่แยกกลางเมือง", kind: "small" },
+      { ...pt(1110, 720), text: "ท่าเรือ" },
+      { ...pt(1090, 335), text: "อู่จอดเรือ", kind: "small" },
+      { x: GATE_N[0] + 150, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
+      { x: GATE_S[0] - 150, y: GATE_S[1], text: "ประตูใต้ (ปิด)", kind: "gate" },
     ],
   };
 }

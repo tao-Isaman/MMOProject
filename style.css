@@ -686,3 +686,30 @@ body.touch .title-btn { min-width: 120px; padding: 9px 16px; font-size: 15px; }
 body.touch .title-create { grid-template-columns: 170px 1fr; gap: 12px; padding: 10px; }
 body.touch .title-preview canvas { width: 150px; height: 150px; }
 body.touch .title-form { max-height: calc(100dvh - 150px); }
+
+/* ---- maps (src/mapui.ts): the minimap top right, the map window (M) ---- */
+#map { left: 50%; right: auto; top: 56px; transform: translateX(-50%); min-width: 0; max-height: none; overflow: visible; }
+.mp-tabs { display: flex; gap: 6px; }
+.mp-stage { position: relative; padding: 8px; }
+.mp-canvas { display: block; border-radius: 10px; touch-action: none; }
+.mp-info { margin-top: 6px; min-height: 2.8em; padding: 0 4px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.minimap { position: fixed; z-index: 3; top: 14px; right: 14px; cursor: pointer; }
+.minimap canvas {
+  display: block; width: 168px; height: 168px; border-radius: 12px; border: 1px solid var(--rim);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); background: #1b2614;
+}
+.minimap:hover canvas { border-color: var(--gold); }
+.mm-name {
+  position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+  padding: 0 8px; border-radius: 7px; background: rgba(14, 20, 12, 0.72); font-size: 12px; font-weight: 600; color: var(--gold);
+}
+body.touch .minimap { top: calc(6px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); }
+body.touch .minimap canvas { width: 92px; height: 92px; border-radius: 10px; }
+body.touch .mm-name { bottom: 3px; font-size: 10.5px; padding: 0 6px; }
+body.touch .menu { right: calc(108px + env(safe-area-inset-right)); }
+body.touch .mp-stage { padding: 6px; }
+body.touch .mp-info {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; min-height: 0; padding: 4px 9px; border-radius: 8px;
+  pointer-events: none; background: rgba(14, 20, 12, 0.82); font-size: 12px; color: var(--text);
+}
+body.touch .mp-info:empty { display: none; }
