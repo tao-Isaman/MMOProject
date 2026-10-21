@@ -686,10 +686,6 @@ export class Progress {
     return [...own, ...this.unlocked.trees.filter((t) => !own.includes(t))];
   }
 
-  lockedTrees(): string[] {
-    return Object.keys(TREES).filter((t) => !this.trees().includes(t) && TREES[t].book);
-  }
-
   masteries(): string[] {
     return Object.keys(MASTERIES).filter((m) => MASTERIES[m].kind === "weapon" || this.unlocked.masteries.includes(m));
   }
