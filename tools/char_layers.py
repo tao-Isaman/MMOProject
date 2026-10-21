@@ -103,14 +103,15 @@ def is_skin(rgb):
 
 
 def find_neck(cell):
-    """Top row of the red clothes near the middle of the body."""
+    """Top row of the red clothes near the middle of the body: the first of three rows that
+    each have at least 5 clothes pixels across the middle (a red hair tie or ribbon has fewer)."""
     a = cell[..., 3] > 0
     xs = np.nonzero(a.any(0))[0]
     mid = int((xs.min() + xs.max()) / 2)
-    for y in range(CELL):
-        for x in range(mid - 6, mid + 7):
-            if a[y, x] and is_cloth(cell[y, x, :3]):
-                return y
+    band = [sum(1 for x in range(mid - 6, mid + 7) if a[y, x] and is_cloth(cell[y, x, :3])) for y in range(CELL)]
+    for y in range(CELL - 2):
+        if min(band[y:y + 3]) >= 5:
+            return y
     return None
 
 
@@ -122,13 +123,23 @@ def head_anchor(cell, neck):
 
 def split_hair(cell, neck, front_all):
     """(back, front) layers: the head above the neck, plus hair below it reached from the head
-    through hair-coloured pixels (clothes and skin stop the fill)."""
+    through pixels that aren't clothes or skin, and the outline around them."""
     a = cell[..., 3] > 0
-    hairy = np.zeros_like(a)
+    # anything that isn't clothes, skin or outline, and the dark outline pixels touching it; the
+    # clothes' own outlines are not hair and would carry the fill over the whole body
+    colour = np.zeros_like(a)
+    dark = np.zeros_like(a)
     for y in range(neck, CELL):
         for x in range(CELL):
-            if a[y, x] and not is_cloth(cell[y, x, :3]) and not is_skin(cell[y, x, :3]):
-                hairy[y, x] = True
+            if not a[y, x] or is_cloth(cell[y, x, :3]) or is_skin(cell[y, x, :3]):
+                continue
+            dark[y, x] = hls(cell[y, x, :3])[1] < 0.2
+            colour[y, x] = not dark[y, x]
+    near = np.zeros_like(a)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            near |= np.roll(np.roll(colour, dy, 0), dx, 1)
+    hairy = colour | (dark & near)
     below = np.zeros_like(a)
     stack = [(x, neck) for x in range(CELL) if hairy[neck, x] and a[neck - 1, x]]
     for x, y in stack:
