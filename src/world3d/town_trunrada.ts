@@ -275,6 +275,10 @@ export function buildTrunrada(quality: { flowers: number }): Town {
       }
     }
   }
+  // carts left at the roadside
+  prop("cart", 318, 455, FACE.e + 8, 200);
+  prop("cart", 612, 421, FACE.w - 6, 200);
+  prop("cart", 523, 483, FACE.e, 200);
   // the north road, the way to the chief: braziers, and clan banners before the chief's yurt
   // and the long hall
   for (let v = 190; v <= 396; v += 34) {
@@ -376,7 +380,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     const inside = x > SOUTH - 1000 && x < NORTH + 1000 && y > EAST - 1000 && y < WEST + 1000;
     const road = (Math.abs(x - GATE_W[0]) < 900 && (y > WEST || y < EAST)) || (Math.abs(y - GATE_N[1]) < 900 && x > NORTH);
     return inside || road || herds.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < 700);
-  }, { count: 110, spacing: 650 });
+  }, { count: 160, spacing: 600 });
 
   // ---- inside: a few birches and bushes on the grass left between, stones in the grass ----
   // birch groves and bushes in the quarters, along the palisade and in the corners

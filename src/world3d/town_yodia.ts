@@ -74,12 +74,12 @@ export function buildYodia(quality: { flowers: number }): Town {
     rect(442, 210, 526, 232),   // an alley into the temple court
     rect(324, 470, 398, 490),   // an alley between Harbour Road and Fish Lane
     rect(528, 480, 548, 568),   // an alley from Market Street to the warehouses
-    rect(400, -400, 440, 110),  // outside the gates
-    rect(-400, 320, 110, 352),
-    rect(740, 320, 1250, 352),
+    rect(398, -400, 442, 110),  // outside the gates
+    rect(-400, 318, 110, 354),
+    rect(740, 318, 1250, 354),
   ];
   const plazas: Poly[] = [
-    rect(110, 640, 740, Q),     // the quay (under the warehouses' loading ramps)
+    rect(110, 640, 740, Q),     // the quay
     rect(690, Q, 730, 812),     // the mole out to the lighthouse
     rect(442, 354, 582, 450),   // the market square
     rect(130, 532, 294, 640),   // the fish market
@@ -185,7 +185,7 @@ export function buildYodia(quality: { flowers: number }): Town {
   put("yodia:guardian_post", P(262, 498), FACE.w, { solid: post(48) });
 
   // ---- plants scattered over a plan box on the open ground, clear of everything standing and
-  // of the spots in `keep` (paths, where people stand) ----
+  // of the plank paths in `keep` ----
   const keep: [number, number, number, number][] = [
     [140, 216, 362, 226], [174, 226, 183, 274], [235, 395, 245, 515], [140, 465, 232, 475], // plank paths
   ];
@@ -225,6 +225,9 @@ export function buildYodia(quality: { flowers: number }): Town {
   lanterns([260, 342], [395, 342], 34, false);
   lanterns([590, 330], [730, 330], 35, false, (u) => u > 612 && u < 652);
   lanterns([450, 465], [730, 465], 40, false, (u) => (u > 520 && u < 556) || (u > 612 && u < 652));
+  lanterns([299, 372], [299, 622], 50, false, (_u, v) => v > 462 && v < 498);
+  lanterns([623, 372], [623, 622], 50, false, (_u, v) => v > 445 && v < 485);
+  lanterns([460, 601], [720, 601], 52, false, (u) => u > 612 && u < 652);
   // palms along Trade Road through the village, to the jungle gate
   for (const [u, v] of [[170, 314], [212, 312], [240, 312], [170, 358], [222, 360], [270, 360]]) put(rnd() < 0.5 ? "flora:PalmTall" : "flora:PalmBent", P(u, v), rnd() * 360, { s: 0.85 });
 
@@ -266,8 +269,8 @@ export function buildYodia(quality: { flowers: number }): Town {
   scatter(118, 358, 292, 516, 26, VILLAGE, 110, [0.6, 0.9]);
 
   // ---- the temple (north-east): the hall facing Trade Road across its forecourt, the great
-  // chedi in its own court with a little chedi at each corner, salas, the monks' stilt houses
-  // and a bodhi tree ----
+  // chedi in its own court with a little chedi at each corner, salas, a monk's stilt house and
+  // a bodhi tree ----
   put("yodia:wat_hall", P(561, 205), FACE.s);
   put("yodia:chedi", P(655, 189), FACE.s);
   for (const u of [614, 696]) for (const v of [164, 216]) put("yodia:chedi", P(u, v), FACE.s, { s: 0.36 });
@@ -389,21 +392,6 @@ export function buildYodia(quality: { flowers: number }): Town {
     return inside || road || x < SHORE + 500;
   }, { count: 700, tries: 9000, spacing: 330 });
 
-  // ---- (debug) buildings standing on a road, a plaza or the water ----
-  for (const pl of town.puts) {
-    const pr = protoOf(pl.ref, pl.colours);
-    if (!pr.tags.includes("building") && !pr.tags.includes("landmark")) continue;
-    const f = pr.foot, a = (pl.h * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
-    const bad: string[] = [];
-    for (const [fx, fy] of [[0.5, 0.5], [0.12, 0.12], [0.88, 0.12], [0.12, 0.88], [0.88, 0.88], [0.5, 0.12], [0.5, 0.88], [0.12, 0.5], [0.88, 0.5]]) {
-      const lx = (f.x0 + (f.x1 - f.x0) * fx) * pl.s, ly = (f.y0 + (f.y1 - f.y0) * fy) * pl.s * pl.sy;
-      const x = pl.x + lx * c - ly * s, y = pl.y + lx * s + ly * c, k = ground.kind(x, y);
-      if (k) bad.push(`${k}@${Math.round(425 - y / 26)},${Math.round(405 - x / 26)}`);
-    }
-    if (bad.length && !(pr.tags.includes("landmark") || pr.tags.includes("boat") || pl.ref === "yodia:sala" || bad.every((b) => b.startsWith("2@") && Number(b.split(",")[1]) >= 640))) console.log("LOG on-road", pl.ref, Math.round(425 - pl.y / 26), Math.round(405 - pl.x / 26), bad.join(" "));
-  }
-  console.log("LOG puts", town.puts.length);
-
   // ---- build ----
   // the sea reaches a little under the land, for the steps and the edges cut into it
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(16000, 50000).rotateX(-Math.PI / 2), material("WaterSea"));
@@ -419,20 +407,21 @@ export function buildYodia(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0 && x < NORTH - 400 && x > SHORE + 400 && y < WEST - 400 && y > EAST + 400,
       density: 0.3 * quality.flowers,
     },
-    // all three gates are shut for now: a bar across the far end of each passage
+    // all three gates are shut for now: a bar across the far end of each passage (the gate
+    // towers' solids reach 124 cm out from the palisade's line)
     late: [
-      { kind: "closed", x: GATE_N[0] + 420, y: GATE_N[1], w: 200, d: 480, rot: 0 },
-      { kind: "closed", x: GATE_W[0], y: GATE_W[1] + 420, w: 480, d: 200, rot: 0 },
-      { kind: "closed", x: GATE_E[0], y: GATE_E[1] - 420, w: 480, d: 200, rot: 0 },
+      { kind: "closed", x: GATE_N[0] + 220, y: GATE_N[1], w: 200, d: 600, rot: 0 },
+      { kind: "closed", x: GATE_W[0], y: GATE_W[1] + 220, w: 600, d: 200, rot: 0 },
+      { kind: "closed", x: GATE_E[0], y: GATE_E[1] - 220, w: 600, d: 200, rot: 0 },
     ],
     bounds: { minX: P(0, 870)[0], maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(422, 660),
     npcs: yodiaNpcs(),
     warps: [],
     closed: [
-      { x: GATE_N[0] + 200, y: GATE_N[1], r: 260, text: "ประตูเหนือยังไม่เปิด ทางขึ้นไปทะเลทรายบาฮามัสกำลังสำรวจอยู่" },
-      { x: GATE_W[0], y: GATE_W[1] + 200, r: 260, text: "ประตูป่ายังไม่เปิด ป่าแดนใต้ข้างนอกรกและอันตราย กำลังถางทางอยู่" },
-      { x: GATE_E[0], y: GATE_E[1] - 200, r: 260, text: "ประตูตะวันออกยังไม่เปิด ทางเลียบชายฝั่งกำลังสำรวจ" },
+      { x: GATE_N[0] + 60, y: GATE_N[1], r: 260, text: "ประตูเหนือยังไม่เปิด ทางขึ้นไปทะเลทรายบาฮามัสกำลังสำรวจอยู่" },
+      { x: GATE_W[0], y: GATE_W[1] + 60, r: 260, text: "ประตูป่ายังไม่เปิด ป่าแดนใต้ข้างนอกรกและอันตราย กำลังถางทางอยู่" },
+      { x: GATE_E[0], y: GATE_E[1] - 60, r: 260, text: "ประตูตะวันออกยังไม่เปิด ทางเลียบชายฝั่งกำลังสำรวจ" },
     ],
     // names on the map window
     labels: [

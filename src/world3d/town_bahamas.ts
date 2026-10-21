@@ -259,8 +259,8 @@ export function buildBahamas(quality: { flowers: number }): Town {
   palm(328, 343, 0.9);
   put("common:market_cart", at(388, 471), FACE.n);
 
-  // ---- the palace: on its platform against the west wall, facing the square ----
-  // the palace stands raised on its terrace, a stair down to the forecourt
+  // ---- the palace: raised on its terrace against the west wall, facing the square down the
+  // forecourt, a stair down from the terrace between lamp pedestals ----
   put("bahamas:palace_terrace", at(176, 406), FACE.e, {
     solid: [
       { kind: "palace", x: -30, y: 0, w: 2420, d: 2360, rot: 0 },
@@ -413,7 +413,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
       { ...pt(600, 245), text: "ย่านบ้านโดมฟ้า" },
       { ...pt(220, 526), text: "ย่านบ้านดิน" },
       { ...pt(WELL_SQ[0], WELL_SQ[1] + 30), text: "ลานบ่อน้ำ", kind: "small" },
-      { ...pt(270, 672), text: "ลานช่างปั้นหม้อ", kind: "small" },
+      { ...pt(186, 676), text: "ลานช่างปั้นหม้อ", kind: "small" },
       { ...pt(630, 318), text: "สวนปาล์ม", kind: "small" },
       { ...pt(640, 430), text: "ถนนตะวันออก", kind: "small" },
       { ...pt(470, 650), text: "ถนนใต้", kind: "small" },
@@ -481,11 +481,11 @@ export function buildBahamas(quality: { flowers: number }): Town {
       // the caravan camp
       { id: "bh_caravan", ...spot(600, 580), face: toward(600, 580, 470, 600), name: "ซาลิม", title: "หัวหน้ากองคาราวาน", role: "talk", look: guard("top_warrior", "ink"),
         lines: ["กองคาราวานของข้าเดินทางจากอีเดนลงไปถึงโยเดีย", "ข้ามทะเลทรายต้องเดินตอนกลางคืน ดูดาวนำทางเอา", "เส้นทางใต้ยังปิดอยู่ พวกข้าเลยต้องพักที่นี่ไปก่อน"] },
-      { id: "bh_camel", ...spot(556, 684), face: 180, name: "ดาเลีย", title: "เด็กเลี้ยงอูฐ", role: "talk",
+      { id: "bh_camel", ...spot(532, 629), face: 90, name: "ดาเลีย", title: "เด็กเลี้ยงอูฐ", role: "talk",
         look: { gender: "female", hair: "twintail", hairColor: "amber", eyes: "blue", top: "top_adventurer_ochre", bottom: "bottom_adventurer_cocoa" },
         lines: ["อูฐกินน้ำทีละมากๆ แต่อดน้ำได้ตั้งหลายวัน", "พออูฐพักเต็มที่ กองคาราวานก็จะออกเดินทางกันอีก"] },
       // the adobe quarter
-      { id: "bh_potter", ...spot(270, 660), face: 0, name: "อุมัร", title: "ช่างปั้นหม้อ", role: "talk", look: guard("top_warrior_forest", "auburn"),
+      { id: "bh_potter", ...spot(205, 700), face: toward(205, 700, 186, 690), name: "อุมัร", title: "ช่างปั้นหม้อ", role: "talk", look: guard("top_warrior_forest", "auburn"),
         lines: ["โอ่งดินเผาเก็บน้ำให้เย็นได้ทั้งวัน", "ดินเหนียวที่ดีที่สุดต้องขุดจากริมโอเอซิส"] },
       { id: "bh_girl", ...spot(286, 590), face: toward(286, 590, ...WELL_SQ), name: "ซาร่า", title: "ชาวเมือง", role: "talk",
         look: { gender: "female", hair: "twintail", hairColor: "gold", eyes: "violet", top: "top_rose", bottom: "bottom_cocoa" },

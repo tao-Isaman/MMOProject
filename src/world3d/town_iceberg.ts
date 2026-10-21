@@ -146,7 +146,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
     [1000, 1100], [1000, 880], [950, 800], [880, 700], [850, 600], [842, 450], [846, 300], [852, 150], [862, 0], [872, -400],
   ])];
   const area = { x0: P(0, 1000)[0], x1: P(0, -300)[0], y0: P(1000, 0)[1], y1: P(-250, 0)[1] };
-  const ground = buildPaved({ area, roads, plazas, water, base: "snow", road: [0.93, 0.96, 1.0], plaza: [0.8, 0.84, 0.9] });
+  const ground = buildPaved({ area, roads, plazas, water, base: "snow", road: [1.04, 1.09, 1.18], plaza: [0.86, 0.9, 0.96] });
   const snow = (x: number, y: number) => ground.kind(x, y) === 0;
 
   // what already stands, to keep the lamps and props clear of it
@@ -203,6 +203,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
 
   // ---- the houses, each on its square of the plan with its front to the road; one whose porch
   // or steps would stand on the road is pushed back off it ----
+  const placed: { x: number; y: number; h: number; s: number; f: { x0: number; x1: number; y0: number; y1: number }; piece: string }[] = [];
   for (const [, u0, u1, v0, v1, piece, s, side] of HOUSES) {
     const ref = `iceberg:${piece}`, f = protoOf(ref).foot, h = FACE[side];
     const c = Math.cos((h * Math.PI) / 180), sn = Math.sin((h * Math.PI) / 180);
@@ -220,6 +221,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
       y += sn * 30;
     }
     put(ref, [x, y], h, { s });
+    placed.push({ x, y, h, s, f, piece });
   }
 
   // ---- the great hall: braziers burn either side of its steps, ice bears stand guard, a
@@ -230,8 +232,9 @@ export function buildIceberg(quality: { flowers: number }): Town {
   prop("iceberg:snowy_barrels", 322, 348, rnd() * 360, 110);
 
   // ---- the north gate: lanterns either side inside, a woodpile against the palisade ----
-  lamp(341, 198, false);
-  lamp(400, 200);
+  prop("iceberg:brazier", 349, 198, 0, 60, true);
+  prop("iceberg:brazier", 378, 198, 0, 60, true);
+  lamp(400, 202);
   prop("iceberg:woodpile", 318, 197, FACE.s, 100);
   prop("iceberg:snowy_barrels", 404, 228, 30, 100, true);
 
@@ -241,12 +244,15 @@ export function buildIceberg(quality: { flowers: number }): Town {
   put("iceberg:frozen_fountain", P(FC[0], FC[1]), 22.5, { solid: [{ kind: "fountain", x: 0, y: 0, r: 280 }] });
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2, du = Math.cos(a), dv = Math.sin(a);
-    put("common:bench", P(FC[0] + du * 19, FC[1] + dv * 19), facing(-du, -dv) + 90);
+    put("common:bench", P(FC[0] + du * 19, FC[1] + dv * 19), facing(-du, -dv));
     const b = a + Math.PI / 4;
     lamp(FC[0] + Math.cos(b) * 21, FC[1] + Math.sin(b) * 21);
   }
   for (const v of [312, 340, 404, 432]) put("iceberg:fur_stall", P(553, v), FACE.w);
-  prop("iceberg:sled", 538, 322, FACE.n + 20, 120, true);
+  // the great pine at its head, hung with lanterns at midwinter, braziers either side
+  put("flora:SnowPine", P(522, 311), 20, { s: 1.45 });
+  prop("iceberg:brazier", 506, 318, 0, 60, true);
+  prop("iceberg:brazier", 538, 318, 0, 60, true);
   prop("iceberg:snowy_barrels", 556, 455, 10, 100, true);
   prop("iceberg:snowy_barrels", 556, 372, 80, 100, true);
   prop("iceberg:ice_sculpture", 490, 336, FACE.e, 90, true);
@@ -302,11 +308,13 @@ export function buildIceberg(quality: { flowers: number }): Town {
   boat(705, 600, -160);
   // the beacon on the point, lanterns along the quays
   put("iceberg:beacon_tower", P(761, 361), 135, { solid: [{ kind: "tower", x: 0, y: 0, r: 255 }] });
-  for (const u of [630, 668, 706]) lamp(u, 347);
+  for (const u of [630, 668, 704]) lamp(u, 365);
+  // the fish market along the head of the reach
+  for (const u of [616, 640, 716]) put("iceberg:fish_stall", P(u, 347), FACE.s);
   for (const v of [212, 290]) lamp(752, v);
   for (const v of [392, 500, 592]) lamp(603, v);
   // cargo and gear on the quays
-  prop("iceberg:snowy_barrels", 646, 350, 20, 110, true);
+  prop("iceberg:snowy_barrels", 664, 345, 20, 110, true);
   prop("iceberg:snowy_barrels", 760, 230, 70, 110, true);
   prop("iceberg:sled", 690, 352, FACE.e, 120, true);
   prop("iceberg:snowy_barrels", 606, 602, 0, 100, true);
@@ -352,7 +360,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
       if (!L) continue;
       const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
       let t = carry;
-      for (; t < L; t += 1500) {
+      for (; t < L; t += 1300) {
         const px = a[0] + ux * t, py = a[1] + uy * t;
         for (const s of [1, -1]) {
           const x = px - uy * s * 120, y = py + ux * s * 120;
@@ -366,8 +374,25 @@ export function buildIceberg(quality: { flowers: number }): Town {
     }
   }
 
-  // ---- the open snow inside the walls: pines, frost oaks and birches wherever there is room ----
-  town.greens(ground, { x0: xS, x1: xN, y0: yH, y1: yW }, { trees: ["SnowPine", "SnowPineSmall", "SnowPine", "FrostOak", "Birch", "SnowPineSmall"], other: "flora:SnowPine", chance: 0.86, step: 560 });
+  // ---- the open snow inside the walls: a woodpile or barrels against the side of most houses,
+  // then pines, frost oaks and birches wherever there is room ----
+  placed.forEach((p, i) => {
+    if (i % 3 === 2 || p.piece === "fisher_hut" || p.piece === "great_hall" || p.piece === "igloo") return;
+    const side = i % 2 ? 1 : -1, c = Math.cos((p.h * Math.PI) / 180), sn = Math.sin((p.h * Math.PI) / 180);
+    const lx = (p.f.x0 + p.f.x1) * 0.5 * p.s + 60, ly = side * ((side > 0 ? p.f.y1 : -p.f.y0) * 0.94 * p.s + 170);
+    const x = p.x + lx * c - ly * sn, y = p.y + lx * sn + ly * c;
+    if ([[0, 0], [150, 0], [-150, 0], [0, 150], [0, -150]].some(([dx, dy]) => !snow(x + dx, y + dy)) || !clear(x, y, 130)) return;
+    if (i % 4 === 3) put("iceberg:snowy_barrels", [x, y], p.h + rnd() * 60);
+    else put("iceberg:woodpile", [x, y], p.h - side * 90);
+  });
+  const TREES = ["SnowPine", "SnowPineSmall", "SnowPine", "FrostOak", "Birch", "SnowPineSmall", "SnowPine"];
+  for (let x = xS + 450; x < xN - 400; x += 600)
+    for (let y = yH + 400; y < yW - 400; y += 600) {
+      const px = x + (rnd() - 0.5) * 380, py = y + (rnd() - 0.5) * 380;
+      if ([[0, 0], [260, 0], [-260, 0], [0, 260], [0, -260]].some(([dx, dy]) => !snow(px + dx, py + dy))) continue;
+      if (rnd() > 0.8 || !clear(px, py, 250)) continue;
+      put(`flora:${TREES[Math.floor(rnd() * TREES.length)]}`, [px, py], rnd() * 360, { s: 0.65 + rnd() * 0.3 });
+    }
 
   // ---- outside the walls: snowy woods, kept off the roads and back from the river ----
   const wet = (x: number, y: number) => [[0, 0], [500, 0], [-500, 0], [0, 500], [0, -500]].some(([dx, dy]) => ground.kind(x + dx, y + dy) === 3);

@@ -38,6 +38,7 @@ defineMaterial("Iceberg_Glacier", { map: "ice", tint: "#e2f3fb", rough: 0.35 });
 defineMaterial("Iceberg_GlacierDeep", { map: "ice", tint: "#8fcbe6", rough: 0.3 });
 defineMaterial("Iceberg_SculptIce", { map: "ice", tint: "#c4e8f8", rough: 0.12, metal: 0.1, glow: "#58b9e6", glowI: 0.22 });
 defineMaterial("Iceberg_Fish", { map: "metal", tint: "#a9b9c2", rough: 0.4, metal: 0.3 });
+defineMaterial("Iceberg_Salmon", { map: "metal", tint: "#d98a6c", rough: 0.45, metal: 0.15 });
 defineMaterial("Iceberg_Staves", { map: "ribs", tint: "#93683f", rough: 0.85 });
 
 const DEG = 180 / Math.PI;
@@ -1446,6 +1447,53 @@ function watchTower(): Geo {
   return merge(...parts);
 }
 
+// A fishmonger's stall for the quay: the catch laid out on a counter of crushed ice under a
+// striped awning heavy with snow, fish hanging from the rail behind, a barrel of fish, a hanging
+// scale and a board with a fish painted on it.
+function fishStall(): Geo {
+  const W = 160, parts: Geo[] = [];
+  const lying = (x: number, y: number, z: number, mat: string, a: number): Geo => translate(rotateZ(merge(
+    scale(sphereCenter(17, [0, 0, 0], mat, 8), [1, 0.36, 0.2]),
+    translate(rotateZ(box([12, 3, 2], [0, 0, 0], mat), 35), [20, 3, 0]),
+    translate(rotateZ(box([12, 3, 2], [0, 0, 0], mat), -35), [20, -3, 0]),
+  ), a), [x, y, z]);
+  for (const y of [-W, W]) {
+    parts.push(boxBounds([-128, y - 7, 0], [-114, y + 7, 252], "WoodDark", 1.5));
+    parts.push(boxBounds([92, y - 7, 0], [106, y + 7, 214], "WoodDark", 1.5));
+    parts.push(boxBounds([-128, y - 9, 200], [106, y + 9, 212], "WoodShade"));
+  }
+  // the counter with its tray of ice and the catch
+  parts.push(boxBounds([-150, -W + 6, 0], [-46, W - 6, 86], "WoodShade", 2));
+  parts.push(boxBounds([-158, -W - 4, 86], [-38, W + 4, 94], "WoodPale", 2));
+  parts.push(boxBounds([-150, -W + 4, 94], [-46, W - 4, 101], "IceBlue"));
+  for (let i = 0; i < 13; i++)
+    for (const [k, x] of [-124, -96, -68].entries()) parts.push(lying(x, -W + 22 + i * 23, 104, (i + k) % 3 ? "Iceberg_Fish" : "Iceberg_Salmon", (i * 37 + k * 50) % 30 - 15));
+  // the awning: blue and white stripes from 252 at the front down to 214 at the back, snow on it
+  const pitch = Math.atan2(38, 220) * DEG, sw = (2 * W + 44) / 8;
+  const roof: Geo[] = [];
+  for (let k = 0; k < 8; k++) roof.push(box([320, sw, 6], [0, -W - 22 + sw * (k + 0.5), 0], k % 2 ? "FabricWhite" : "FabricBlue"));
+  roof.push(box([250, 2 * W + 30, 10], [24, 0, 7], "Snow", 4), cylinderBetween([-110, -W - 16, 8], [-110, W + 16, 8], 7, 7, "Snow"));
+  parts.push(translate(rotateY(merge(...roof), pitch), [0, 0, 236]));
+  const ex = -160 * Math.cos(pitch * RAD), ez = 236 + 160 * Math.sin(pitch * RAD) - 4;
+  for (let k = 0; k < 8; k++) parts.push(boxAt([3, sw - 3, 24], [ex + 4, -W - 22 + sw * (k + 0.5), ez - 24], k % 2 ? "FabricWhite" : "FabricBlue"));
+  parts.push(icicles([ex, -W - 22, ez - 24], [ex, W + 22, ez - 24], 131, 24, 30));
+  // fish hanging from the back rail, a barrel of fish, a scale on the front post, the board
+  parts.push(beamBetween([60, -W + 8, 196], [60, W - 8, 196], 6, 6, "WoodDark"));
+  for (let k = 0; k < 6; k++) parts.push(translate(scale(fish(), [1.5, 1.5, 1.5]), [60, -W + 40 + k * 48, 140]));
+  parts.push(translate(barrel(false), [30, W - 60, 0]));
+  for (let k = 0; k < 5; k++) parts.push(lying(30 + Math.cos(k * 1.3) * 14, W - 60 + Math.sin(k * 1.3) * 14, 88 + (k % 2) * 4, k % 2 ? "Iceberg_Salmon" : "Iceberg_Fish", k * 70));
+  parts.push(translate(snowyCrate(48, "WoodPale"), [10, -W + 50, 0]));
+  parts.push(
+    cylinderBetween([-150, -W + 30, 236], [-150, -W + 30, 196], 1, 4, "IronDark"),
+    cylinderAt({ radius: 10, height: 16, segments: 8, bottom: [-150, -W + 30, 180] }, "IronLight"),
+    cylinderAt({ rBot: 2, rTop: 16, height: 6, segments: 8, bottom: [-150, -W + 30, 166] }, "IronLight"),
+  );
+  parts.push(boxAt([6, 140, 40], [-158, 0, 272], "WoodPale", 2), boxAt([5, 140, 6], [-159, 0, 312], "Snow"));
+  parts.push(translate(rotateX(scale(sphereCenter(17, [0, 0, 0], "Iceberg_PaintBlue", 8), [0.2, 2.2, 0.8]), 0), [-162, -8, 292]));
+  parts.push(translate(rotateX(box([2, 18, 18], [0, 0, 0], "Iceberg_PaintBlue"), 45), [-162, 34, 292]));
+  return centre(merge(...parts));
+}
+
 // ---- the kit ----
 export const KIT: Kit = {
   id: "iceberg",
@@ -1480,6 +1528,8 @@ export const KIT: Kit = {
     { id: "log_cabin", name: "กระท่อมไม้ซุงหลังเล็ก", make: logCabin, tags: ["building"] },
     { id: "longhouse", name: "บ้านยาวไม้ซุง", make: longhouse, tags: ["building"] },
     { id: "watch_tower", name: "หอสังเกตการณ์ไม้ซุง", make: watchTower, tags: ["tower", "defence"] },
+    { id: "fish_stall", name: "แผงขายปลา", make: fishStall, tags: ["market", "dock"] },
+    { id: "brazier", name: "เตาไฟเหล็ก", make: brazier, tags: ["light", "decor"] },
   ],
   sample(put) {
     // the square: packed snow and flags, the frozen fountain in the middle, benches

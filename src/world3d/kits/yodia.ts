@@ -1218,6 +1218,24 @@ function redLantern(p: V3, drop: number, r = 17): Geo {
   );
 }
 
+// A window laid nearly flat on a wall facing -X (the wall face x = 0, centred on y = 0, sill at
+// z = 0), nothing standing out more than 3 cm: for the end walls of houses that stand wall to wall.
+function flatWin(w: number, h: number, shutter: string): Geo {
+  const sw = w / 2 + 2, g: Geo[] = [
+    boxBounds([-2, -w / 2 - 8, -8], [0, w / 2 + 8, h + 8], "StoneWhite"),
+    boxBounds([-2.6, -w / 2, 0], [-2, w / 2, h], "GlassBlue"),
+    boxBounds([-3, -1.5, 0], [-2.6, 1.5, h], "WoodDark"), boxBounds([-3, -w / 2, h * 0.6 - 1.5], [-2.6, w / 2, h * 0.6 + 1.5], "WoodDark"),
+    boxBounds([-3, -w / 2 - 12, -14], [0, w / 2 + 12, -8], "StoneWhite"),
+    boxBounds([-3, -w / 2 - 12, h + 8], [0, w / 2 + 12, h + 18], "StoneWhite"),
+  ];
+  for (const s of [-1, 1]) {
+    const y0 = s * (w / 2 + 8), y1 = s * (w / 2 + 8 + sw);
+    g.push(boxBounds([-2, Math.min(y0, y1), -4], [0, Math.max(y0, y1), h + 4], shutter));
+    for (let i = 1; i < 6; i++) g.push(boxBounds([-2.6, Math.min(y0, y1) + 3, -4 + ((h + 8) * i) / 6], [-2, Math.max(y0, y1) - 3, -2 + ((h + 8) * i) / 6], "WoodDark"));
+  }
+  return merge(...g);
+}
+
 // A Sino-Portuguese shophouse of `bays` bays (4 m each, along Y) and 2 or 3 storeys, 8.6 m deep:
 // an arcade (the five-foot way) under the upper floor at the front, its basket arches on square
 // white piers; shop fronts of folding teal boards behind it under red-and-gold sign boards and
@@ -1302,6 +1320,11 @@ function shophouse(bays: number, storeys: 2 | 3): Geo {
   for (const s of [-1, 1]) {
     g.push(rotateZ(gableWall(s * (HY - 0.5), HX, top, RH + 4, "Yodia_Ochre"), 90));
     for (const t of [-1, 1]) g.push(beamBetween([t * (HX + 22), s * (HY - 7), top + 10], [0, s * (HY - 7), top + RH + 50], 13, 22, "StoneWhite"));
+  }
+  // windows laid flat on the end walls (they show where a row ends)
+  for (const hd of [90, 270]) {
+    for (const x of [-30, 240]) g.push(at(flatWin(56, 120, "Yodia_Teal"), hd, HY, x, 120));
+    for (let s = 1; s < storeys; s++) for (const x of [-260, 0, 260]) g.push(at(flatWin(60, 150, "Yodia_Teal"), hd, HY, x, G + FH * (s - 1) + 84));
   }
   // the back: a door and windows
   g.push(at(door(90, 220), 180, HX, centres[0] + (bays > 1 ? 100 : 60), 12));
