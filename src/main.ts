@@ -665,6 +665,7 @@ async function boot(): Promise<void> {
     await settle(current);
     loaded();
     travelling = false;
+    savePlace(); // the new map at once, in case the page closes right away
     banner.textContent = current.name;
     banner.classList.add("show");
     clearTimeout(bannerTimer);
@@ -971,7 +972,6 @@ async function boot(): Promise<void> {
   };
   let last = performance.now();
   let fps = 60;
-  let placeClock = 2;
 
   function frame(now: number): void {
     if (travelling) {
@@ -1009,10 +1009,8 @@ async function boot(): Promise<void> {
       walkTo = null;
     }
     potionCd = Math.max(0, potionCd - dt);
-    if ((placeClock -= dt) <= 0) {
-      placeClock = 2;
-      savePlace();
-    }
+    // (by the clock, not game time: a slow frame rate must not stretch it)
+    if (now - placeSavedAt > 2000) savePlace();
     const auto = bot.update(dt);
     if (!fwd && !left && bot.on) move = auto;
     if (holdWalk && pointer && view && (holdClock -= dt) <= 0) {
@@ -1157,8 +1155,9 @@ async function boot(): Promise<void> {
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).
-  let placeSaved = "";
+  let placeSaved = "", placeSavedAt = 0;
   function savePlace(): void {
+    placeSavedAt = performance.now();
     if (!hero.alive) return; // the dead get up in Eden; keep where they last stood alive
     const place = JSON.stringify({ map: current.id, x: Math.round(player.x), y: Math.round(player.y) });
     if (place === placeSaved) return;

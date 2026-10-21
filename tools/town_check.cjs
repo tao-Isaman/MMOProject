@@ -10,6 +10,8 @@ const [id, out, ...pts] = process.argv.slice(2);
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   const page = await (await browser.newContext({ viewport: { width: 960, height: 600 } })).newPage();
+  // no hot reloads mid-check: other edits land on the dev server while it runs
+  await page.route("**/@vite/client", (r) => r.fulfill({ contentType: "application/javascript", body: "export function updateStyle(){} export function removeStyle(){} export function createHotContext(){ return { accept(){}, dispose(){}, prune(){}, invalidate(){}, on(){}, off(){}, send(){}, data: {} }; } export function injectQuery(u){ return u; }" }));
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
