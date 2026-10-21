@@ -220,7 +220,6 @@ export function buildIceberg(quality: { flowers: number }): Town {
       x += c * 30;
       y += sn * 30;
     }
-    if (onWay()) console.error("ICEBERG-DEBUG on road", piece, u0, v0);
     put(ref, [x, y], h, { s });
     placed.push({ x, y, h, s, f, piece });
   }
@@ -232,15 +231,15 @@ export function buildIceberg(quality: { flowers: number }): Town {
   prop("iceberg:woodpile", 318, 302, FACE.s, 120);
   prop("iceberg:snowy_barrels", 322, 348, rnd() * 360, 110);
 
-  // ---- the north gate: lanterns either side inside, a woodpile against the palisade ----
+  // ---- the north gate: braziers either side inside, a lantern, a woodpile against the palisade ----
   prop("iceberg:brazier", 349, 198, 0, 60, true);
   prop("iceberg:brazier", 378, 198, 0, 60, true);
   lamp(400, 202);
   prop("iceberg:woodpile", 318, 197, FACE.s, 100);
   prop("iceberg:snowy_barrels", 404, 228, 30, 100, true);
 
-  // ---- the open square: the frozen fountain in the middle ringed with benches and lanterns, fur
-  // traders down its east side, ice bears, a sled and a snowman ----
+  // ---- the open square: the frozen fountain in the middle ringed with benches and lanterns, a
+  // great pine at its head, fur traders down its east side, ice bears, a sled and a snowman ----
   const FC: UV = [521, 372];
   put("iceberg:frozen_fountain", P(FC[0], FC[1]), 22.5, { solid: [{ kind: "fountain", x: 0, y: 0, r: 280 }] });
   for (let i = 0; i < 4; i++) {
@@ -250,7 +249,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
     lamp(FC[0] + Math.cos(b) * 21, FC[1] + Math.sin(b) * 21);
   }
   for (const v of [312, 340, 404, 432]) put("iceberg:fur_stall", P(553, v), FACE.w);
-  // the great pine at its head, hung with lanterns at midwinter, braziers either side
+  // the great pine at its head, braziers either side
   put("flora:SnowPine", P(522, 311), 20, { s: 1.45 });
   prop("iceberg:brazier", 506, 318, 0, 60, true);
   prop("iceberg:brazier", 538, 318, 0, 60, true);
@@ -301,7 +300,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
   pier(RIVER, 545, "e", 5);
   pier(735, BANK, "s", 4);
   pier(HARBOUR_E, 250, "e", 2);
-  // the boats: moored along the piers, one out on the river
+  // the boats: moored along the piers, two out on the river
   const boat = (u: number, v: number, h: number) => put("iceberg:fishing_boat", P(u, v), h, { z: -50 });
   boat(656, 467, FACE.e);
   boat(670, 443, FACE.w);
@@ -354,7 +353,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
   sea(802, 244, 900, 256);
   sea(HARBOUR_E, 256, 900, BANK);
 
-  // ---- lanterns along the white roads: every 15 m down each edge, just off the road on the snow
+  // ---- lanterns along the white roads: every 13 m down each edge, just off the road on the snow
   // wherever nothing else stands ----
   {
     let carry = 600;

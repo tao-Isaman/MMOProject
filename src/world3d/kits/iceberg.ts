@@ -1,7 +1,8 @@
 // ไอซ์เบิร์ก (Iceberg): the snow town of the far north and its cold harbour. Log and fieldstone
 // houses under steep roofs heavy with snow, warm lit windows and glowing chimneys, the great
-// timber hall with its dragon-headed gables, a frozen fountain and an ice bear, and a harbour of
-// stone quays, snowy piers, fishing boats and drifting ice.
+// timber hall with its dragon-headed gables, little log cabins and longhouses, watchtowers for the
+// palisade, a frozen fountain and an ice bear, braziers, and a harbour of stone quays, snowy piers,
+// fish stalls, fishing boats and drifting ice.
 //
 // Centimetres, Z up; every item stands on z = 0, centred on its footprint, its front facing -X.
 
