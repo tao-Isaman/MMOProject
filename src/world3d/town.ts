@@ -360,3 +360,13 @@ export class TownBuilder {
     };
   }
 }
+
+// ---- townsfolk every town has ----
+// The travel guide by the way in: talking to her opens the world map to pick a town to go to.
+export function travelGuide(town: string, at: XY, face: number, name = "เอลซ่า"): NpcSpec {
+  return {
+    id: `${town}_travel`, x: at[0], y: at[1], face, name, title: "ผู้นำทาง · เดินทางข้ามเมือง", role: "travel",
+    look: { gender: "female", hair: "hime", hairColor: "ink", eyes: "blue", top: "top_priestess_wine", bottom: "bottom_priestess_white" },
+    lines: ["จะไปเมืองไหนดีคะ เลือกบนแผนที่ได้เลย", "เดินทางกับสมาคมผู้นำทาง ปลอดภัยถึงที่หมายทุกเมือง"],
+  };
+}

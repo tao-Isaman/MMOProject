@@ -11,7 +11,7 @@ const CELL = 96;
 const HEIGHT = 128;   // on-screen height, like the player
 export const TALK_RANGE = 190; // cm
 
-export type NpcRole = "shop" | "heal" | "talk";
+export type NpcRole = "shop" | "heal" | "talk" | "travel";
 
 export interface NpcSpec {
   id: string;

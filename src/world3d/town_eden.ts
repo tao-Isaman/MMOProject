@@ -18,7 +18,7 @@ import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { KIT as EDEN } from "./kits/eden";
 import { KIT as YODIA } from "./kits/yodia";
-import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE } from "./town";
+import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE, travelGuide } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -389,6 +389,7 @@ function edenNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
       lines: ["ร้านอาวุธอยู่ถนนใต้ ร้านเครื่องมืออยู่ลานน้ำพุ", "ตลาดทางเหนือมีผ้ากับผลไม้ขายเยอะเลย"] },
     { id: "guard_s", ...at(630, 700), face: -90, name: "ทหารยามบรูโน", title: "ทหารยามลาดตระเวน", role: "talk", look: guard("top_warrior_navy"),
       lines: ["ประตูใต้ยังไม่เปิด ทางไปทะเลทรายกำลังสำรวจอยู่", "ระวังของหายนะ ตลาดคนเยอะ"] },
+    travelGuide("eden", P(748, 728), -150),
     { id: "shop", x: shopAt[0], y: shopAt[1], face: 180, name: "ลิเลีย", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ยา เสื้อผ้า คัมภีร์ มีครบ เข้ามาดูก่อนได้"] },
     { id: "sailor", ...at(1112, 470), face: 90, name: "กัปตันมาร์โก", title: "กะลาสี", role: "talk",

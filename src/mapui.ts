@@ -33,7 +33,7 @@ export function mapArea(map: GameMap): Bounds {
 }
 type Hit = { x: number; y: number; text: string; npc?: Npc; to?: Vec2 };
 
-const NPC_COLORS: Record<string, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8" };
+const NPC_COLORS: Record<string, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8", travel: "#9fd4ff" };
 
 export class MapUI {
   win: HTMLElement;
@@ -54,12 +54,15 @@ export class MapUI {
   note: { text: string; t: number } | null = null; // a word after a click, over the usual text
   time = 0;
   onWalk: (to: Vec2, npc?: Npc) => string | null;
+  onTravel: (id: string) => void;
+  guide = false; // opened by a travel guide: a click on a town goes there
 
   // names: map id -> its name (for the warps' "to ..."); onWalk(to, npc): walk there, or up to
-  // npc to talk; returns why not, or null
-  constructor(names: Record<string, string>, onWalk: (to: Vec2, npc?: Npc) => string | null) {
+  // npc to talk; returns why not, or null; onTravel(id): a travel guide's trip to that town
+  constructor(names: Record<string, string>, onWalk: (to: Vec2, npc?: Npc) => string | null, onTravel: (id: string) => void) {
     this.names = names;
     this.onWalk = onWalk;
+    this.onTravel = onTravel;
     this.win = makeWindow("map", "แผนที่", "M");
     const bar = this.win.querySelector(".window-bar")!;
     this.title = bar.querySelector("h2")!;
@@ -101,6 +104,7 @@ export class MapUI {
 
   // M: this map, then the world, then closed.
   cycle(): void {
+    this.guide = false;
     if (!this.open) this.show("local");
     else if (this.view === "local") this.show("world");
     else this.toggle(false);
@@ -115,7 +119,17 @@ export class MapUI {
 
   toggle(show = !this.open): void {
     if (show) this.show(this.view);
-    else this.win.classList.add("hidden");
+    else {
+      this.win.classList.add("hidden");
+      this.guide = false;
+    }
+  }
+
+  // A travel guide's world map: pick a town to go to.
+  travel(): void {
+    this.show("world");
+    this.guide = true;
+    this.fit();
   }
 
   // A new map and its picture from above.
@@ -130,7 +144,7 @@ export class MapUI {
   fit(): void {
     for (const v of ["local", "world"] as View[]) this.tabs[v].classList.toggle("on", v === this.view);
     this.tabs.local.textContent = this.map ? this.map.name : "แผนที่นี้";
-    this.title.textContent = this.view === "world" ? "แผนที่โลก" : "แผนที่";
+    this.title.textContent = this.guide ? "เดินทาง · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
     const [w, h] = this.view === "world" || !this.pic ? [WORLD_W, WORLD_H] : [this.pic.width, this.pic.height];
     const touch = isTouch();
     const maxW = Math.min(touch ? 2000 : 900, innerWidth - (touch ? 28 : 56));
@@ -164,6 +178,15 @@ export class MapUI {
   // A click on the world map: an open place next door walks to the way out there.
   pickPlace(x: number, y: number): void {
     const p = (this.picked = this.placeAt(x, y)), map = this.map;
+    if (this.guide) {
+      // a travel guide sends you to any open town
+      if (!p || !map) return;
+      if (p.id === map.id) return this.say(`ตอนนี้อยู่ที่${p.name}แล้ว`);
+      if (!p.open || p.kind === "field" || p.kind === "castle") return this.say(`ผู้นำทางยังพาไป${p.name}ไม่ได้`);
+      this.toggle(false);
+      this.onTravel(p.id);
+      return;
+    }
     if (!p || !map || !p.open || p.id === map.id) return;
     const warp = map.warps.find((w) => w.to === p.id);
     if (!warp) return this.say(`ทางไป${p.name}ไม่ได้อยู่ในแผนที่นี้`);
@@ -310,8 +333,9 @@ export class MapUI {
       else if (!p.open) text("ยังไม่เปิด", x, y + px(big ? 33 : 29), px(10.5), "#e8b7a4");
     }
     const p = hovered ?? this.picked;
-    let info = p ? `${p.name} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}` : isTouch() ? ""
-      : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · คลิกที่ที่เปิดแล้วเพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
+    let info = p ? `${p.name} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}`
+      : this.guide ? `${isTouch() ? "แตะ" : "คลิก"}เมืองที่จะไป ผู้นำทางพาไปถึงในพริบตา`
+      : isTouch() ? "" : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · คลิกที่ที่เปิดแล้วเพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
     if (this.note) info = this.note.text;
     if (this.info.textContent !== info) this.info.textContent = info;
   }

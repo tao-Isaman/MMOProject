@@ -372,7 +372,7 @@ async function boot(): Promise<void> {
   const left = readJson<{ map: MapId; x: number; y: number }>(placeKey);
   const startMap: MapId = left && left.map in MAP_NAMES ? left.map : "eden";
   await loading(`กำลังสร้าง${MAP_NAMES[startMap]}…`, 0.3);
-  let current: GameMap = loadMap(startMap, quality);
+  let current: GameMap = await loadMap(startMap, quality);
   w3d.load(current.level);
   const fx = new Particles();
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
@@ -568,7 +568,7 @@ async function boot(): Promise<void> {
   const shopUI = new ShopUI(inv, iconFor);
   // the minimap and the map window (M); each map's picture from above is taken while it loads
   // and kept
-  const mapUI = new MapUI(MAP_NAMES, goTo);
+  const mapUI = new MapUI(MAP_NAMES, goTo, (id) => void enterMap(id as MapId));
   const pictures = new Map<MapId, HTMLCanvasElement>();
   mapUI.setMap(current, null);
   // The rest of a map's loading: its townsfolk dressed (10 s at most), every material compiled,
@@ -596,6 +596,8 @@ async function boot(): Promise<void> {
       return;
     }
     npc.talk();
+    // a travel guide: the world map, to pick a town to go to
+    if (npc.spec.role === "travel") mapUI.travel();
     if (npc.spec.role === "heal" && hero.alive) {
       hero.refill();
       floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
@@ -636,7 +638,7 @@ async function boot(): Promise<void> {
     if (travelling) return;
     travelling = true;
     await loading(`กำลังเดินทางไป${MAP_NAMES[id]}…`, 0.25);
-    current = loadMap(id, quality);
+    current = await loadMap(id, quality);
     w3d.load(current.level);
     monsters.length = 0;
     if (!current.town) monsters.push(...spawnMonsters(slimes));

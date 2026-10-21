@@ -1,20 +1,39 @@
-// The maps: the city of Eden (where everyone starts, no monsters) and the field west of it (the
-// courtyard of courtyard.weave, with its slimes). A map is built the first time it is entered
-// and kept; entering makes its solids current (src/world.ts) and hands back its scenery,
-// townsfolk, warps and shut gates.
+// The maps: the city of Eden (where everyone starts, no monsters), the field west of it (the
+// courtyard of courtyard.weave, with its slimes) and the other towns of the world map, each in
+// its own module loaded the first time it is entered (src/world3d/town_<id>.ts). A map is
+// built once and kept; entering makes its solids current (src/world.ts) and hands back its
+// scenery, townsfolk, warps and shut gates.
 
 import { setMap } from "./world";
 import type { SolidSpec } from "./world";
 import { buildEden } from "./world3d/town_eden";
 import { TOWN_SCALE } from "./world3d/town";
+import type { Town } from "./world3d/town";
 import { fieldLevel } from "./world3d/levels";
 import { MERCHANT } from "./shop";
 import type { NpcSpec } from "./npcs";
 import type { Level } from "./world3d/view";
 import type { Vec2 } from "./types";
 
-export type MapId = "eden" | "field";
-export const MAP_NAMES: Record<MapId, string> = { eden: "อีเดน", field: "ทุ่งหญ้าตะวันตก" };
+export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki";
+export type MapId = TownId | "field";
+export const MAP_NAMES: Record<MapId, string> = {
+  eden: "อีเดน", field: "ทุ่งหญ้าตะวันตก", iceberg: "ไอซ์เบิร์ก", trunrada: "ทรุนราดา", kradia: "คราเดีย",
+  bahamas: "บาฮามัส", yodia: "โยเดีย", osaki: "โอซากิ",
+};
+// the towns a travel guide can send you to (every town)
+export const TOWNS: TownId[] = ["eden", "iceberg", "trunrada", "kradia", "bahamas", "yodia", "osaki"];
+
+// Each town's builder; all but Eden load with their kits when first entered.
+const BUILDERS: Record<TownId, () => Promise<(quality: { flowers: number }) => Town>> = {
+  eden: async () => buildEden,
+  iceberg: () => import("./world3d/town_iceberg").then((m) => m.buildIceberg),
+  trunrada: () => import("./world3d/town_trunrada").then((m) => m.buildTrunrada),
+  kradia: () => import("./world3d/town_kradia").then((m) => m.buildKradia),
+  bahamas: () => import("./world3d/town_bahamas").then((m) => m.buildBahamas),
+  yodia: () => import("./world3d/town_yodia").then((m) => m.buildYodia),
+  osaki: () => import("./world3d/town_osaki").then((m) => m.buildOsaki),
+};
 
 // A name written on the map window: a place (big), a corner of it (small) or a gate.
 export interface MapLabel {
@@ -82,12 +101,12 @@ const FIELD_WARP = { x: 400, y: -680, r: 150, to: "eden", arrive: { x: 54 * TOWN
 
 const built = new Map<MapId, GameMap>();
 
-export function loadMap(id: MapId, quality: { flowers: number }): GameMap {
+export async function loadMap(id: MapId, quality: { flowers: number }): Promise<GameMap> {
   let map = built.get(id);
   if (!map) {
-    if (id === "eden") {
-      const t = buildEden(quality);
-      map = { id, name: MAP_NAMES.eden, town: true, ...t, warps: t.warps };
+    if (id !== "field") {
+      const t = (await BUILDERS[id]())(quality);
+      map = { id, name: MAP_NAMES[id], town: true, ...t };
     } else {
       // the flowers keep off the solids, so they must be current before the scenery is built
       setMap(FIELD_SOLIDS, FIELD_BOUNDS, { x: 1000, y: 250 });
