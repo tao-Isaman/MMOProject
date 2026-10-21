@@ -104,7 +104,7 @@ export class BotUI {
     if (!this.open) return;
     this.state.textContent = what;
     this.numbers.textContent = b.on || st.time
-      ? `เวลา ${clock(st.time)} · ล่า ${st.kills} ตัว · EXP +${st.xp}${perHour ? ` (${perHour.toLocaleString()}/ชม.)` : ""} · ของ ${st.items} ชิ้น`
+      ? `เวลา ${clock(st.time)} · ล่า ${st.kills} ตัว · EXP +${st.xp}${perHour ? ` (${perHour.toLocaleString()}/ชม.)` : ""} · ทอง +${st.gold.toLocaleString()} · ของ ${st.items} ชิ้น · ดื่มยา ${st.potions}`
       : "ตั้งค่าด้านล่าง แล้วกดเริ่ม บอทจะล่ารอบจุดที่ยืนอยู่ตอนเริ่ม";
   }
 
@@ -262,6 +262,12 @@ export class BotUI {
     here.type = "button";
     here.textContent = "ย้ายจุดศูนย์กลางมาที่ตัวละคร";
     here.addEventListener("click", () => this.bot.setAnchorHere());
+
+    el("h3", "bt-h", f).textContent = "ยา";
+    const pots = el("p", "wr-note", f);
+    pots.textContent = `ในกระเป๋า: ยาแดง ${this.bot.d.potions?.("hp") ?? 0} ขวด · ยาฟ้า ${this.bot.d.potions?.("mp") ?? 0} ขวด (ซื้อเพิ่มได้ที่ร้านของมิร่าข้างรถเข็น)`;
+    slider(f, (v) => (v ? `ดื่มยาแดงเมื่อ HP ต่ำกว่า ${v}%` : "ไม่ดื่มยาแดง"), "potHp", 0, 90, 5);
+    slider(f, (v) => (v ? `ดื่มยาฟ้าเมื่อ MP ต่ำกว่า ${v}%` : "ไม่ดื่มยาฟ้า"), "potMp", 0, 90, 5);
 
     el("h3", "bt-h", f).textContent = "พักฟื้นและ MP";
     slider(f, (v) => (v ? `นั่งพักเมื่อ HP ต่ำกว่า ${v}%` : "ไม่พักเพราะ HP"), "restHp", 0, 90, 5);

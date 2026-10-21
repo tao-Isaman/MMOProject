@@ -3,6 +3,7 @@
 // Both are plain DOM panels over the canvas. Items are dragged with pointer events (works with
 // mouse, pen and touch); double-click equips or takes off.
 
+import { saveKey } from "./save";
 import { ITEMS, EQUIP_SLOTS, describe, itemSlot } from "./items";
 import type { EquipSlot } from "./items";
 import { COLS } from "./inventory";
@@ -63,9 +64,11 @@ export class InventoryUI {
   cells: HTMLElement[];
   tip: HTMLElement;
   status: HTMLElement;
+  gold: HTMLElement;
+  menu: HTMLElement;
 
-  // icons(id) -> canvas or image for an item; use(index) reads a book or other usable item
-  // and returns a message
+  // icons(id) -> canvas or image for an item; use(index) reads a book, drinks a potion or
+  // uses another item and returns a message
   constructor(inv: Inventory, icons: (id: string) => Img | null, use: (index: number) => string) {
     this.inv = inv;
     this.icons = icons;
@@ -88,8 +91,23 @@ export class InventoryUI {
       return c;
     });
     this.tip = el("div", "inv-tip hidden", document.body);
+    const foot = el("div", "inv-foot", this.win);
+    this.gold = el("span", "inv-gold", foot);
+    const sort = el("button", "wr-choice inv-sort", foot);
+    sort.type = "button";
+    sort.textContent = "เรียงของ";
+    sort.addEventListener("click", () => {
+      this.inv.sort();
+      this.flash("เรียงของแล้ว", true);
+    });
     this.status = el("p", "inv-status", this.win);
+    this.menu = el("div", "inv-menu hidden", document.body);
+    window.addEventListener("pointerdown", (e) => {
+      if (!(e.target instanceof Node && this.menu.contains(e.target))) this.closeMenu();
+    });
+    window.addEventListener("keydown", (e) => e.code === "Escape" && this.closeMenu());
     inv.onChange(() => this.render());
+    window.addEventListener("item-icons", () => this.render());
     this.bindPointer();
     this.render();
   }
@@ -97,6 +115,49 @@ export class InventoryUI {
   toggle(show = this.win.classList.contains("hidden")): void {
     this.win.classList.toggle("hidden", !show);
     this.tip.classList.add("hidden");
+    this.closeMenu();
+  }
+
+  closeMenu(): void {
+    this.menu.classList.add("hidden");
+  }
+
+  // Right-click menu for a bag slot; confirm: go straight to "throw it all away?".
+  openMenu(index: number, x: number, y: number, confirm = false): void {
+    const s = this.inv.slots[index];
+    if (!s) return;
+    const item = ITEMS[s.id];
+    this.menu.replaceChildren();
+    const button = (text: string, fn: () => void, danger = false) => {
+      const b = el("button", `inv-menu-btn${danger ? " danger" : ""}`, this.menu);
+      b.type = "button";
+      b.textContent = text;
+      b.addEventListener("click", () => {
+        this.closeMenu();
+        fn();
+      });
+    };
+    const ask = (count: number) => {
+      this.menu.replaceChildren();
+      el("p", "inv-menu-q", this.menu).textContent = `ทิ้ง${item.name}${count > 1 ? ` × ${count}` : ""}? ทิ้งแล้วเอาคืนไม่ได้`;
+      button("ทิ้ง", () => {
+        this.inv.discard(index, count);
+        this.flash(`ทิ้ง${item.name}แล้ว`);
+      }, true);
+      button("ยกเลิก", () => undefined);
+    };
+    if (confirm) ask(s.count);
+    else {
+      el("p", "inv-menu-q", this.menu).textContent = item.name;
+      if (item.kind === "potion" || item.kind === "book") button(item.kind === "potion" ? "ดื่ม" : "อ่าน", () => this.flash(this.use(index), true));
+      else if (itemSlot(s.id)) button("สวมใส่", () => this.flash(this.inv.equip(index) ? null : "สวมใส่ไม่ได้"));
+      if (s.count > 1) button("ทิ้ง 1 ชิ้น", () => ask(1), true);
+      button(s.count > 1 ? `ทิ้งทั้งหมด (${s.count})` : "ทิ้ง", () => ask(s.count), true);
+    }
+    this.menu.classList.remove("hidden");
+    const r = this.menu.getBoundingClientRect();
+    this.menu.style.left = `${Math.min(innerWidth - r.width - 8, x)}px`;
+    this.menu.style.top = `${Math.min(innerHeight - r.height - 8, y)}px`;
   }
 
   fill(cell: HTMLElement, id: string | null | undefined, count: number | undefined): void {
@@ -117,7 +178,8 @@ export class InventoryUI {
     this.inv.slots.forEach((s, i) => this.fill(this.cells[i], s?.id, s?.count));
     for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot as EquipSlot], 1);
     const used = this.inv.slots.filter(Boolean).length;
-    this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด หรืออ่าน`;
+    this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
+    this.gold.innerHTML = `<i></i>${this.inv.gold.toLocaleString()} ทอง`;
   }
 
   // What item a cell shows.
@@ -133,7 +195,7 @@ export class InventoryUI {
       return;
     }
     const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กางเกง/กระโปรง", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
+    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กางเกง/กระโปรง", potion: "ยา", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
     this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}`;
     this.tip.classList.remove("hidden");
     const r = this.tip.getBoundingClientRect();
@@ -157,10 +219,19 @@ export class InventoryUI {
       if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip as EquipSlot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม");
       else if (this.inv.slots[Number(c.dataset.index)]) {
         const i = Number(c.dataset.index);
-        if (ITEMS[this.inv.slots[i]!.id].kind === "book") this.flash(this.use(i), true);
+        const kind = ITEMS[this.inv.slots[i]!.id].kind;
+        if (kind === "book" || kind === "potion") this.flash(this.use(i), true);
         else this.flash(this.inv.equip(i) ? null : "ไอเท็มนี้สวมใส่ไม่ได้");
       }
       this.tip.classList.add("hidden");
+    });
+    this.win.addEventListener("contextmenu", (e) => {
+      const c = cellFrom(e.target);
+      e.preventDefault();
+      if (c && !c.dataset.equip && this.itemAt(c)) {
+        this.tip.classList.add("hidden");
+        this.openMenu(Number(c.dataset.index), e.clientX, e.clientY);
+      }
     });
     this.win.addEventListener("pointerdown", (e) => {
       const c = cellFrom(e.target);
@@ -194,7 +265,13 @@ export class InventoryUI {
       d.ghost?.remove();
       d.from.classList.remove("dragging");
       if (!d.moved) return;
-      const to = cellFrom(document.elementFromPoint(e.clientX, e.clientY));
+      const over = document.elementFromPoint(e.clientX, e.clientY);
+      // dropped outside the bag, onto the game: ask before throwing it away
+      if (!d.from.dataset.equip && over instanceof Element && !this.win.contains(over) && over.id === "game") {
+        this.openMenu(Number(d.from.dataset.index), e.clientX, e.clientY, true);
+        return;
+      }
+      const to = cellFrom(over);
       if (!to || to === d.from) return;
       this.drop(d.from, to);
     });
@@ -273,7 +350,6 @@ export const EYE_COLORS: ColorChoice[] = [
   { id: "blue", name: "น้ำเงิน", hue: 215, sat: 0.75, light: 0 },
 ];
 
-const LOOK_KEY = "mmoproject.look.v1";
 
 // available: hairstyle ids that have head layers
 export interface Look {
@@ -286,7 +362,7 @@ export interface Look {
 export function loadLook(available: Set<string>): Look {
   const look: Look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
   try {
-    Object.assign(look, JSON.parse(localStorage.getItem(LOOK_KEY) || "{}"));
+    Object.assign(look, JSON.parse(localStorage.getItem(saveKey("look.v1")) || "{}"));
   } catch {
     // keep the defaults
   }
@@ -358,7 +434,7 @@ export class WardrobeUI {
       b.addEventListener("click", () => {
         this.look[key] = o.id;
         try {
-          localStorage.setItem(LOOK_KEY, JSON.stringify(this.look));
+          localStorage.setItem(saveKey("look.v1"), JSON.stringify(this.look));
         } catch {
           // not persisted
         }

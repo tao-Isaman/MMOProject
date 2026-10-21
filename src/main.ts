@@ -27,6 +27,11 @@ import { monsterDamage } from "./stats";
 import { Vitals, ClassPicker, StatusUI, SkillUI, skillTip } from "./charui";
 import { icon } from "./icons";
 import { Bot } from "./bot";
+import { Title } from "./title";
+import { useCharacter, loadRoster, touchCharacter } from "./save";
+import { Npc, ShopUI, MERCHANT, TALK_RANGE } from "./shop";
+import { findPath } from "./world";
+import { RADIUS } from "./player";
 import { BotUI } from "./botui";
 import type { FlowerSpell } from "./spell";
 import type { SceneData } from "./scene";
@@ -90,6 +95,41 @@ function makeIcon(img: Img, { diagonal = false, dye = null as Dye | null } = {})
   return c;
 }
 
+// A round flask of coloured liquid with a cork; big ones are wider.
+function potionIcon(color: string, big: boolean): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = c.height = ICON * 2;
+  const g = c.getContext("2d")!;
+  const cx = c.width / 2, r = big ? 26 : 21, cy = 50;
+  g.lineWidth = 4;
+  g.strokeStyle = "#1c2416";
+  // neck and cork
+  g.fillStyle = "#dfe9f2";
+  g.fillRect(cx - 8, cy - r - 16, 16, 18);
+  g.strokeRect(cx - 8, cy - r - 16, 16, 18);
+  g.fillStyle = "#a8763f";
+  g.fillRect(cx - 9, cy - r - 24, 18, 10);
+  g.strokeRect(cx - 9, cy - r - 24, 18, 10);
+  // body: glass, then the liquid with a highlight
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.fillStyle = "rgba(225, 240, 250, 0.9)";
+  g.fill();
+  g.save();
+  g.clip();
+  g.fillStyle = color;
+  g.fillRect(cx - r, cy - r * 0.35, r * 2, r * 2);
+  g.fillStyle = "rgba(255, 255, 255, 0.35)";
+  g.fillRect(cx - r, cy - r * 0.35, r * 2, 4);
+  g.restore();
+  g.stroke();
+  g.fillStyle = "rgba(255, 255, 255, 0.75)";
+  g.beginPath();
+  g.ellipse(cx - r * 0.45, cy - r * 0.45, r * 0.18, r * 0.3, -0.5, 0, Math.PI * 2);
+  g.fill();
+  return c;
+}
+
 // One cell of a sheet cropped to its opaque pixels.
 function trimmed(sheet: Img, row: number, cell = 96): HTMLCanvasElement {
   const c = document.createElement("canvas");
@@ -128,6 +168,7 @@ async function boot(): Promise<void> {
     jelly: "assets/items/jelly.png",
     sprout: "assets/items/sprout.png",
     arrow: "assets/items/arrow.png",
+    merchant: "assets/npc/merchant_idle.png",
   };
   const weaponIds = Object.keys(WEAPON_TYPES) as WeaponId[];
   const weaponArt = new Set(weaponIds.map((t) => WEAPON_ART[t].art ?? t));
@@ -168,11 +209,17 @@ async function boot(): Promise<void> {
     },
   };
 
+  // ---- title screen: which character to play ----
+  const looks = new Looks({ bodies, hair });
+  document.getElementById("loading")?.classList.add("done");
+  const charId = await new Title(looks).run();
+  useCharacter(charId);
+  const entry = loadRoster().chars.find((c) => c.id === charId);
+
   // ---- inventory, character, looks, icons ----
   const inv = new Inventory();
   const progress = new Progress();
   const hero = new Hero(progress, () => inv.equipped.weapon);
-  const looks = new Looks({ bodies, hair });
   const look = loadLook(looks.hairstyles);
   // Rebuild the player's sheets when the look or the clothes change; a newer change wins
   // over one still loading.
@@ -224,8 +271,10 @@ async function boot(): Promise<void> {
         g.imageSmoothingEnabled = false;
         const s = (cv.width * 0.92) / Math.max(t.width, t.height);
         g.drawImage(t, (cv.width - t.width * s) / 2, (cv.height - t.height * s) / 2, t.width * s, t.height * s);
-        invUI.render();
+        window.dispatchEvent(new Event("item-icons"));
       });
+    } else if (item.kind === "potion") {
+      c = potionIcon(item.icon.color ?? "#ff6a5a", (item.restore?.hp ?? item.restore?.mp ?? 0) > 0.3);
     } else if (item.kind === "book") {
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
@@ -240,6 +289,7 @@ async function boot(): Promise<void> {
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
   player.builtin = first.builtin;
   applyLook();
+  const merchant = new Npc(MERCHANT, images.merchant);
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
   motes.prewarm();
@@ -252,6 +302,9 @@ async function boot(): Promise<void> {
     fx, tex, floaters, monsters, hero,
     onKill(m) {
       let got = 0;
+      const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop)) + 1;
+      inv.gold += gold;
+      floaters.add(m.x, m.y, m.height + 70, `+${gold} ทอง`, "level");
       for (const id of rollDrops(m.variant, hero.stats.drop)) {
         const left = inv.add(id, 1);
         if (!left) got++;
@@ -261,7 +314,8 @@ async function boot(): Promise<void> {
       const gap = progress.level - m.level;
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
       floaters.add(m.x, m.y, m.height + 45, `+${xp} EXP`, "loot");
-      bot.noteKill(xp, got);
+      bot.noteKill(xp, got, gold);
+      inv.changed();
       if (progress.addXp(xp) > 0) levelUp();
     },
   });
@@ -287,9 +341,16 @@ async function boot(): Promise<void> {
       hud.set(i, { id, name: a.name, icon: icon(a.glyph, a.color), tip: skillTip(id, rank), missing: !rank });
     });
   }
+  let rosterLine = `${progress.level}|${progress.cls}`;
   progress.onChange(() => {
     refreshBar();
     hero.recompute();
+    // keep the title screen's line for this character up to date
+    const line = `${progress.level}|${progress.cls}`;
+    if (line !== rosterLine && progress.cls) {
+      rosterLine = line;
+      touchCharacter({ level: progress.level, cls: progress.cls });
+    }
   });
   refreshBar();
 
@@ -303,11 +364,44 @@ async function boot(): Promise<void> {
       if (i >= 0) hud.pulse(i, "flash");
     },
     say: (text) => floaters.add(player.x, player.y, 150, text, "info"),
+    drink,
+    potions: (kind) => inv.slots.reduce((n, s) => n + (s && ITEMS[s.id].restore?.[kind] ? s.count : 0), 0),
   });
+
+  // Drink a potion from bag slot i; null when it went down, else why not.
+  let potionCd = 0;
+  function drinkAt(i: number): string | null {
+    const stack = inv.slots[i];
+    const item = stack && ITEMS[stack.id];
+    if (!item?.restore) return "ดื่มไม่ได้";
+    if (!hero.alive) return "ล้มอยู่";
+    if (potionCd > 0) return "รอสักครู่";
+    const r = item.restore;
+    if ((!r.hp || hero.hp >= hero.stats.maxHp) && (!r.mp || hero.mp >= hero.stats.maxMp)) return "เต็มอยู่แล้ว";
+    potionCd = 0.8;
+    if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(hero.stats.maxHp * r.hp))}`, "heal");
+    if (r.mp) {
+      const before = hero.mp;
+      hero.mp = Math.min(hero.stats.maxMp, hero.mp + hero.stats.maxMp * r.mp);
+      floaters.add(player.x, player.y, 150, `+${Math.round(hero.mp - before)} MP`, "magic");
+    }
+    skills.sparkleUp(player.x, player.y, r.hp ? tex.glowFor("#ff8a7a") : tex.glowFor("#8cc8ff"), 14);
+    inv.discard(i, 1);
+    return null;
+  }
+  // The bot's sip: the smallest potion of that kind that still covers what's missing.
+  function drink(kind: "hp" | "mp"): boolean {
+    const missing = kind === "hp" ? 1 - hero.hp / hero.stats.maxHp : 1 - hero.mp / hero.stats.maxMp;
+    const options = inv.slots.map((s, i) => [s, i] as const).filter(([s]) => s && ITEMS[s.id].restore?.[kind])
+      .sort((a, b) => ITEMS[a[0]!.id].restore![kind]! - ITEMS[b[0]!.id].restore![kind]!);
+    const pick = options.find(([s]) => ITEMS[s!.id].restore![kind]! >= missing * 0.8) ?? options[options.length - 1];
+    return !!pick && drinkAt(pick[1]) === null;
+  }
 
   const invUI = new InventoryUI(inv, iconFor, (i) => {
     const stack = inv.slots[i];
     if (!stack) return "";
+    if (ITEMS[stack.id].kind === "potion") return drinkAt(i) ?? `ดื่ม${ITEMS[stack.id].name}แล้ว`;
     const msg = progress.readBook(stack.id);
     if (!msg) return "อ่านเล่มนี้ไปแล้ว";
     stack.count -= 1;
@@ -319,7 +413,7 @@ async function boot(): Promise<void> {
   });
 
   // ---- character windows ----
-  const vitals = new Vitals(document.getElementById("vitals")!, progress, hero);
+  const vitals = new Vitals(document.getElementById("vitals")!, progress, hero, entry?.name ?? "");
   const picker = new ClassPicker((cls) => {
     const first = !progress.cls;
     const level = progress.level, xp = progress.xp, unlocked = progress.unlocked;
@@ -334,7 +428,7 @@ async function boot(): Promise<void> {
     }
   });
   const CLASS_WEAPON = { mage: "staff", warrior: "sword_1h" };
-  const statusUI = new StatusUI(progress, hero, () => picker.show());
+  const statusUI = new StatusUI(progress, hero, () => picker.show(), () => location.reload());
   const skillUI = new SkillUI(progress, hero, {
     weapon: () => inv.equipped.weapon,
     weaponImg: (t) => weapons[t]?.img,
@@ -345,6 +439,18 @@ async function boot(): Promise<void> {
   });
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
+  const shopUI = new ShopUI(inv, iconFor);
+  // walking over to the merchant after a click on her (path around the solids)
+  let toMerchant: { path: { x: number; y: number }[] } | null = null;
+  function talkToMerchant(): void {
+    if (merchant.distance(player) <= TALK_RANGE) {
+      toMerchant = null;
+      shopUI.toggle(true);
+      return;
+    }
+    const goal = { x: merchant.x - 90, y: merchant.y };
+    toMerchant = { path: findPath(player, goal, RADIUS) ?? [] };
+  }
   const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook(), looks.hairstyles, (lk) => looks.note(lk, inv.equipped));
   inv.onChange(() => {
     applyLook();
@@ -442,12 +548,17 @@ async function boot(): Promise<void> {
     if (e.code === "KeyP" && !e.repeat) statusUI.toggle();
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
+    if (e.code === "KeyF" && !e.repeat) {
+      if (shopUI.open) shopUI.toggle(false);
+      else if (merchant.distance(player) <= TALK_RANGE * 1.6) talkToMerchant();
+    }
     if (e.code === "Escape") {
       invUI.toggle(false);
       wardrobe.toggle(false);
       statusUI.toggle(false);
       skillUI.toggle(false);
       botUI.toggle(false);
+      shopUI.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
     if ((e.code === "KeyQ" || e.code === "KeyE") && !e.repeat) rotateCamera(e.code === "KeyQ" ? -1 : 1);
@@ -476,6 +587,12 @@ async function boot(): Promise<void> {
     if (e.button !== 0 || !view || !hero.alive) return;
     bot.noteManual();
     const { x: mx, y: my } = toMap(e);
+    if (merchant.contains(mx, my)) {
+      player.target = null;
+      talkToMerchant();
+      return;
+    }
+    toMerchant = null;
     const m = monsters.find((mon) => mon.contains(mx, my));
     if (m) {
       player.target = m;
@@ -491,8 +608,6 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", resize);
 
   const cam = { x: mapX(player.x, player.y), y: mapY(player.x, player.y) - 50 };
-  const hint = document.getElementById("hint");
-  let walkedFor = 0;
   let uiClock = 0;
 
   // ---- the camera turns freely: drag with the right mouse button, or Q / E for 45 degrees ----
@@ -567,18 +682,28 @@ async function boot(): Promise<void> {
       floaters.add(player.x, player.y, 140, "ฟื้นแล้ว", "heal");
     }
     // the bot walks when the keys don't
-    if (fwd || left) bot.noteManual();
+    if (fwd || left) {
+      bot.noteManual();
+      toMerchant = null;
+    }
+    potionCd = Math.max(0, potionCd - dt);
     const auto = bot.update(dt);
     if (!fwd && !left && bot.on) move = auto;
+    if (toMerchant && !fwd && !left) {
+      while (toMerchant.path.length > 1 && Math.hypot(toMerchant.path[0].x - player.x, toMerchant.path[0].y - player.y) < 25) toMerchant.path.shift();
+      const next = toMerchant.path[0];
+      if (!next || merchant.distance(player) <= TALK_RANGE - 20) {
+        toMerchant = null;
+        shopUI.toggle(true);
+      } else move = { x: next.x - player.x, y: next.y - player.y };
+    }
+    merchant.update(dt, player);
+    if (shopUI.open && merchant.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
     const w = weaponStats(inv.equipped.weapon, hero.stats);
     if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon);
-    if (player.moving) {
-      walkedFor += dt;
-      if (walkedFor > 1.5) hint?.classList.add("faded");
-    }
     for (const m of monsters) m.update(dt, monsterCtx);
     combat.update(dt);
     skills.update(dt);
@@ -670,6 +795,7 @@ async function boot(): Promise<void> {
     const pb = { x: mapX(player.x, player.y) - 40, y: mapY(player.x, player.y) - 140, w: 80, h: 140 };
     const actors = [...monsters.map((m) => ({ depth: m.depth, draw: () => m.draw(ctx, vw) })),
       { depth: player.depth, draw: () => player.draw(ctx, vw, inHand) },
+      { depth: merchant.depth, draw: () => merchant.draw(ctx, vw, merchant.distance(player) <= TALK_RANGE * 1.6) },
       ...scene.place().map((p) => {
         const hides = player.depth < p.depth && scene.covers(p, pb);
         return { depth: p.depth, draw: () => scene.draw(ctx, vw, p, hides) };
@@ -698,7 +824,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, scene, bot, botUI };
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, scene, bot, botUI, shopUI, merchant, drink };
 
   document.getElementById("loading")?.classList.add("done");
   requestAnimationFrame((t) => {

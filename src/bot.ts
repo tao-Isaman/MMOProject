@@ -2,9 +2,10 @@
 // skills its rules allow in their priority order, attacks normally in between, and sits down to
 // recover when HP or MP runs low. Any key or click hands control back for a moment.
 //
-// Settings live in localStorage (SAVE_KEY); the window that edits them is src/botui.ts.
+// Settings live in localStorage (the character's "bot.v1"); the window that edits them is src/botui.ts.
 
 import { ACTIVES } from "./progression";
+import { saveKey } from "./save";
 import type { Progress, SkillDef } from "./progression";
 import { findPath, clearLine } from "./world";
 import { attackRange } from "./combat";
@@ -18,7 +19,6 @@ import type { Inventory } from "./inventory";
 import type { WeaponType, WeaponId } from "./items";
 import type { Vec2 } from "./types";
 
-const SAVE_KEY = "mmoproject.bot.v1";
 const MANUAL_PAUSE = 2.5;  // s the bot waits after the player takes over
 const THREAT_RANGE = 700;  // cm: angry slimes this close are fought first
 const THINK = 0.12;        // s between decisions
@@ -48,6 +48,8 @@ export interface BotSettings {
   restMp: number;                     // % MP that sends the bot to rest (0: never)
   resume: number;                     // % HP and MP to rest up to
   saveMp: number;                     // % MP only support skills may dip into
+  potHp: number;                      // % HP below which to drink a red potion (0: never)
+  potMp: number;                      // % MP below which to drink a blue potion (0: never)
   revive: boolean;                    // keep hunting after a respawn
   stopFull: boolean;                  // stop when the bag is full
 }
@@ -74,7 +76,7 @@ export function defaultRule(id: string): SkillRule {
 export function defaultSettings(): BotSettings {
   return {
     rules: [], basic: true, targets: Object.fromEntries(VARIANTS.map((v) => [v.id, true])), prefer: "near", defend: true,
-    radius: 900, restHp: 35, restMp: 15, resume: 90, saveMp: 20, revive: true, stopFull: true,
+    radius: 900, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, revive: true, stopFull: true,
   };
 }
 
@@ -104,6 +106,8 @@ interface BotDeps {
   weaponId: () => string | null;
   onSkill?: (id: string) => void;
   say?: (text: string) => void;  // a short line over the player
+  drink?: (kind: "hp" | "mp") => boolean;   // drink the fitting potion; false if none or too soon
+  potions?: (kind: "hp" | "mp") => number;  // how many potions of that kind are in the bag
 }
 
 export class Bot {
@@ -121,7 +125,7 @@ export class Bot {
   restTick = 0;
   stuck = { t: 0, x: 0, y: 0 };
   skip = new Map<Monster, number>();
-  stats = { time: 0, kills: 0, xp: 0, items: 0 };
+  stats = { time: 0, kills: 0, xp: 0, items: 0, gold: 0, potions: 0 };
   listeners = new Set<() => void>();
 
   constructor(deps: BotDeps) {
@@ -135,7 +139,7 @@ export class Bot {
   load(): BotSettings {
     const base = defaultSettings();
     try {
-      const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null") as Partial<BotSettings> | null;
+      const saved = JSON.parse(localStorage.getItem(saveKey("bot.v1")) || "null") as Partial<BotSettings> | null;
       if (!saved) return base;
       const rules = (saved.rules ?? []).filter((r) => ACTIVES[r.id] && ["ready", "hp", "mobs"].includes(r.cond));
       return { ...base, ...saved, rules, targets: { ...base.targets, ...saved.targets } };
@@ -146,7 +150,7 @@ export class Bot {
 
   save(): void {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(this.settings));
+      localStorage.setItem(saveKey("bot.v1"), JSON.stringify(this.settings));
     } catch {
       // not persisted
     }
@@ -181,7 +185,7 @@ export class Bot {
     if (this.on) return;
     this.on = true;
     this.anchor = { x: this.d.player.x, y: this.d.player.y };
-    this.stats = { time: 0, kills: 0, xp: 0, items: 0 };
+    this.stats = { time: 0, kills: 0, xp: 0, items: 0, gold: 0, potions: 0 };
     this.reset("seek");
     this.d.say?.("เริ่มบอท");
     this.notify();
@@ -214,11 +218,12 @@ export class Bot {
     this.path = [];
   }
 
-  noteKill(xp: number, items: number): void {
+  noteKill(xp: number, items: number, gold = 0): void {
     if (!this.on) return;
     this.stats.kills++;
     this.stats.xp += xp;
     this.stats.items += items;
+    this.stats.gold += gold;
   }
 
   reset(state: BotState): void {
@@ -255,8 +260,18 @@ export class Bot {
       return none;
     }
 
-    const hpPct = (hero.hp / hero.stats.maxHp) * 100, mpPct = (hero.mp / hero.stats.maxMp) * 100;
+    let hpPct = (hero.hp / hero.stats.maxHp) * 100, mpPct = (hero.mp / hero.stats.maxMp) * 100;
     const threats = this.threats();
+
+    // ---- potions ----
+    if (s.potHp > 0 && hpPct < s.potHp && this.d.drink?.("hp")) {
+      this.stats.potions++;
+      hpPct = (hero.hp / hero.stats.maxHp) * 100;
+    }
+    if (s.potMp > 0 && mpPct < s.potMp && this.d.drink?.("mp")) {
+      this.stats.potions++;
+      mpPct = (hero.mp / hero.stats.maxMp) * 100;
+    }
 
     // ---- resting ----
     if (this.state === "rest") {

@@ -56,6 +56,7 @@ const SPECS: (CircleSolid | BoxSpec)[] = [
   { kind: "rock", x: 948, y: -452, r: 25 },
   { kind: "rock", x: 427, y: 56, r: 25 },
   { kind: "rock", x: 612, y: 731, r: 25 },
+  { kind: "npc", x: 900, y: 690, r: 26 },      // the merchant (src/shop.ts)
 ];
 
 export const SOLIDS: Solid[] = SPECS.map((s) => {

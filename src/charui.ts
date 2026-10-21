@@ -45,10 +45,11 @@ export class Vitals {
   buffs: HTMLElement;
   last = "";
 
-  constructor(root: HTMLElement, progress: Progress, hero: Hero) {
+  constructor(root: HTMLElement, progress: Progress, hero: Hero, name = "") {
     this.progress = progress;
     this.hero = hero;
     this.root = root;
+    if (name) el("div", "vt-name", root).textContent = name;
     const head = el("div", "vt-head", root);
     this.lv = el("span", "vt-lv", head);
     this.cls = el("span", "vt-cls", head);
@@ -134,8 +135,8 @@ export class StatusUI {
   head: HTMLElement;
   table: HTMLElement;
 
-  // onClassChange(): open the picker
-  constructor(progress: Progress, hero: Hero, onClassChange: () => void) {
+  // onClassChange(): open the picker; onSwitch(): back to the title screen
+  constructor(progress: Progress, hero: Hero, onClassChange: () => void, onSwitch?: () => void) {
     this.progress = progress;
     this.hero = hero;
     this.win = makeWindow("status", "สถานะ", "P");
@@ -154,6 +155,13 @@ export class StatusUI {
     change.type = "button";
     change.textContent = "เปลี่ยนคลาส";
     change.addEventListener("click", onClassChange);
+    if (onSwitch) {
+      const sw = el("button", "wr-choice", actions);
+      sw.type = "button";
+      sw.textContent = "เปลี่ยนตัวละคร";
+      sw.title = "กลับไปหน้าเลือกตัวละคร (เซฟอัตโนมัติ)";
+      sw.addEventListener("click", onSwitch);
+    }
     el("p", "wr-note", body).textContent = "ค่าสเตตัสมาจากคลาส เลเวล ธาตุ สกิลติดตัว ความเชี่ยวชาญของอาวุธที่ถือ และบัฟ";
   }
 

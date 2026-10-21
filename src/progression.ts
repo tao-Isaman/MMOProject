@@ -8,6 +8,7 @@
 //                strengthen every active skill. Four to start, more from element books.
 // stats.js turns this into numbers, skills.js runs the actives.
 
+import { saveKey } from "./save";
 import type { WeaponId } from "./items";
 
 export const MAX_LEVEL = 200;
@@ -470,7 +471,6 @@ for (const [mid, m] of Object.entries(MASTERIES)) {
   }
 }
 
-const SAVE_KEY = "mmoproject.character.v1";
 
 interface SaveData {
   cls?: ClassId | null;
@@ -660,7 +660,7 @@ export class Progress {
 
   save(): void {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
+      localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
         elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar,
       }));
@@ -672,7 +672,7 @@ export class Progress {
   load(): boolean {
     let d: SaveData | null = null;
     try {
-      d = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      d = JSON.parse(localStorage.getItem(saveKey("character.v1")) || "null");
     } catch {
       return false;
     }

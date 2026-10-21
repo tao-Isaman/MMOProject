@@ -1,6 +1,7 @@
 // Inventory: a grid of slots plus the equipped weapon, top and bottom, saved in the browser.
 
-import { ITEMS, itemSlot, stackLimit } from "./items";
+import { ITEMS, itemSlot, stackLimit, sortKey } from "./items";
+import { saveKey } from "./save";
 import type { EquipSlot } from "./items";
 
 export interface Stack {
@@ -11,8 +12,8 @@ export type Equipped = Record<EquipSlot, string | null>;
 
 export const COLS = 8;
 export const ROWS = 5;
-const SAVE_KEY = "mmoproject.inventory.v3";
-const OLD_KEYS = ["mmoproject.inventory.v2", "mmoproject.inventory.v1"];
+const SAVE_KEY = () => saveKey("inventory.v3");
+const OLD_KEYS = () => [saveKey("inventory.v2"), saveKey("inventory.v1")];
 
 // Clothes every character starts with, besides the mage top and skirt worn.
 const STARTER_CLOTHES = [
@@ -43,6 +44,7 @@ export const STARTER: { equipped: Equipped; items: string[] } = {
 export class Inventory {
   slots: (Stack | null)[] = new Array(COLS * ROWS).fill(null);
   equipped: Equipped = { weapon: null, top: null, bottom: null };
+  gold = 0;
   listeners = new Set<(inv: Inventory) => void>();
 
   constructor() {
@@ -53,6 +55,56 @@ export class Inventory {
     this.slots.fill(null);
     this.equipped = { ...STARTER.equipped };
     for (const id of STARTER.items) this.add(id, 1, { silent: true });
+    this.add("potion_red", 5, { silent: true });
+    this.add("potion_blue", 5, { silent: true });
+    this.gold = 200;
+    this.changed();
+  }
+
+  // How many of an item the bag holds.
+  count(id: string): number {
+    return this.slots.reduce((n, s) => n + (s?.id === id ? s.count : 0), 0);
+  }
+
+  // Take `count` of an item out of the bag (smallest stacks first). False if there aren't enough.
+  take(id: string, count = 1): boolean {
+    if (this.count(id) < count) return false;
+    let left = count;
+    const order = this.slots.map((s, i) => [s, i] as const).filter(([s]) => s?.id === id).sort((a, b) => a[0]!.count - b[0]!.count);
+    for (const [s, i] of order) {
+      const n = Math.min(left, s!.count);
+      s!.count -= n;
+      left -= n;
+      if (s!.count <= 0) this.slots[i] = null;
+      if (!left) break;
+    }
+    this.changed();
+    return true;
+  }
+
+  // Throw away `count` from one grid slot (all of it by default).
+  discard(index: number, count = Infinity): void {
+    const s = this.slots[index];
+    if (!s) return;
+    s.count -= Math.min(count, s.count);
+    if (s.count <= 0) this.slots[index] = null;
+    this.changed();
+  }
+
+  // Merge stacks and order the bag by kind, shape, colour and name.
+  sort(): void {
+    const totals = new Map<string, number>();
+    for (const s of this.slots) if (s) totals.set(s.id, (totals.get(s.id) ?? 0) + s.count);
+    this.slots.fill(null);
+    let i = 0;
+    for (const id of [...totals.keys()].sort((a, b) => sortKey(a).localeCompare(sortKey(b)))) {
+      let n = totals.get(id)!;
+      const max = stackLimit(id);
+      while (n > 0 && i < this.slots.length) {
+        this.slots[i++] = { id, count: Math.min(n, max) };
+        n -= max;
+      }
+    }
     this.changed();
   }
 
@@ -140,17 +192,17 @@ export class Inventory {
 
   save(): void {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ slots: this.slots, equipped: this.equipped }));
+      localStorage.setItem(SAVE_KEY(), JSON.stringify({ slots: this.slots, equipped: this.equipped, gold: this.gold }));
     } catch {
       // private mode or blocked storage: the inventory just won't persist
     }
   }
 
   load(): boolean {
-    type Saved = { slots?: ({ id: string; count: number } | null)[]; equipped?: Record<string, string | null> };
-    let data: Saved | null = null, from = SAVE_KEY;
+    type Saved = { slots?: ({ id: string; count: number } | null)[]; equipped?: Record<string, string | null>; gold?: number };
+    let data: Saved | null = null, from = SAVE_KEY();
     try {
-      for (const key of [SAVE_KEY, ...OLD_KEYS]) {
+      for (const key of [SAVE_KEY(), ...OLD_KEYS()]) {
         data = JSON.parse(localStorage.getItem(key) || "null");
         if (data) {
           from = key;
@@ -161,7 +213,8 @@ export class Inventory {
       return false;
     }
     if (!data || !Array.isArray(data.slots) || data.slots.length !== this.slots.length) return false;
-    const old = from !== SAVE_KEY;
+    const old = from !== SAVE_KEY();
+    this.gold = Math.max(0, Math.floor(Number(data.gold) || 0));
     // costumes in the bag turn into their top and bottom
     const extra: string[] = [];
     this.slots = data.slots.map((s) => {
@@ -185,10 +238,13 @@ export class Inventory {
         if (this.equipped[slot]) extra.push(this.equipped[slot]!);
         this.equipped[slot] = worn[i];
       }
-      if (from === OLD_KEYS[1]) extra.push(...STARTER_CLOTHES);
+      if (from === OLD_KEYS()[1]) extra.push(...STARTER_CLOTHES);
       for (const id of [...extra, "top_priestess", "bottom_priestess", "top_adventurer", "bottom_adventurer", "top_warrior", "bottom_warrior"]) {
         if (!this.has(id)) this.add(id, 1, { silent: true });
       }
+      this.add("potion_red", 5, { silent: true });
+      this.add("potion_blue", 5, { silent: true });
+      this.gold = Math.max(this.gold, 200);
       this.save();
     }
     return true;

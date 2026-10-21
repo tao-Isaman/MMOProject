@@ -135,7 +135,7 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
 // The shape worn when a slot is empty (or holds something for the other build).
 export const DEFAULT_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
 
-export type ItemKind = "weapon" | "top" | "bottom" | "book" | "material";
+export type ItemKind = "weapon" | "top" | "bottom" | "potion" | "book" | "material";
 export type EquipSlot = "weapon" | "top" | "bottom";
 
 export interface Item {
@@ -146,12 +146,17 @@ export interface Item {
   dye?: string | null;
   stack?: number;
   note?: string;
+  price?: number;                       // shop price in gold; selling pays 40%
+  sell?: number;                        // what the shop pays, when not 40% of price
+  restore?: { hp?: number; mp?: number }; // potions: fraction of max HP / MP
   icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string };
 }
 
-const weapon = (type: WeaponId): Item => ({ kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type } });
+const weapon = (type: WeaponId): Item => ({ kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type }, price: 300 });
 const garment = (kind: "top" | "bottom", shape: string, dye: string | null = null): Item =>
-  ({ kind, shape, dye, name: `${SHAPES[kind][shape].name}${dye ? `สี${DYES[dye].name}` : ""}`, icon: {} });
+  ({ kind, shape, dye, name: `${SHAPES[kind][shape].name}${dye ? `สี${DYES[dye].name}` : ""}`, icon: {}, price: dye ? 240 : 160 });
+const potion = (name: string, restore: { hp?: number; mp?: number }, color: string, price: number, note: string): Item =>
+  ({ kind: "potion", name, restore, stack: 50, price, icon: { glyph: "drop", color }, note });
 
 export const ITEMS: Record<string, Item> = {
   ...Object.fromEntries((Object.keys(WEAPON_TYPES) as WeaponId[]).map((t) => [t, weapon(t)])),
@@ -192,11 +197,15 @@ export const ITEMS: Record<string, Item> = {
   bottom_warrior: garment("bottom", "warrior"),
   bottom_warrior_cocoa: garment("bottom", "warrior", "cocoa"),
   bottom_warrior_black: garment("bottom", "warrior", "black"),
-  book_survivor: { kind: "book", name: "คัมภีร์สกิล: ผู้รอดชีวิต", stack: 5, icon: { glyph: "heart", color: "#c9a86a" }, note: "อ่านเพื่อปลดล็อคต้นสกิลผู้รอดชีวิต (ใช้ได้ทุกคลาส)" },
-  book_gathering: { kind: "book", name: "คัมภีร์ความเชี่ยวชาญ: เก็บเกี่ยว", stack: 5, icon: { glyph: "leaf", color: "#8fbf6a" }, note: "อ่านเพื่อปลดล็อคความเชี่ยวชาญเก็บเกี่ยว" },
-  book_lightning: { kind: "book", name: "คัมภีร์ธาตุ: สายฟ้า", stack: 5, icon: { glyph: "bolt", color: "#d9c24a" }, note: "อ่านเพื่อปลดล็อคธาตุสายฟ้า" },
-  jelly: { kind: "material", name: "เยลลี่", stack: 99, icon: { sheet: "jelly" }, note: "หยดเยลลี่จากสไลม์" },
-  sprout: { kind: "material", name: "ใบอ่อน", stack: 99, icon: { sheet: "sprout" }, note: "ใบไม้บนหัวสไลม์ หายาก" },
+  potion_red: potion("ยาแดง", { hp: 0.25 }, "#ff6a5a", 25, "ฟื้น HP 25% ของ HP สูงสุด"),
+  potion_red_big: potion("ยาแดงเข้มข้น", { hp: 0.5 }, "#d8343a", 80, "ฟื้น HP 50% ของ HP สูงสุด"),
+  potion_blue: potion("ยาฟ้า", { mp: 0.25 }, "#6ab4ff", 30, "ฟื้น MP 25% ของ MP สูงสุด"),
+  potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 0.5 }, "#2f6fd0", 90, "ฟื้น MP 50% ของ MP สูงสุด"),
+  book_survivor: { kind: "book", name: "คัมภีร์สกิล: ผู้รอดชีวิต", stack: 5, price: 2400, icon: { glyph: "heart", color: "#c9a86a" }, note: "อ่านเพื่อปลดล็อคต้นสกิลผู้รอดชีวิต (ใช้ได้ทุกคลาส)" },
+  book_gathering: { kind: "book", name: "คัมภีร์ความเชี่ยวชาญ: เก็บเกี่ยว", stack: 5, price: 2400, icon: { glyph: "leaf", color: "#8fbf6a" }, note: "อ่านเพื่อปลดล็อคความเชี่ยวชาญเก็บเกี่ยว" },
+  book_lightning: { kind: "book", name: "คัมภีร์ธาตุ: สายฟ้า", stack: 5, price: 3600, icon: { glyph: "bolt", color: "#d9c24a" }, note: "อ่านเพื่อปลดล็อคธาตุสายฟ้า" },
+  jelly: { kind: "material", name: "เยลลี่", stack: 99, sell: 3, icon: { sheet: "jelly" }, note: "หยดเยลลี่จากสไลม์ ขายให้ร้านค้าได้" },
+  sprout: { kind: "material", name: "ใบอ่อน", stack: 99, sell: 20, icon: { sheet: "sprout" }, note: "ใบไม้บนหัวสไลม์ หายาก ขายให้ร้านค้าได้" },
 };
 
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [
@@ -225,9 +234,23 @@ export function describe(id: string): string {
     return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}`;
   }
   if (item.kind === "book") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
+  if (item.kind === "potion") return `${item.note}<br>ดับเบิลคลิกเพื่อดื่ม (บอทดื่มเองได้)`;
   if (item.kind === "top" || item.kind === "bottom") {
     const sh = SHAPES[item.kind][item.shape!];
     return `${sh.note}<br>${sh.gender === "male" ? "สำหรับตัวละครชาย" : "สำหรับตัวละครหญิง"} · ใส่คู่กับ${item.kind === "top" ? "กางเกงหรือกระโปรง" : "เสื้อ"}ทรงไหนก็ได้`;
   }
   return item.note ?? "";
+}
+
+// What the shop pays for one.
+export function sellPrice(id: string): number {
+  const item = ITEMS[id];
+  return item?.sell ?? Math.floor((item?.price ?? 0) * 0.4);
+}
+
+// Bag order for sorting: kind first, then shape, colour and name.
+const KIND_ORDER: ItemKind[] = ["weapon", "top", "bottom", "potion", "book", "material"];
+export function sortKey(id: string): string {
+  const item = ITEMS[id];
+  return `${KIND_ORDER.indexOf(item.kind)}|${item.shape ?? ""}|${item.dye ? 1 : 0}|${id}`;
 }
