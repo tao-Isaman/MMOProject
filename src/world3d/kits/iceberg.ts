@@ -32,6 +32,8 @@ defineMaterial("Iceberg_Dark", { tint: "#1e1a1a", rough: 1 });
 defineMaterial("Iceberg_PackedSnow", { map: "snow", tint: "#d9e2ec", rough: 0.85 });
 defineMaterial("Iceberg_SnowBlock", { map: "snow", tint: "#dfe8f3", rough: 0.8 });
 defineMaterial("Iceberg_Flag", { map: "stone", tint: "#9aa3ad", bump: 2 });
+defineMaterial("Iceberg_Slate", { map: "adobe", tint: "#9ea7b1", bump: 1.2 });
+defineMaterial("Iceberg_SlatePale", { map: "adobe", tint: "#c3c6c4", bump: 1.2 });
 defineMaterial("Iceberg_Glacier", { map: "ice", tint: "#e2f3fb", rough: 0.35 });
 defineMaterial("Iceberg_GlacierDeep", { map: "ice", tint: "#8fcbe6", rough: 0.3 });
 defineMaterial("Iceberg_SculptIce", { map: "ice", tint: "#c4e8f8", rough: 0.12, metal: 0.1, glow: "#58b9e6", glowI: 0.22 });
@@ -1282,9 +1284,9 @@ function snowPlaza(): Geo {
   for (let i = 0; i < 4; i++)
     for (let j = 0; j < 4; j++) {
       const cx = -150 + i * 100 + (rnd() - 0.5) * 6, cy = -150 + j * 100 + (rnd() - 0.5) * 6;
-      parts.push(boxAt([88 + rnd() * 6, 88 + rnd() * 6, 5], [cx, cy, 0], rnd() < 0.5 ? "StoneGrey" : "Iceberg_Flag", 1.5));
+      parts.push(boxAt([88 + rnd() * 6, 88 + rnd() * 6, 5], [cx, cy, 0], rnd() < 0.5 ? "Iceberg_SlatePale" : "Iceberg_Slate", 1.8));
     }
-  for (const [x, y, w, d, r] of [[-120, 60, 110, 60, 15], [90, -130, 90, 70, -20], [140, 120, 70, 50, 40], [-60, -110, 60, 40, 0], [20, 170, 80, 30, 5]])
+  for (const [x, y, w, d, r] of [[-120, 60, 130, 44, 15], [90, -130, 100, 40, -20], [150, 150, 60, 34, 40]])
     parts.push(translate(rotateZ(drift([0, 0, 3], w, d, 6), r), [x, y, 0]));
   return merge(...parts);
 }
@@ -1334,8 +1336,8 @@ export const KIT: Kit = {
     put("great_hall", [1150, 0, 0]);
     put("ice_sculpture", [-190, 440, 0], 0);
     put("ice_sculpture", [-190, -440, 0], 0);
-    for (const [x, y] of [[-1550, 1150], [-1550, -1150], [-150, 1150], [-150, -1150], [-150, 800], [-150, -800]]) put("lantern_post", [x, y, 0], y > 0 ? 270 : 90);
-    put("lantern_post", [-1550, 0, 0], 180);
+    for (const [x, y] of [[-1550, 1150], [-1550, -1150], [-150, 1150], [-150, -1150], [-150, 800], [-150, -800]]) put("lantern_post", [x, y, 0], 0);
+    put("lantern_post", [-1550, 0, 0], 0);
     // houses along the north side, the palisade and the gate behind them
     put("timber_house", [-1800, 1550, 0], 90);
     put("stone_cottage", [300, 1550, 0], 90);
@@ -1355,6 +1357,9 @@ export const KIT: Kit = {
     put("snowy_barrels", [150, -1780, 0], 0);
     put("smithy", [1350, -1250, 0], 0);
     put("woodpile", [700, -1000, 0], 90);
+    put("common:sign_post", [-1250, 1250, 0], 30);
+    put("snowy_barrels", [-450, -1250, 0], 200);
+    put("lantern_post", [-600, -1700, 0], 0);
     // the harbour: quay, pier, boats, the beacon, a fisherman's hut and drifting ice
     for (const x of [-2000, -1200, -400, 400, 1200, 2000]) put("harbour_quay", [x, -2100, 0], 90);
     for (const y of [-2450, -2850]) put("snow_pier", [-600, y, 0], 90);
@@ -1363,7 +1368,7 @@ export const KIT: Kit = {
     put("beacon_tower", [-2000, -1700, 0], 0);
     put("fisher_hut", [2050, -1700, 0], 90);
     put("snowy_barrels", [-1100, -1960, 0], 90);
-    for (const x of [-1600, -800, 700, 1500]) put("lantern_post", [x, -1990, 0], 90);
+    for (const x of [-1600, -800, 700, 1500]) put("lantern_post", [x, -1990, 0], 0);
     put("ice_floe", [1900, -3050, -45], 20);
     put("ice_floe", [-1750, -2850, -27], 140, 0.6);
     put("ice_floe", [450, -3350, -20], 300, 0.45);

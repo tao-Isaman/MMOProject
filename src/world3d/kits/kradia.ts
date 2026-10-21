@@ -1273,7 +1273,7 @@ function sample(put: Put): void {
   // trees, sparse on the border
   put("flora:Pine", [-2150, 650, 0], 0, 0.85);
   put("flora:PineSmall", [-2150, 1150, 0], 40);
-  put("flora:AutumnTree", [-2050, -1250, 0], 20, 0.8);
+  put("flora:AutumnTree", [-300, -2150, 0], 20, 0.8);
   put("flora:Birch", [250, 1950, 0], 0, 0.9);
   put("flora:PineSmall", [-650, -2050, 0], 80);
   put("flora:Pine", [1150, -2150, 0], 0, 0.9);
