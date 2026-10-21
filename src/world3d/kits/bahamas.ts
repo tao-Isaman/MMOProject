@@ -888,7 +888,7 @@ function caravanTent(): Geo {
   parts.push(translate(rug(170, 300, "Bahamas_FabricMaroon", "FabricGold", "Bahamas_FabricTeal"), [ox, 20, 0]));
   parts.push(cushion(30, [ox + 50, -80, 2], "FabricGold"), cushion(30, [ox + 55, 110, 2], "Bahamas_FabricSaffron"), cushion(28, [ox - 50, 120, 2], "FabricPurple"));
   parts.push(cyl(36, 3, 14, [ox, 20, 2], "Bronze"), teapot([ox - 5, 15, 5]), cyl(3.5, 6, 8, [ox + 15, 40, 5], "GoldTrim"), cyl(3.5, 6, 8, [ox - 18, 42, 5], "GoldTrim"));
-  for (let k = 0; k < 7; k++) parts.push(translate(rock([22, 18, 14], 0.4, 50 + k, "StoneGrey"), [ox - 110 + Math.cos((k / 7) * Math.PI * 2) * 32, -200 + Math.sin((k / 7) * Math.PI * 2) * 32, -2]));
+  for (let k = 0; k < 7; k++) parts.push(translate(scale(sphereCenter(10, [0, 0, 0], "StoneGrey", 6), [1.1, 0.9, 0.6]), [ox - 110 + Math.cos((k / 7) * Math.PI * 2) * 32, -200 + Math.sin((k / 7) * Math.PI * 2) * 32, 2]));
   parts.push(cone(18, 0, 34, 6, [ox - 110, -200, 0], "FireGlow"), cone(10, 0, 22, 5, [ox - 100, -190, 0], "FireGlow"), cylinderBetween([ox - 130, -215, 6], [ox - 90, -185, 4], 4, 6, "WoodDark"));
   return merge(...parts);
 }
