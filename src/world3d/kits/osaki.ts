@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial } from "../textures";
-import type { Kit, KitItem, Put } from "./types";
+import type { Kit, Put } from "./types";
 
 // ---- the town's own colours ----
 defineMaterial("Osaki_Shikkui", { map: "plaster", tint: "#f4f1e8", bump: 0.6 }); // white lime plaster
@@ -1513,7 +1513,6 @@ function sample(put: Put): void {
   put("flora:PineSmall", [-2050, -1200, 0], 0);
 }
 
-const DEV_ONLY = typeof location !== "undefined" ? new URLSearchParams(location.search).get("osaki_only")?.split(",") : undefined; // DEV-FILTER (remove)
 export const KIT: Kit = {
   id: "osaki",
   name: "โอซากิ",
@@ -1521,7 +1520,7 @@ export const KIT: Kit = {
   desc: "เมืองเกาะแบบญี่ปุ่น หลังคากระเบื้องเทาปลายงอน เสาแดงชาด ประตูกระดาษโชจิ ซากุระ เจดีย์ห้าชั้น และท่าเรือที่ทุกคนมาถึง",
   ground: "moss",
   sea: true,
-  items: ([
+  items: [
     { id: "pagoda", name: "เจดีย์ห้าชั้น", make: pagoda, tags: ["landmark", "building", "tower"] },
     { id: "shrine_hall", name: "ศาลเจ้า", make: shrineHall, tags: ["building", "landmark", "magic"] },
     { id: "machiya", name: "บ้านมาจิยะ", make: machiya, tags: ["building"] },
@@ -1544,6 +1543,6 @@ export const KIT: Kit = {
     { id: "well", name: "บ่อน้ำมีหลังคา", make: well, tags: ["decor"] },
     { id: "stepping_stones", name: "ทางหินก้าว", make: steppingStones, tags: ["ground"] },
     { id: "plaza_tile", name: "ลานหินปู", make: plazaTile, tags: ["ground"] },
-  ] as KitItem[]).filter((i) => !DEV_ONLY || DEV_ONLY.includes(i.id)), // DEV-FILTER (remove)
+  ],
   sample,
 };
