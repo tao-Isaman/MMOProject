@@ -6,7 +6,8 @@
 //
 // The plan is read in its own pixels (u right, v down, as drawn) and turned into the world:
 // north (up the page) is +X, east (right) is -Y, so the starting camera sees it as drawn.
-// One plan pixel is 18 cm, which makes the walled city about 176 x 150 m.
+// One plan pixel is 18 cm, and the whole town (layout, houses, trees, everything in it) is then
+// drawn at TOWN_SCALE, which makes the walled city about 150 x 128 m.
 //
 // Everything placed here comes from the town kits (src/world3d/kits); repeated pieces are drawn
 // as instanced meshes in 50 m blocks, so a block off screen costs nothing.
@@ -52,6 +53,10 @@ const COLOURS: Record<string, Record<string, string>> = {
 };
 
 // ---- the plan's pixels -> the world ----
+// The town is built at full size (18 cm a plan pixel, the kits' own sizes) and then scaled as one:
+// at full size it felt too big next to the characters. The scenery takes the scale on its root;
+// everything the game reads (solids, bounds, places) is scaled to match on the way out.
+export const TOWN_SCALE = 0.85;
 const S = 18; // cm per plan pixel
 const CU = 625, CV = 565; // the crossroads, the world origin
 const P = (u: number, v: number): [number, number] => [(CV - v) * S, (CU - u) * S];
@@ -555,19 +560,24 @@ export function buildEden(quality: { flowers: number }): Town {
   const spawn = { x: P(780, 740)[0], y: P(780, 740)[1] };
   const pt = (u: number, v: number) => ({ x: P(u, v)[0], y: P(u, v)[1] });
   const warps = [{ x: GATE_W[0], y: WEST + 1050, r: 160, to: "field", arrive: { x: 420, y: -520 } }];
+  // to TOWN_SCALE: the scenery on its root (the portals go under it too), the rest point by point
+  // (a warp's arrival is in the other map, which keeps its own size)
+  const k = TOWN_SCALE;
+  root.scale.setScalar(k);
+  const at = <T extends { x: number; y: number }>(p: T): T => ({ ...p, x: p.x * k, y: p.y * k });
   return {
     level: { root, sky: "#4f6e36", warps },
-    solids,
-    bounds,
-    spawn,
-    npcs: edenNpcs(doors),
-    warps,
+    solids: solids.map((sp) => ("r" in sp ? { ...at(sp), r: sp.r * k } : { ...at(sp), w: sp.w * k, d: sp.d * k })),
+    bounds: { minX: bounds.minX * k, maxX: bounds.maxX * k, minY: bounds.minY * k, maxY: bounds.maxY * k },
+    spawn: at(spawn),
+    npcs: edenNpcs(doors).map(at),
+    warps: warps.map((w) => ({ ...at(w), r: w.r * k })),
     closed: [
       { x: GATE_N[0] + 250, y: GATE_N[1], r: 260, text: "ประตูเหนือปิดซ่อมอยู่ ทางไปปราสาทยังไม่เปิด" },
       { x: GATE_S[0] - 250, y: GATE_S[1], r: 260, text: "ประตูใต้ยังไม่เปิด ทางไปทะเลทรายบาฮามัสกำลังสำรวจ" },
-    ],
+    ].map((c) => ({ ...at(c), r: c.r * k })),
     // names on the map window
-    labels: [
+    labels: ([
       { ...pt(262, 232), text: "มหาวิหาร" },
       { ...pt(777, 330), text: "ตลาด" },
       { ...pt(255, 760), text: "สวนวีรบุรุษ" },
@@ -577,7 +587,7 @@ export function buildEden(quality: { flowers: number }): Town {
       { ...pt(1090, 335), text: "อู่จอดเรือ", kind: "small" },
       { x: GATE_N[0] + 150, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
       { x: GATE_S[0] - 150, y: GATE_S[1], text: "ประตูใต้ (ปิด)", kind: "gate" },
-    ],
+    ] as MapLabel[]).map(at),
   };
 }
 

@@ -368,7 +368,7 @@ async function boot(): Promise<void> {
   };
 
   // ---- world: a new character starts in Eden, the others where they left off ----
-  const placeKey = saveKey("place.v1");
+  const placeKey = saveKey("place.v2"); // v2: Eden at TOWN_SCALE (v1 spots were full size)
   const left = readJson<{ map: MapId; x: number; y: number }>(placeKey);
   const startMap: MapId = left && left.map in MAP_NAMES ? left.map : "eden";
   await loading(`กำลังสร้าง${MAP_NAMES[startMap]}…`, 0.3);
