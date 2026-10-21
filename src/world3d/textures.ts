@@ -323,6 +323,68 @@ export function frondTexture(dark: [number, number, number] = [40, 110, 40], lig
   return c;
 }
 
+// A spray of pine needles along U (twig down the middle, needles angled forward on both sides,
+// a few side twigs), transparent around it; `snowy` lays soft clumps of snow along the twig.
+export function needleTexture(snowy = false): HTMLCanvasElement {
+  const w = 256, h = 128;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  let s = snowy ? 211 : 197;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const dark = [26, 60, 34], light = [96, 146, 74];
+  const col = (t: number) => `rgb(${dark.map((d, i) => Math.round(d + (light[i] - d) * t)).join(",")})`;
+  g.lineCap = "round";
+  // a twig from (x0, y0) along angle `a`, `len` long, needles `nl` long
+  const twig = (x0: number, y0: number, a: number, len: number, nl: number, lift: number) => {
+    const steps = Math.round(len / 2.2);
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps, x = x0 + Math.cos(a) * len * t, y = y0 + Math.sin(a) * len * t;
+      const l = nl * (1 - 0.5 * t) * (0.75 + rnd() * 0.5);
+      for (const side of [-1, 1]) {
+        const na = a + side * (0.6 + rnd() * 0.5);
+        g.strokeStyle = col(Math.min(1, lift + rnd() * 0.55 + 0.25 * t));
+        g.lineWidth = 1.8 + rnd() * 1.2;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(na) * l, y + Math.sin(na) * l);
+        g.stroke();
+      }
+    }
+  };
+  // side twigs first (under), then the main twig's long needles, then a lighter top layer
+  for (let i = 0; i < 9; i++) {
+    const x = 14 + i * 26 + rnd() * 8, side = i % 2 ? 1 : -1;
+    twig(x, h / 2, side * (0.5 + rnd() * 0.3), 30 + rnd() * 18 - i * 1.5, 22, 0);
+  }
+  twig(4, h / 2, 0, w - 10, 40, 0.1);
+  twig(10, h / 2 - 3, -0.02, w - 30, 26, 0.45);
+  if (snowy) {
+    // snow lies along the top of the twig in long soft bands with gaps, the needle tips
+    // staying green either side
+    const bands = 5;
+    for (let i = 0; i < bands; i++) {
+      const x = 30 + (i / bands) * (w - 70) + rnd() * 14, y = h / 2 + (rnd() - 0.5) * 8, rx = 28 + rnd() * 16, ry = 10 + rnd() * 6;
+      const grad = g.createRadialGradient(x, y - ry * 0.3, 1, x, y, rx);
+      grad.addColorStop(0, "rgb(255,255,255)");
+      grad.addColorStop(0.6, "rgb(238,245,255)");
+      grad.addColorStop(0.85, "rgba(210,226,248,0.85)");
+      grad.addColorStop(1, "rgba(210,226,248,0)");
+      g.save();
+      g.translate(x, y);
+      g.scale(1, ry / rx);
+      g.translate(-x, -y);
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(x, y, rx, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+  }
+  return c;
+}
+
 function texture(canvas: HTMLCanvasElement, srgb = true): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(canvas);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -402,6 +464,7 @@ const RECIPES: Record<string, Recipe> = {
   CactusGreen: { map: "ribs", tint: "#5f9a4e", rough: 0.8 },
   LeafGreen: { map: "felt", tint: "#4f8a34", rough: 0.9 },
   PineNeedle: { map: "felt", tint: "#2f5a3a", rough: 0.95 },
+  PineCore: { map: "felt", tint: "#22422b", rough: 1 },
   BarkBirch: { map: "bark", tint: "#e6e2d8", bump: 2 },
   BarkPalm: { map: "bark", tint: "#9a7a52", bump: 3 },
   WaterSea: { tint: "#2f6f8f", rough: 0.08, opacity: 0.9 },

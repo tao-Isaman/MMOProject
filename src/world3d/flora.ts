@@ -5,9 +5,9 @@
 // Z up; each name is built once and cloned.
 
 import * as THREE from "three";
-import { merge, cylinderAt, cylinderBetween, sphereCenter, scale, toThree, rotateZ } from "./geo";
+import { merge, cylinderAt, cylinderBetween, sphereCenter, scale, toThree } from "./geo";
 import type { Geo, V3 } from "./geo";
-import { material, frondTexture, LEAVES, leafClump } from "./textures";
+import { material, frondTexture, needleTexture, LEAVES, leafClump } from "./textures";
 import { tree, TREES, leafMaterials, leaves } from "./trees";
 
 function seeded(seed: number): () => number {
@@ -87,25 +87,72 @@ function palm(seed: number, height: number, lean: number, fronds: number): THREE
   return group;
 }
 
-// ---- pines: stacked cones on a short trunk; snowy ones wear a white cap on each tier ----
+// ---- pines: a straight trunk with whorls of drooping boughs, each bough carrying sprays of
+// needles (cards, like the other trees' leaves) around a dark core that gives the tree its mass.
+// Snowy pines droop more and their sprays carry clumps of snow.
 function pine(seed: number, height: number, snowy: boolean): THREE.Group {
   const rnd = seeded(seed);
-  const parts: Geo[] = [cylinderAt({ rBot: height * 0.035, rTop: height * 0.02, height: height * 0.35, segments: 8, bottom: [0, 0, 0] }, "BarkWarm")];
-  const tiers = 5;
-  for (let i = 0; i < tiers; i++) {
-    const t = i / tiers;
-    const r = height * (0.3 - 0.21 * t) * (0.92 + rnd() * 0.16);
-    const h = height * 0.32;
-    const z = height * (0.2 + 0.15 * i);
-    const cone = rotateZ(cylinderAt({ rBot: r, rTop: r * 0.06, height: h, segments: 9, bottom: [0, 0, z] }, "PineNeedle"), rnd() * 40);
-    parts.push(cone);
-    if (snowy) {
-      // a thinner cone just above the tier's upper half: snow lying on the branches
-      const cap = cylinderAt({ rBot: r * 0.78, rTop: r * 0.05, height: h * 0.62, segments: 9, bottom: [0, 0, z + h * 0.4] }, "Snow");
-      parts.push(scale(rotateZ(cap, rnd() * 40), [1, 1, 1.02], [0, 0, z + h * 0.4]));
+  const maxR = height * 0.3, base = height * 0.16;
+  const parts: Geo[] = [
+    cylinderBetween([0, 0, 0], [0, 0, height * 0.96], height * 0.03, 8, "BarkWarm", height * 0.006),
+    cylinderBetween([0, 0, 0], [0, 0, height * 0.06], height * 0.045, 8, "BarkWarm", height * 0.03),
+    // the core: a dark cone inside the boughs, so no sky shows through the middle
+    cylinderAt({ rBot: maxR * 0.38, rTop: maxR * 0.03, height: height * 0.68, segments: 10, bottom: [0, 0, base + height * 0.04] }, "PineCore"),
+  ];
+  const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
+  const card = (c: THREE.Vector3, along: THREE.Vector3, across: THREE.Vector3, len: number, wid: number, n: THREE.Vector3, shade: number) => {
+    const a = along.clone().multiplyScalar(len / 2), b = across.clone().multiplyScalar(wid / 2);
+    const p00 = c.clone().sub(a).sub(b), p10 = c.clone().add(a).sub(b), p11 = c.clone().add(a).add(b), p01 = c.clone().sub(a).add(b);
+    for (const [p, u, v] of [[p00, 0, 0], [p10, 1, 0], [p11, 1, 1], [p00, 0, 0], [p11, 1, 1], [p01, 0, 1]] as [THREE.Vector3, number, number][]) {
+      pos.push(p.x, p.y, p.z);
+      nor.push(n.x, n.y, n.z);
+      uv.push(u, v);
+      col.push(shade, shade, shade);
+    }
+  };
+  const whorls = Math.round(9 + height / 160);
+  for (let w = 0; w < whorls; w++) {
+    const t = w / (whorls - 1); // 0 bottom .. 1 top
+    const z = base + (height * 0.93 - base) * t;
+    const len = maxR * (1 - t) ** 0.85 + height * 0.035;
+    const boughs = Math.max(4, Math.round(7 - 3 * t));
+    const twist = rnd() * Math.PI * 2;
+    for (let b = 0; b < boughs; b++) {
+      const yaw = twist + (b / boughs) * Math.PI * 2 + (rnd() - 0.5) * 0.5;
+      const droop = (snowy ? 0.32 : 0.2) * (1 - t * 0.7) + (rnd() - 0.5) * 0.1;
+      const out = new THREE.Vector3(Math.cos(yaw), Math.sin(yaw), 0);
+      const dir = out.clone().multiplyScalar(Math.cos(droop)).add(new THREE.Vector3(0, 0, -Math.sin(droop))).normalize();
+      const l = len * (0.85 + rnd() * 0.3);
+      const root = new THREE.Vector3(0, 0, z), tip = root.clone().addScaledVector(dir, l);
+      if (t < 0.85) parts.push(cylinderBetween(root.toArray() as V3, tip.toArray() as V3, height * 0.006 + 1, 5, "BarkWarm", 0.8));
+      // sprays along the bough, flat-ish and facing up, each turned a little; every other one
+      // rolled steeply so the bough has some thickness from the side
+      const sprays = Math.max(3, Math.round(l / 32));
+      for (let k = 0; k < sprays; k++) {
+        const s = 0.25 + 0.75 * ((k + 0.5) / sprays);
+        const c = root.clone().addScaledVector(dir, l * s).add(new THREE.Vector3(0, 0, (rnd() - 0.3) * 10));
+        const cl = Math.min(190, Math.max(70, l * 0.75)) * (0.85 + rnd() * 0.3);
+        const spin = (rnd() - 0.5) * 0.7, roll = k % 2 ? (rnd() - 0.5) * 0.7 : (rnd() < 0.5 ? -1 : 1) * (0.7 + rnd() * 0.5);
+        const along = dir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), spin);
+        const across = new THREE.Vector3(0, 0, 1).cross(along).normalize().applyAxisAngle(along, roll);
+        const n = out.clone().multiplyScalar(0.55).add(new THREE.Vector3(0, 0, 0.85)).normalize();
+        const shade = (0.62 + 0.38 * s) * (0.88 + 0.12 * t) * (0.92 + rnd() * 0.12);
+        card(c, along, across, cl, cl * 0.62, n, shade);
+      }
     }
   }
-  return toThree(merge(...parts), material);
+  // the leader: two crossed sprays standing up at the top
+  const top = new THREE.Vector3(0, 0, height * 0.97), upDir = new THREE.Vector3(0, 0, 1);
+  for (const a of [0, Math.PI / 2]) card(top, upDir, new THREE.Vector3(Math.cos(a), Math.sin(a), 0), height * 0.14, height * 0.07, new THREE.Vector3(Math.cos(a + 1), Math.sin(a + 1), 0.6).normalize(), 1);
+
+  const group = toThree(merge(...parts), material);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  group.add(swaying(geo, snowy ? "needleSnow" : "needle", () => needleTexture(snowy)));
+  return group;
 }
 
 // ---- bamboo: a clump of canes with narrow leaves near the top ----
