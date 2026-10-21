@@ -39,9 +39,10 @@ const COSTUME_TO_CLOTHES: Record<string, [string, string]> = {
 };
 
 // A new bag: only what is worn (title.ts puts on the class's own gear and the chosen clothes)
-// and a few potions; other weapons and clothes come from the shop and from monsters.
+// and a few potions; other weapons and clothes come from the shop and from monsters. Nothing
+// on top or bottom is the plain brown T-shirt and trousers (items.ts DEFAULT_SHAPE).
 export const STARTER: { equipped: Equipped } = {
-  equipped: { weapon: "staff", offhand: null, top: "top_white", bottom: "bottom_black" },
+  equipped: { weapon: "staff", offhand: null, top: null, bottom: null },
 };
 
 export class Inventory {
@@ -274,7 +275,8 @@ export class Inventory {
     }
     for (const slot of Object.keys(this.equipped) as EquipSlot[]) {
       const id = eq[slot];
-      this.equipped[slot] = id && fitsSlot(id, slot) ? id : old && slot !== "weapon" ? null : STARTER.equipped[slot];
+      // (a slot saved empty stays empty; only a save from before the slot existed gets the starter)
+      this.equipped[slot] = id && fitsSlot(id, slot) ? id : slot in eq || (old && slot !== "weapon") ? null : STARTER.equipped[slot];
     }
     if (old) {
       // the costume worn becomes the top and bottom worn; the dye items worn before (now mage
