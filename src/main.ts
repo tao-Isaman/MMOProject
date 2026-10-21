@@ -6,7 +6,8 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles";
 import { Player, directionIndex } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, DYES, SHAPES } from "./items";
+import { ITEMS, WEAPON_TYPES, DYES, SHAPES, DUAL_WIELD_SLOWDOWN, offhandWeapon } from "./items";
+import type { OffhandArt } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory } from "./inventory";
 import { InventoryUI, loadLook } from "./ui";
@@ -90,6 +91,69 @@ function makeIcon(img: Img, { diagonal = false, dye = null as Dye | null } = {})
   } else {
     const s = size / Math.max(img.width, img.height);
     g.drawImage(src, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s);
+  }
+  return c;
+}
+
+// Off-hand gear sprites, pixel art at the scale of the weapon sprites: shields, a flask, books.
+function offhandSprite(art: OffhandArt): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  const g = c.getContext("2d")!;
+  const px = (x: number, y: number, w: number, h: number, color: string) => {
+    g.fillStyle = color;
+    g.fillRect(x, y, w, h);
+  };
+  if (art === "buckler" || art === "kite") {
+    const kite = art === "kite";
+    c.width = kite ? 24 : 26;
+    c.height = kite ? 34 : 26;
+    g.beginPath();
+    if (kite) {
+      g.moveTo(1, 2); g.lineTo(23, 2); g.lineTo(23, 16); g.lineTo(12, 33); g.lineTo(1, 16); g.closePath();
+    } else g.arc(13, 13, 12.5, 0, Math.PI * 2);
+    g.fillStyle = "#1c2416";
+    g.fill();
+    g.save();
+    g.clip();
+    px(0, 0, c.width, c.height, kite ? "#c9d3dd" : "#8a5a32");
+    if (kite) {
+      px(10, 2, 4, 30, "#2f5fb8");
+      px(2, 10, 20, 4, "#2f5fb8");
+      px(0, 0, 3, c.height, "#eef3f8");
+    } else {
+      for (let x = 5; x < 26; x += 6) px(x, 0, 1, 26, "#6b4324");
+      g.strokeStyle = "#9aa3ad";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(13, 13, 11, 0, Math.PI * 2);
+      g.stroke();
+      px(10, 10, 6, 6, "#c9d3dd");
+    }
+    g.restore();
+  } else if (art === "flask") {
+    c.width = 18;
+    c.height = 24;
+    px(7, 0, 4, 3, "#a8763f");
+    px(6, 3, 6, 5, "#dfe9f2");
+    g.beginPath();
+    g.arc(9, 15, 8, 0, Math.PI * 2);
+    g.fillStyle = "#dfe9f2";
+    g.fill();
+    g.save();
+    g.clip();
+    px(0, 14, 18, 10, "#59e07a");
+    g.restore();
+    px(4, 11, 2, 3, "#ffffff");
+  } else {
+    const grim = art === "grimoire";
+    c.width = 22;
+    c.height = 26;
+    px(1, 1, 20, 24, "#1c2416");
+    px(2, 2, 18, 22, grim ? "#5b2f8a" : "#8a5a32");
+    px(18, 3, 2, 20, "#f0e3c6");
+    for (const [x, y] of [[2, 2], [16, 2], [2, 20], [16, 20]]) px(x, y, 4, 4, "#e0b84a");
+    if (grim) px(8, 9, 6, 7, "#7ff0ff");
+    else px(7, 8, 8, 2, "#e0b84a");
   }
   return c;
 }
@@ -218,7 +282,7 @@ async function boot(): Promise<void> {
   // ---- inventory, character, looks, icons ----
   const inv = new Inventory();
   const progress = new Progress();
-  const hero = new Hero(progress, () => inv.equipped.weapon);
+  const hero = new Hero(progress, () => inv.equipped.weapon, () => inv.equipped.offhand);
   const look = loadLook(looks.hairstyles);
   // Rebuild the player's sheets when the look or the clothes change; a newer change wins
   // over one still loading.
@@ -238,6 +302,9 @@ async function boot(): Promise<void> {
     const art = WEAPON_ART[t];
     weapons[t] = { img: images[`weapon_${art.art ?? t}`], art };
   }
+  // off-hand gear held like a weapon: upright in the left hand
+  const offhandArt = Object.fromEntries((["buckler", "kite", "flask", "tome", "grimoire"] as OffhandArt[])
+    .map((a) => [a, { img: offhandSprite(a), art: { grip: 0.5, upright: true, scale: 1.4 } as WeaponArt }])) as Record<OffhandArt, { img: Img; art: WeaponArt }>;
   const icons = new Map<string, Img>();
   const iconFor = (id: string): Img => {
     const known = icons.get(id);
@@ -272,6 +339,8 @@ async function boot(): Promise<void> {
         g.drawImage(t, (cv.width - t.width * s) / 2, (cv.height - t.height * s) / 2, t.width * s, t.height * s);
         window.dispatchEvent(new Event("item-icons"));
       });
+    } else if (item.kind === "offhand") {
+      c = makeIcon(offhandArt[item.art!].img);
     } else if (item.kind === "potion") {
       c = potionIcon(item.icon.color ?? "#ff6a5a", (item.restore?.hp ?? item.restore?.mp ?? 0) > 0.3);
     } else if (item.kind === "book") {
@@ -378,10 +447,11 @@ async function boot(): Promise<void> {
     const r = item.restore;
     if ((!r.hp || hero.hp >= hero.stats.maxHp) && (!r.mp || hero.mp >= hero.stats.maxMp)) return "เต็มอยู่แล้ว";
     potionCd = 0.8;
-    if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(hero.stats.maxHp * r.hp))}`, "heal");
+    const boost = 1 + hero.stats.potion; // the alchemy flask
+    if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(hero.stats.maxHp * r.hp * boost))}`, "heal");
     if (r.mp) {
       const before = hero.mp;
-      hero.mp = Math.min(hero.stats.maxMp, hero.mp + hero.stats.maxMp * r.mp);
+      hero.mp = Math.min(hero.stats.maxMp, hero.mp + hero.stats.maxMp * r.mp * boost);
       floaters.add(player.x, player.y, 150, `+${Math.round(hero.mp - before)} MP`, "magic");
     }
     skills.sparkleUp(player.x, player.y, r.hp ? tex.glowFor("#ff8a7a") : tex.glowFor("#8cc8ff"), 14);
@@ -693,7 +763,9 @@ async function boot(): Promise<void> {
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
     const w = weaponStats(inv.equipped.weapon, hero.stats);
-    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon);
+    const offW = offhandWeapon(inv.equipped.offhand);
+    if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
+    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon, offW);
     for (const m of monsters) m.update(dt, monsterCtx);
     combat.update(dt);
     skills.update(dt);
@@ -752,7 +824,7 @@ async function boot(): Promise<void> {
     ctx.globalCompositeOperation = "source-over";
 
     // the bot's hunting area
-    if (bot.on || botUI.open) {
+    if ((bot.on || botUI.open) && !bot.settings.wholeMap) {
       const a = bot.on ? bot.anchor : player;
       ctx.save();
       ctx.setLineDash([10 * k, 8 * k]);
@@ -781,10 +853,12 @@ async function boot(): Promise<void> {
     for (const p of sorted) p.depth = mapY(p.x, p.y);
     sorted.sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
     const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon as WeaponId] : null;
+    const offItem = inv.equipped.offhand ? ITEMS[inv.equipped.offhand] : null;
+    const inOff = offItem?.weapon ? weapons[offItem.weapon] : offItem?.art ? offhandArt[offItem.art] : null;
     // the player's box on the map, to see which props hide them
     const pb = { x: mapX(player.x, player.y) - 40, y: mapY(player.x, player.y) - 140, w: 80, h: 140 };
     const actors = [...monsters.map((m) => ({ depth: m.depth, draw: () => m.draw(ctx, vw) })),
-      { depth: player.depth, draw: () => player.draw(ctx, vw, inHand) },
+      { depth: player.depth, draw: () => player.draw(ctx, vw, inHand, inOff) },
       { depth: merchant.depth, draw: () => merchant.draw(ctx, vw, merchant.distance(player) <= TALK_RANGE * 1.6) },
       ...scene.place().map((p) => {
         const hides = player.depth < p.depth && scene.covers(p, pb);

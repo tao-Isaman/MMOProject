@@ -1,6 +1,7 @@
-// Inventory: a grid of slots plus the equipped weapon, top and bottom, saved in the browser.
+// Inventory: a grid of slots plus what is worn (main hand, off hand, top, bottom) and gold,
+// saved in the browser. A two-handed weapon in the main hand keeps the off hand empty.
 
-import { ITEMS, itemSlot, stackLimit, sortKey } from "./items";
+import { ITEMS, itemSlot, stackLimit, sortKey, fitsSlot, isTwoHanded } from "./items";
 import { saveKey } from "./save";
 import type { EquipSlot } from "./items";
 
@@ -19,6 +20,7 @@ const OLD_KEYS = () => [saveKey("inventory.v2"), saveKey("inventory.v1")];
 const STARTER_CLOTHES = [
   "top_priestess", "bottom_priestess", "top_adventurer", "bottom_adventurer", "top_warrior", "bottom_warrior",
   "top_sky", "bottom_navy", "top_priestess_white", "top_adventurer_teal", "bottom_adventurer_cocoa",
+  "buckler", "spell_tome", "dagger",
 ];
 
 // v2 costumes (one item for a whole outfit) become a top and a bottom of the same shape.
@@ -37,13 +39,13 @@ const COSTUME_TO_CLOTHES: Record<string, [string, string]> = {
 };
 
 export const STARTER: { equipped: Equipped; items: string[] } = {
-  equipped: { weapon: "staff", top: "top_white", bottom: "bottom_black" },
-  items: ["sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "dual_daggers", "bow", ...STARTER_CLOTHES],
+  equipped: { weapon: "staff", offhand: null, top: "top_white", bottom: "bottom_black" },
+  items: ["sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "bow", ...STARTER_CLOTHES],
 };
 
 export class Inventory {
   slots: (Stack | null)[] = new Array(COLS * ROWS).fill(null);
-  equipped: Equipped = { weapon: null, top: null, bottom: null };
+  equipped: Equipped = { weapon: null, offhand: null, top: null, bottom: null };
   gold = 0;
   listeners = new Set<(inv: Inventory) => void>();
 
@@ -159,16 +161,41 @@ export class Inventory {
     this.changed();
   }
 
-  // Equip the item in a grid slot; whatever was equipped there goes back into that slot.
-  equip(index: number): boolean {
+  // Equip the item in a grid slot (in `slot`, else where it usually goes); whatever was worn
+  // there goes back into that grid slot. Returns why not, or null.
+  equipTo(index: number, slot?: EquipSlot): string | null {
     const s = this.slots[index];
-    const slot = s && itemSlot(s.id);
-    if (!slot) return false;
-    const old = this.equipped[slot];
-    this.equipped[slot] = s.id;
-    this.slots[index] = old ? { id: old, count: 1 } : null;
+    if (!s) return "ช่องว่าง";
+    const to = slot ?? itemSlot(s.id);
+    if (!to || !fitsSlot(s.id, to)) return "ใส่ช่องนี้ไม่ได้";
+    if (to === "offhand" && isTwoHanded(this.equipped.weapon)) return "ถืออาวุธสองมืออยู่ ถอดอาวุธก่อนจึงใส่มือรองได้";
+    // a two-handed weapon needs the off hand free: what's there goes to the bag
+    if (to === "weapon" && isTwoHanded(s.id) && this.equipped.offhand) {
+      const free = this.slots.findIndex((x, i) => !x && i !== index);
+      if (free < 0 && this.equipped.weapon) return "กระเป๋าเต็ม ถอดของมือรองไม่ได้";
+      const off = this.equipped.offhand;
+      this.equipped.offhand = null;
+      if (free >= 0) this.slots[free] = { id: off, count: 1 };
+      else {
+        // the main hand was empty: the off-hand item takes the weapon's place in the grid
+        this.slots[index] = { id: off, count: 1 };
+        this.equipped.weapon = s.id;
+        this.changed();
+        return null;
+      }
+    }
+    const old = this.equipped[to];
+    this.equipped[to] = s.id;
+    if (s.count > 1) {
+      s.count -= 1;
+      if (old && this.add(old, 1, { silent: true })) return "กระเป๋าเต็ม";
+    } else this.slots[index] = old ? { id: old, count: 1 } : null;
     this.changed();
-    return true;
+    return null;
+  }
+
+  equip(index: number): boolean {
+    return this.equipTo(index) === null;
   }
 
   // Take an equipped item off into the given grid slot, or the first free one (bare hands; an
@@ -179,7 +206,9 @@ export class Inventory {
     if (index < 0) index = this.slots.indexOf(null);
     if (index < 0) return false;
     const there = this.slots[index];
-    if (there && itemSlot(there.id) !== slot) return false;
+    if (there && !fitsSlot(there.id, slot)) return false;
+    // swapping a two-handed weapon in needs the off hand empty
+    if (there && slot === "weapon" && isTwoHanded(there.id) && this.equipped.offhand) return false;
     this.equipped[slot] = there ? there.id : null;
     this.slots[index] = { id, count: 1 };
     this.changed();
@@ -214,10 +243,17 @@ export class Inventory {
     }
     if (!data || !Array.isArray(data.slots) || data.slots.length !== this.slots.length) return false;
     const old = from !== SAVE_KEY();
+    const before = !("offhand" in (data.equipped ?? {}));
     this.gold = Math.max(0, Math.floor(Number(data.gold) || 0));
     // costumes in the bag turn into their top and bottom
     const extra: string[] = [];
+    let daggers = 0;
     this.slots = data.slots.map((s) => {
+      if (s?.id === "dual_daggers") {
+        // dual daggers became two daggers: one for each hand
+        daggers++;
+        return { id: "dagger", count: 1 };
+      }
       if (s && COSTUME_TO_CLOTHES[s.id]) {
         const [t, b] = COSTUME_TO_CLOTHES[s.id];
         extra.push(b);
@@ -225,10 +261,14 @@ export class Inventory {
       }
       return s && ITEMS[s.id] && s.count > 0 ? { id: s.id, count: s.count } : null;
     });
-    const eq = data.equipped ?? {};
+    const eq = { ...(data.equipped ?? {}) };
+    if (eq.weapon === "dual_daggers") {
+      eq.weapon = "dagger";
+      eq.offhand = eq.offhand ?? "dagger";
+    }
     for (const slot of Object.keys(this.equipped) as EquipSlot[]) {
       const id = eq[slot];
-      this.equipped[slot] = id && itemSlot(id) === slot ? id : old && slot !== "weapon" ? null : STARTER.equipped[slot];
+      this.equipped[slot] = id && fitsSlot(id, slot) ? id : old && slot !== "weapon" ? null : STARTER.equipped[slot];
     }
     if (old) {
       // the costume worn becomes the top and bottom worn; the dye items worn before (now mage
@@ -246,6 +286,16 @@ export class Inventory {
       this.add("potion_blue", 5, { silent: true });
       this.gold = Math.max(this.gold, 200);
       this.save();
+    }
+    if (daggers) this.add("dagger", daggers, { silent: true });
+    if (before && !old) {
+      // saves from before the off hand get the new starting gear once
+      for (const id of ["buckler", "spell_tome", "dagger"]) if (!this.has(id)) this.add(id, 1, { silent: true });
+      this.save();
+    }
+    if (isTwoHanded(this.equipped.weapon) && this.equipped.offhand) {
+      this.add(this.equipped.offhand, 1, { silent: true });
+      this.equipped.offhand = null;
     }
     return true;
   }

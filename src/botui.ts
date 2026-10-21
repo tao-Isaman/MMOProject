@@ -257,11 +257,14 @@ export class BotUI {
     check(f, "สู้กับตัวที่โจมตีเราก่อนเสมอ (แม้ไม่ได้เลือกไว้)", "defend");
 
     el("h3", "bt-h", f).textContent = "พื้นที่ล่า";
-    slider(f, (v) => `รัศมีรอบจุดศูนย์กลาง ${(v / 100).toFixed(0)} ม.`, "radius", 300, 2500, 100);
-    const here = el("button", "wr-choice", f);
-    here.type = "button";
-    here.textContent = "ย้ายจุดศูนย์กลางมาที่ตัวละคร";
-    here.addEventListener("click", () => this.bot.setAnchorHere());
+    check(f, "ล่าทั้งแผนที่ (ไม่จำกัดรัศมี)", "wholeMap");
+    if (!s.wholeMap) {
+      slider(f, (v) => `รัศมีรอบจุดศูนย์กลาง ${(v / 100).toFixed(0)} ม.`, "radius", 300, 2500, 100);
+      const here = el("button", "wr-choice", f);
+      here.type = "button";
+      here.textContent = "ย้ายจุดศูนย์กลางมาที่ตัวละคร";
+      here.addEventListener("click", () => this.bot.setAnchorHere());
+    }
 
     el("h3", "bt-h", f).textContent = "ยา";
     const pots = el("p", "wr-note", f);

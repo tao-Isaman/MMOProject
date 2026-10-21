@@ -18,6 +18,8 @@ import type { CharEntry, Roster } from "./save";
 import type { Looks } from "./look";
 
 const CLASS_WEAPON: Record<ClassId, string> = { mage: "staff", warrior: "sword_1h" };
+// what each class starts with in the off hand (mages: a tome; staves are one-handed)
+const CLASS_OFFHAND: Record<ClassId, string> = { mage: "spell_tome", warrior: "buckler" };
 const CELL = 96;
 
 // The item id of a shape's own-colour piece.
@@ -82,7 +84,7 @@ export class Title {
       const cv = el("canvas", "", card);
       cv.width = cv.height = 192;
       const look = readJson<Look>(saveKey("look.v1", c.id)) ?? { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
-      const eq = readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped ?? { weapon: null, top: null, bottom: null };
+      const eq = readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped ?? { weapon: null, offhand: null, top: null, bottom: null };
       this.portrait(cv, look, eq);
       el("strong", "", card).textContent = c.name;
       el("span", "", card).textContent = `${CLASSES[c.cls]?.name ?? "-"} · Lv ${c.level}`;
@@ -158,7 +160,7 @@ export class Title {
     const note = el("p", "wr-note", left);
     const right = el("div", "title-form", body);
 
-    const equipped = (): Equipped => ({ weapon: null, top: plainItem("top", top), bottom: plainItem("bottom", bottom) });
+    const equipped = (): Equipped => ({ weapon: null, offhand: null, top: plainItem("top", top), bottom: plainItem("bottom", bottom) });
     const draw = () => {
       this.portrait(cv, look, equipped(), turn);
       note.textContent = this.looks.note(look, equipped());
@@ -276,16 +278,16 @@ export class Title {
   }
 
   // Write a new character's saves: class progress, starting bag with the chosen clothes and the
-  // class weapon worn, and the look.
+  // class weapon and off-hand item worn, and the look.
   makeCharacter(name: string, cls: ClassId, look: Look, top: string, bottom: string): string {
     const id = newCharacterId(this.roster);
     useCharacter(id);
     const progress = new Progress();
     progress.reset(cls);
     const inv = new Inventory();
-    for (const want of [CLASS_WEAPON[cls], top, bottom]) {
+    for (const [want, slot] of [[CLASS_WEAPON[cls], "weapon"], [CLASS_OFFHAND[cls], "offhand"], [top, "top"], [bottom, "bottom"]] as const) {
       const i = inv.slots.findIndex((s) => s?.id === want);
-      if (i >= 0) inv.equip(i);
+      if (i >= 0) inv.equipTo(i, slot);
     }
     try {
       localStorage.setItem(saveKey("look.v1"), JSON.stringify(look));

@@ -4,7 +4,7 @@
 // mouse, pen and touch); double-click equips or takes off.
 
 import { saveKey } from "./save";
-import { ITEMS, EQUIP_SLOTS, describe, itemSlot } from "./items";
+import { ITEMS, EQUIP_SLOTS, describe, itemSlot, fitsSlot, isTwoHanded } from "./items";
 import type { EquipSlot } from "./items";
 import { COLS } from "./inventory";
 import type { Inventory } from "./inventory";
@@ -159,7 +159,10 @@ export class InventoryUI {
     else {
       el("p", "inv-menu-q", this.menu).textContent = item.name;
       if (item.kind === "potion" || item.kind === "book") button(item.kind === "potion" ? "ดื่ม" : "อ่าน", () => this.flash(this.use(index), true));
-      else if (itemSlot(s.id)) button("สวมใส่", () => this.wear(index));
+      else if (itemSlot(s.id)) {
+        button(item.kind === "weapon" ? "ใส่มือหลัก" : "สวมใส่", () => this.wear(index));
+        if (item.kind === "weapon" && fitsSlot(s.id, "offhand")) button("ใส่มือรอง", () => this.wear(index, "offhand"));
+      }
       if (s.count > 1) button("ทิ้ง 1 ชิ้น", () => ask(1), true);
       button(s.count > 1 ? `ทิ้งทั้งหมด (${s.count})` : "ทิ้ง", () => ask(s.count), true);
     }
@@ -187,6 +190,10 @@ export class InventoryUI {
   render(): void {
     this.inv.slots.forEach((s, i) => this.fill(this.cells[i], s?.id, s?.count));
     for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot as EquipSlot], 1);
+    // a two-handed weapon fills both hands: show it faded in the off-hand cell too
+    const both = isTwoHanded(this.inv.equipped.weapon) && !this.inv.equipped.offhand;
+    this.equipEls.offhand.classList.toggle("held", both);
+    if (both) this.fill(this.equipEls.offhand, this.inv.equipped.weapon, 1);
     const used = this.inv.slots.filter(Boolean).length;
     this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
     this.gold.innerHTML = `<i></i>${this.inv.gold.toLocaleString()} ทอง`;
@@ -194,7 +201,12 @@ export class InventoryUI {
 
   // What item a cell shows.
   itemAt(cell: HTMLElement): string | null | undefined {
-    if (cell.dataset.equip) return this.inv.equipped[cell.dataset.equip as EquipSlot];
+    if (cell.dataset.equip) {
+      const slot = cell.dataset.equip as EquipSlot;
+      // the off-hand cell shows a two-handed main weapon but doesn't hold it
+      if (slot === "offhand" && !this.inv.equipped.offhand && isTwoHanded(this.inv.equipped.weapon)) return null;
+      return this.inv.equipped[slot];
+    }
     return this.inv.slots[Number(cell.dataset.index)]?.id;
   }
 
@@ -205,7 +217,7 @@ export class InventoryUI {
       return;
     }
     const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กางเกง/กระโปรง", potion: "ยา", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
+    const kind = { weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", potion: "ยา", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
     const why = itemSlot(id) ? this.wearable(id) : null;
     this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
     this.tip.classList.remove("hidden");
@@ -227,7 +239,9 @@ export class InventoryUI {
     this.win.addEventListener("dblclick", (e) => {
       const c = cellFrom(e.target);
       if (!c) return;
-      if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip as EquipSlot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม");
+      if (c.dataset.equip) {
+        if (this.itemAt(c)) this.flash(this.inv.unequip(c.dataset.equip as EquipSlot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม");
+      }
       else if (this.inv.slots[Number(c.dataset.index)]) {
         const i = Number(c.dataset.index);
         const kind = ITEMS[this.inv.slots[i]!.id].kind;
@@ -298,23 +312,28 @@ export class InventoryUI {
     }
     const fi = Number(from.dataset.index);
     if (to.dataset.equip) {
-      if (itemSlot(inv.slots[fi]?.id) !== to.dataset.equip) {
-        this.flash("ใส่ช่องนี้ไม่ได้");
+      const slot = to.dataset.equip as EquipSlot;
+      if (!fitsSlot(inv.slots[fi]?.id, slot)) {
+        this.flash(slot === "offhand" && isTwoHanded(inv.slots[fi]?.id) ? "อาวุธสองมือใส่ได้แค่ช่องมือหลัก" : "ใส่ช่องนี้ไม่ได้");
         return;
       }
-      this.wear(fi);
+      this.wear(fi, slot);
       return;
     }
     inv.move(fi, Number(to.dataset.index));
   }
 
-  // Put on the item in a bag slot, unless it can't be worn yet.
-  wear(index: number): void {
+  // Put on the item in a bag slot (into `slot`, or where it normally goes), unless it can't be
+  // worn yet.
+  wear(index: number, slot?: EquipSlot): void {
     const id = this.inv.slots[index]?.id;
     if (!id || !itemSlot(id)) return this.flash("ไอเท็มนี้สวมใส่ไม่ได้");
     const why = this.wearable(id);
     if (why) return this.flash(why);
-    if (!this.inv.equip(index)) this.flash("สวมใส่ไม่ได้");
+    const was = this.inv.equipped.offhand;
+    const err = this.inv.equipTo(index, slot);
+    if (err) return this.flash(err);
+    if (was && !this.inv.equipped.offhand) this.flash(`${ITEMS[was].name} กลับเข้ากระเป๋า (อาวุธสองมือ)`);
   }
 
   flash(msg: string | null, good = false): void {

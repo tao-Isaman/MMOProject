@@ -24,10 +24,16 @@ export interface WeaponType {
   pierce?: boolean;
   hits?: number;
   projectile?: { kind: "bolt" | "arrow"; speed: number; range: number; radius: number };
+  twoHanded?: boolean; // takes the off hand too
   note?: string;
 }
 
-export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "dual_daggers" | "staff" | "bow";
+export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow";
+
+// A one-handed weapon in the off hand adds a second hit for this much of its damage to whatever
+// the main hand hit, and every attack takes this much longer.
+export const OFFHAND_DAMAGE = 0.5;
+export const DUAL_WIELD_SLOWDOWN = 1.15;
 
 // Swords and the bow use clips where Oriverse drew the weapon in (swing: a sword and its slash,
 // shoot: a bow and arrow), so nothing is drawn over them (builtin). Every other weapon uses the
@@ -40,7 +46,7 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "ฟันเป็นแนวโค้งหน้าตัว",
   },
   sword_2h: {
-    name: "ดาบสองมือ", motion: "swing", builtin: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], knock: 60,
+    name: "ดาบสองมือ", motion: "swing", builtin: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], knock: 60, twoHanded: true,
     note: "ฟันกว้าง ช้าแต่แรง",
   },
   axe: {
@@ -56,16 +62,12 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "แทงไกล",
   },
   spear_2h: {
-    name: "หอกสองมือ", motion: "thrust", hit: "line", reach: 235, width: 56, interval: 1.0, damage: [30, 40], pierce: true,
+    name: "หอกสองมือ", motion: "thrust", hit: "line", reach: 235, width: 56, interval: 1.0, damage: [30, 40], pierce: true, twoHanded: true,
     note: "แทงทะลุทุกตัวในแนว",
   },
   dagger: {
     name: "มีดสั้น", motion: "thrust", hit: "line", reach: 95, width: 40, interval: 0.4, damage: [11, 15], crit: 0.15,
     note: "แทงเร็ว",
-  },
-  dual_daggers: {
-    name: "มีดคู่", motion: "thrust", hit: "line", reach: 95, width: 44, interval: 0.55, damage: [9, 12], hits: 2,
-    note: "แทงสองครั้งต่อการโจมตี",
   },
   staff: {
     name: "ไม้เท้า", motion: "thrust", reach: 0, interval: 1.1, damage: [26, 34],
@@ -73,7 +75,7 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "ยิงลูกเวทระยะกลาง",
   },
   bow: {
-    name: "ธนู", motion: "shoot", builtin: true, reach: 0, interval: 0.9, damage: [16, 22],
+    name: "ธนู", motion: "shoot", builtin: true, reach: 0, interval: 0.9, damage: [16, 22], twoHanded: true,
     projectile: { kind: "arrow", speed: 1400, range: 780, radius: 26 },
     note: "ยิงไกลที่สุด",
   },
@@ -135,8 +137,12 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
 // The shape worn when a slot is empty (or holds something for the other build).
 export const DEFAULT_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
 
-export type ItemKind = "weapon" | "top" | "bottom" | "potion" | "book" | "material";
-export type EquipSlot = "weapon" | "top" | "bottom";
+export type ItemKind = "weapon" | "offhand" | "top" | "bottom" | "potion" | "book" | "material";
+export type EquipSlot = "weapon" | "offhand" | "top" | "bottom";
+
+// Off-hand gear (shields, flasks, tomes): stats while held, and how it is drawn (src/main.ts
+// paints the art). The stat bag uses the same keys as passives (stats.ts).
+export type OffhandArt = "buckler" | "kite" | "flask" | "tome" | "grimoire";
 
 export interface Item {
   kind: ItemKind;
@@ -149,12 +155,19 @@ export interface Item {
   price?: number;                       // shop price in gold; selling pays 40%
   sell?: number;                        // what the shop pays, when not 40% of price
   restore?: { hp?: number; mp?: number }; // potions: fraction of max HP / MP
+  stats?: Partial<Record<string, number>>; // off-hand gear while held
+  art?: OffhandArt;
   icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string };
 }
 
-const weapon = (type: WeaponId): Item => ({ kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type }, price: 300 });
+const weapon = (type: WeaponId): Item => ({
+  kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type }, price: 300,
+  note: `${WEAPON_TYPES[type].note} · ${WEAPON_TYPES[type].twoHanded ? "สองมือ" : "มือเดียว"}`,
+});
 const garment = (kind: "top" | "bottom", shape: string, dye: string | null = null): Item =>
   ({ kind, shape, dye, name: `${SHAPES[kind][shape].name}${dye ? `สี${DYES[dye].name}` : ""}`, icon: {}, price: dye ? 240 : 160 });
+const offhand = (name: string, art: OffhandArt, stats: Partial<Record<string, number>>, price: number, note: string): Item =>
+  ({ kind: "offhand", name, art, stats, price, icon: {}, note });
 const potion = (name: string, restore: { hp?: number; mp?: number }, color: string, price: number, note: string): Item =>
   ({ kind: "potion", name, restore, stack: 50, price, icon: { glyph: "drop", color }, note });
 
@@ -197,6 +210,11 @@ export const ITEMS: Record<string, Item> = {
   bottom_warrior: garment("bottom", "warrior"),
   bottom_warrior_cocoa: garment("bottom", "warrior", "cocoa"),
   bottom_warrior_black: garment("bottom", "warrior", "black"),
+  buckler: offhand("โล่ไม้กลม", "buckler", { def: 6, mdef: 2 }, 300, "โล่ไม้เบา ๆ กันได้นิดหน่อย"),
+  kite_shield: offhand("โล่อัศวิน", "kite", { def: 14, mdef: 4, maxHpPct: 0.05, move: -0.03 }, 900, "โล่เหล็กยาว หนักแต่กันได้มาก"),
+  alchemy_flask: offhand("ขวดแปรธาตุ", "flask", { potion: 0.25, mpRegen: 1.5 }, 700, "ยาที่ดื่มฟื้นมากขึ้น ฟื้น MP เร็วขึ้น"),
+  spell_tome: offhand("สมุดเวท", "tome", { matkPct: 0.08, cdr: 0.04 }, 650, "สมุดคาถาของนักเวทฝึกหัด"),
+  grimoire: offhand("คัมภีร์โบราณ", "grimoire", { matkPct: 0.14, maxMpPct: 0.1, cdr: 0.06 }, 1800, "คัมภีร์เวทเล่มหนา พลังเวทสูง"),
   potion_red: potion("ยาแดง", { hp: 0.25 }, "#ff6a5a", 25, "ฟื้น HP 25% ของ HP สูงสุด"),
   potion_red_big: potion("ยาแดงเข้มข้น", { hp: 0.5 }, "#d8343a", 80, "ฟื้น HP 50% ของ HP สูงสุด"),
   potion_blue: potion("ยาฟ้า", { mp: 0.25 }, "#6ab4ff", 30, "ฟื้น MP 25% ของ MP สูงสุด"),
@@ -209,14 +227,34 @@ export const ITEMS: Record<string, Item> = {
 };
 
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [
-  { slot: "weapon", name: "อาวุธ" },
+  { slot: "weapon", name: "มือหลัก" },
+  { slot: "offhand", name: "มือรอง" },
   { slot: "top", name: "เสื้อ" },
   { slot: "bottom", name: "กางเกง" },
 ];
 
 export function itemSlot(id: string | null | undefined): EquipSlot | null {
   const kind = id ? ITEMS[id]?.kind : undefined;
-  return kind === "weapon" || kind === "top" || kind === "bottom" ? kind : null;
+  return kind === "weapon" || kind === "offhand" || kind === "top" || kind === "bottom" ? kind : null;
+}
+
+// Whether an item may go in a slot: one-handed weapons fit the off hand too.
+export function fitsSlot(id: string | null | undefined, slot: EquipSlot): boolean {
+  const item = id ? ITEMS[id] : undefined;
+  if (!item) return false;
+  if (slot === "offhand") return item.kind === "offhand" || (item.kind === "weapon" && !WEAPON_TYPES[item.weapon!].twoHanded);
+  return itemSlot(id) === slot;
+}
+
+export function isTwoHanded(id: string | null | undefined): boolean {
+  const item = id ? ITEMS[id] : undefined;
+  return item?.kind === "weapon" && !!WEAPON_TYPES[item.weapon!].twoHanded;
+}
+
+// The weapon held in the off hand, if any.
+export function offhandWeapon(id: string | null | undefined): WeaponId | null {
+  const item = id ? ITEMS[id] : undefined;
+  return item?.kind === "weapon" ? item.weapon! : null;
 }
 
 export function stackLimit(id: string): number {
@@ -231,9 +269,17 @@ export function describe(id: string): string {
     const w = WEAPON_TYPES[item.weapon!];
     const reach = w.projectile ? w.projectile.range : w.reach;
     const hits = w.hits ? ` × ${w.hits}` : "";
-    return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}`;
+    const hands = w.twoHanded ? "อาวุธสองมือ (ใช้มือรองด้วย)" : "มือเดียว · ใส่มือรองได้ (ตีซ้ำ 50%)";
+    return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}<br>${hands}`;
   }
   if (item.kind === "book") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
+  if (item.kind === "offhand") {
+    const names: Record<string, string> = { def: "ป้องกัน", mdef: "ต้านเวท", maxHpPct: "HP สูงสุด", maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน",
+      potion: "ยาฟื้นแรงขึ้น", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท", cdr: "ลดคูลดาวน์" };
+    const pct = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr"]);
+    const st = Object.entries(item.stats ?? {}).map(([k, v = 0]) => `${names[k] ?? k} ${v < 0 ? "" : "+"}${pct.has(k) ? `${Math.round(v * 100)}%` : v}`).join(" · ");
+    return `${item.note}<br>${st}<br>ใส่มือรอง (ใช้กับอาวุธสองมือไม่ได้)`;
+  }
   if (item.kind === "potion") return `${item.note}<br>ดับเบิลคลิกเพื่อดื่ม (บอทดื่มเองได้)`;
   if (item.kind === "top" || item.kind === "bottom") {
     const sh = SHAPES[item.kind][item.shape!];
@@ -249,7 +295,7 @@ export function sellPrice(id: string): number {
 }
 
 // Bag order for sorting: kind first, then shape, colour and name.
-const KIND_ORDER: ItemKind[] = ["weapon", "top", "bottom", "potion", "book", "material"];
+const KIND_ORDER: ItemKind[] = ["weapon", "offhand", "top", "bottom", "potion", "book", "material"];
 export function sortKey(id: string): string {
   const item = ITEMS[id];
   return `${KIND_ORDER.indexOf(item.kind)}|${item.shape ?? ""}|${item.dye ? 1 : 0}|${id}`;

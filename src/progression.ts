@@ -354,7 +354,7 @@ export const MASTERIES: Record<string, Mastery> = {
     { id: "spear_lance", name: "แทงทะลวง", glyph: "pierce",
       skill: { type: "beam", stat: "atk", mult: () => 2.5, mp: 14, cd: 7, motion: "thrust", length: 420, width: 60, color: "#f0f6ff" },
       desc: "แทงทะลุแนวยาว 4.2 ม. ดาเมจ 250% ของพลังโจมตี" }),
-  dagger: weaponMastery("มีด", ["dagger", "dual_daggers"], "dagger",
+  dagger: weaponMastery("มีด", ["dagger"], "dagger",
     { name: "มือไว", stats: { aspd: 0.1 }, desc: "ความเร็วโจมตี +10% เมื่อถือมีด" },
     { id: "shadow_step", name: "เงาจู่โจม", glyph: "dash",
       skill: { type: "dash", stat: "atk", mult: () => 2.2, mp: 12, cd: 6, motion: "thrust", distance: 200, width: 60, color: "#c8b8ff" },

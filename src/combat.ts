@@ -2,7 +2,7 @@
 // burning, and the floating numbers. Damage numbers come from stats.js.
 
 import { mapX, mapY, S2, toView } from "./projection";
-import { WEAPON_TYPES } from "./items";
+import { WEAPON_TYPES, OFFHAND_DAMAGE } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
@@ -162,7 +162,8 @@ export class Combat {
   hero: Hero;
   onKill: (m: Monster) => void;
   projectiles: Projectile[] = [];
-  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType }[] = []; // delayed second hits (dual daggers)
+  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType }[] = []; // delayed second hits (weapons with hits > 1)
+  offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2 }[] = []; // off-hand follow-ups
   burnClock = 0;
 
   // hero: stats for damage; onKill(monster)
@@ -176,8 +177,14 @@ export class Combat {
   }
 
   // The player's weapon lands: resolve a melee hit or launch a projectile.
-  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, weaponId: string | null): void {
+  // A normal attack with the main-hand weapon; a weapon in the off hand follows up on every
+  // monster the main hand hit for OFFHAND_DAMAGE of its own damage.
+  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, weaponId: string | null, offhand: WeaponId | null = null): void {
     const w = weaponStats(weaponId, this.hero.stats);
+    const off = offhand ? weaponStats(offhand, this.hero.stats) : null;
+    const follow = (m: Monster, d: Vec2) => {
+      if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d });
+    };
     const dir = player.aimDir();
     const origin = { x: player.x, y: player.y };
     if (w.projectile) {
@@ -188,12 +195,18 @@ export class Combat {
         const dx = player.target.x - origin.x, dy = player.target.y - origin.y, d = Math.hypot(dx, dy) || 1;
         aim = { x: dx / d, y: dy / d };
       }
-      this.shoot(origin, aim, { ...p, onHit: (m, d) => this.damage(m, w, d) });
+      this.shoot(origin, aim, { ...p, onHit: (m, d) => {
+        this.damage(m, w, d);
+        follow(m, d);
+      } });
       return;
     }
     const hits = shapeTargets(origin, dir, w, this.monsters);
     const targets = w.pierce || w.hit !== "line" ? hits : hits.slice(0, 1);
-    for (const m of targets) this.damage(m, w, dir);
+    for (const m of targets) {
+      this.damage(m, w, dir);
+      follow(m, dir);
+    }
     this.slashFx(origin, dir, w);
     if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir, w });
   }
@@ -208,9 +221,10 @@ export class Combat {
     });
   }
 
-  // A normal attack lands on a monster.
-  damage(m: Monster, w: WeaponType, dir: Vec2): void {
+  // A normal attack lands on a monster (scale < 1 for the off hand).
+  damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1): void {
     const r = basicDamage(this.hero.stats, w, m);
+    if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
     if (this.hero.stats.stunHit && Math.random() < this.hero.stats.stunHit) m.stun = Math.max(m.stun, 1);
     this.apply(m, r, dir, w.knock ?? 25);
   }
@@ -247,6 +261,12 @@ export class Combat {
   }
 
   update(dt: number): void {
+    for (let i = this.offhits.length - 1; i >= 0; i--) {
+      const h = this.offhits[i];
+      if ((h.t -= dt) > 0) continue;
+      this.offhits.splice(i, 1);
+      if (h.m.alive) this.damage(h.m, h.w, h.dir, OFFHAND_DAMAGE);
+    }
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       p.t -= dt;

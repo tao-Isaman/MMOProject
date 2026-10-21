@@ -44,6 +44,7 @@ export interface BotSettings {
   prefer: "near" | "weak" | "strong";
   defend: boolean;                    // slimes attacking us come first, whatever the filter
   radius: number;                     // cm around the anchor
+  wholeMap: boolean;                  // hunt anywhere in the courtyard, ignoring the radius
   restHp: number;                     // % HP that sends the bot to rest (0: never)
   restMp: number;                     // % MP that sends the bot to rest (0: never)
   resume: number;                     // % HP and MP to rest up to
@@ -76,7 +77,7 @@ export function defaultRule(id: string): SkillRule {
 export function defaultSettings(): BotSettings {
   return {
     rules: [], basic: true, targets: Object.fromEntries(VARIANTS.map((v) => [v.id, true])), prefer: "near", defend: true,
-    radius: 900, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, revive: true, stopFull: true,
+    radius: 900, wholeMap: false, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, revive: true, stopFull: true,
   };
 }
 
@@ -309,7 +310,7 @@ export class Bot {
     if (!t) {
       player.target = null;
       const home = Math.hypot(player.x - this.anchor.x, player.y - this.anchor.y);
-      if (home > 120) {
+      if (!s.wholeMap && home > 120) {
         this.state = "return";
         return this.walkTo(this.anchor, dt);
       }
@@ -348,7 +349,7 @@ export class Bot {
 
   pickTarget(threats: Monster[]): void {
     const s = this.settings, p = this.d.player;
-    const inArea = (m: Monster) => Math.hypot(m.x - this.anchor.x, m.y - this.anchor.y) <= s.radius;
+    const inArea = (m: Monster) => s.wholeMap || Math.hypot(m.x - this.anchor.x, m.y - this.anchor.y) <= s.radius;
     const t = this.target;
     // a threat takes over from a target that isn't one
     if (s.defend && threats.length && !(t && threats.includes(t))) {

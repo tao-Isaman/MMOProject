@@ -2,6 +2,7 @@
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
 import { CLASSES, TREES, MASTERIES, ELEMENTS } from "./progression";
+import { ITEMS } from "./items";
 import type { Progress, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
 import { rand } from "./particles";
@@ -10,7 +11,7 @@ const ZERO = {
   maxHp: 0, maxMp: 0, atk: 0, matk: 0, def: 0, mdef: 0, crit: 0, critDmg: 0, aspd: 0, move: 0,
   hpRegen: 0, mpRegen: 0, cdr: 0, dmgRed: 0,
   // extras: weapon damage bonus, reach, stun chance on hit, exp and drop bonus, defence ignored
-  dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0,
+  dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0, potion: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };
@@ -33,8 +34,9 @@ function add(into: Record<string, number>, from: StatBag, k = 1): void {
   for (const [key, v] of Object.entries(from)) into[key] = (into[key] ?? 0) + (v ?? 0) * k;
 }
 
-// progress: Progress; weaponId: equipped weapon or null; buffs: [{ stats }]
-export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = []): Stats {
+// progress: Progress; weaponId: main-hand weapon or null; buffs: [{ stats }]; offhandId: what
+// the off hand holds (a weapon counts for its mastery, gear adds its stats)
+export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null): Stats {
   const cls = CLASSES[progress.cls ?? "mage"];
   const s: Stats = { ...ZERO };
   const bag = s as unknown as Record<string, number>;
@@ -52,11 +54,14 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   }
   for (const [id, lv] of Object.entries(progress.mastery)) {
     const m = MASTERIES[id];
-    // weapon masteries count while that weapon is in hand
-    if (m.kind === "weapon" && !m.weapons?.includes(weaponId as never)) continue;
+    // weapon masteries count while that weapon is in either hand
+    const offWeapon = offhandId ? ITEMS[offhandId]?.weapon : undefined;
+    if (m.kind === "weapon" && !m.weapons?.includes(weaponId as never) && !m.weapons?.includes(offWeapon as never)) continue;
     add(bag, m.per, lv);
     for (const r of m.rewards) if (r.kind === "passive" && r.stats && lv >= r.at) add(bag, r.stats);
   }
+  const gear = offhandId ? ITEMS[offhandId] : undefined;
+  if (gear?.kind === "offhand" && gear.stats) add(bag, gear.stats as StatBag);
   for (const b of buffs) add(bag, b.stats);
   s.maxHp *= 1 + s.maxHpPct;
   s.maxMp *= 1 + s.maxMpPct;

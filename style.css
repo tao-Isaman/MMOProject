@@ -134,6 +134,7 @@ kbd {
 .inv-cell.filled { cursor: grab; }
 .inv-cell.filled:hover { border-color: var(--gold); }
 .inv-cell.dragging { opacity: 0.35; }
+.inv-cell.held .inv-icon { opacity: 0.35; transform: scaleX(-1); }
 .inv-cell.unready .inv-icon { filter: grayscale(1) brightness(0.65); }
 .inv-cell.unready::after { content: "⏳"; position: absolute; right: 2px; top: 0; font-size: 12px; }
 .inv-tip-why { display: block; margin-top: 4px; color: #ffcf8a; }

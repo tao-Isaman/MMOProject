@@ -1,5 +1,5 @@
-// The merchant by the market cart and her shop window: buy potions, clothes and books for gold,
-// sell back anything in the bag that isn't worn.
+// The merchant by the market cart and her shop window: buy potions, off-hand gear, clothes and
+// books for gold, sell back anything in the bag that isn't worn.
 //
 // Her sprite is the first adventurer body generated in Oriverse (8 directions, standing).
 
@@ -18,6 +18,7 @@ export const MERCHANT = { x: 900, y: 690, name: "มิร่า", title: "ร�
 
 export const STOCK = [
   "potion_red", "potion_red_big", "potion_blue", "potion_blue_big",
+  "buckler", "kite_shield", "alchemy_flask", "spell_tome", "grimoire", "dagger",
   "top_priestess_white", "bottom_priestess_white", "top_adventurer_teal", "bottom_adventurer_sand",
   "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
   "book_survivor", "book_gathering", "book_lightning",

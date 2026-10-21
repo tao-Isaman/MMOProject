@@ -17,6 +17,7 @@ export const RESPAWN_TIME = 4;
 export class Hero {
   progress: Progress;
   weapon: () => string | null;
+  offhand: () => string | null;
   buffs: Buff[] = [];
   shield: { amount: number; max: number; t: number } | null = null;
   cooldowns = new Map<string, number>();  // skill id -> seconds left
@@ -27,10 +28,11 @@ export class Hero {
   hp = Infinity;
   mp = Infinity;
 
-  // weapon(): the equipped weapon id
-  constructor(progress: Progress, weapon: () => string | null) {
+  // weapon(), offhand(): what each hand holds
+  constructor(progress: Progress, weapon: () => string | null, offhand: () => string | null = () => null) {
     this.progress = progress;
     this.weapon = weapon;
+    this.offhand = offhand;
     this.recompute();
     this.hp = this.stats.maxHp;
     this.mp = this.stats.maxMp;
@@ -41,7 +43,7 @@ export class Hero {
   }
 
   recompute(): void {
-    this.stats = computeStats(this.progress, this.weapon(), this.buffs);
+    this.stats = computeStats(this.progress, this.weapon(), this.buffs, this.offhand());
     this.hp = Math.min(this.hp, this.stats.maxHp);
     this.mp = Math.min(this.mp, this.stats.maxMp);
   }

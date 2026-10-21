@@ -305,8 +305,8 @@ export class Player {
     return mapY(this.x, this.y);
   }
 
-  // weaponImg/art: what to draw in the hand during attacks and casts (null: bare hands)
-  draw(ctx: CanvasRenderingContext2D, view: View, weapon: { img: Img; art: WeaponArt } | null): void {
+  // weapon / offhand: what to draw in each hand during attacks and casts (null: empty)
+  draw(ctx: CanvasRenderingContext2D, view: View, weapon: { img: Img; art: WeaponArt } | null, offhand: { img: Img; art: WeaponArt } | null = null): void {
     const { k, ox, oy } = view;
     const gx = mapX(this.x, this.y) * k + ox;
     const gy = mapY(this.x, this.y) * k + oy;
@@ -330,18 +330,26 @@ export class Player {
     // the weapon shows while attacking or casting (unless the clip already draws it); behind
     // her when she faces away
     const a = this.attack;
-    const showWeapon = weapon && (this.casting || (a && !(a.w.builtin && this.builtin[a.motion])));
+    const showWeapon = (weapon || offhand) && (this.casting || a);
+    const mainShown = weapon && !(a && a.w.builtin && this.builtin[a.motion]);
     const hand = showWeapon ? this.handFor(clip, col) : null;
     const row = viewRow(this.dir);
     const behind = row >= 3 && row <= 5;
     const drawHeld = () => {
-      if (!hand || !weapon) return;
+      if (!hand) return;
       const toScreen = ([hx, hy]: [number, number]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
       const facing = screenAngle(this.aimDir());
       // swords drawn into a swing come down from overhead like axes
       const chop = a && (a.w.chop || a.motion === "swing");
       const angle = chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
       const [x, y] = toScreen(hand.r);
+      // the off hand: its own anchor, or mirrored beside the body
+      if (offhand) {
+        const l: [number, number] = hand.l ?? [2 * hand.c[0] - hand.r[0], hand.r[1]];
+        const [lx, ly] = toScreen(l);
+        drawWeapon(ctx, offhand.img, offhand.art, lx, ly, weaponAngle(l, hand.c, facing), s * (offhand.art.scale ?? 1));
+      }
+      if (!weapon || !mainShown) return;
       const wscale = s * (weapon.art.scale ?? 1);
       drawWeapon(ctx, weapon.img, weapon.art, x, y, angle, wscale);
       if (weapon.art.pair && hand.l) {
