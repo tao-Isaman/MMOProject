@@ -22,6 +22,8 @@ import { Progress, ACTIVES, CLASSES } from "./progression";
 import { Hero } from "./hero";
 import { Skills } from "./skills";
 import { monsterDamage } from "./stats";
+import type { ElementId, StatBag } from "./progression";
+
 import { Vitals, ClassPicker, StatusUI, SkillUI, skillTip } from "./charui";
 import { icon } from "./icons";
 import { Bot } from "./bot";
@@ -39,6 +41,13 @@ import { garmentIcon } from "./garments";
 import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touch";
 import type { FlowerSpell } from "./spell";
 import type { Atlas, Img, Textures, View } from "./types";
+
+// What an elemental bite can leave on the player (a buff whose id starts with "ail_").
+const AILMENTS: Partial<Record<ElementId, { name: string; stats: StatBag; t: number }>> = {
+  ice: { name: "หนาวสั่น", stats: { aspd: -0.2 }, t: 3 },
+  mud: { name: "โคลนติดเท้า", stats: { move: -0.3 }, t: 3 },
+  dark: { name: "ตาพร่า", stats: { hit: -30 }, t: 4 },
+};
 
 const MOVE_KEYS: Record<string, [number, number]> = {
   KeyW: [1, 0], ArrowUp: [1, 0],
@@ -971,6 +980,21 @@ async function boot(): Promise<void> {
         player.target = null;
         player.attack = null;
         player.cast = null;
+        return;
+      }
+      // metal: part of the bite goes back at the biter
+      if (hero.stats.reflect > 0) {
+        const back = Math.round(bite.dmg * hero.stats.reflect);
+        const d = Math.hypot(m.x - player.x, m.y - player.y) || 1;
+        if (back > 0) combat.apply(m, { dmg: back, crit: false, magic: false, miss: false }, { x: (m.x - player.x) / d, y: (m.y - player.y) / d }, 0);
+      }
+      // an ice, mud or dark bite may leave an ailment, less likely the better the player's
+      // defence in that element, shorter with plant, none at plant 50
+      const ail = m.element ? AILMENTS[m.element] : undefined;
+      const plant = hero.progress.elements.plant ?? 0;
+      if (ail && plant < 50 && Math.random() < 0.15 * Math.max(0, 1 - hero.stats[`${m.element!}Def`] / 100)) {
+        hero.addBuff(`ail_${m.element}`, ail.name, ail.stats, ail.t * (1 - 0.01 * plant));
+        floaters.add(player.x, player.y, 140, ail.name, "hurt");
       }
     },
   };

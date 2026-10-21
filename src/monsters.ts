@@ -13,6 +13,7 @@ import { hueShift, silhouette } from "./recolor";
 import { rand } from "./particles";
 import type { Img, Vec2, View } from "./types";
 import type { Hero } from "./hero";
+import type { ElementId } from "./progression";
 
 export interface Variant {
   id: string;
@@ -26,6 +27,8 @@ export interface Variant {
   accuracy?: number; // against the player's evasion (default: from its level)
   flee?: number;     // evasion against the player's accuracy (default: from its level)
   crit?: number;     // chance its bite crits (default: from its level)
+  element?: ElementId;                         // what its bite is made of (none: no element)
+  eleDef?: Partial<Record<ElementId, number>>; // its defence in each element (stats.ts elemental)
   xp: number;
   aggro: number;
   weight: number;
@@ -36,6 +39,7 @@ interface Clip {
   img: Img;
   flash: Img;
   ice: Img;
+  stone: Img;
   frames: number;
 }
 type SlimeSet = Record<"idle" | "hop" | "hurt" | "die", Clip>;
@@ -57,12 +61,16 @@ const RESPAWN = 9;       // s
 const BOOK_DROPS: [string, number][] = [["book_survivor", 0.015], ["book_gathering", 0.015], ["book_lightning", 0.015]];
 export const VARIANTS: Variant[] = [
   { id: "green", name: "สไลม์เขียว", hue: 0, level: 1, hp: 60, atk: 8, def: 2, mdef: 2, xp: 8, aggro: 0, weight: 6,
+    element: "plant", eleDef: { plant: 30, mud: 20, water: 10 },
     drops: [["jelly", 0.9], ["sprout", 0.08], ["top_mint", 0.03], ["bottom_forest", 0.03], ["top_priestess_forest", 0.02], ["bottom_priestess_forest", 0.02], ...BOOK_DROPS] },
   { id: "pink", name: "สไลม์ชมพู", hue: 185, level: 3, hp: 110, atk: 13, def: 5, mdef: 4, xp: 15, aggro: 0, weight: 4,
+    eleDef: { light: 20, wind: 20, plant: 10 },
     drops: [["jelly", 1], ["top_rose", 0.05], ["bottom_wine", 0.05], ["top_priestess_wine", 0.03], ["bottom_priestess_wine", 0.03], ["bottom_adventurer_wine", 0.03], ...BOOK_DROPS] },
   { id: "blue", name: "สไลม์ฟ้า", hue: 70, level: 5, hp: 170, atk: 18, def: 8, mdef: 10, xp: 24, aggro: 0, weight: 3,
+    element: "ice", eleDef: { ice: 35, water: 30 },
     drops: [["jelly", 1], ["jelly", 0.5], ["top_sky", 0.06], ["bottom_navy", 0.06], ["top_adventurer_navy", 0.03], ["bottom_adventurer_sand", 0.03], ["top_warrior_navy", 0.03], ...BOOK_DROPS] },
   { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 320, atk: 28, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
+    element: "dark", eleDef: { dark: 40, metal: 15, stone: 10 },
     drops: [["sprout", 0.6], ["top_lilac", 0.12], ["bottom_cocoa", 0.12], ["jelly", 1], ["top_priestess_black", 0.06], ["bottom_priestess_black", 0.06],
       ["top_adventurer_plum", 0.06], ["bottom_adventurer_black", 0.06], ["top_adventurer_ochre", 0.04], ["top_warrior_forest", 0.04], ["bottom_warrior_black", 0.04],
       ["book_survivor", 0.08], ["book_gathering", 0.08], ["book_lightning", 0.08]] },
@@ -93,7 +101,7 @@ export function slimeSheets(images: Record<keyof SlimeSet, Img>): Record<string,
     const set = {} as SlimeSet;
     for (const clip of ["idle", "hop", "hurt", "die"] as const) {
       const img = v.hue ? hueShift(images[clip], v.hue, 1.1) : images[clip];
-      set[clip] = { img, flash: silhouette(img), ice: silhouette(img, "#9fd8ff"), frames: img.width / CELL };
+      set[clip] = { img, flash: silhouette(img), ice: silhouette(img, "#9fd8ff"), stone: silhouette(img, "#9b958b"), frames: img.width / CELL };
     }
     out[v.id] = set;
   }
@@ -106,6 +114,7 @@ type State = "idle" | "hop" | "hurt" | "die" | "gone" | "bite";
 const STATUS: [(m: Monster) => boolean, string, string][] = [
   [(m) => m.burns.some((b) => b.poison), "drop", "#6fcf5a"],
   [(m) => m.slow > 0, "swirl", "#6fb4ff"],
+  [(m) => m.chill > 0, "freeze", "#bfe8ff"],
   [(m) => m.weak > 0, "down", "#b58aff"],
   [(m) => m.expose > 0, "target", "#ff7a5a"],
   [(m) => m.blind > 0, "eye", "#7d7690"],
@@ -128,11 +137,18 @@ export class Monster {
   accuracy = 0;
   flee = 0;
   crit = 0;
+  element: ElementId | undefined = undefined;
+  eleAtk = 0;   // its attack in its bite's element
+  eleDef: Partial<Record<ElementId, number>> = {};
   angry = 0;   // s left chasing the player
   biteCd = 0;
   stun = 0;
   freeze = 0;
   slow = 0;
+  slowPct = 0;   // how much slower it moves while slowed
+  chill = 0;     // s left biting chillPct slower (ice)
+  chillPct = 0;
+  petrify = 0;   // s left turned to stone (stone)
   burns: { dps: number; t: number; poison?: boolean }[] = []; // fire and poison, ticked by combat.ts
   weak = 0;      // s left dealing weakPct less damage
   weakPct = 0;
@@ -173,11 +189,14 @@ export class Monster {
     this.accuracy = this.variant.accuracy ?? 10 + 1.4 * this.level;
     this.flee = this.variant.flee ?? 2 + 1.5 * this.level;
     this.crit = this.variant.crit ?? 0.03 + 0.0002 * this.level;
+    this.element = this.variant.element;
+    this.eleAtk = 10 + this.level;
+    this.eleDef = this.variant.eleDef ?? {};
     this.angry = 0;
     this.biteCd = 0;
     this.stun = 0;
     this.freeze = 0;
-    this.slow = 0;
+    this.slow = this.slowPct = this.chill = this.chillPct = this.petrify = 0;
     this.burns = [];
     this.weak = this.weakPct = this.expose = this.exposePct = this.blind = 0;
     this.alive = true;
@@ -222,7 +241,7 @@ export class Monster {
   }
 
   get held(): boolean {
-    return this.stun > 0 || this.freeze > 0;
+    return this.stun > 0 || this.freeze > 0 || this.petrify > 0;
   }
 
   // Its bite after weakening.
@@ -232,13 +251,24 @@ export class Monster {
 
   // Under any status (for the hunter's bonus).
   get afflicted(): boolean {
-    return this.held || this.slow > 0 || this.weak > 0 || this.expose > 0 || this.blind > 0 || this.burns.some((b) => b.poison);
+    return this.held || this.slow > 0 || this.chill > 0 || this.weak > 0 || this.expose > 0 || this.blind > 0 || this.burns.some((b) => b.poison);
   }
 
   // Weaken or expose for t s: the stronger one wins while one is on.
   weaken(t: number, pct: number): void {
     this.weakPct = this.weak > 0 ? Math.max(this.weakPct, pct) : pct;
     this.weak = Math.max(this.weak, t);
+  }
+
+  // Slow it for t s (pct slower), chill it (bites pct slower): the stronger one wins while on.
+  slowFor(t: number, pct: number): void {
+    this.slowPct = this.slow > 0 ? Math.max(this.slowPct, pct) : pct;
+    this.slow = Math.max(this.slow, t);
+  }
+
+  chillFor(t: number, pct: number): void {
+    this.chillPct = this.chill > 0 ? Math.max(this.chillPct, pct) : pct;
+    this.chill = Math.max(this.chill, t);
   }
 
   exposeTo(t: number, pct: number): void {
@@ -253,6 +283,8 @@ export class Monster {
     this.stun = Math.max(0, this.stun - dt);
     this.freeze = Math.max(0, this.freeze - dt);
     this.slow = Math.max(0, this.slow - dt);
+    this.chill = Math.max(0, this.chill - dt);
+    this.petrify = Math.max(0, this.petrify - dt);
     this.weak = Math.max(0, this.weak - dt);
     this.expose = Math.max(0, this.expose - dt);
     this.blind = Math.max(0, this.blind - dt);
@@ -309,7 +341,7 @@ export class Monster {
       if (this.t >= 0.55) {
         this.state = "idle";
         this.wait = 0.15;
-        this.biteCd = BITE_TIME;
+        this.biteCd = BITE_TIME / (this.chill > 0 ? 1 - this.chillPct : 1);
       }
     }
     this.slide(dt);
@@ -375,7 +407,7 @@ export class Monster {
         if (d < 12) break;
         this.row = row4(dx, dy);
         if (air) {
-          const v = HOP_SPEED * 2 * (this.slow > 0 ? 0.5 : 1) * (this.angry > 0 ? 1.25 : 1);
+          const v = HOP_SPEED * 2 * (this.slow > 0 ? 1 - this.slowPct : 1) * (this.angry > 0 ? 1.25 : 1);
           const p = { x: this.x + (dx / d) * v * dt, y: this.y + (dy / d) * v * dt };
           resolve(p, this.radius);
           this.x = p.x;
@@ -419,9 +451,9 @@ export class Monster {
       ctx.globalAlpha = fade * Math.min(1, this.flash / 0.08) * 0.85;
       ctx.drawImage(clip.flash, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
     }
-    if (this.freeze > 0 && this.alive) {
-      ctx.globalAlpha = fade * 0.55;
-      ctx.drawImage(clip.ice ?? clip.flash, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
+    if ((this.freeze > 0 || this.petrify > 0) && this.alive) {
+      ctx.globalAlpha = fade * (this.petrify > 0 ? 0.8 : 0.55);
+      ctx.drawImage((this.petrify > 0 ? clip.stone : clip.ice) ?? clip.flash, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
     }
     ctx.globalAlpha = 1;
     const top = gy - (CELL * 0.82) * s - 8 * k;

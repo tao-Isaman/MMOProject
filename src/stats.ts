@@ -1,9 +1,9 @@
 // Stats and damage. computeStats folds class, level, passives, masteries, elements, the weapon
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
-import { CLASSES, TREES, MASTERIES, ELEMENTS } from "./progression";
+import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS } from "./progression";
 import { ITEMS } from "./items";
-import type { Progress, SkillDef, StatBag } from "./progression";
+import type { ElementId, Progress, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
 import { rand } from "./particles";
 
@@ -15,17 +15,24 @@ const ZERO = {
   // healing power, a second arrow on a bow shot, poison on a normal hit, damage to monsters
   // under any status, longer buffs
   healPct: 0, multiShot: 0, poisonHit: 0, huntDmg: 0, buffTime: 0,
+  // a share of the damage a bite does sent back at the biter
+  reflect: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };
 
-export type Stats = typeof ZERO;
+// Attack and defence in each element (fireAtk, fireDef, ...), a point each a percent.
+type ElementStats = Record<`${ElementId}Atk` | `${ElementId}Def`, number>;
+const ELEMENT_ZERO = Object.fromEntries(ELEMENT_IDS.flatMap((e) => [[`${e}Atk`, 0], [`${e}Def`, 0]])) as ElementStats;
+
+export type Stats = typeof ZERO & ElementStats;
 
 // What a hit is measured against.
 export interface Defender {
   def: number;
   mdef: number;
   flee: number;
+  eleDef?: Partial<Record<ElementId, number>>;
 }
 
 export interface Hit {
@@ -33,6 +40,7 @@ export interface Hit {
   crit: boolean;
   magic: boolean;
   miss: boolean;
+  element?: ElementId;
 }
 
 function add(into: Record<string, number>, from: StatBag, k = 1): void {
@@ -43,7 +51,7 @@ function add(into: Record<string, number>, from: StatBag, k = 1): void {
 // the off hand holds (a weapon counts for its mastery, gear adds its stats)
 export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null): Stats {
   const cls = CLASSES[progress.cls ?? "mage"];
-  const s: Stats = { ...ZERO };
+  const s: Stats = { ...ZERO, ...ELEMENT_ZERO };
   const bag = s as unknown as Record<string, number>;
   add(bag, cls.base);
   add(bag, cls.growth, progress.level - 1);
@@ -82,6 +90,7 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   s.pierce = Math.min(0.8, s.pierce);
   s.multiShot = Math.min(0.8, s.multiShot);
   s.poisonHit = Math.min(0.6, s.poisonHit);
+  s.reflect = Math.min(0.6, s.reflect);
   return s;
 }
 
@@ -99,17 +108,30 @@ export function hitChance(hit: number, flee: number): number {
 // A critical hit goes through this much of the armour, on top of any armour piercing.
 export const CRIT_PIERCE = 0.5;
 
-// Magic always lands and never crits.
-function spellHit(raw: number, stats: Stats, target: Defender): Hit {
-  return { dmg: Math.max(1, Math.round(mitigate(raw, target.mdef, stats.pierce))), crit: false, magic: true, miss: false };
+// The element step, after a hit's normal damage: the attacker's attack in the hit's element
+// against the defender's defence in it, a point each a percent (no element beats another), down
+// to a tenth at most.
+export function elemental(dmg: number, attack: number, defence: number): number {
+  return dmg * Math.max(0.1, 1 + (attack - defence) / 100);
+}
+
+// How much of the armour a light hit goes through (the light element's line).
+export function lightPierce(level: number): number {
+  return level > 0 ? Math.min(1, 0.2 + 0.016 * level + (level >= 35 ? 0.2 : 0)) : 0;
+}
+
+// Magic always lands and never crits. `through`: armour it goes through besides piercing.
+function spellHit(raw: number, stats: Stats, target: Defender, through = 0): Hit {
+  const pierce = 1 - (1 - stats.pierce) * (1 - through);
+  return { dmg: Math.max(1, Math.round(mitigate(raw, target.mdef, pierce))), crit: false, magic: true, miss: false };
 }
 
 // A physical blow rolls its crit first, as in Ragnarok: a crit always lands, harder and through
 // half the armour. Any other blow can miss (accuracy against evasion).
-function physicalHit(raw: number, stats: Stats, critChance: number, target: Defender): Hit {
+function physicalHit(raw: number, stats: Stats, critChance: number, target: Defender, through = 0): Hit {
   const crit = Math.random() < critChance;
   if (!crit && Math.random() >= hitChance(stats.hit, target.flee)) return { dmg: 0, crit: false, magic: false, miss: true };
-  const pierce = crit ? 1 - (1 - stats.pierce) * (1 - CRIT_PIERCE) : stats.pierce;
+  const pierce = 1 - (1 - stats.pierce) * (1 - through) * (crit ? 1 - CRIT_PIERCE : 1);
   const dmg = mitigate(raw * (crit ? 1 + stats.critDmg : 1), target.def, pierce);
   return { dmg: Math.max(1, Math.round(dmg)), crit, magic: false, miss: false };
 }
@@ -142,21 +164,30 @@ export function skillPower(stats: Stats, elements: Record<string, number>, skill
 }
 
 // A skill hit: skillPower and the spread, then a spell (lightning: +0.3% damage a level) or a
-// physical blow (lightning: +0.3% crit chance a level).
+// physical blow (lightning: +0.3% crit chance a level), then the skill's element if it has one
+// (a light hit also goes through some of the armour).
 export function skillDamage(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, target: Defender, weapon: WeaponType | null = null): Hit {
-  const lightning = elements.lightning ?? 0;
+  const lightning = elements.lightning ?? 0, el = skill.element;
+  const through = el === "light" ? lightPierce(elements.light ?? 0) : 0;
   const raw = skillPower(stats, elements, skill, rank, weapon) * rand(0.92, 1.08);
-  return skill.stat === "matk"
-    ? spellHit(raw * (1 + 0.003 * lightning), stats, target)
-    : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target);
+  const hit = skill.stat === "matk"
+    ? spellHit(raw * (1 + 0.003 * lightning), stats, target, through)
+    : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target, through);
+  if (el && !hit.miss) {
+    hit.element = el;
+    hit.dmg = Math.max(1, Math.round(elemental(hit.dmg, stats[`${el}Atk`], target.eleDef?.[el] ?? 0)));
+  }
+  return hit;
 }
 
 // What a monster's bite does to it: a physical blow by the same rules (a crit lands, +50% and
-// through half the player's armour; any other bite can miss). null when it misses.
+// through half the player's armour; any other bite can miss), then the bite's element if it has
+// one (the monster's attack in it against the player's defence). null when it misses.
 export const MONSTER_CRIT_DMG = 0.5;
-export function monsterDamage(m: { power: number; accuracy: number; crit: number }, stats: Stats): { dmg: number; crit: boolean } | null {
+export function monsterDamage(m: { power: number; accuracy: number; crit: number; element?: ElementId; eleAtk: number }, stats: Stats): { dmg: number; crit: boolean } | null {
   const crit = Math.random() < m.crit;
   if (!crit && Math.random() >= hitChance(m.accuracy, stats.flee)) return null;
-  const hit = mitigate(m.power * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);
+  let hit = mitigate(m.power * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);
+  if (m.element) hit = elemental(hit, m.eleAtk, stats[`${m.element}Def`]);
   return { dmg: Math.max(1, Math.round(hit * (1 - stats.dmgRed))), crit };
 }

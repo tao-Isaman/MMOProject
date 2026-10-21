@@ -9,13 +9,24 @@
 //              [10: stuns, slows and freezes last 30% longer]
 //   lightning  +0.3% physical skill crit (spells: +0.3% damage) per level; [10: hits jump to one more monster for 30%;
 //              35: to two; 50: for 60%]
+// and the elements that work through their own hits (SkillDef.element; elementHit), besides
+// that element's attack against the target's defence in it (stats.ts):
+//   ice    chills: bites 10% + 0.6%/level slower for 3 s [10: 5 s; 35: 10% freeze 1.5 s; 50: twice]
+//   light  goes through 20% + 1.6%/level of the armour [35: 20% more] (stats.ts lightPierce)
+//   dark   10% + 0.6%/level: blind, weaken or poison for 4 s [10: 6 s; 35: two at once]
+//   stone  4% + 0.3%/level: turned to stone 2 s [10: 3 s; 35: half as likely again;
+//          50: stone takes 25% more, combat.ts]
+//   mud    20% + 0.8%/level slower for 3 s [10: 5 s; 35: held 0.5 s; 50: half as slow again]
+//   lava   burns 15% + 0.7%/level of the hit over 3 s [20: 5 s; 50: twice]
+//   plant  (any skill) heals 0.1% max HP a level [35: twice]; [10: clears the player's ailments]
+//   metal  (bitten) sends part of the bite back (stats reflect; main.ts)
 //
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point, `hits` times) · nova, storm
 // (around the caster) · cone (in front) · beam (a line) · dash (no `mult`: a teleport) · heal ·
 // shield · buff · flower.
 
 import { ACTIVES, MASTERIES } from "./progression";
-import type { Progress, SkillDef } from "./progression";
+import type { ElementId, Progress, SkillDef } from "./progression";
 import { skillDamage } from "./stats";
 import { shapeTargets } from "./combat";
 import type { Combat, Floaters } from "./combat";
@@ -139,6 +150,11 @@ export class Skills {
     }
     if (wind >= 10) this.hero.addBuff("wind_rush", "สายลม", { move: 0.25 }, 2);
     if (water >= 35) this.hero.heal(this.hero.stats.maxHp * 0.03);
+    const plant = this.el.plant ?? 0;
+    if (plant) {
+      this.hero.heal(this.hero.stats.maxHp * 0.001 * plant * (plant >= 35 ? 2 : 1));
+      if (plant >= 10) this.hero.cleanse();
+    }
   }
 
   // Damage a monster with a skill, then the element riders.
@@ -151,12 +167,13 @@ export class Skills {
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);
     if (s.freeze) m.freeze = Math.max(m.freeze, s.freeze(rank) * earth);
-    if (s.slow) m.slow = Math.max(m.slow, s.slow(rank) * earth);
+    if (s.slow) m.slowFor(s.slow(rank) * earth, 0.5);
     if (s.blind) m.blind = Math.max(m.blind, s.blind(rank) * earth);
     if (s.weaken) m.weaken((s.debuff ?? 6) * earth, s.weaken(rank));
     if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
     if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock);
+    if (s.element) this.elementHit(m, s.element, r.dmg, earth);
     const fire = this.el.fire ?? 0, water = this.el.water ?? 0, lightning = this.el.lightning ?? 0;
     if (fire >= 10) m.burns.push({ dps: (r.dmg * (fire >= 35 ? 0.4 : 0.2)) / 3, t: 3 });
     if (water >= 10) this.hero.heal(r.dmg * (water >= 50 ? 0.1 : 0.05));
@@ -167,6 +184,38 @@ export class Skills {
       for (const o of next) {
         this.zap(m, o);
         this.hit(o, s, rank, dir, 0, true);
+      }
+    }
+  }
+
+  // What a hit of an element does besides its damage, by that element's level (progression.ts
+  // ELEMENTS, the line and its milestones). earth: how much longer holds last.
+  elementHit(m: Monster, el: ElementId, dmg: number, earth: number): void {
+    const lv = this.el[el] ?? 0;
+    if (!lv || !m.alive) return;
+    switch (el) {
+      case "ice":
+        m.chillFor(lv >= 10 ? 5 : 3, Math.min(0.8, (0.1 + 0.006 * lv) * (lv >= 50 ? 2 : 1)));
+        if (lv >= 35 && Math.random() < 0.1) m.freeze = Math.max(m.freeze, 1.5 * earth);
+        break;
+      case "dark": {
+        if (Math.random() >= 0.1 + 0.006 * lv) break;
+        const t = lv >= 10 ? 6 : 4;
+        const ails = [() => (m.blind = Math.max(m.blind, t)), () => m.weaken(t, 0.2), () => m.burns.push({ dps: (dmg * 0.3) / t, t, poison: true })];
+        for (const i of [...ails.keys()].sort(() => Math.random() - 0.5).slice(0, lv >= 35 ? 2 : 1)) ails[i]();
+        break;
+      }
+      case "stone":
+        if (Math.random() < (0.04 + 0.003 * lv) * (lv >= 35 ? 1.5 : 1)) m.petrify = Math.max(m.petrify, (lv >= 10 ? 3 : 2) * earth);
+        break;
+      case "mud":
+        m.slowFor((lv >= 10 ? 5 : 3) * earth, Math.min(0.8, (0.2 + 0.008 * lv) * (lv >= 50 ? 1.5 : 1)));
+        if (lv >= 35) m.stun = Math.max(m.stun, 0.5);
+        break;
+      case "lava": {
+        const t = lv >= 20 ? 5 : 3;
+        m.burns.push({ dps: (dmg * (0.15 + 0.007 * lv) * (lv >= 50 ? 2 : 1)) / t, t });
+        break;
       }
     }
   }

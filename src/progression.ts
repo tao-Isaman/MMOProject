@@ -4,8 +4,8 @@
 //                skill books. Deeper nodes open once enough points are in the tree.
 //   masteries    straight lines: each level is a bonus, set levels grant a skill or passive.
 //                Weapon masteries are open from the start; others come from mastery books.
-//   elements     straight lines of base stats with one strong side each; element levels also
-//                strengthen every active skill. Four to start, more from element books.
+//   elements     straight lines: attack and defence in that element, a little of its strong
+//                side, and its effect. Twelve to start, more from element books.
 // stats.js turns this into numbers, skills.js runs the actives.
 
 import { saveKey } from "./save";
@@ -17,12 +17,17 @@ export const MAX_LEVEL = 200;
 export type StatBag = Partial<Record<string, number>>;
 type ByRank<T> = (rank: number) => T;
 
+// Every element: the first five came first, the rest with element attack and defence.
+export const ELEMENT_IDS = ["earth", "water", "wind", "fire", "lightning", "ice", "light", "dark", "plant", "stone", "mud", "lava", "metal"] as const;
+export type ElementId = (typeof ELEMENT_IDS)[number];
+
 export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower";
 
 // An active skill's numbers; which fields matter depends on `type` (skills.ts).
 export interface SkillDef {
   type: SkillType;
   stat?: "atk" | "matk";
+  element?: ElementId; // what its hits are made of (none: no element)
   mult?: ByRank<number>;
   mp: number;
   cd: number;
@@ -159,9 +164,9 @@ export function xpToNext(level: number): number {
 export const STAT_NAMES: Record<string, string> = {
   maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", atk: "พลังโจมตี", matk: "พลังเวท", def: "ป้องกัน", mdef: "ต้านเวท",
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
-  hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", dmgRed: "ลดความเสียหาย",
+  hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
 };
-export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "dmgRed"]);
+export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "dmgRed", "reflect"]);
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
@@ -762,13 +767,17 @@ export const MASTERIES: Record<string, Mastery> = {
 };
 
 // ---- elements ----
-// Each level adds base stats (the element's strong side most); levels also strengthen every
-// active skill (skill line), and milestones along the line add stats or skill effects
-// (the effects are in skills.ts and stats.ts skillPower).
+// Each level adds that element's attack and defence (a point each a percent: after a hit's
+// normal damage, the attacker's attack in its element against the target's defence in it, no
+// element beating another; stats.ts elemental), a little of the element's strong side, and the
+// line's effect (skill line); milestones along the line add stats or effects (skills.ts, stats.ts).
+// The first five also strengthen every skill (their old effects); the rest work through the
+// hits of their own element (SkillDef.element), or on their own (plant, lava, metal).
+const ea = (id: string, atk = 2, def = 1.5): StatBag => ({ [`${id}Atk`]: atk, [`${id}Def`]: def });
 export const ELEMENTS: Record<string, ElementDef> = {
   earth: {
     name: "ดิน", color: "#d6a35c", glyph: "earth", max: 50, side: "ป้องกัน",
-    per: { def: 1.4, mdef: 0.8, maxHp: 10, atk: 0.3, matk: 0.3 },
+    per: { ...ea("earth"), def: 0.7, mdef: 0.4, maxHp: 5 },
     skill: "สกิลสร้างโล่ 0.4% ของ HP สูงสุดต่อระดับตอนใช้ (นาน 4 วิ)",
     marks: [
       { at: 10, name: "หินผา", desc: "สกิลที่ทำให้มึน ช้า หรือแช่แข็ง นานขึ้น 30%" },
@@ -779,7 +788,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
   water: {
     name: "น้ำ", color: "#6fc3ff", glyph: "drop", max: 50, side: "ฟื้นฟู",
-    per: { hpRegen: 0.3, mpRegen: 0.25, maxMp: 6, maxHp: 4, matk: 0.4 },
+    per: { ...ea("water"), hpRegen: 0.15, mpRegen: 0.12, maxMp: 3, maxHp: 2 },
     skill: "สกิลรักษาแรงขึ้น 2% ต่อระดับ",
     marks: [
       { at: 10, name: "สายน้ำ", desc: "สกิลที่ตีโดนดูด HP 5% ของดาเมจ" },
@@ -790,7 +799,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
   wind: {
     name: "ลม", color: "#9ef0c0", glyph: "swirl", max: 50, side: "ความเร็ว",
-    per: { move: 0.006, aspd: 0.008, crit: 0.0015, cdr: 0.003, atk: 0.3, flee: 0.6 },
+    per: { ...ea("wind"), move: 0.003, aspd: 0.004, crit: 0.0008, cdr: 0.003, flee: 0.3 },
     skill: "คูลดาวน์สกิลลดลง 0.3% ต่อระดับ (รวมในค่าลดคูลดาวน์)",
     marks: [
       { at: 10, name: "สายลม", desc: "หลังใช้สกิล เดินเร็วขึ้น 25% นาน 2 วิ" },
@@ -801,7 +810,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
   fire: {
     name: "ไฟ", color: "#ff8a5c", glyph: "flame", max: 50, side: "โจมตี",
-    per: { atk: 1.1, matk: 1.1, critDmg: 0.01, maxHp: 2 },
+    per: { ...ea("fire"), atk: 0.55, matk: 0.55, critDmg: 0.005, maxHp: 1 },
     skill: "ดาเมจสกิลแรงขึ้น 1% ต่อระดับ",
     marks: [
       { at: 10, name: "เผาไหม้", desc: "สกิลที่ตีโดนเผาศัตรู 20% ของดาเมจใน 3 วิ" },
@@ -810,10 +819,98 @@ export const ELEMENTS: Record<string, ElementDef> = {
       { at: 50, name: "อัคนี", desc: "ดาเมจสกิลแรงขึ้นอีก 15%" },
     ],
   },
+  ice: {
+    name: "น้ำแข็ง", color: "#9fe0ff", glyph: "freeze", max: 50, side: "ลดความเร็วโจมตีและร่ายของศัตรู",
+    per: { ...ea("ice"), mdef: 0.3, maxMp: 2 },
+    skill: "การโจมตีธาตุน้ำแข็งทำให้ศัตรูหนาวสั่น โจมตีและร่ายช้าลง 10% +0.6% ต่อระดับ นาน 3 วิ",
+    marks: [
+      { at: 10, name: "ลมหนาว", desc: "หนาวสั่นนานขึ้นเป็น 5 วิ" },
+      { at: 20, name: "ผิวน้ำแข็ง", desc: "ป้องกันธาตุน้ำแข็ง +15 ต้านเวท +5%", stats: { iceDef: 15, mdefPct: 0.05 } },
+      { at: 35, name: "เยือกแข็ง", desc: "การโจมตีธาตุน้ำแข็งมีโอกาส 10% แช่แข็งศัตรู 1.5 วิ" },
+      { at: 50, name: "ยุคน้ำแข็ง", desc: "หนาวสั่นแรงขึ้นเท่าตัว พลังโจมตีธาตุน้ำแข็ง +20", stats: { iceAtk: 20 } },
+    ],
+  },
+  light: {
+    name: "แสง", color: "#fff1a8", glyph: "star", max: 50, side: "ความเสียหายจริง",
+    per: { ...ea("light"), matk: 0.3, hit: 0.4 },
+    skill: "การโจมตีธาตุแสงไม่สนเกราะ 20% +1.6% ต่อระดับ (ระดับ 50: ไม่สนเกราะเลย)",
+    marks: [
+      { at: 10, name: "แสงนำทาง", desc: "ความแม่นยำ +10", stats: { hit: 10 } },
+      { at: 20, name: "รัศมี", desc: "ป้องกันธาตุแสง +15 ต้านเวท +5%", stats: { lightDef: 15, mdefPct: 0.05 } },
+      { at: 35, name: "แสงทะลวง", desc: "การโจมตีธาตุแสงไม่สนเกราะเพิ่มอีก 20%" },
+      { at: 50, name: "สุริยะ", desc: "พลังโจมตีธาตุแสง +30", stats: { lightAtk: 30 } },
+    ],
+  },
+  dark: {
+    name: "ความมืด", color: "#a98cff", glyph: "eye", max: 50, side: "สถานะผิดปกติ",
+    per: { ...ea("dark"), matk: 0.3, atk: 0.2 },
+    skill: "การโจมตีธาตุความมืดมีโอกาส 10% +0.6% ต่อระดับ ทำให้ศัตรูติดสถานะ (ตาบอด อ่อนแรง หรือพิษ) 4 วิ",
+    marks: [
+      { at: 10, name: "เงามืด", desc: "สถานะจากธาตุความมืดนานขึ้นเป็น 6 วิ" },
+      { at: 20, name: "ม่านเงา", desc: "ป้องกันธาตุความมืด +15 หลบหลีก +10", stats: { darkDef: 15, flee: 10 } },
+      { at: 35, name: "คำสาป", desc: "ติดสถานะทีละ 2 อย่าง" },
+      { at: 50, name: "ราตรีนิรันดร์", desc: "ดาเมจใส่ศัตรูที่ติดสถานะ +15%", stats: { huntDmg: 0.15 } },
+    ],
+  },
+  plant: {
+    name: "พืช", color: "#8ee06a", glyph: "leaf", max: 50, side: "รักษาสถานะ",
+    per: { ...ea("plant"), hpRegen: 0.15, maxHp: 2 },
+    skill: "ใช้สกิลแล้วฟื้น HP 0.1% ของ HP สูงสุดต่อระดับ · สถานะผิดปกติบนตัวหมดเร็วขึ้น 1% ต่อระดับ",
+    marks: [
+      { at: 10, name: "รากแก้ว", desc: "ใช้สกิลแล้วล้างสถานะผิดปกติบนตัวทั้งหมด" },
+      { at: 20, name: "ใบเขียว", desc: "ป้องกันธาตุพืช +15 พลังรักษา +10%", stats: { plantDef: 15, healPct: 0.1 } },
+      { at: 35, name: "ผลิใบ", desc: "ฟื้น HP จากธาตุพืชตอนใช้สกิลแรงขึ้นเท่าตัว" },
+      { at: 50, name: "พฤกษาพิทักษ์", desc: "ไม่ติดสถานะผิดปกติ HP สูงสุด +5%", stats: { maxHpPct: 0.05 } },
+    ],
+  },
+  stone: {
+    name: "หิน", color: "#b4ada2", glyph: "slam", max: 50, side: "สาปเป็นหิน",
+    per: { ...ea("stone"), def: 0.4, maxHp: 3 },
+    skill: "การโจมตีธาตุหินมีโอกาส 4% +0.3% ต่อระดับ สาปศัตรูเป็นหิน 2 วิ (ขยับและโจมตีไม่ได้)",
+    marks: [
+      { at: 10, name: "ศิลาสาป", desc: "เป็นหินนานขึ้นเป็น 3 วิ" },
+      { at: 20, name: "ผิวศิลา", desc: "ป้องกันธาตุหิน +15 ป้องกัน +5%", stats: { stoneDef: 15, defPct: 0.05 } },
+      { at: 35, name: "เมดูซ่า", desc: "โอกาสสาปเป็นหินเพิ่มขึ้นครึ่งหนึ่ง" },
+      { at: 50, name: "รูปสลัก", desc: "ศัตรูที่เป็นหินโดนแรงขึ้น 25%" },
+    ],
+  },
+  mud: {
+    name: "โคลน", color: "#b08860", glyph: "down", max: 50, side: "ลดความเร็วเคลื่อนที่",
+    per: { ...ea("mud"), maxHp: 4, hpRegen: 0.05 },
+    skill: "การโจมตีธาตุโคลนทำให้ศัตรูเดินช้าลง 20% +0.8% ต่อระดับ นาน 3 วิ",
+    marks: [
+      { at: 10, name: "หล่มลึก", desc: "เดินช้านานขึ้นเป็น 5 วิ" },
+      { at: 20, name: "เกราะโคลน", desc: "ป้องกันธาตุโคลน +15 HP สูงสุด +3%", stats: { mudDef: 15, maxHpPct: 0.03 } },
+      { at: 35, name: "โคลนดูด", desc: "การโจมตีธาตุโคลนตรึงศัตรูอยู่กับที่ 0.5 วิ" },
+      { at: 50, name: "บึงมรณะ", desc: "เดินช้าแรงขึ้นอีกครึ่งหนึ่ง" },
+    ],
+  },
+  lava: {
+    name: "ลาวา", color: "#ff7438", glyph: "burst", max: 50, side: "เผาต่อเนื่องและป้องกัน",
+    per: { ...ea("lava"), def: 0.6, matk: 0.2 },
+    skill: "การโจมตีธาตุลาวาเผาศัตรู 15% +0.7% ต่อระดับของดาเมจ ใน 3 วิ",
+    marks: [
+      { at: 10, name: "เปลือกลาวา", desc: "ป้องกัน +5%", stats: { defPct: 0.05 } },
+      { at: 20, name: "หินหนืด", desc: "การเผาจากธาตุลาวานานขึ้นเป็น 5 วิ ป้องกันธาตุลาวา +15", stats: { lavaDef: 15 } },
+      { at: 35, name: "ภูเขาไฟ", desc: "ลดความเสียหายที่ได้รับ 5%", stats: { dmgRed: 0.05 } },
+      { at: 50, name: "แกนโลก", desc: "การเผาจากธาตุลาวาแรงขึ้นเท่าตัว" },
+    ],
+  },
+  metal: {
+    name: "โลหะ", color: "#cdd6e2", glyph: "shield", max: 50, side: "HP สูงสุดและสะท้อน",
+    per: { ...ea("metal"), maxHp: 6, maxHpPct: 0.002, reflect: 0.004 },
+    skill: "สะท้อนความเสียหายที่โดนโจมตีกลับไป 0.4% ต่อระดับ (รวมในค่าสะท้อน)",
+    marks: [
+      { at: 10, name: "ผิวเหล็ก", desc: "สะท้อนความเสียหาย +5%", stats: { reflect: 0.05 } },
+      { at: 20, name: "เกราะเหล็ก", desc: "ป้องกันธาตุโลหะ +15 HP สูงสุด +5%", stats: { metalDef: 15, maxHpPct: 0.05 } },
+      { at: 35, name: "หนามเหล็ก", desc: "สะท้อนความเสียหาย +10%", stats: { reflect: 0.1 } },
+      { at: 50, name: "ป้อมปราการ", desc: "HP สูงสุด +10% ป้องกันทุกธาตุ +10", stats: { maxHpPct: 0.1, ...Object.fromEntries(ELEMENT_IDS.map((e) => [`${e}Def`, 10])) } },
+    ],
+  },
   // opened by an element book
   lightning: {
     name: "สายฟ้า", color: "#fff27a", glyph: "bolt", max: 50, side: "คริติคอล", book: "book_lightning",
-    per: { crit: 0.004, critDmg: 0.012, aspd: 0.004, atk: 0.5, matk: 0.5 },
+    per: { ...ea("lightning"), crit: 0.002, critDmg: 0.006, aspd: 0.002, atk: 0.25, matk: 0.25 },
     skill: "สกิลกายภาพ: โอกาสคริติคอล +0.3% ต่อระดับ · สกิลเวท: ดาเมจ +0.3% ต่อระดับ",
     marks: [
       { at: 10, name: "ฟ้าผ่า", desc: "สกิลที่ตีโดนกระโดดไปโดนอีก 1 ตัวใกล้ๆ 30%" },
@@ -824,9 +921,36 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
 };
 
+// The element each damaging skill hits with (the rest have none: the arcane spells, most
+// weapon skills). Spells mostly; some weapon skills too, where the skill is made of something.
+const SKILL_ELEMENTS: Record<string, ElementId> = {
+  fire_bolt: "fire", fire_ball: "fire", magnum_break: "fire",
+  cold_bolt: "ice", frost_nova: "ice", ice_lance: "ice",
+  meteor: "lava",
+  soul_volley: "dark", singularity: "dark", poison_arrow: "dark", toxic_cloud: "dark", plague_rain: "dark", blind_arrow: "dark", doom_arrow: "dark",
+  seed_shot: "plant", flower_field: "plant", thorn_bind: "plant", vine_whip: "plant", petal_storm: "plant",
+  repulse: "wind", sonic_blade: "wind",
+  ground_slam: "stone", pin_arrow: "stone",
+  earthquake: "earth",
+  slow_arrow: "mud", snare_trap: "mud",
+  shield_bash: "metal", shield_charge: "metal", shield_boomerang: "metal",
+  holy_light: "light", holy_cross: "light", judgement: "light", exorcism: "light", lex_aeterna: "light", guardian_cross: "light",
+  falling_star: "light", holy_strike: "light", smite: "light", hammer_of_god: "light", divine_wrath: "light",
+};
+
+// Element stats as shown to the player.
+export const ELEMENT_STAT_NAMES: Record<string, string> = Object.fromEntries(
+  ELEMENT_IDS.flatMap((e) => [[`${e}Atk`, `พลังโจมตีธาตุ${ELEMENTS[e].name}`], [`${e}Def`, `ป้องกันธาตุ${ELEMENTS[e].name}`]]),
+);
+
 // Every tree node by id, with its tree.
 export const NODES: Record<string, { tree: string; node: TreeNode }> = {};
 for (const [tree, t] of Object.entries(TREES)) for (const node of t.nodes) NODES[node.id] = { tree, node };
+for (const [id, element] of Object.entries(SKILL_ELEMENTS)) {
+  const skill = NODES[id]?.node.skill;
+  if (!skill) throw new Error(`SKILL_ELEMENTS: no skill ${id}`);
+  skill.element = element;
+}
 
 // Books are items (items.js) that open a tree, mastery or element when read.
 export const BOOKS: Record<string, { kind: "tree" | "mastery" | "element"; id: string }> = {

@@ -274,7 +274,8 @@ export class Combat {
       return false;
     }
     // an exposed monster takes more; the hunter's instinct, more on any status
-    const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + this.hero.stats.huntDmg : 1);
+    const stone = this.hero.progress.elements.stone ?? 0;
+    const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + this.hero.stats.huntDmg : 1) * (m.petrify > 0 && stone >= 50 ? 1.25 : 1);
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");

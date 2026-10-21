@@ -4,7 +4,7 @@
 import { el, makeWindow } from "./ui";
 import { icon } from "./icons";
 import {
-  CLASSES, TREES, MASTERIES, ELEMENTS, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
+  CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
 } from "./progression";
 import { WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
@@ -22,7 +22,9 @@ export function skillTip(id: string, rank: number): string {
   const r = Math.max(1, rank);
   const desc = typeof a.desc === "function" ? a.desc(r) : a.desc;
   const where = a.source.tree ? `ต้น${TREES[a.source.tree].name}` : `ความเชี่ยวชาญ${MASTERIES[a.source.mastery!].name} ระดับ ${a.source.at}`;
-  return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}<br>${desc}`;
+  // what its hits are made of, for the skills that do damage
+  const element = s.mult ? ` · ${s.element ? `<span style="color:${ELEMENTS[s.element].color}">ธาตุ${ELEMENTS[s.element].name}</span>` : "ไร้ธาตุ"}` : "";
+  return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}${element}<br>${desc}`;
 }
 
 // ---- HP / MP / EXP ----
@@ -86,7 +88,7 @@ export class Vitals {
     this.xp.fill.style.width = `${100 * f}%`;
     this.xp.text.textContent = p.level >= MAX_LEVEL ? "เลเวลสูงสุด" : `EXP ${(100 * f).toFixed(1)}%`;
     this.buffs.replaceChildren(...h.buffs.map((b) => {
-      const t = el("span", "vt-buff");
+      const t = el("span", b.id.startsWith("ail_") ? "vt-buff ail" : "vt-buff");
       t.textContent = `${b.name} ${Math.ceil(b.t)}`;
       return t;
     }));
@@ -134,6 +136,7 @@ export class StatusUI {
   win: HTMLElement;
   head: HTMLElement;
   table: HTMLElement;
+  elements: HTMLElement;
 
   // onClassChange(): open the picker; onSwitch(): back to the title screen
   constructor(progress: Progress, hero: Hero, onClassChange: () => void, onSwitch?: () => void) {
@@ -143,6 +146,7 @@ export class StatusUI {
     const body = el("div", "st-body", this.win);
     this.head = el("div", "st-head", body);
     this.table = el("div", "st-table", body);
+    this.elements = el("div", "st-elements", body);
     const actions = el("div", "st-actions", body);
     const refund = el("button", "wr-choice", actions);
     refund.type = "button";
@@ -181,13 +185,24 @@ export class StatusUI {
       el("b", "", row).textContent = fmt(k, s[k as keyof Stats]);
       return row;
     }));
+    // attack and defence in each element the character has any of
+    const own = ELEMENT_IDS.filter((e) => s[`${e}Atk`] || s[`${e}Def`]);
+    this.elements.replaceChildren(...(own.length ? [el("div", "st-sub")] : []), ...own.map((e) => {
+      const row = el("div", "st-row");
+      const name = el("span", "", row);
+      name.textContent = `ธาตุ${ELEMENTS[e].name}`;
+      name.style.color = ELEMENTS[e].color;
+      el("b", "", row).textContent = `โจมตี ${Math.round(s[`${e}Atk`])} · ป้องกัน ${Math.round(s[`${e}Def`])}`;
+      return row;
+    }));
+    if (own.length) this.elements.firstElementChild!.textContent = "พลังธาตุ (โจมตีหักลบกับป้องกัน 1 แต้ม = 1%)";
   }
 }
 
 // ---- skill window ----
 // Stat bag keys as shown to the player, and which of them are fractions.
 const BAG_NAMES: Record<string, string> = {
-  ...STAT_NAMES, atkPct: "พลังโจมตี", matkPct: "พลังเวท", defPct: "ป้องกัน", mdefPct: "ต้านเวท", maxHpPct: "HP สูงสุด",
+  ...STAT_NAMES, ...ELEMENT_STAT_NAMES, atkPct: "พลังโจมตี", matkPct: "พลังเวท", defPct: "ป้องกัน", mdefPct: "ต้านเวท", maxHpPct: "HP สูงสุด",
   maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", pierce: "เจาะเกราะ", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ",
   dmg: "ดาเมจ", reach: "ระยะโจมตี", stunHit: "โอกาสตีให้มึน",
   healPct: "พลังรักษา", multiShot: "โอกาสยิงซ้อน", poisonHit: "โอกาสตีติดพิษ", huntDmg: "ดาเมจใส่ศัตรูติดสถานะ", buffTime: "เวลาบัฟ",

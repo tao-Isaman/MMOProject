@@ -118,6 +118,13 @@ export class Hero {
     this.recompute();
   }
 
+  // Ailments are buffs whose id starts with "ail_" (stats that hurt, from elemental bites).
+  cleanse(): void {
+    const before = this.buffs.length;
+    this.buffs = this.buffs.filter((b) => !b.id.startsWith("ail_"));
+    if (this.buffs.length !== before) this.recompute();
+  }
+
   addShield(amount: number, duration: number): void {
     const cur = this.shield?.amount ?? 0;
     this.shield = { amount: Math.max(cur, amount), max: Math.max(cur, amount), t: duration };
