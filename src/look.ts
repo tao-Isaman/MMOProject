@@ -72,6 +72,7 @@ export interface BodyDef {
   stretch?: [number, number, number]; // rows [neck, feet] drawn from neck row [2] down (see stretchRow)
   legs?: [number, number, number]; // what the legs are (raw rgb) where a removed coat hid them
   under?: string;                  // the body whose trousers show when this one's coat isn't worn
+  shoes?: number;                  // rows above the sole that keep their colour when the trousers are dyed
 }
 
 export interface HairStyle {
@@ -227,6 +228,39 @@ function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.w
   }
   g.putImageData(data, 0, 0);
   return c;
+}
+
+// Put back the undyed pixels in each column's lowest `rows` (the shoe there; a lifted foot is
+// lower in its own columns), frame by frame.
+function keepShoes(dyed: Sheets, plain: Sheets, rows: number): Sheets {
+  const out: Sheets = {};
+  for (const [clip, img] of Object.entries(dyed)) {
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext("2d", { willReadFrequently: true })!;
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height);
+    const o = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+    o.canvas.width = c.width;
+    o.canvas.height = c.height;
+    o.drawImage(plain[clip], 0, 0);
+    const src = o.getImageData(0, 0, c.width, c.height).data, px = d.data, W = c.width;
+    for (let fy = 0; fy < c.height; fy += CELL)
+      for (let x = 0; x < W; x++) {
+        let y = fy + CELL - 1;
+        while (y >= fy && !src[(y * W + x) * 4 + 3]) y--;
+        for (let k = 0; k < rows && y - k >= fy; k++) {
+          const i = ((y - k) * W + x) * 4;
+          px[i] = src[i];
+          px[i + 1] = src[i + 1];
+          px[i + 2] = src[i + 2];
+        }
+      }
+    g.putImageData(d, 0, 0);
+    out[clip] = c;
+  }
+  return out;
 }
 
 const pieces = (sheets: Sheets, def: BodyDef, asTop: boolean, cut?: number): Sheets =>
@@ -466,7 +500,10 @@ export class Looks {
     // one body: its halves fit as they are; two: each keeps only its own piece
     // (the top reaches down to the lower of the two waists, so no gap opens between them)
     const upperC = recolor(same ? upper : pieces(upper, def, true, Math.max(def.waist, bdef.waist)), def.regions, topDyes, def.mean, split(def));
-    const lowerC = recolor(same ? lower : pieces(lower, bdef, false), bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
+    const lowerP = same ? lower : pieces(lower, bdef, false);
+    let lowerC = recolor(lowerP, bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
+    // shoes drawn in the trousers' colours keep theirs when the trousers are dyed
+    if (bdef.shoes && lowerC !== lowerP) lowerC = keepShoes(lowerC, lowerP, bdef.shoes);
     // per frame, how far the top moves down to follow the bottom's bob (every body stands as
     // tall as the others, so the top is not moved to make the waists meet: the head stays put)
     const bob = (d: BodyDef, clip: string, dir: number, f: number) => d.head?.offsets[clip]?.[dir]?.[f]?.[1] ?? 0;

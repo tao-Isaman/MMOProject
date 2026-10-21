@@ -7,7 +7,7 @@ import { GENDERS, HAIRSTYLES, HAIR_COLORS, EYE_COLORS } from "./ui";
 import type { Look, ColorChoice } from "./ui";
 import { CLASSES, TREES, Progress } from "./progression";
 import type { ClassId } from "./progression";
-import { SHAPES, ITEMS, FALLBACK_SHAPE } from "./items";
+import { SHAPES, ITEMS, DEFAULT_SHAPE, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
 import { Inventory } from "./inventory";
 import type { Equipped } from "./inventory";
@@ -157,7 +157,9 @@ export class Title {
     this.heading("สร้างตัวละคร", "เลือกอาชีพ ชุด และทรงผม");
     const look: Look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
     let cls: ClassId = "mage";
-    let top = "mage", bottom = "mage";
+    // new characters start in the plain brown clothes (once their body is in)
+    const starter = (g: Gender) => (this.looks.ready(SHAPES.top[DEFAULT_SHAPE[g]].body) ? DEFAULT_SHAPE[g] : FALLBACK_SHAPE[g]);
+    let top = starter("female"), bottom = top;
     let name = "";
     let turn = 0;
 
@@ -240,7 +242,7 @@ export class Title {
         const ready = this.looks.ready(SHAPES.top[FALLBACK_SHAPE[g.id as Gender]].body);
         choice(genderRow, g.name, look.gender === g.id, ready, () => {
           look.gender = g.id;
-          top = bottom = FALLBACK_SHAPE[g.id as Gender];
+          top = bottom = starter(g.id as Gender);
         }, ready ? "" : "รอสร้างตัวละคร");
       }
       clsRow.replaceChildren();

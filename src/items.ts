@@ -140,7 +140,8 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
 };
 
 // The shape worn when a slot is empty (or holds something for the other build): a plain brown
-// T-shirt and trousers. Until those bodies are in, the build's first outfit stands in.
+// T-shirt and trousers, which new characters start in too. Until those bodies are in, the
+// build's first outfit stands in.
 export const DEFAULT_SHAPE: Record<Gender, string> = { female: "plain", male: "plain_m" };
 export const FALLBACK_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
 
