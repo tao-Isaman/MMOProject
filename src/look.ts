@@ -223,23 +223,6 @@ export class Looks {
     return [r.top.shape, r.top.dye, r.bottom.shape, r.bottom.dye, r.hair, look.hairColor, look.eyes].join("|");
   }
 
-  // A garment's icon art: its half of the body's front standing frame, in its colour (null
-  // while the body has no standing sheet yet).
-  async garmentArt(slot: "top" | "bottom", shape: string, dyeId: string | null): Promise<HTMLCanvasElement | null> {
-    const body = SHAPES[slot][shape].body, def = this.bodies[body];
-    if (!def) return null;
-    const idle = await this.loadBody(body, ["idle"]).catch(() => null);
-    if (!idle) return null;
-    const region = def.cloth[slot], dye = dyeId ? DYES[dyeId] : undefined;
-    const img = recolor(idle, def.regions, dye && def.natural?.[region] !== dyeId ? { [region]: dye } : {}, def.mean).idle;
-    const y0 = slot === "top" ? (def.hairless ? 0 : def.neck ?? 0) : def.waist, y1 = slot === "top" ? def.waist + 2 : CELL;
-    const c = document.createElement("canvas");
-    c.width = CELL;
-    c.height = y1 - y0;
-    c.getContext("2d")!.drawImage(img, 0, y0, CELL, y1 - y0, 0, 0, CELL, y1 - y0);
-    return c;
-  }
-
   loadBody(body: string, clips = CLIPS): Promise<Sheets> {
     const id = `${body}:${clips.join(",")}`;
     let p = this.sheets.get(id);

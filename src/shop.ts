@@ -128,7 +128,6 @@ export class ShopUI {
     this.list = el("div", "shop-list", this.win);
     this.status = el("p", "inv-status", this.win);
     inv.onChange(() => this.render());
-    window.addEventListener("item-icons", () => this.render());
   }
 
   get open(): boolean {

@@ -6,7 +6,7 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles";
 import { Player, directionIndex } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, DYES, SHAPES, DUAL_WIELD_SLOWDOWN, offhandWeapon } from "./items";
+import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, offhandWeapon } from "./items";
 import type { OffhandArt } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory } from "./inventory";
@@ -18,8 +18,6 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { dyePixel, mapColors, rgbToHsl } from "./recolor";
-import type { Dye } from "./recolor";
 import { Progress, ACTIVES } from "./progression";
 import { Hero } from "./hero";
 import { Skills } from "./skills";
@@ -33,6 +31,7 @@ import { Npc, ShopUI, MERCHANT, TALK_RANGE } from "./shop";
 import { findPath } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
+import { garmentIcon } from "./garments";
 import { detectTouch, onTouchMode, goLandscape, Joystick } from "./touch";
 import type { FlowerSpell } from "./spell";
 import type { SceneData } from "./scene";
@@ -72,26 +71,21 @@ function mipFor(atlas: Atlas, r: number): number {
 }
 
 // An item icon: the art fitted into a square canvas (long weapons lie diagonally, like RO).
-function makeIcon(img: Img, { diagonal = false, dye = null as Dye | null } = {}): HTMLCanvasElement {
+function makeIcon(img: Img, { diagonal = false } = {}): HTMLCanvasElement {
   const c = document.createElement("canvas");
   const dpr = 2;
   c.width = c.height = ICON * dpr;
   const g = c.getContext("2d")!;
   g.imageSmoothingEnabled = false;
-  // dye only the grey cloth, not the gold trim or the outline
-  const src = dye ? mapColors(img, (r, gg, b) => {
-    const [, sat, l] = rgbToHsl(r, gg, b);
-    return sat < 0.2 && l > 0.25 ? dyePixel(r, gg, b, dye) : null;
-  }) : img;
   const size = ICON * dpr * 0.86;
   if (diagonal) {
     const s = size / Math.hypot(img.width, img.height) * 1.0;
     g.translate(c.width / 2, c.height / 2);
     g.rotate(Math.PI / 4);
-    g.drawImage(src, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
+    g.drawImage(img, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
   } else {
     const s = size / Math.max(img.width, img.height);
-    g.drawImage(src, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s);
+    g.drawImage(img, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s);
   }
   return c;
 }
@@ -227,8 +221,6 @@ async function boot(): Promise<void> {
     slime_hop: "assets/slime_hop.png",
     slime_hurt: "assets/slime_hurt.png",
     slime_die: "assets/slime_die.png",
-    coat: "assets/items/coat.png",
-    legs: "assets/items/legs.png",
     jelly: "assets/items/jelly.png",
     sprout: "assets/items/sprout.png",
     arrow: "assets/items/arrow.png",
@@ -326,21 +318,17 @@ async function boot(): Promise<void> {
         g.restore();
       }
     } else if (item.kind === "top" || item.kind === "bottom") {
-      // a plain shirt or trousers until the garment's own half of its body has loaded
-      const slot = item.kind;
-      c = slot === "top" ? makeIcon(images.coat, { dye: DYES[item.dye ?? "white"] })
-        : makeIcon(images.legs, { dye: item.dye === "black" || !item.dye ? { hue: 250, sat: 0.2, light: -0.55 } : { ...DYES[item.dye], light: -0.45 } });
-      const cv = c;
-      looks.garmentArt(slot, item.shape!, item.dye ?? null).then((art) => {
-        if (!art) return;
-        const t = trimmed(art, 0, Math.max(art.width, art.height));
-        const g = cv.getContext("2d")!;
-        g.clearRect(0, 0, cv.width, cv.height);
+      // the garment on its own (src/garments.ts), at a whole-pixel scale
+      const art = garmentIcon(item.kind, item.shape!, item.dye ?? null);
+      c = document.createElement("canvas");
+      c.width = c.height = ICON * 2;
+      if (art) {
+        const t = trimmed(art, 0, art.width);
+        const s = Math.floor((c.width * 0.92) / Math.max(t.width, t.height));
+        const g = c.getContext("2d")!;
         g.imageSmoothingEnabled = false;
-        const s = (cv.width * 0.92) / Math.max(t.width, t.height);
-        g.drawImage(t, (cv.width - t.width * s) / 2, (cv.height - t.height * s) / 2, t.width * s, t.height * s);
-        window.dispatchEvent(new Event("item-icons"));
-      });
+        g.drawImage(t, Math.round((c.width - t.width * s) / 2), Math.round((c.height - t.height * s) / 2), t.width * s, t.height * s);
+      }
     } else if (item.kind === "offhand") {
       c = makeIcon(offhandArt[item.art!].img);
     } else if (item.kind === "potion") {

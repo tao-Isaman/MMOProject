@@ -118,7 +118,6 @@ export class InventoryUI {
     });
     window.addEventListener("keydown", (e) => e.code === "Escape" && this.closeMenu());
     inv.onChange(() => this.render());
-    window.addEventListener("item-icons", () => this.render());
     this.bindPointer();
     this.render();
   }
