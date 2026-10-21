@@ -6,7 +6,7 @@
 // bottom centre of each cell. The character is empty-handed; the weapon is drawn into her hand
 // during attacks and casts (src/weapons.js).
 
-import { mapX, mapY, yaw } from "./projection";
+import { mapX, mapY, yawEighths } from "./projection";
 import { resolve } from "./world";
 import { attackRange } from "./combat";
 import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip } from "./weapons";
@@ -70,9 +70,9 @@ export function directionIndex(x: number, y: number): number {
   return ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8;
 }
 
-// Sheet row showing facing index i from the current camera.
+// Sheet row showing facing index i from the current camera (the nearest of the 8 views).
 export function viewRow(i: number): number {
-  return (i + 2 * yaw) % 8;
+  return (i + yawEighths()) % 8;
 }
 
 // Unit world vector a facing index points along.
@@ -173,7 +173,7 @@ export class Player {
     this.cast = { t: 0, duration, hoverEnd, x: this.x, y: this.y };
     this.attack = null;
     this.target = null;
-    this.dir = (8 - 2 * yaw) % 8; // face the camera like the Oriverse cast
+    this.dir = (8 - yawEighths()) % 8; // face the camera like the Oriverse cast
   }
 
   // Normal attack with weapon stats w, optionally turning toward a world point first.

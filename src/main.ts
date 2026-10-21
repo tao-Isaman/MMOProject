@@ -1,6 +1,6 @@
-import { MAP_W, MAP_H, mapX, mapY, groundFromMap, fromView, setYaw, yaw } from "./projection";
-import { loadAll, loadImage, mipChain, bakeGround, glow, tint } from "./assets";
-import { Occluders } from "./occluders";
+import { mapX, mapY, groundFromMap, fromView, setYaw, yaw } from "./projection";
+import { loadAll, mipChain, bakeGround, glow, tint } from "./assets";
+import { Scene } from "./scene";
 import { SPAWN, debugShapes } from "./world";
 import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles";
 import { Player, directionIndex } from "./player";
@@ -29,7 +29,7 @@ import { icon } from "./icons";
 import { Bot } from "./bot";
 import { BotUI } from "./botui";
 import type { FlowerSpell } from "./spell";
-import type { OccluderData } from "./occluders";
+import type { SceneData } from "./scene";
 import type { Atlas, Img, Textures, View } from "./types";
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -114,7 +114,6 @@ function trimmed(sheet: Img, row: number, cell = 96): HTMLCanvasElement {
 async function boot(): Promise<void> {
   const bar = document.getElementById("loading-bar") as HTMLProgressElement;
   const files: Record<string, string> = {
-    map: "assets/maps/map_y0.jpg",
     flowers: "assets/flower_atlas.png",
     petals: "assets/petal_atlas.png",
     rune: "assets/rune_circle.png",
@@ -133,20 +132,15 @@ async function boot(): Promise<void> {
   const weaponIds = Object.keys(WEAPON_TYPES) as WeaponId[];
   const weaponArt = new Set(weaponIds.map((t) => WEAPON_ART[t].art ?? t));
   for (const id of weaponArt) files[`weapon_${id}`] = `assets/weapons/${id}.png`;
-  const [images, bodies, hair, occluderData] = await Promise.all([
+  const [images, bodies, hair, sceneData] = await Promise.all([
     loadAll(files, (f) => (bar.value = f)),
     fetch("assets/chars/bodies.json").then((r) => r.json() as Promise<Record<string, BodyDef>>),
     fetch("assets/chars/hair.json").then((r) => r.json() as Promise<HairData>),
-    fetch("assets/maps/occluders.json").then((r) => (r.ok ? (r.json() as Promise<OccluderData>) : null)).catch(() => null),
+    fetch("assets/maps/scene.json").then((r) => (r.ok ? (r.json() as Promise<SceneData>) : null)).catch(() => null),
   ]);
-
-  // stitched Oriverse capture; the scale allows tiles captured below 1 px per cm
-  const map: { image: Img; scale: number } = { image: images.map, scale: images.map.width / MAP_W };
-  // the other camera angles load on first use (assets/maps/map_y<yaw>.jpg)
-  const maps: Promise<Img>[] = [Promise.resolve(images.map)];
-  const mapFor = (k: number) => (maps[k] ??= loadImage(`assets/maps/map_y${k}.jpg`));
-  const occluders = new Occluders(occluderData);
-  occluders.load(0);
+  // the courtyard: rotating ground plus standing props (src/scene.ts)
+  const scene = new Scene(sceneData);
+  await scene.load();
 
   // tinted glows and rings for skill effects, made on first use
   const tinted = new Map<string, Img>();
@@ -499,58 +493,39 @@ async function boot(): Promise<void> {
   let walkedFor = 0;
   let uiClock = 0;
 
-  // ---- camera turns in 90 degree steps (Q / E) ----
-  let turning: { t: number; dur: number; snap: HTMLCanvasElement; delta: number } | null = null, turnBusy = false;
-  const turnBuf = document.createElement("canvas");
-  async function rotateCamera(delta: number): Promise<void> {
-    if (turning || turnBusy) return;
-    turnBusy = true;
-    const k = (yaw + delta + 4) % 4;
-    try {
-      const [img] = await Promise.all([mapFor(k), occluders.load(k)]);
-      const snap = document.createElement("canvas");
-      snap.width = canvas.width;
-      snap.height = canvas.height;
-      snap.getContext("2d")!.drawImage(canvas, 0, 0);
-      setYaw(k);
-      map.image = img;
-      map.scale = img.width / MAP_W;
-      cam.x = mapX(player.x, player.y);
-      cam.y = mapY(player.x, player.y) - 50;
-      turning = { t: 0, dur: 0.45, snap, delta };
-    } catch {
-      floaters.add(player.x, player.y, 150, "มุมกล้องนี้ยังโหลดไม่ได้", "info");
-    }
-    turnBusy = false;
+  // ---- the camera turns freely: drag with the right mouse button, or Q / E for 45 degrees ----
+  let turnTo: { from: number; to: number; t: number } | null = null;
+  function turnCamera(a: number): void {
+    setYaw(a);
+    // the follow camera works in map coordinates, which turn with the view: jump to the player
+    cam.x = mapX(player.x, player.y);
+    cam.y = mapY(player.x, player.y) - 50;
   }
-  // The new view swings in from the side while the old one swings out and fades.
-  function drawTurn(dt: number): void {
-    const tr = turning;
-    if (!tr) return;
-    tr.t += dt;
-    const u = Math.min(1, tr.t / tr.dur), e = 1 - (1 - u) ** 3;
-    if (turnBuf.width !== canvas.width || turnBuf.height !== canvas.height) {
-      turnBuf.width = canvas.width;
-      turnBuf.height = canvas.height;
+  function rotateCamera(delta: number): void {
+    if (!scene.turns) {
+      floaters.add(player.x, player.y, 150, "มุมกล้องยังหมุนไม่ได้", "info");
+      return;
     }
-    const tb = turnBuf.getContext("2d")!;
-    tb.setTransform(1, 0, 0, 1, 0, 0);
-    tb.drawImage(canvas, 0, 0);
-    const cx = canvas.width / 2, cy = canvas.height / 2, q = (tr.delta * Math.PI) / 2;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "#16210f";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const spin = (img: Img, a: number, alpha: number) => {
-      ctx.globalAlpha = alpha;
-      ctx.setTransform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), cx, cy);
-      ctx.drawImage(img, -cx, -cy);
-    };
-    spin(turnBuf, -q * (1 - e), 1);
-    spin(tr.snap, q * e, 1 - e);
-    ctx.globalAlpha = 1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (u >= 1) turning = null;
+    const step = Math.PI / 4, base = turnTo ? turnTo.to : yaw;
+    turnTo = { from: yaw, to: (Math.round(base / step) + delta) * step, t: 0 };
+    // turn the short way round
+    while (turnTo.to - turnTo.from > Math.PI) turnTo.to -= Math.PI * 2;
+    while (turnTo.from - turnTo.to > Math.PI) turnTo.to += Math.PI * 2;
   }
+  let dragTurn: { x: number; yaw: number } | null = null;
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.button !== 2 || !scene.turns) return;
+    turnTo = null;
+    dragTurn = { x: e.clientX, yaw };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (dragTurn) turnCamera(dragTurn.yaw - (e.clientX - dragTurn.x) * 0.0065);
+  });
+  const endDrag = () => (dragTurn = null);
+  canvas.addEventListener("pointerup", (e) => e.button === 2 && endDrag());
+  canvas.addEventListener("lostpointercapture", endDrag);
   const deathNote = document.getElementById("death")!;
   // what monsters need from the player: where to chase and how a bite lands
   const monsterCtx: MonsterCtx = {
@@ -623,15 +598,18 @@ async function boot(): Promise<void> {
       if (!hero.alive) deathNote.textContent = `ล้มลงแล้ว · ฟื้นที่จุดเกิดในอีก ${Math.ceil(hero.dead)} วินาที`;
     }
 
-    // ---- camera: follow the player, stay inside the map ----
+    // ---- camera: Q / E turns ease over 0.35 s; follow the player ----
+    if (turnTo) {
+      turnTo.t = Math.min(1, turnTo.t + dt / 0.35);
+      const e = 1 - (1 - turnTo.t) ** 3;
+      turnCamera(turnTo.from + (turnTo.to - turnTo.from) * e);
+      if (turnTo.t >= 1) turnTo = null;
+    }
     const k = screen.zoom * screen.dpr;
-    const halfW = screen.w / screen.zoom / 2, halfH = screen.h / screen.zoom / 2;
     const tx = mapX(player.x, player.y), ty = mapY(player.x, player.y) - 50;
     const ease = 1 - Math.exp(-dt * 6);
     cam.x += (tx - cam.x) * ease;
     cam.y += (ty - cam.y) * ease;
-    cam.x = halfW * 2 >= MAP_W ? MAP_W / 2 : Math.max(halfW, Math.min(MAP_W - halfW, cam.x));
-    cam.y = halfH * 2 >= MAP_H ? MAP_H / 2 : Math.max(halfH, Math.min(MAP_H - halfH, cam.y));
     const vw: View = {
       k,
       ox: Math.round(canvas.width / 2 - cam.x * k),
@@ -650,14 +628,7 @@ async function boot(): Promise<void> {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "low"; // textures carry their own mip levels
 
-    // visible part of the map
-    const x0 = Math.max(0, -vw.ox / k), y0 = Math.max(0, -vw.oy / k);
-    const x1 = Math.min(MAP_W, (canvas.width - vw.ox) / k), y1 = Math.min(MAP_H, (canvas.height - vw.oy) / k);
-    if (x1 > x0 && y1 > y0) {
-      const s = map.scale;
-      ctx.drawImage(map.image, x0 * s, y0 * s, (x1 - x0) * s, (y1 - y0) * s,
-        x0 * k + vw.ox, y0 * k + vw.oy, (x1 - x0) * k, (y1 - y0) * k);
-    }
+    scene.drawGround(ctx, vw);
 
     ctx.globalCompositeOperation = "lighter";
     fx.draw(ctx, vw, fx.layer(GROUND_GLOW));
@@ -693,14 +664,13 @@ async function boot(): Promise<void> {
     for (const p of sorted) p.depth = mapY(p.x, p.y);
     sorted.sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
     const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon as WeaponId] : null;
-    // the player's box on the map, to see which cutouts hide them
+    // the player's box on the map, to see which props hide them
     const pb = { x: mapX(player.x, player.y) - 40, y: mapY(player.x, player.y) - 140, w: 80, h: 140 };
     const actors = [...monsters.map((m) => ({ depth: m.depth, draw: () => m.draw(ctx, vw) })),
       { depth: player.depth, draw: () => player.draw(ctx, vw, inHand) },
-      ...occluders.items.map((it) => {
-        const hides = player.depth < it.depth && pb.x < it.mx + it.w && pb.x + pb.w > it.mx && pb.y < it.my + it.h && pb.y + pb.h > it.my
-          && occluders.covers(it, pb);
-        return { depth: it.depth, draw: () => occluders.draw(ctx, vw, it, hides) };
+      ...scene.place().map((p) => {
+        const hides = player.depth < p.depth && scene.covers(p, pb);
+        return { depth: p.depth, draw: () => scene.draw(ctx, vw, p, hides) };
       })];
     actors.sort((a, b) => a.depth - b.depth);
     let from = 0;
@@ -720,14 +690,13 @@ async function boot(): Promise<void> {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     floaters.draw(ctx, vw);
 
-    if (turning) drawTurn(dt);
     if (showDebug) drawDebug(vw, player, fx, fps);
     requestAnimationFrame(frame);
   }
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, occluders, bot, botUI };
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, scene, bot, botUI };
 
   document.getElementById("loading")?.classList.add("done");
   requestAnimationFrame((t) => {

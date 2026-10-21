@@ -356,7 +356,7 @@ export class Monster {
     ctx.fill();
     const { clip, col } = this.frame();
     const s = SCALE * k;
-    const sx = col * CELL, sy = ((this.row + yaw) % 4) * CELL;
+    const sx = col * CELL, sy = ((this.row + Math.round(yaw / (Math.PI / 2))) % 4) * CELL;
     ctx.drawImage(clip.img, sx, sy, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
     if (this.flash > 0) {
       ctx.globalAlpha = fade * Math.min(1, this.flash / 0.08) * 0.85;
