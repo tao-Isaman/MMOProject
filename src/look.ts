@@ -73,6 +73,7 @@ export interface BodyDef {
   legs?: [number, number, number]; // what the legs are (raw rgb) where a removed coat hid them
   under?: string;                  // the body whose trousers show when this one's coat isn't worn
   shoes?: number;                  // rows above the sole that keep their colour when the trousers are dyed
+  lift?: number;                   // a body cut at its neckline: the head sits this much higher, over a neck
 }
 
 export interface HairStyle {
@@ -519,7 +520,7 @@ export class Looks {
     const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[lowClip(clip)], f));
     if (hair && def.head) {
       const head = recolor({ head: await this.loadHead(hair) }, this.hair.regions, { hair: hairDye, eyes: eyeDye }).head;
-      sheets = this.attachHead(sheets, def.head, head, this.hair.styles[hair], moved);
+      sheets = this.attachHead(sheets, def.head, head, this.hair.styles[hair], moved, def.lift);
     }
     return { sheets, hands: shiftHands(def.hands, moved), builtin: topBody === bottomBody ? def.builtin ?? {} : {} };
   }
@@ -567,8 +568,12 @@ export class Looks {
   }
 
   // Draw the head layer onto every frame: back column under the body, front column over it.
-  // moved(clip, dir, frame): how far the top was moved down to meet the bottom.
-  attachHead(sheets: Sheets, head: NonNullable<BodyDef["head"]>, layer: Img, style: HairStyle, moved: (clip: string, dir: number, f: number) => number): Sheets {
+  // moved(clip, dir, frame): how far the top was moved down to meet the bottom. lift: the head
+  // goes that much higher over a neck (a body whose head was cut off at the neckline would
+  // otherwise wear its shirt up to the chin): seen from the front or side a neck as the hime
+  // head draws its own (NECK), from behind the hair drawn that much longer (the row above its
+  // outline repeated, the outline under it).
+  attachHead(sheets: Sheets, head: NonNullable<BodyDef["head"]>, layer: Img, style: HairStyle, moved: (clip: string, dir: number, f: number) => number, lift = 0): Sheets {
     const out: Sheets = {};
     for (const [clip, sheet] of Object.entries(sheets)) {
       const c = document.createElement("canvas");
@@ -582,14 +587,31 @@ export class Looks {
         for (let f = 0; f < frames; f++) {
           const [dx, dy] = head.offsets[clip]?.[d]?.[f] ?? [0, 0];
           const x = f * CELL, y = d * CELL;
-          const px = x + ax + dx - hx, py = y + ay + dy - hy + Math.round(moved(clip, d, f));
+          const px = x + ax + dx - hx, py = y + ay + dy - hy + Math.round(moved(clip, d, f)) - lift;
           g.save();
           g.beginPath();
           g.rect(x, y, CELL, CELL);
           g.clip();
           g.drawImage(layer, 0, d * CELL, CELL, CELL, px, py, CELL, CELL);
           g.drawImage(sheet, x, y, CELL, CELL, x, y, CELL, CELL);
-          g.drawImage(layer, CELL, d * CELL, CELL, CELL, px, py, CELL, CELL);
+          const neck = NECK[d];
+          if (!lift) g.drawImage(layer, CELL, d * CELL, CELL, CELL, px, py, CELL, CELL);
+          else if (neck) {
+            g.drawImage(layer, CELL, d * CELL, CELL, CELL, px, py, CELL, CELL);
+            const [n0, n1] = neck;
+            for (let k = 1; k <= lift; k++) {
+              const ny = py + hy - 1 + k;
+              g.fillStyle = "#000";
+              g.fillRect(px + n0 - 1, ny, n1 - n0 + 3, 1);
+              g.fillStyle = k === 1 ? "#cd776d" : "#e6a08b"; // in the chin's shadow, then lighter
+              g.fillRect(px + n0, ny, n1 - n0 + 1, 1);
+            }
+          } else {
+            const sy = d * CELL;
+            g.drawImage(layer, CELL, sy, CELL, hy - 1, px, py, CELL, hy - 1);
+            for (let k = 0; k < lift; k++) g.drawImage(layer, CELL, sy + hy - 2, CELL, 1, px, py + hy - 1 + k, CELL, 1);
+            g.drawImage(layer, CELL, sy + hy - 1, CELL, CELL - hy + 1, px, py + hy - 1 + lift, CELL, CELL - hy + 1);
+          }
           g.restore();
         }
       }
@@ -598,6 +620,10 @@ export class Looks {
     return out;
   }
 }
+
+// The neck under a head, per direction: the columns of its skin (inclusive) in the head layer's
+// cell, as the hime head's own neck is drawn; none from behind (the hair hides it).
+const NECK: ([number, number] | null)[] = [[46, 50], [44, 46], [44, 47], null, null, null, [48, 50], [49, 51]];
 
 // Weapon hand anchors moved with the top.
 function shiftHands(hands: Hands | undefined, moved: (clip: string, dir: number, f: number) => number): Hands | undefined {
