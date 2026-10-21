@@ -45,6 +45,19 @@ const EDEN_MATS: Record<string, Recipe> = {
   Eden_Orange: { tint: "#f08a24", rough: 0.55 },
   Eden_Lemon: { tint: "#f4d742", rough: 0.55 },
   Eden_Pear: { tint: "#9cc443", rough: 0.55 },
+  // the city quarter
+  Eden_PlasterYellow: { map: "plaster", tint: "#f6e2a2", bump: 0.6 },
+  Eden_PlasterRose: { map: "plaster", tint: "#f2cbc2", bump: 0.6 },
+  Eden_Hedge: { map: "felt", tint: "#3d7a33", rough: 0.95 },
+  Eden_ShopGlass: { tint: "#d8eef8", rough: 0.05, opacity: 0.22 },
+  Eden_PotionRed: { tint: "#ff5a78", rough: 0.15, glow: "#ff2f55", glowI: 0.9 },
+  Eden_PotionBlue: { tint: "#5ab4ff", rough: 0.15, glow: "#2f84ff", glowI: 0.9 },
+  Eden_PotionGreen: { tint: "#6af08e", rough: 0.15, glow: "#2cc85e", glowI: 0.9 },
+  Eden_PotionViolet: { tint: "#c58aff", rough: 0.15, glow: "#9a4cff", glowI: 0.9 },
+  Eden_PotionGold: { tint: "#ffd968", rough: 0.15, glow: "#ffaa22", glowI: 0.9 },
+  Eden_Bread: { map: "felt", tint: "#c98944", rough: 0.75 },
+  Eden_Chalk: { map: "felt", tint: "#2e3a34", rough: 0.95 },
+  Eden_Parchment: { map: "paper", tint: "#f0e2bd", rough: 0.95 },
 };
 for (const [name, recipe] of Object.entries(EDEN_MATS)) defineMaterial(name, recipe);
 

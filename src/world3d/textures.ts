@@ -396,6 +396,8 @@ function texture(canvas: HTMLCanvasElement, srgb = true): THREE.CanvasTexture {
 // ---- materials by Oriverse name ----
 const DETAIL = { wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs };
 export type DetailMap = keyof typeof DETAIL;
+// A fresh copy of a detail map's canvas (grey, one tile per metre).
+export const detailCanvas = (name: DetailMap): HTMLCanvasElement => DETAIL[name]();
 // glow: emissive colour (crystals, lanterns); opacity < 1 makes it see-through (ice, glass).
 export type Recipe = { map?: DetailMap; tint: string; rough?: number; metal?: number; bump?: number; glow?: string; glowI?: number; opacity?: number };
 const RECIPES: Record<string, Recipe> = {

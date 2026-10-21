@@ -1,19 +1,11 @@
-// The merchant by the market cart and her shop window: buy potions, off-hand gear, clothes and
-// books for gold, sell back anything in the bag that isn't worn.
-//
-// Her sprite is the first adventurer body generated in Oriverse (8 directions, standing).
+// The shop window: buy potions, off-hand gear, clothes and books for gold, sell back anything
+// in the bag that isn't worn. Any shopkeeper opens it (src/npcs.ts, role "shop"); the
+// merchant's sprite is the first adventurer body generated in Oriverse (8 directions, standing).
 
-import { mapX, mapY } from "./projection";
-import { directionIndex, viewRow } from "./player";
 import { ITEMS, sellPrice, stackLimit } from "./items";
 import { el, makeWindow } from "./ui";
 import type { Inventory } from "./inventory";
-import type { Img, Vec2, View } from "./types";
-import { isTouch } from "./touch";
-
-const CELL = 96;
-const HEIGHT = 128;   // on-screen height, like the player
-export const TALK_RANGE = 190; // cm
+import type { Img } from "./types";
 
 export const MERCHANT = { x: 900, y: 690, name: "มิร่า", title: "ร้านค้า" };
 
@@ -24,77 +16,6 @@ export const STOCK = [
   "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
   "book_survivor", "book_gathering", "book_lightning",
 ];
-
-export class Npc {
-  x: number;
-  y: number;
-  name: string;
-  title: string;
-  sheet: Img;
-  dir = 0;
-  radius = 30;
-  time = 0;
-
-  constructor(spec: { x: number; y: number; name: string; title: string }, sheet: Img) {
-    this.x = spec.x;
-    this.y = spec.y;
-    this.name = spec.name;
-    this.title = spec.title;
-    this.sheet = sheet;
-  }
-
-  get depth(): number {
-    return mapY(this.x, this.y);
-  }
-
-  // Turns to face the player when they come close.
-  update(dt: number, player: Vec2): void {
-    this.time += dt;
-    const dx = player.x - this.x, dy = player.y - this.y;
-    if (Math.hypot(dx, dy) < 600) this.dir = directionIndex(dx, dy);
-  }
-
-  distance(p: Vec2): number {
-    return Math.hypot(p.x - this.x, p.y - this.y);
-  }
-
-  // Whether a map point is on her (for clicks).
-  contains(mx: number, my: number): boolean {
-    const gx = mapX(this.x, this.y), gy = mapY(this.x, this.y);
-    return Math.abs(mx - gx) < 34 && my < gy + 10 && my > gy - HEIGHT;
-  }
-
-  draw(ctx: CanvasRenderingContext2D, view: View, near: boolean): void {
-    const { k, ox, oy } = view;
-    const gx = mapX(this.x, this.y) * k + ox, gy = mapY(this.x, this.y) * k + oy;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "rgba(16, 30, 10, 0.34)";
-    ctx.beginPath();
-    ctx.ellipse(gx, gy, 30 * k, 12.6 * k, 0, 0, Math.PI * 2);
-    ctx.fill();
-    const s = (HEIGHT / (CELL * 0.92)) * k * (1 + 0.012 * Math.sin(this.time * 2.2));
-    const row = viewRow(this.dir);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.sheet, 0, row * CELL, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
-    ctx.imageSmoothingEnabled = true;
-    // name and role over the head; a bag that bobs when she's in reach
-    const top = gy - HEIGHT * k - 12 * k;
-    ctx.textAlign = "center";
-    ctx.lineJoin = "round";
-    ctx.font = `600 ${15 * k}px Kanit, sans-serif`;
-    ctx.lineWidth = 4 * k;
-    ctx.strokeStyle = "rgba(10, 14, 8, 0.85)";
-    ctx.strokeText(this.name, gx, top);
-    ctx.fillStyle = "#ffe6a8";
-    ctx.fillText(this.name, gx, top);
-    ctx.font = `${12 * k}px Kanit, sans-serif`;
-    const label = near ? `${this.title} · ${isTouch() ? "แตะเพื่อคุย" : "คลิกหรือกด F"}` : this.title;
-    ctx.strokeText(label, gx, top - 17 * k);
-    ctx.fillStyle = near ? "#9df0b4" : "#d8d2bf";
-    ctx.fillText(label, gx, top - 17 * k);
-    ctx.textAlign = "start";
-  }
-}
 
 // ---- shop window ----
 export class ShopUI {
@@ -132,6 +53,12 @@ export class ShopUI {
 
   get open(): boolean {
     return !this.win.classList.contains("hidden");
+  }
+
+  // Whose shop it is (the window's title).
+  keeper(name: string, title: string): void {
+    const h = this.win.querySelector(".window-bar h2");
+    if (h) h.textContent = `${title} · ${name}`;
   }
 
   toggle(show = !this.open): void {

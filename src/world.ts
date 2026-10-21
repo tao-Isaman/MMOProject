@@ -1,11 +1,11 @@
-// The courtyard: walkable bounds and solid footprints. Footprints are taken from the Oriverse
-// world (oriverse/frieren/courtyard.weave in the-hero-fighter), in sim centimetres.
+// The current map's walkable bounds and solid footprints, in sim centimetres. A map (src/maps.ts)
+// sets them with setMap(); everything that moves or plans a path reads them from here.
 
 import { mapX, mapY } from "./projection";
 import type { Vec2 } from "./types";
 
-export const SPAWN = { x: 1000, y: 250 };
-export const BOUNDS = { minX: 60, maxX: 2650, minY: -760, maxY: 2050 };
+export const SPAWN = { x: 0, y: 0 };
+export const BOUNDS = { minX: -100, maxX: 100, minY: -100, maxY: 100 };
 
 // box: centre, w along local X, d along local Y, rot = degrees about Z (counter-clockwise).
 // circle: centre, r.
@@ -28,48 +28,60 @@ interface BoxSolid extends BoxSpec {
   sin: number;
 }
 export type Solid = CircleSolid | BoxSolid;
+export type SolidSpec = CircleSolid | BoxSpec;
 
-const SPECS: (CircleSolid | BoxSpec)[] = [
-  { kind: "house", x: 1910, y: 1440, w: 810, d: 910, rot: 0 },
-  { kind: "well", x: 1100, y: 820, w: 190, d: 190, rot: 8 },
-  { kind: "box", x: 792, y: 771, w: 156, d: 116, rot: -10 },   // cart
-  { kind: "box", x: 1864, y: 178, w: 50, d: 170, rot: 24 },    // bench
-  { kind: "box", x: 2051, y: -22, w: 50, d: 170, rot: 20 },    // bench
-  { kind: "box", x: 1070, y: -470, w: 56, d: 56, rot: 8 },     // crates
-  { kind: "box", x: 1100, y: -540, w: 56, d: 56, rot: -12 },
-  { kind: "box", x: 1642, y: 965, w: 56, d: 56, rot: 0 },
-  { kind: "box", x: 1735, y: 950, w: 56, d: 56, rot: 15 },
-  { kind: "box", x: 854, y: -689, w: 150, d: 14, rot: 48 },    // fence
-  { kind: "post", x: 978, y: -416, r: 12 },
-  { kind: "tree", x: 1000, y: -600, r: 50 },
-  { kind: "tree", x: 960, y: 1020, r: 35 },
-  { kind: "tree", x: 2380, y: 120, r: 45 },
-  { kind: "hedge", x: 2050, y: 680, r: 110 },
-  { kind: "hedge", x: 1960, y: 440, r: 110 },
-  { kind: "hedge", x: 2120, y: 240, r: 110 },
-  { kind: "bush", x: 919, y: -570, r: 45 },
-  { kind: "bush", x: 968, y: -684, r: 45 },
-  { kind: "bush", x: 422, y: 265, r: 45 },
-  { kind: "bush", x: 488, y: -75, r: 45 },
-  { kind: "bush", x: 433, y: -195, r: 45 },
-  { kind: "bush", x: 668, y: 806, r: 45 },
-  { kind: "rock", x: 948, y: -452, r: 25 },
-  { kind: "rock", x: 427, y: 56, r: 25 },
-  { kind: "rock", x: 612, y: 731, r: 25 },
-  { kind: "npc", x: 900, y: 690, r: 26 },      // the merchant (src/shop.ts)
-];
+export const SOLIDS: Solid[] = [];
 
-export const SOLIDS: Solid[] = SPECS.map((s) => {
-  if ("r" in s) return s;
-  const a = (s.rot * Math.PI) / 180;
-  return { ...s, cos: Math.cos(a), sin: Math.sin(a) };
-});
+// Solids sorted into square buckets, so a big town only tests the few around a point.
+const BUCKET = 800;
+let buckets = new Map<number, Solid[]>();
+const bucketKey = (i: number, j: number) => i * 100003 + j;
+
+// Make `specs` the solids of the map, `bounds` its walkable rectangle and `spawn` where a
+// character appears.
+export function setMap(specs: SolidSpec[], bounds: typeof BOUNDS, spawn: Vec2): void {
+  SOLIDS.length = 0;
+  for (const s of specs) {
+    if ("r" in s) SOLIDS.push(s);
+    else {
+      const a = (s.rot * Math.PI) / 180;
+      SOLIDS.push({ ...s, cos: Math.cos(a), sin: Math.sin(a) });
+    }
+  }
+  Object.assign(BOUNDS, bounds);
+  Object.assign(SPAWN, spawn);
+  buckets = new Map();
+  for (const s of SOLIDS) {
+    const reach = "r" in s ? s.r : Math.hypot(s.w, s.d) / 2;
+    for (let i = Math.floor((s.x - reach) / BUCKET); i <= Math.floor((s.x + reach) / BUCKET); i++)
+      for (let j = Math.floor((s.y - reach) / BUCKET); j <= Math.floor((s.y + reach) / BUCKET); j++) {
+        const k = bucketKey(i, j);
+        const list = buckets.get(k);
+        if (list) list.push(s);
+        else buckets.set(k, [s]);
+      }
+  }
+  GW = Math.ceil((BOUNDS.maxX - BOUNDS.minX) / CELL);
+  GH = Math.ceil((BOUNDS.maxY - BOUNDS.minY) / CELL);
+  blockedFor.clear();
+}
+
+// The solids that may touch a circle of radius r at p.
+function near(p: Vec2, r: number): Solid[] {
+  const i0 = Math.floor((p.x - r) / BUCKET), i1 = Math.floor((p.x + r) / BUCKET);
+  const j0 = Math.floor((p.y - r) / BUCKET), j1 = Math.floor((p.y + r) / BUCKET);
+  if (i0 === i1 && j0 === j1) return buckets.get(bucketKey(i0, j0)) ?? [];
+  const out = new Set<Solid>();
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const s of buckets.get(bucketKey(i, j)) ?? []) out.add(s);
+  return [...out];
+}
 
 // Push a circle of radius r at p = {x, y} out of every solid and back inside the bounds.
 // Resolving overlaps (rather than rejecting the move) lets the player slide along walls.
 export function resolve(p: Vec2, r: number): void {
+  const around = near(p, r + 40);
   for (let pass = 0; pass < 3; pass++) {
-    for (const s of SOLIDS) {
+    for (const s of around) {
       if ("r" in s) {
         const dx = p.x - s.x, dy = p.y - s.y;
         const min = s.r + r, d2 = dx * dx + dy * dy;
@@ -109,7 +121,7 @@ export function resolve(p: Vec2, r: number): void {
 
 // ---- paths around the solids (the bot walks these) ----
 const CELL = 40; // cm
-const GW = Math.ceil((BOUNDS.maxX - BOUNDS.minX) / CELL), GH = Math.ceil((BOUNDS.maxY - BOUNDS.minY) / CELL);
+let GW = 1, GH = 1;
 const blockedFor = new Map<number, Uint8Array>();
 
 // Whether a circle of radius r at p overlaps a solid or the edge.

@@ -27,7 +27,10 @@ import { icon } from "./icons";
 import { Bot } from "./bot";
 import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter } from "./save";
-import { Npc, ShopUI, MERCHANT, TALK_RANGE } from "./shop";
+import { ShopUI } from "./shop";
+import { Npc, TALK_RANGE } from "./npcs";
+import { loadMap } from "./maps";
+import type { GameMap, MapId } from "./maps";
 import { findPath } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
@@ -51,7 +54,7 @@ let world: World3D | null = null;
 const ctx = canvas.getContext("2d")!;
 let showDebug = new URLSearchParams(location.search).has("debug");
 
-const screen = { w: 0, h: 0, dpr: 1, zoom: 1 };
+const screen = { w: 0, h: 0, dpr: 1, zoom: 1, far: 1 }; // far: a debug zoom-out (__game.zoomOut)
 function resize() {
   // phones draw the 3D courtyard at up to 1.5 pixels per CSS pixel, to keep it smooth
   screen.dpr = Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2);
@@ -266,7 +269,8 @@ async function boot(): Promise<void> {
 
   // ---- the 3D courtyard (src/world3d), lighter on phones ----
   detectTouch();
-  world = new World3D(worldCanvas, isTouch() ? { flowers: 0.6, shadow: 2048 } : { flowers: 1, shadow: 4096 });
+  const quality = isTouch() ? { flowers: 0.6, shadow: 2048 } : { flowers: 1, shadow: 4096 };
+  world = new World3D(worldCanvas, quality);
   const w3d = world;
 
   // ---- title screen: which character to play ----
@@ -345,20 +349,41 @@ async function boot(): Promise<void> {
     return c;
   };
 
-  // ---- world ----
+  // ---- world: everyone starts in Eden ----
+  let current: GameMap = loadMap("eden", quality);
+  w3d.load(current.level);
   const fx = new Particles();
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
   player.builtin = first.builtin;
   applyLook();
-  const merchant = new Npc(MERCHANT, images.merchant);
+  // townsfolk, made once per map: the merchant's own sprite, or dressed through the wardrobe
+  const folk = new Map<MapId, Npc[]>();
+  function townsfolk(map: GameMap): Npc[] {
+    let list = folk.get(map.id);
+    if (list) return list;
+    list = map.npcs.map((spec) => {
+      const npc = new Npc(spec);
+      if (spec.sprite === "merchant") npc.sheet = images.merchant;
+      else if (spec.look) {
+        const { top, bottom, ...l } = spec.look;
+        looks.build(l, { weapon: null, offhand: null, top, bottom }, ["idle"]).then((b) => (npc.sheet = b.sheets.idle)).catch(console.error);
+      }
+      return npc;
+    });
+    folk.set(map.id, list);
+    return list;
+  }
+  let npcs = townsfolk(current);
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
   motes.prewarm();
   const spells: FlowerSpell[] = [];
   const floaters = new Floaters();
-  const monsters = spawnMonsters(slimeSheets({
+  const slimes = slimeSheets({
     idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
-  }));
+  });
+  // towns have no monsters; the list stays the same array (combat, skills and the bot hold it)
+  const monsters: Monster[] = current.town ? [] : spawnMonsters(slimes);
   const combat = new Combat({
     fx, tex, floaters, monsters, hero,
     onKill(m) {
@@ -510,17 +535,59 @@ async function boot(): Promise<void> {
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
   const shopUI = new ShopUI(inv, iconFor);
-  // walking over to the merchant after a click on her (path around the solids)
-  let toMerchant: { path: { x: number; y: number }[] } | null = null;
-  function talkToMerchant(): void {
-    if (merchant.distance(player) <= TALK_RANGE) {
-      toMerchant = null;
+  // walking over to someone after a click on them (path around the solids), then talking
+  let toMerchant: { npc: Npc; path: { x: number; y: number }[] } | null = null;
+  let shopKeeper: Npc | null = null;
+  function act(npc: Npc): void {
+    toMerchant = null;
+    if (npc.spec.role === "shop") {
+      shopKeeper = npc;
+      shopUI.keeper(npc.name, npc.spec.title);
       shopUI.toggle(true);
       return;
     }
-    const goal = { x: merchant.x - 90, y: merchant.y };
-    toMerchant = { path: findPath(player, goal, RADIUS) ?? [] };
+    npc.talk();
+    if (npc.spec.role === "heal" && hero.alive) {
+      hero.refill();
+      floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe9a8"), 24);
+    }
   }
+  function talkTo(npc: Npc): void {
+    if (npc.distance(player) <= TALK_RANGE) return act(npc);
+    const away = Math.hypot(player.x - npc.x, player.y - npc.y) || 1;
+    const goal = { x: npc.x + ((player.x - npc.x) / away) * 90, y: npc.y + ((player.y - npc.y) / away) * 90 };
+    toMerchant = { npc, path: findPath(player, goal, RADIUS) ?? [] };
+  }
+  const nearestNpc = (range: number): Npc | null =>
+    npcs.reduce<Npc | null>((best, n) => (n.distance(player) <= range && (!best || n.distance(player) < best.distance(player)) ? n : best), null);
+
+  // ---- going from map to map ----
+  const banner = document.createElement("div");
+  banner.className = "map-banner";
+  document.body.append(banner);
+  let bannerTimer = 0;
+  function enterMap(id: MapId, at?: { x: number; y: number }): void {
+    current = loadMap(id, quality);
+    w3d.load(current.level);
+    monsters.length = 0;
+    if (!current.town) monsters.push(...spawnMonsters(slimes));
+    npcs = townsfolk(current);
+    player.x = at?.x ?? current.spawn.x;
+    player.y = at?.y ?? current.spawn.y;
+    player.target = null;
+    player.attack = null;
+    toMerchant = null;
+    shopUI.toggle(false);
+    if (bot.on) bot.anchor = { x: player.x, y: player.y };
+    cam.x = mapX(player.x, player.y);
+    cam.y = mapY(player.x, player.y) - 50;
+    banner.textContent = current.name;
+    banner.classList.add("show");
+    clearTimeout(bannerTimer);
+    bannerTimer = window.setTimeout(() => banner.classList.remove("show"), 2600);
+  }
+  let closedSaid = 0;
   inv.onChange(() => {
     applyLook();
     hero.recompute();
@@ -622,7 +689,10 @@ async function boot(): Promise<void> {
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
-      else if (merchant.distance(player) <= TALK_RANGE * 1.6) talkToMerchant();
+      else {
+        const n = nearestNpc(TALK_RANGE * 1.6);
+        if (n) talkTo(n);
+      }
     }
     if (e.code === "Escape") {
       invUI.toggle(false);
@@ -659,9 +729,10 @@ async function boot(): Promise<void> {
     if (!view || !hero.alive) return;
     bot.noteManual();
     const { x: mx, y: my } = toMap(e);
-    if (merchant.contains(mx, my)) {
+    const who = npcs.find((n) => n.contains(mx, my));
+    if (who) {
       player.target = null;
-      talkToMerchant();
+      talkTo(who);
       return;
     }
     toMerchant = null;
@@ -828,6 +899,8 @@ async function boot(): Promise<void> {
     }
     let move = fromView(fwd, left);
     if (hero.update(dt) === "respawn") {
+      // back on your feet in the city, like Ragnarok's save point
+      if (current.id !== "eden") enterMap("eden");
       player.x = SPAWN.x;
       player.y = SPAWN.y;
       floaters.add(player.x, player.y, 140, "ฟื้นแล้ว", "heal");
@@ -843,13 +916,11 @@ async function boot(): Promise<void> {
     if (toMerchant && !fwd && !left) {
       while (toMerchant.path.length > 1 && Math.hypot(toMerchant.path[0].x - player.x, toMerchant.path[0].y - player.y) < 25) toMerchant.path.shift();
       const next = toMerchant.path[0];
-      if (!next || merchant.distance(player) <= TALK_RANGE - 20) {
-        toMerchant = null;
-        shopUI.toggle(true);
-      } else move = { x: next.x - player.x, y: next.y - player.y };
+      if (!next || toMerchant.npc.distance(player) <= TALK_RANGE - 20) act(toMerchant.npc);
+      else move = { x: next.x - player.x, y: next.y - player.y };
     }
-    merchant.update(dt, player);
-    if (shopUI.open && merchant.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
+    for (const n of npcs) n.update(dt, player);
+    if (shopUI.open && shopKeeper && shopKeeper.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
@@ -858,6 +929,19 @@ async function boot(): Promise<void> {
     if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
     if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon, offW);
     for (const m of monsters) m.update(dt, monsterCtx);
+    // warps to the next map; gates that are shut say so
+    for (const w of current.warps) {
+      if (Math.hypot(player.x - w.x, player.y - w.y) < w.r && hero.alive) {
+        enterMap(w.to as MapId, w.arrive);
+        break;
+      }
+    }
+    for (const c of current.closed) {
+      if (Math.hypot(player.x - c.x, player.y - c.y) < c.r && now - closedSaid > 4000) {
+        closedSaid = now;
+        floaters.add(player.x, player.y, 150, c.text, "info");
+      }
+    }
     combat.update(dt);
     skills.update(dt);
     floaters.update(dt);
@@ -885,7 +969,7 @@ async function boot(): Promise<void> {
       turnCamera(turnTo.from + (turnTo.to - turnTo.from) * e);
       if (turnTo.t >= 1) turnTo = null;
     }
-    const k = screen.zoom * screen.dpr;
+    const k = screen.zoom * screen.dpr * screen.far;
     const tx = mapX(player.x, player.y), ty = mapY(player.x, player.y) - 50;
     const ease = 1 - Math.exp(-dt * 6);
     cam.x += (tx - cam.x) * ease;
@@ -918,7 +1002,12 @@ async function boot(): Promise<void> {
       if (m.state === "gone" || !onScreen(m.x, m.y, 200)) continue;
       w3d.actor(m, { x: m.x, y: m.y, w: 210, h: 170, foot: 30 }, vw, (c, v) => m.draw(c, v));
     }
-    w3d.actor(merchant, { x: merchant.x, y: merchant.y, w: 280, h: 240, foot: 30 }, vw, (c, v) => merchant.draw(c, v, merchant.distance(player) <= TALK_RANGE * 1.6));
+    for (const n of npcs) {
+      if (!onScreen(n.x, n.y, 300)) continue;
+      const near = n.distance(player) <= TALK_RANGE * 1.6;
+      // talking ones need room above the head for the balloon
+      w3d.actor(n, { x: n.x, y: n.y, w: 300, h: n.bubble ? 360 : 240, foot: 30 }, vw, (c, v) => n.draw(c, v, near));
+    }
     w3d.actor(player, { x: player.x, y: player.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => player.draw(c, v, inHand, inOff), true);
     w3d.endActors();
     w3d.render(dt);
@@ -949,7 +1038,9 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, merchant, drink };
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, drink, enterMap,
+    get npcs() { return npcs; }, get map() { return current; },
+    zoomOut: (f: number) => (screen.far = 1 / f) };
 
   document.getElementById("loading")?.classList.add("done");
   requestAnimationFrame((t) => {

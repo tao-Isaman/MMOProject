@@ -10,11 +10,8 @@
 // through a tree or the house (a ghost).
 
 import * as THREE from "three";
-import { buildCourtyard } from "./courtyard";
-import { buildGround } from "./ground";
 import { wind } from "./trees";
 import { groundFromMap, mapX, mapY } from "../projection";
-import { blocked } from "../world";
 import type { View } from "../types";
 
 const DIST = 6000; // camera distance from what it looks at, cm
@@ -38,6 +35,13 @@ export interface ActorBox {
   foot: number;
 }
 
+// One map's scenery (src/world3d/levels.ts): everything but the characters.
+export interface Level {
+  root: THREE.Object3D;
+  sky: string;                     // the colour past the edge of the ground
+  warps?: { x: number; y: number }[]; // warp portals to draw
+}
+
 export class World3D {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
@@ -47,15 +51,23 @@ export class World3D {
   ring: THREE.Mesh;
   area: THREE.LineLoop;
   time = 0;
+  quality: { flowers: number; shadow: number };
+  sun: THREE.DirectionalLight;
+  level: THREE.Object3D | null = null;
+  portals: THREE.Object3D[] = [];
+  target = new THREE.Vector3();
+  shadowAt = new THREE.Vector3(1e9, 0, 0);
 
   constructor(canvas: HTMLCanvasElement, quality: { flowers: number; shadow: number }) {
+    this.quality = quality;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    // nothing in the courtyard moves but leaves: draw the sun's shadows once
+    // nothing in the scenery moves but leaves: the sun's shadows are drawn again only when the
+    // view has moved far enough that the area they cover needs to follow it
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = true;
 
@@ -65,10 +77,7 @@ export class World3D {
 
     // light: a sky dome and a warm low sun from the front left of the starting view
     s.add(new THREE.HemisphereLight("#d6ecff", "#5f7f45", 1.35));
-    const sun = new THREE.DirectionalLight("#ffe2b0", 2.6);
-    const centre = new THREE.Vector3(1300, 0, -650);
-    sun.position.copy(centre).add(new THREE.Vector3(-0.5, 0.62, -0.6).normalize().multiplyScalar(5000));
-    sun.target.position.copy(centre);
+    const sun = (this.sun = new THREE.DirectionalLight("#ffe2b0", 2.6));
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
     Object.assign(sun.shadow.camera, { left: -3400, right: 3400, top: 3400, bottom: -3400, near: 100, far: 11000 });
@@ -76,12 +85,6 @@ export class World3D {
     sun.shadow.normalBias = 2;
     sun.shadow.radius = 3;
     s.add(sun, sun.target);
-
-    // ground, props, trees, flowers
-    const ground = buildGround();
-    s.add(ground.mesh);
-    const open = (x: number, y: number) => ground.dirt(x, y) < 0.35 && !blocked({ x, y }, 6);
-    s.add(buildCourtyard(open, { flowerScale: quality.flowers }).root);
 
     // the target ring and the bot's hunting circle lie on the ground
     this.ring = new THREE.Mesh(
@@ -102,6 +105,21 @@ export class World3D {
     s.add(this.area);
   }
 
+  // Show a map's scenery instead of the last one's.
+  load(level: Level): void {
+    if (this.level) this.scene.remove(this.level);
+    this.level = level.root;
+    this.scene.add(level.root);
+    this.scene.background = new THREE.Color(level.sky);
+    this.portals = (level.warps ?? []).map((w) => {
+      const p = portal();
+      p.position.set(w.x, 0, -w.y);
+      level.root.add(p);
+      return p;
+    });
+    this.shadowAt.set(1e9, 0, 0);
+  }
+
   resize(w: number, h: number, dpr: number): void {
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
@@ -111,7 +129,7 @@ export class World3D {
   sync(view: View, yaw: number): void {
     const { k, w, h } = view;
     const g = groundFromMap((w / 2 - view.ox) / k, (h / 2 - view.oy) / k);
-    const target = new THREE.Vector3(g.x, 0, -g.y);
+    const target = this.target.set(g.x, 0, -g.y);
     const c = Math.cos(yaw), s = Math.sin(yaw), a = Math.SQRT1_2;
     this.dir.set(c * a, -a, -s * a);
     const cam = this.camera;
@@ -211,6 +229,39 @@ export class World3D {
   render(dt: number): void {
     this.time += dt;
     wind.value = this.time;
+    // the shadows cover 68 m around the view; past 15 m of drift they are drawn again around it
+    if (this.shadowAt.distanceTo(this.target) > 1500) {
+      this.shadowAt.copy(this.target);
+      this.sun.target.position.copy(this.target);
+      this.sun.position.copy(this.target).add(new THREE.Vector3(-0.5, 0.62, -0.6).normalize().multiplyScalar(5000));
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+    for (const p of this.portals) {
+      p.rotation.y = this.time * 0.8;
+      const beam = p.children[1] as THREE.Mesh;
+      (beam.material as THREE.MeshBasicMaterial).opacity = 0.32 + 0.12 * Math.sin(this.time * 3);
+    }
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+// A warp portal as Ragnarok draws one: a glowing ring on the ground and a soft column of light.
+function portal(): THREE.Group {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(55, 95, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: "#7fd0ff", transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  ring.position.y = 2;
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(70, 95, 260, 32, 1, true).translate(0, 130, 0),
+    new THREE.MeshBasicMaterial({ color: "#5fb8ff", transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  const swirl = new THREE.Mesh(
+    new THREE.RingGeometry(20, 50, 6).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: "#d8f2ff", transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  swirl.position.y = 3;
+  g.add(ring, beam, swirl);
+  return g;
 }

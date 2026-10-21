@@ -422,6 +422,16 @@ kbd {
 .bt-chip.hidden { display: none; }
 .bt-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #9df0b4; animation: bt-pulse 1.2s ease-in-out infinite; }
 @keyframes bt-pulse { 50% { opacity: 0.3; } }
+
+/* the name of the map, shown for a moment on arriving */
+.map-banner {
+  position: fixed; top: 22%; left: 50%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
+  padding: 10px 34px; font-size: 30px; font-weight: 600; letter-spacing: 0.06em; color: #ffe6a8; white-space: nowrap;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 18px rgba(255, 200, 110, 0.35);
+  background: linear-gradient(90deg, transparent, rgba(16, 22, 12, 0.62) 22%, rgba(16, 22, 12, 0.62) 78%, transparent);
+  opacity: 0; transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.map-banner.show { opacity: 1; transform: translate(-50%, 0); }
 .bt-chip-stop {
   flex: none; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rim); background: rgba(255, 255, 255, 0.08);
   color: var(--text); font: 600 12px var(--font); cursor: pointer;

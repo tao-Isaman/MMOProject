@@ -185,6 +185,33 @@ function coloured(g: Geo): THREE.BufferGeometry {
   return all;
 }
 
+// White and yellow flowers scattered over `area` (world cm) where isOpen(x, y), as instanced
+// meshes that never hide a character (no depth written).
+export function flowerFields(isOpen: (x: number, y: number) => boolean, area: { x: number; y: number; w: number; h: number }, density = 1): THREE.Group {
+  const group = new THREE.Group();
+  for (const [white, spacing, dens, seed, smin, smax] of [[true, 110, 0.45, 4, 0.7, 1.3], [false, 140, 0.35, 9, 0.7, 1.2]] as const) {
+    const r = seeded(seed);
+    const geo = coloured(flower(white));
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, depthWrite: false });
+    const spots: THREE.Matrix4[] = [];
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion();
+    const count = Math.round(((area.w * area.h) / spacing ** 2) * dens * density);
+    for (let i = 0; i < count; i++) {
+      const x = area.x + r() * area.w, y = area.y + r() * area.h;
+      if (!isOpen(x, y)) continue;
+      const s = smin + r() * (smax - smin);
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * Math.PI * 2);
+      spots.push(m.clone().compose(new THREE.Vector3(x, 0, -y), q, new THREE.Vector3(s, s, s)));
+    }
+    const inst = new THREE.InstancedMesh(geo, mat, spots.length);
+    spots.forEach((mm, i) => inst.setMatrixAt(i, mm));
+    inst.receiveShadow = true;
+    inst.renderOrder = 1; // after the props, and never over a character (no depth written)
+    group.add(inst);
+  }
+  return group;
+}
+
 // ---- layout ----
 function seeded(seed: number): () => number {
   let s = (seed * 16807) % 2147483647 || 1;
@@ -257,25 +284,6 @@ export function buildCourtyard(isOpen: (x: number, y: number) => boolean, opts: 
   }
 
   // flower fields (#scatter WhiteFlowers / YellowFlowers over 2400 x 3600 around (1300, 0))
-  for (const [white, spacing, density, seed, smin, smax] of [[true, 110, 0.45, 4, 0.7, 1.3], [false, 140, 0.35, 9, 0.7, 1.2]] as const) {
-    const r = seeded(seed);
-    const geo = coloured(flower(white));
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, depthWrite: false });
-    const spots: THREE.Matrix4[] = [];
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion();
-    const count = Math.round(((2400 * 3600) / spacing ** 2) * density * (opts.flowerScale ?? 1));
-    for (let i = 0; i < count; i++) {
-      const x = 100 + r() * 2400, y = -1800 + r() * 3600;
-      if (!isOpen(x, y)) continue;
-      const s = smin + r() * (smax - smin);
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * Math.PI * 2);
-      spots.push(m.clone().compose(new THREE.Vector3(x, 0, -y), q, new THREE.Vector3(s, s, s)));
-    }
-    const inst = new THREE.InstancedMesh(geo, mat, spots.length);
-    spots.forEach((mm, i) => inst.setMatrixAt(i, mm));
-    inst.receiveShadow = true;
-    inst.renderOrder = 1; // after the props, and never over a character (no depth written)
-    root.add(inst);
-  }
+  root.add(flowerFields(isOpen, { x: 100, y: -1800, w: 2400, h: 3600 }, opts.flowerScale ?? 1));
   return { root, props };
 }
