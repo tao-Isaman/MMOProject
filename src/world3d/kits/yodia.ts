@@ -733,7 +733,7 @@ function stiltHouse(): Geo {
   g.push(sheet([70, -236, 118], [70, -184, 118], [262, -236, 118], [262, -184, 118], [0, 0, -42], "FabricRed", 4, 6));
   g.push(rope([70, -210, 118], [50, -210, 150], 1.2), rope([262, -210, 118], [280, -210, 150], 1.2));
   g.push(hangLantern([-300, 0, W - 6], 20), translate(basket(18, 22), [-300, 150, F]));
-  return merge(...g);
+  return translate(merge(...g), [50, 0, 0]);
 }
 
 // a long house on low stilts with a deep veranda along its front (-X), thatch roofs
