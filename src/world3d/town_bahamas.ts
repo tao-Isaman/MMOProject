@@ -341,6 +341,8 @@ export function buildBahamas(quality: { flowers: number }): Town {
   brazier(588, 592);
   brazier(662, 658);
   for (const [u, v] of [[504, 568], [508, 700], [688, 622], [688, 700]]) palm(u, v);
+  put("common:market_cart", at(684, 676), 80);
+  for (const [u, v] of [[545, 562], [655, 562]]) put("bahamas:pottery_set", at(u, v), rnd() * 360);
   brazier(448, 712);
   brazier(492, 712);
 
@@ -354,6 +356,8 @@ export function buildBahamas(quality: { flowers: number }): Town {
   for (const [u, v] of [[148, 664], [148, 686], [148, 708], [172, 664], [172, 708], [236, 708]]) put("bahamas:pottery_set", at(u, v), rnd() * 360);
   put("bahamas:brazier", at(186, 690), 0);
   put("bahamas:rug_pile", at(236, 690), FACE.w);
+  put("bahamas:pottery_set", at(204, 712), rnd() * 360);
+  palm(238, 662, 0.9, "PalmBent");
   for (const [u, v] of [[120, 540], [120, 620], [264, 526], [380, 526], [380, 610], [330, 694]]) lamp(u, v, u === 120 ? 90 : 0);
 
   // ---- the open sand left between: palms and cacti, now and then a group of pots ----

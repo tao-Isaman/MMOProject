@@ -118,10 +118,10 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   };
   const GAP = 90;
   // a building centred on plan (u, v) facing `side`
-  const home = (ref: string, u: number, v: number, side: Side | number, o: { colours?: string; s?: number; solid?: SolidSpec[] } = {}) => {
+  const home = (ref: string, u: number, v: number, side: Side, o: { s?: number } = {}) => {
     const r = ref.includes(":") ? ref : `trunrada:${ref}`;
-    const colours = o.colours ?? (r === "trunrada:yurt_small" || r === "trunrada:stone_house" || r === "trunrada:longhouse_small" ? TINTS[Math.floor(rnd() * TINTS.length)] || undefined : undefined);
-    const h = typeof side === "number" ? side : FACE[side], s = o.s ?? 1;
+    const colours = ["trunrada:yurt_small", "trunrada:stone_house", "trunrada:longhouse_small"].includes(r) ? TINTS[Math.floor(rnd() * TINTS.length)] || undefined : undefined;
+    const h = FACE[side], s = o.s ?? 1;
     // the footprint's own middle onto the drawn square's middle
     const b0 = boxOf(r, colours, 0, 0, h, s);
     const [cx, cy] = P(u, v);
@@ -146,7 +146,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
       y += my;
     }
     homes.push(boxOf(r, colours, x, y, h, s));
-    put(r, [x, y], h, { colours, s, ...(o.solid ? { solid: o.solid } : {}) });
+    put(r, [x, y], h, { colours, s });
   };
 
   // north-west: the long hall facing the north road; houses down the north road, down both
@@ -222,10 +222,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     !homes.some((b) => x > b.x0 - r && x < b.x1 + r && y > b.y0 - r && y < b.y1 + r) && !props.some(([px, py, pr]) => Math.hypot(px - x, py - y) < pr + r);
   const prop = (ref: string, u: number, v: number, h = 0, r = 120, o: Partial<Placement> = {}): boolean => {
     const [x, y] = P(u, v);
-    if (!clear(x, y, r)) {
-      console.log("skip", ref, u, v);
-      return false;
-    }
+    if (!clear(x, y, r)) return false;
     props.push([x, y, r]);
     put(ref.includes(":") ? ref : `trunrada:${ref}`, [x, y], h, o);
     return true;
@@ -240,10 +237,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     const [x, y] = P(u, v);
     const at = (lx: number, ly: number): XY => [x + lx * c - ly * sn, y + lx * sn + ly * c];
     const mid = at(-110, 0);
-    if (!clear(mid[0], mid[1], 250)) {
-      console.log("skip tether", u, v);
-      return false;
-    }
+    if (!clear(mid[0], mid[1], 250)) return false;
     props.push([mid[0], mid[1], 250]);
     put("trunrada:hitching_post", [x, y], h);
     for (const ly of ys) put("trunrada:horse", at(-222, ly), h + 180 + (rnd() - 0.5) * 14, { colours: coat() });
@@ -312,10 +306,9 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   // the fur market along the back of the chief's yurt, carts and crates by it
   for (const v of [190, 222, 254]) prop("fur_stall", 541, v, FACE.e, 160);
   for (const v of [196, 228]) prop("fur_stall", 569, v, FACE.w, 160);
-  for (const [u, v] of [[555, 172], [558, 268], [552, 240]] as XY[]) prop("common:crate", u, v, rnd() * 90, 40);
+  for (const [u, v] of [[555, 172], [558, 268], [552, 240], [530, 285], [534, 290], [531, 318]] as XY[]) prop("common:crate", u, v, rnd() * 90, 40);
   prop("cart", 552, 300, FACE.s + 20, 200);
   prop("cart", 545, 345, FACE.n - 10, 200);
-  for (const [u, v] of [[530, 285], [534, 290], [531, 318]] as XY[]) prop("common:crate", u, v, rnd() * 90, 40);
   // the horse lines and hay by the windmill
   prop("haystack", 682, 248, 10, 160);
   prop("haystack", 678, 278, 60, 160);
@@ -325,8 +318,8 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   prop("haystack", 562, 176, 0, 160);
   prop("cart", 600, 176, FACE.e, 200);
 
-  // the ways in: a path from the north road between the stable and the row, and one up from
-  // the main road along the east wall
+  // its ground of trampled earth and flat stones, and the paths in: one from the north road
+  // between the stable and the row, one up from the main road along the east wall
   for (let i = 0; i < 11; i++) for (let j = 0; j < 14; j++) put("trunrada:path_tile", P(SQ_U + (i + 0.5) * TILE, SQ_V + (j + 0.5) * TILE), 90 * Math.floor(rnd() * 4));
   for (let u = 470; u <= 520; u += TILE) put("trunrada:path_tile", P(u, 368), 90 * Math.floor(rnd() * 4));
   for (let v = 409; v >= 380; v -= TILE) put("trunrada:path_tile", P(674, v), 90 * Math.floor(rnd() * 4));
@@ -382,8 +375,8 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     return inside || road || herds.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < 700);
   }, { count: 160, spacing: 600 });
 
-  // ---- inside: a few birches and bushes on the grass left between, stones in the grass ----
-  // birch groves and bushes in the quarters, along the palisade and in the corners
+  // ---- inside: birch groves and bushes in the quarters and the corners, then a few more trees
+  // and stones on the grass left between ----
   const TREES = ["Birch", "Birch", "Bush", "PineSmall", "Bush", "Birch", "Pine"];
   const grove = (u: number, v: number, n: number, spread = 22) => {
     for (let i = 0, k = 0; i < n && k < n * 6; k++) {
@@ -393,9 +386,9 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     }
   };
   for (const [u, v, n] of [
-    [150, 200, 4], [300, 175, 3], [355, 165, 2], [150, 270, 2], [235, 335, 3], [340, 355, 2], [160, 430, 1],
-    [150, 470, 0], [230, 640, 3], [160, 630, 3], [285, 690, 3], [345, 525, 0], [420, 560, 3], [440, 670, 3], [510, 690, 3],
-    [500, 600, 2], [665, 600, 3], [680, 680, 4], [640, 540, 2], [690, 500, 2], [600, 690, 2], [530, 180, 0],
+    [150, 200, 4], [300, 175, 3], [355, 165, 2], [150, 270, 2], [235, 335, 3], [340, 355, 2], [160, 430, 1], [230, 640, 3],
+    [160, 630, 3], [285, 690, 3], [420, 560, 3], [440, 670, 3], [510, 690, 3], [500, 600, 2], [665, 600, 3], [680, 680, 4],
+    [640, 540, 2], [690, 500, 2], [600, 690, 2],
   ] as [number, number, number][]) grove(u, v, n);
   town.greens(ground, { x0: SOUTH, x1: NORTH, y0: EAST, y1: WEST }, { trees: ["Birch", "Bush", "Birch", "PineSmall", "Bush"], other: "common:rock_small", chance: 0.55, step: 480, margin: 500 });
 

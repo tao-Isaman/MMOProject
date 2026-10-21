@@ -47,6 +47,8 @@ colourways({
   grey: { WoodWarm: "WoodGrey", RoofTerracotta: "YodiaTown_RoofBrown" },
   pale: { WoodWarm: "WoodPale", Yodia_Teal: "YodiaTown_Oxblood" },
   tarred: { WoodWarm: "WoodShade", Yodia_Teal: "WoodRed" },
+  // Eden's inn as the sailors' inn on the quay
+  sailors: { RoofBlue: "RoofTerracotta", Eden_Plaster: "Yodia_Ochre", Eden_Shutter: "Yodia_Teal", Eden_PaintBlue: "LacquerRed", FabricBlue: "FabricRed" },
 });
 
 // ---- the plan's pixels -> the world: 26 cm a pixel, the crossroads near the origin ----
@@ -160,7 +162,7 @@ export function buildYodia(quality: { flowers: number }): Town {
   // the waterfront: warehouses, the customs house at the foot of Harbour Road
   terrace([335, 650], [398, 650], "s", HARBOUR, 0, DOCK_TINTS);
   terrace([444, 650], [618, 650], "s", ["customs_house", ...HARBOUR], 0, DOCK_TINTS);
-  terrace([648, 650], [730, 650], "s", HARBOUR, 1, DOCK_TINTS);
+  terrace([648, 650], [730, 650], "s", ["eden:inn", "warehouse"], 0, ["sailors"]);
 
   // ---- the stilt-house village of the jungle folk (west), along plank paths ----
   const stilt = (u: number, v: number, f: number) => put("yodia:stilt_house", P(u, v), f + (rnd() - 0.5) * 8);
@@ -342,9 +344,9 @@ export function buildYodia(quality: { flowers: number }): Town {
   // cranes on the quay's edge, their jibs out over the water
   for (const u of [520, 588, 365]) put("yodia:crane", P(u, Q - 7), FACE.s, { solid: [{ kind: "crane", x: 0, y: 0, w: 300, d: 300, rot: 0 }] });
   // cargo, crates and barrels on the quay
-  for (const [u, v, h] of [[470, 672, 0], [556, 668, 90], [655, 672, 10], [372, 668, 80], [300, 672, 0], [705, 690, 0]]) put("yodia:cargo_pile", P(u, v), h);
-  for (const [u, v] of [[490, 662], [575, 680], [310, 660], [640, 663], [710, 662], [395, 690], [262, 660], [232, 672]]) put("common:crate", P(u, v), rnd() * 90);
-  for (const [u, v] of [[598, 676], [338, 664], [668, 662], [130, 660]]) put("eden:cargo_stack", P(u, v), rnd() * 90);
+  for (const [u, v, h] of [[470, 672, 0], [556, 668, 90], [636, 676, 10], [372, 668, 80], [300, 672, 0], [705, 690, 0]]) put("yodia:cargo_pile", P(u, v), h);
+  for (const [u, v] of [[490, 662], [575, 680], [310, 660], [640, 663], [724, 678], [395, 690], [262, 660], [232, 672]]) put("common:crate", P(u, v), rnd() * 90);
+  for (const [u, v] of [[598, 676], [338, 664], [726, 664], [130, 660]]) put("eden:cargo_stack", P(u, v), rnd() * 90);
   put("common:market_cart", P(615, 668), 70);
   for (const [u, v] of [[540, 658], [600, 658]]) put("common:bench", P(u, v), FACE.s);
   // the foot of Harbour Road: lanterns, a sign, a fruit seller for the sailors
@@ -436,6 +438,7 @@ export function buildYodia(quality: { flowers: number }): Town {
       { ...pt(300, 336), text: "ถนนการค้า", kind: "small" },
       { ...pt(680, 465), text: "ถนนตลาด", kind: "small" },
       { ...pt(530, 588), text: "แนวโกดัง", kind: "small" },
+      { ...pt(668, 664), text: "โรงเตี๊ยมชาวเรือ", kind: "small" },
       { x: GATE_N[0] - 150, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
       { x: GATE_W[0], y: GATE_W[1] - 150, text: "ประตูป่า (ปิด)", kind: "gate" },
       { x: GATE_E[0], y: GATE_E[1] + 150, text: "ประตูตะวันออก (ปิด)", kind: "gate" },
