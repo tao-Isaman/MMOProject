@@ -2,7 +2,7 @@ import { mapX, mapY, groundFromMap, fromView, setYaw, yaw } from "./projection";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets";
 import { World3D } from "./world3d/view";
 import { SPAWN, debugShapes } from "./world";
-import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles";
+import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./particles";
 import { Player, directionIndex } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
@@ -54,6 +54,21 @@ const worldCanvas = document.getElementById("world") as HTMLCanvasElement;
 let world: World3D | null = null;
 const ctx = canvas.getContext("2d")!;
 let showDebug = new URLSearchParams(location.search).has("debug");
+
+// ---- the loading screen: the files at the start, then entering the game and every map change
+// wait behind it until the map is built, its townsfolk dressed and its shaders compiled ----
+const loadingEl = document.getElementById("loading")!;
+const loadingText = loadingEl.querySelector(".loading-title")!;
+const loadingBar = document.getElementById("loading-bar") as HTMLProgressElement;
+// two frames: whatever changed on screen has been painted before the work that follows
+const painted = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+async function loading(text: string, progress: number): Promise<void> {
+  loadingEl.classList.remove("done");
+  loadingText.textContent = text;
+  loadingBar.value = progress;
+  await painted();
+}
+const loaded = () => loadingEl.classList.add("done");
 
 const screen = { w: 0, h: 0, dpr: 1, zoom: 1, far: 1 }; // far: a debug zoom-out (__game.zoomOut)
 function resize() {
@@ -254,6 +269,7 @@ async function boot(): Promise<void> {
     flash: glow("rgba(236, 255, 240, 1)"),
     dissolve: glow("rgba(205, 218, 255, 1)"),
     flowers: bakeGround(images.flowers, 3, 3, 128, 8, 2),
+    flowerTop: { levels: [images.flowers], cols: 3, rows: 3 },
     petals: { levels: mipChain(images.petals, 2), cols: 2, rows: 2 },
     ember: glow("rgba(255, 140, 70, 1)"),
     glowFor(color) {
@@ -278,6 +294,7 @@ async function boot(): Promise<void> {
   const looks = new Looks({ bodies, hair });
   document.getElementById("loading")?.classList.add("done");
   const charId = await new Title(looks).run();
+  await loading("กำลังเตรียมตัวละคร…", 0.1);
   useCharacter(charId);
   const entry = loadRoster().chars.find((c) => c.id === charId);
 
@@ -351,6 +368,7 @@ async function boot(): Promise<void> {
   };
 
   // ---- world: everyone starts in Eden ----
+  await loading(`กำลังสร้าง${MAP_NAMES.eden}…`, 0.3);
   let current: GameMap = loadMap("eden", quality);
   w3d.load(current.level);
   const fx = new Particles();
@@ -359,20 +377,23 @@ async function boot(): Promise<void> {
   player.builtin = first.builtin;
   applyLook();
   // townsfolk, made once per map: the merchant's own sprite, or dressed through the wardrobe
-  const folk = new Map<MapId, Npc[]>();
+  // (dressing: each map's sheets still loading, which the loading screen waits for)
+  const folk = new Map<MapId, Npc[]>(), dressing = new Map<MapId, Promise<unknown>>();
   function townsfolk(map: GameMap): Npc[] {
     let list = folk.get(map.id);
     if (list) return list;
+    const sheets: Promise<unknown>[] = [];
     list = map.npcs.map((spec) => {
       const npc = new Npc(spec);
       if (spec.sprite === "merchant") npc.sheet = images.merchant;
       else if (spec.look) {
         const { top, bottom, ...l } = spec.look;
-        looks.build(l, { weapon: null, offhand: null, top, bottom }, ["idle"]).then((b) => (npc.sheet = b.sheets.idle)).catch(console.error);
+        sheets.push(looks.build(l, { weapon: null, offhand: null, top, bottom }, ["idle"]).then((b) => (npc.sheet = b.sheets.idle)).catch(console.error));
       }
       return npc;
     });
     folk.set(map.id, list);
+    dressing.set(map.id, Promise.all(sheets));
     return list;
   }
   let npcs = townsfolk(current);
@@ -520,6 +541,7 @@ async function boot(): Promise<void> {
     hero.refill();
     // a new character starts with the class's weapon in hand
     if (first && inv.equipped.weapon !== CLASSES[cls].weapon) {
+      if (!inv.has(CLASSES[cls].weapon)) inv.add(CLASSES[cls].weapon, 1, { silent: true });
       const i = inv.slots.findIndex((s) => s?.id === CLASSES[cls].weapon);
       if (i >= 0) inv.equip(i);
     }
@@ -536,11 +558,23 @@ async function boot(): Promise<void> {
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
   const shopUI = new ShopUI(inv, iconFor);
-  // the minimap and the map window (M); each map's picture from above is taken on the first
-  // frame there (after the canvas has its size) and kept
+  // the minimap and the map window (M); each map's picture from above is taken while it loads
+  // and kept
   const mapUI = new MapUI(MAP_NAMES, goTo);
   const pictures = new Map<MapId, HTMLCanvasElement>();
   mapUI.setMap(current, null);
+  // The rest of a map's loading: its townsfolk dressed (10 s at most), every material compiled,
+  // its picture from above taken.
+  async function settle(map: GameMap): Promise<void> {
+    await loading("กำลังแต่งตัวชาวเมือง…", 0.55);
+    await Promise.race([dressing.get(map.id), new Promise((r) => setTimeout(r, 10000))]);
+    await loading("กำลังเตรียมกราฟิก…", 0.75);
+    await w3d.compile();
+    await loading("กำลังวาดแผนที่…", 0.9);
+    if (!pictures.has(map.id)) pictures.set(map.id, w3d.snapshot(mapArea(map), isTouch() ? 1280 : 2048));
+    mapUI.setMap(map, pictures.get(map.id)!);
+    loadingBar.value = 1;
+  }
   // walking somewhere along a path round the solids: up to someone clicked on (then talking to
   // them), or to a spot picked on the map window; `stuck` counts the seconds without moving
   let walkTo: { path: { x: number; y: number }[]; npc?: Npc; stuck: number } | null = null;
@@ -588,13 +622,17 @@ async function boot(): Promise<void> {
   banner.className = "map-banner";
   document.body.append(banner);
   let bannerTimer = 0;
-  function enterMap(id: MapId, at?: { x: number; y: number }): void {
+  // (travelling: a map change under way behind the loading screen; the game waits)
+  let travelling = false;
+  async function enterMap(id: MapId, at?: { x: number; y: number }): Promise<void> {
+    if (travelling) return;
+    travelling = true;
+    await loading(`กำลังเดินทางไป${MAP_NAMES[id]}…`, 0.25);
     current = loadMap(id, quality);
     w3d.load(current.level);
     monsters.length = 0;
     if (!current.town) monsters.push(...spawnMonsters(slimes));
     npcs = townsfolk(current);
-    mapUI.setMap(current, pictures.get(current.id) ?? null);
     player.x = at?.x ?? current.spawn.x;
     player.y = at?.y ?? current.spawn.y;
     player.target = null;
@@ -604,6 +642,9 @@ async function boot(): Promise<void> {
     if (bot.on) bot.anchor = { x: player.x, y: player.y };
     cam.x = mapX(player.x, player.y);
     cam.y = mapY(player.x, player.y) - 50;
+    await settle(current);
+    loaded();
+    travelling = false;
     banner.textContent = current.name;
     banner.classList.add("show");
     clearTimeout(bannerTimer);
@@ -726,7 +767,6 @@ async function boot(): Promise<void> {
       mapUI.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
-    if ((e.code === "KeyQ" || e.code === "KeyE") && !e.repeat) rotateCamera(e.code === "KeyQ" ? -1 : 1);
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()],
@@ -749,27 +789,42 @@ async function boot(): Promise<void> {
   });
   canvas.addEventListener("pointerleave", () => (pointer = null));
   // A click or tap on the game: the merchant, a monster to chase, or a swing toward the ground.
-  function tapAt(e: { clientX: number; clientY: number }): void {
-    if (!view || !hero.alive) return;
+  // walk: a click on the ground walks there (with a mouse; Shift swings there instead), a tap
+  // on a phone swings there. Returns whether it started a walk.
+  function tapAt(e: { clientX: number; clientY: number }, walk = false): boolean {
+    if (!view || !hero.alive) return false;
     bot.noteManual();
     const { x: mx, y: my } = toMap(e);
     const who = npcs.find((n) => n.contains(mx, my));
     if (who) {
       player.target = null;
       talkTo(who);
-      return;
+      return false;
     }
     walkTo = null;
     const m = monsters.find((mon) => mon.contains(mx, my));
     if (m) {
       player.target = m;
-      return;
+      return false;
     }
     player.target = null;
+    if (walk) return walkToward(groundFromMap(mx, my));
     player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundFromMap(mx, my));
+    return false;
   }
+  // A walk to a ground point round the solids (none if there is no way).
+  function walkToward(at: { x: number; y: number }): boolean {
+    const path = findPath(player, at, RADIUS);
+    walkTo = path ? { path, stuck: 0 } : null;
+    return !!path;
+  }
+  // holding the button down keeps walking toward the pointer, like Ragnarok
+  let holdWalk = false, holdClock = 0;
   canvas.addEventListener("pointerdown", (e) => {
-    if (e.pointerType !== "touch" && e.button === 0) tapAt(e);
+    if (e.pointerType !== "touch" && e.button === 0) holdWalk = tapAt(e, !e.shiftKey);
+  });
+  window.addEventListener("pointerup", (e) => {
+    if (e.button === 0) holdWalk = false;
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
   window.addEventListener("blur", () => held.clear());
@@ -780,26 +835,17 @@ async function boot(): Promise<void> {
   const cam = { x: mapX(player.x, player.y), y: mapY(player.x, player.y) - 50 };
   let uiClock = 0;
 
-  // ---- the camera turns freely: drag with the right mouse button, or Q / E for 45 degrees ----
-  let turnTo: { from: number; to: number; t: number } | null = null;
+  // ---- the camera turns freely: drag with the right mouse button (a sideways swipe on a phone) ----
   function turnCamera(a: number): void {
     setYaw(a);
     // the follow camera works in map coordinates, which turn with the view: jump to the player
     cam.x = mapX(player.x, player.y);
     cam.y = mapY(player.x, player.y) - 50;
   }
-  function rotateCamera(delta: number): void {
-    const step = Math.PI / 4, base = turnTo ? turnTo.to : yaw;
-    turnTo = { from: yaw, to: (Math.round(base / step) + delta) * step, t: 0 };
-    // turn the short way round
-    while (turnTo.to - turnTo.from > Math.PI) turnTo.to -= Math.PI * 2;
-    while (turnTo.from - turnTo.to > Math.PI) turnTo.to += Math.PI * 2;
-  }
   let dragTurn: { x: number; yaw: number } | null = null;
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 2) return;
-    turnTo = null;
     dragTurn = { x: e.clientX, yaw };
     canvas.setPointerCapture(e.pointerId);
   });
@@ -830,10 +876,7 @@ async function boot(): Promise<void> {
     if (e.pointerId === stick.id) return stick.move(e);
     const s = swipes.get(e.pointerId);
     if (!s) return;
-    if (!s.turning && Math.abs(e.clientX - s.x) > 14) {
-      s.turning = true;
-      turnTo = null;
-    }
+    if (!s.turning && Math.abs(e.clientX - s.x) > 14) s.turning = true;
     if (s.turning) turnCamera(s.yaw - (e.clientX - s.x) * 0.0085);
   });
   const touchUp = (e: PointerEvent, tap: boolean) => {
@@ -910,6 +953,11 @@ async function boot(): Promise<void> {
   let fps = 60;
 
   function frame(now: number): void {
+    if (travelling) {
+      last = now;
+      requestAnimationFrame(frame);
+      return;
+    }
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     fps += (1 / Math.max(dt, 1e-3) - fps) * 0.05;
@@ -929,7 +977,7 @@ async function boot(): Promise<void> {
     let move = fromView(fwd, left);
     if (hero.update(dt) === "respawn") {
       // back on your feet in the city, like Ragnarok's save point
-      if (current.id !== "eden") enterMap("eden");
+      if (current.id !== "eden") void enterMap("eden");
       player.x = SPAWN.x;
       player.y = SPAWN.y;
       floaters.add(player.x, player.y, 140, "ฟื้นแล้ว", "heal");
@@ -942,6 +990,11 @@ async function boot(): Promise<void> {
     potionCd = Math.max(0, potionCd - dt);
     const auto = bot.update(dt);
     if (!fwd && !left && bot.on) move = auto;
+    if (holdWalk && pointer && view && (holdClock -= dt) <= 0) {
+      holdClock = 0.2;
+      const p = toMap(pointer), goal = groundFromMap(p.x, p.y), end = walkTo?.path[walkTo.path.length - 1];
+      if (!end || Math.hypot(end.x - goal.x, end.y - goal.y) > 60) walkToward(goal);
+    }
     if (walkTo && !fwd && !left) {
       while (walkTo.path.length > 1 && Math.hypot(walkTo.path[0].x - player.x, walkTo.path[0].y - player.y) < 25) walkTo.path.shift();
       const next = walkTo.path[0];
@@ -969,7 +1022,7 @@ async function boot(): Promise<void> {
     // warps to the next map; gates that are shut say so
     for (const w of current.warps) {
       if (Math.hypot(player.x - w.x, player.y - w.y) < w.r && hero.alive) {
-        enterMap(w.to as MapId, w.arrive);
+        void enterMap(w.to as MapId, w.arrive);
         break;
       }
     }
@@ -999,13 +1052,7 @@ async function boot(): Promise<void> {
       if (!hero.alive) deathNote.textContent = `ล้มลงแล้ว · ฟื้นที่จุดเกิดในอีก ${Math.ceil(hero.dead)} วินาที`;
     }
 
-    // ---- camera: Q / E turns ease over 0.35 s; follow the player ----
-    if (turnTo) {
-      turnTo.t = Math.min(1, turnTo.t + dt / 0.35);
-      const e = 1 - (1 - turnTo.t) ** 3;
-      turnCamera(turnTo.from + (turnTo.to - turnTo.from) * e);
-      if (turnTo.t >= 1) turnTo = null;
-    }
+    // ---- camera: follow the player ----
     const k = screen.zoom * screen.dpr * screen.far;
     const tx = mapX(player.x, player.y), ty = mapY(player.x, player.y) - 50;
     const ease = 1 - Math.exp(-dt * 6);
@@ -1022,11 +1069,6 @@ async function boot(): Promise<void> {
     view = vw;
 
     // ---- draw: the 3D courtyard with the characters standing in it ----
-    if (!pictures.has(current.id)) {
-      const pic = w3d.snapshot(mapArea(current), isTouch() ? 1280 : 2048);
-      pictures.set(current.id, pic);
-      mapUI.setMap(current, pic);
-    }
     w3d.sync(vw, yaw);
     // the bot's hunting area and the ring under the slime being attacked lie on the ground
     w3d.setArea((bot.on || botUI.open) && !bot.settings.wholeMap ? (bot.on ? bot.anchor : player) : null, bot.settings.radius);
@@ -1054,6 +1096,9 @@ async function boot(): Promise<void> {
     }
     w3d.actor(player, { x: player.x, y: player.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => player.draw(c, v, inHand, inOff), true);
     w3d.endActors();
+    // what lies on the ground (glows, the spell's flowers) goes into the 3D view, under the feet
+    const sorted = fx.layer(SORTED);
+    w3d.ground([...groundSprites(fx.layer(GROUND_GLOW), true, tex.flowerTop), ...groundSprites(sorted.filter((p) => p.flat), false, tex.flowerTop)]);
     w3d.render(dt);
 
     // ---- on top, in 2D: spell effects, projectiles, damage numbers ----
@@ -1061,13 +1106,11 @@ async function boot(): Promise<void> {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "low"; // textures carry their own mip levels
-    ctx.globalCompositeOperation = "lighter";
-    fx.draw(ctx, vw, fx.layer(GROUND_GLOW));
-    ctx.globalCompositeOperation = "source-over";
-    const sorted = fx.layer(SORTED);
-    for (const p of sorted) p.depth = mapY(p.x, p.y);
-    sorted.sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
-    fx.draw(ctx, vw, sorted);
+    // in the air (petals): over the scene, back to front
+    const air = sorted.filter((p) => !p.flat);
+    for (const p of air) p.depth = mapY(p.x, p.y);
+    air.sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
+    fx.draw(ctx, vw, air);
 
     combat.draw(ctx, vw, images.arrow);
     ctx.globalCompositeOperation = "lighter";
@@ -1083,11 +1126,12 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap,
-    get npcs() { return npcs; }, get map() { return current; },
+    progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap,
+    get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS } };
 
-  document.getElementById("loading")?.classList.add("done");
+  await settle(current);
+  loaded();
   requestAnimationFrame((t) => {
     last = t;
     frame(t);

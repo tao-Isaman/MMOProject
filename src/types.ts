@@ -40,6 +40,7 @@ export interface Textures {
   dissolve: Img;
   ember: Img;
   flowers: Atlas; // ground-baked flower atlas
+  flowerTop: Atlas; // the same flowers seen from straight above (3D ground effects)
   petals: Atlas;
   glowFor: (color: string) => Img;
   ringFor: (color: string) => Img;

@@ -16,7 +16,7 @@ export const ROWS = 5;
 const SAVE_KEY = () => saveKey("inventory.v3");
 const OLD_KEYS = () => [saveKey("inventory.v2"), saveKey("inventory.v1")];
 
-// Clothes every character starts with, besides the mage top and skirt worn.
+// Clothes the oldest saves (v1) were given when tops and bottoms came in.
 const STARTER_CLOTHES = [
   "top_priestess", "bottom_priestess", "top_adventurer", "bottom_adventurer", "top_warrior", "bottom_warrior",
   "top_sky", "bottom_navy", "top_priestess_white", "top_adventurer_teal", "bottom_adventurer_cocoa",
@@ -38,9 +38,10 @@ const COSTUME_TO_CLOTHES: Record<string, [string, string]> = {
   costume_adventurer_ochre: ["top_adventurer_ochre", "bottom_adventurer_wine"],
 };
 
-export const STARTER: { equipped: Equipped; items: string[] } = {
+// A new bag: only what is worn (title.ts puts on the class's own gear and the chosen clothes)
+// and a few potions; other weapons and clothes come from the shop and from monsters.
+export const STARTER: { equipped: Equipped } = {
   equipped: { weapon: "staff", offhand: null, top: "top_white", bottom: "bottom_black" },
-  items: ["sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "bow", ...STARTER_CLOTHES],
 };
 
 export class Inventory {
@@ -56,10 +57,15 @@ export class Inventory {
   reset(): void {
     this.slots.fill(null);
     this.equipped = { ...STARTER.equipped };
-    for (const id of STARTER.items) this.add(id, 1, { silent: true });
     this.add("potion_red", 5, { silent: true });
     this.add("potion_blue", 5, { silent: true });
     this.gold = 200;
+    this.changed();
+  }
+
+  // A new character's gear, put on straight away (nothing left over in the bag).
+  outfit(gear: Partial<Equipped>): void {
+    Object.assign(this.equipped, gear);
     this.changed();
   }
 

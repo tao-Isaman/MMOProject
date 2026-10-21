@@ -11,7 +11,8 @@ export const MERCHANT = { x: 900, y: 690, name: "มิร่า", title: "ร�
 
 export const STOCK = [
   "potion_red", "potion_red_big", "potion_blue", "potion_blue_big",
-  "buckler", "kite_shield", "alchemy_flask", "spell_tome", "grimoire", "dagger",
+  "sword_1h", "sword_2h", "axe", "mace", "spear_1h", "spear_2h", "dagger", "staff", "bow",
+  "buckler", "kite_shield", "alchemy_flask", "spell_tome", "grimoire",
   "top_priestess_white", "bottom_priestess_white", "top_adventurer_teal", "bottom_adventurer_sand",
   "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
   "book_survivor", "book_gathering", "book_lightning",

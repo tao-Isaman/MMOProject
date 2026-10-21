@@ -28,6 +28,20 @@ interface Billboard {
   used: boolean;
 }
 
+// Something lying flat on the ground for one frame (a rune circle, a ripple, a bloomed flower):
+// centre and size in cm, turn in radians, opacity, its image and the part of it (uv: u0, v0,
+// u1, v1, v from the top), and whether it adds light (glows) or lays over (flowers).
+export interface GroundSprite {
+  x: number;
+  y: number;
+  size: number;
+  rot: number;
+  alpha: number;
+  img: CanvasImageSource & { width: number; height: number };
+  uv: [number, number, number, number];
+  add: boolean;
+}
+
 // What an actor billboard needs: its feet, its box (cm: width, height, room below the feet).
 export interface ActorBox {
   x: number;
@@ -60,6 +74,8 @@ export class World3D {
   target = new THREE.Vector3();
   shadowAt = new THREE.Vector3(1e9, 0, 0);
   focus: { x: number; y: number } | null = null; // who the cutaway keeps in view
+  groundSets = new Map<string, { mesh: THREE.Mesh; geo: THREE.BufferGeometry; cap: number }>();
+  groundTex = new Map<object, THREE.Texture>();
 
   constructor(canvas: HTMLCanvasElement, quality: { flowers: number; shadow: number }) {
     this.quality = quality;
@@ -218,6 +234,71 @@ export class World3D {
     this.boards.delete(key);
   }
 
+  // ---- effects on the ground: one mesh of flat quads per image and blend, refilled every frame,
+  // drawn before the characters (who stand on them) and hidden by anything in front ----
+  ground(list: GroundSprite[]): void {
+    const groups = new Map<string, GroundSprite[]>();
+    for (const sp of list) {
+      let tex = this.groundTex.get(sp.img);
+      if (!tex) {
+        tex = new THREE.Texture(sp.img as TexImageSource);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.needsUpdate = true;
+        this.groundTex.set(sp.img, tex);
+      }
+      const key = `${tex.id}|${sp.add ? 1 : 0}`;
+      const g = groups.get(key);
+      if (g) g.push(sp);
+      else groups.set(key, [sp]);
+    }
+    for (const [key, set] of this.groundSets) if (!groups.has(key)) set.mesh.visible = false;
+    for (const [key, sprites] of groups) {
+      let set = this.groundSets.get(key);
+      if (!set || set.cap < sprites.length) {
+        const cap = Math.max(64, 2 ** Math.ceil(Math.log2(sprites.length)));
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(cap * 12), 3).setUsage(THREE.DynamicDrawUsage));
+        geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(cap * 8), 2).setUsage(THREE.DynamicDrawUsage));
+        geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(cap * 16), 4).setUsage(THREE.DynamicDrawUsage));
+        const index = new Uint32Array(cap * 6);
+        for (let i = 0; i < cap; i++) index.set([i * 4, i * 4 + 2, i * 4 + 1, i * 4 + 1, i * 4 + 2, i * 4 + 3], i * 6);
+        geo.setIndex(new THREE.BufferAttribute(index, 1));
+        const add = key.endsWith("|1");
+        const mat = new THREE.MeshBasicMaterial({ map: this.groundTex.get(sprites[0].img)!, transparent: true, depthWrite: false, vertexColors: true,
+          blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, fog: false, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = add ? -2 : -1;
+        if (set) {
+          this.scene.remove(set.mesh);
+          set.geo.dispose();
+          (set.mesh.material as THREE.Material).dispose();
+        }
+        set = { mesh, geo, cap };
+        this.groundSets.set(key, set);
+        this.scene.add(mesh);
+      }
+      set.mesh.visible = true;
+      const pos = set.geo.getAttribute("position") as THREE.BufferAttribute, uv = set.geo.getAttribute("uv") as THREE.BufferAttribute;
+      const col = set.geo.getAttribute("color") as THREE.BufferAttribute;
+      const P = pos.array as Float32Array, U = uv.array as Float32Array, C = col.array as Float32Array;
+      sprites.forEach((sp, i) => {
+        const h = sp.size / 2, c = Math.cos(sp.rot) * h, s = Math.sin(sp.rot) * h;
+        const [u0, v0, u1, v1] = sp.uv;
+        // corners: the image's top towards north (+X), its left towards west (+Y); y up 3 cm
+        const corners: [number, number, number, number][] = [[-1, -1, u0, 1 - v0], [1, -1, u1, 1 - v0], [-1, 1, u0, 1 - v1], [1, 1, u1, 1 - v1]];
+        corners.forEach(([a, b, u, v], j) => {
+          const wx = sp.x - b * c - a * s, wy = sp.y - a * c + b * s;
+          P.set([wx, 3 + (sp.add ? 0 : 0.5), -wy], (i * 4 + j) * 3);
+          U.set([u, v], (i * 4 + j) * 2);
+          C.set(sp.add ? [sp.alpha, sp.alpha, sp.alpha, 1] : [1, 1, 1, sp.alpha], (i * 4 + j) * 4);
+        });
+      });
+      set.geo.setDrawRange(0, sprites.length * 6);
+      pos.needsUpdate = uv.needsUpdate = col.needsUpdate = true;
+    }
+  }
+
   // ---- ground markers ----
   setRing(at: { x: number; y: number } | null): void {
     this.ring.visible = !!at;
@@ -254,6 +335,13 @@ export class World3D {
       CUT.value.set(v.x, v.y, v.z, CUT_R);
     } else CUT.value.w = 0;
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Compile every material in the scene now (behind the loading screen) rather than on the
+  // frames that first show it.
+  async compile(): Promise<void> {
+    this.camera.updateMatrixWorld();
+    await this.renderer.compileAsync(this.scene, this.camera);
   }
 
   // The scenery inside `b` seen from straight above, north (+X) up, `long` pixels along its

@@ -3,11 +3,16 @@
 // Every body is its own Oriverse sprite (assets/chars/<body>_<clip>.png, described in
 // assets/chars/bodies.json). A top is the upper half of one body (head to waist, with the
 // arms), a bottom the lower half of another; frame by frame the bottom is drawn from its waist
-// down and the top above it, moved so the two waists meet (bodies.json `waist`, following the
-// body's bob through the head offsets). Bodies marked hairless were generated with short hair,
+// down and the top above it, moved only to follow the bottom's bob (the head offsets): every body
+// is brought to the same height first (`stretch`), so the head stays where it is. Bodies marked hairless were generated with short hair,
 // which tools/char_layers.py erased frame by frame; a hairstyle head layer
 // (assets/chars/hair_<id>.png: back layer in column 0, front layer in column 1) is drawn back
 // onto every frame at the top body's head offset. Other bodies keep the hair they came with.
+//
+// When the top and the bottom come from different bodies the halves are not simply cut at the
+// waist: each piece keeps what is its own (piece() below). The top brings its hands, sleeves and a
+// long coat's skirts down over the bottom, and the bottom keeps its legs, skirt and boots, with
+// the legs carried up where the other outfit's coat hid them.
 //
 // Colours are moved region by region (hue, saturation and lightness thresholds per body in
 // bodies.json; hair and eyes for head layers in hair.json), so the hair dye never reaches a
@@ -63,6 +68,9 @@ export interface BodyDef {
   hands?: Hands;
   builtin?: Record<string, boolean>;
   head?: { anchor: [number, number][]; offsets: Offsets };
+  tails?: string[];                // regions that, below the waist, belong to the top (a long coat)
+  stretch?: [number, number, number]; // rows [neck, feet] drawn from neck row [2] down (see stretchRow)
+  legs?: [number, number, number]; // what the legs are (raw rgb) where a removed coat hid them
 }
 
 export interface HairStyle {
@@ -99,6 +107,171 @@ export function classify(regions: Regions, r: number, g: number, b: number): str
 }
 
 const clamp01 = (v: number) => Math.max(0.02, Math.min(0.98, v));
+
+// Bare skin, in every body: below the waist it is the hands.
+const SKIN: Region = { h: [0, 35], s: [0.15, 0.8], l: [0.55, 0.92] };
+
+// One body's sheet as one piece of a mixed outfit, frame by frame at the body's waist. As the
+// top (asTop): everything above the waist, and below it only the top's own pixels: the hands, what
+// lies within 3 px of them (sleeves, cuffs) unless it is the bottom's cloth, the `tails` regions
+// and the trim and outline within 2 px of them. As the bottom: below the waist without those, each
+// hole filled from the pixel under it (column by column, upward), so legs run on up under where a
+// coat was; with `legs` set, in that colour.
+function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.waist): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = img.width;
+  c.height = img.height;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
+  g.drawImage(img, 0, 0);
+  const W = c.width, H = c.height, data = g.getImageData(0, 0, W, H), px = data.data;
+  const waist = (x: number, y: number) =>
+    Math.round(cut + (def.head?.offsets[clip]?.[Math.floor(y / CELL)]?.[Math.floor(x / CELL)]?.[1] ?? 0));
+  const low = (x: number, y: number) => y % CELL >= waist(x, y);
+  // per pixel: 1 skin, 2 tail cloth, 3 bottom cloth, 4 trim or outline, 0 anything else
+  const kind = new Uint8Array(W * H), cache = new Map<number, number>(), tails = def.tails ?? [];
+  for (let p = 0; p < W * H; p++) {
+    const i = p * 4;
+    if (!px[i + 3]) continue;
+    const key = (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
+    let k = cache.get(key);
+    if (k === undefined) {
+      const [h, s, l] = rgbToHsl(px[i], px[i + 1], px[i + 2]);
+      const region = classify(def.regions, px[i], px[i + 1], px[i + 2]);
+      k = region === def.cloth.bottom ? 3 : region && tails.includes(region) ? 2
+        : inRange(h, SKIN.h) && s >= SKIN.s[0] && s <= SKIN.s[1] && l >= SKIN.l[0] && l <= SKIN.l[1] ? 1
+        : l < 0.16 || (h >= 12 && h <= 60 && s > 0.25 && l >= 0.2 && l <= 0.85) ? 4 : 0;
+      cache.set(key, k);
+    }
+    kind[p] = k;
+  }
+  const top = new Uint8Array(W * H);
+  // the 8 neighbours of p in its own frame
+  const around = (p: number, fn: (q: number, qx: number, qy: number) => void) => {
+    const x = p % W, y = (p / W) | 0, cx = x - (x % CELL), cy = y - (y % CELL);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const qx = x + dx, qy = y + dy;
+        if ((dx || dy) && qx >= cx && qy >= cy && qx < cx + CELL && qy < cy + CELL) fn(qy * W + qx, qx, qy);
+      }
+  };
+  // hands and what lies within 3 px of them; tail cloth and the trim and outline along its
+  // edges, followed through trim and outline pixels 5 px out at most
+  let hands: number[] = [], edge: number[] = [];
+  for (let p = 0; p < W * H; p++) {
+    if ((kind[p] !== 1 && kind[p] !== 2) || !low(p % W, (p / W) | 0)) continue;
+    top[p] = 1;
+    (kind[p] === 1 ? hands : edge).push(p);
+  }
+  for (let step = 0; step < 5; step++) {
+    const nh: number[] = [], ne: number[] = [];
+    if (step < 3) for (const p of hands) around(p, (q, qx, qy) => {
+      if (!top[q] && px[q * 4 + 3] && kind[q] !== 3 && low(qx, qy)) {
+        top[q] = 1;
+        nh.push(q);
+      }
+    });
+    for (const p of edge) around(p, (q, qx, qy) => {
+      if (!top[q] && kind[q] === 4 && low(qx, qy)) {
+        top[q] = 1;
+        ne.push(q);
+      }
+    });
+    hands = nh;
+    edge = ne;
+  }
+  if (asTop) {
+    for (let p = 0; p < W * H; p++) if (!top[p] && low(p % W, (p / W) | 0)) px[p * 4 + 3] = 0;
+  } else {
+    // what legs grow up from: a pixel kept or filled, not light (a swing's slash, a white hem),
+    // with something solid beside it (not a lone line, as a slash's outline is)
+    const lit = (q: number) => rgbToHsl(px[q * 4], px[q * 4 + 1], px[q * 4 + 2])[2] >= 0.62;
+    const kept = (q: number) => q >= 0 && q < W * H && px[q * 4 + 3] > 0 && !lit(q);
+    const solid = (q: number) => kept(q) && ((q % W > 0 && kept(q - 1)) || (q % W < W - 1 && kept(q + 1)));
+    // a swing's slash below the waist (near white, grey) goes, unless it is the bottom's cloth
+    for (let p = 0; p < W * H; p++) {
+      const i = p * 4;
+      if (!px[i + 3] || kind[p] === 3 || !low(p % W, (p / W) | 0)) continue;
+      const [, sat, l] = rgbToHsl(px[i], px[i + 1], px[i + 2]);
+      if (l >= 0.8 && sat < 0.2) px[i + 3] = 0;
+    }
+    // and legs only grow above the feet: the columns with something solid in a frame's last rows
+    const feet = new Uint8Array(W * (H / CELL)), grown = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) {
+      if (y % CELL < CELL - 14) continue;
+      for (let x = 0; x < W; x++) if (!top[y * W + x] && solid(y * W + x)) for (let k = -1; k <= 1; k++) if (x + k >= 0 && x + k < W) feet[Math.floor(y / CELL) * W + x + k] = 1;
+    }
+    for (let x = 0; x < W; x++)
+      for (let y = H - 1; y >= 0; y--) {
+        const p = y * W + x, i = p * 4;
+        if (!top[p]) continue;
+        const j = i + W * 4; // the pixel under it, already settled
+        // (a leg already growing goes on up; a new one starts only from something solid)
+        if (y % CELL === CELL - 1 || !px[j + 3] || !(grown[p + W] || solid(p + W)) || !feet[Math.floor(y / CELL) * W + x]) {
+          px[i + 3] = 0;
+          continue;
+        }
+        grown[p] = 1;
+        const dark = rgbToHsl(px[j], px[j + 1], px[j + 2])[2] < 0.16;
+        const [r, gg, b] = def.legs && !dark ? def.legs : [px[j], px[j + 1], px[j + 2]];
+        px[i] = r;
+        px[i + 1] = gg;
+        px[i + 2] = b;
+        px[i + 3] = 255;
+      }
+  }
+  g.putImageData(data, 0, 0);
+  return c;
+}
+
+const pieces = (sheets: Sheets, def: BodyDef, asTop: boolean, cut?: number): Sheets =>
+  Object.fromEntries(Object.entries(sheets).map(([clip, img]) => [clip, piece(img, def, clip, asTop, cut)]));
+
+// Every body the same height: Oriverse drew some outfits shorter (neck lower, feet on the same
+// line), so their rows from the neck down are spread over the tallest one's (bodies.json
+// `stretch`: [neck, feet, target neck]); what is above the neck (hands raised in a cast) moves up
+// with it. stretchRow maps a row of the drawing to the row it ends up on.
+function stretchRow(st: [number, number, number], y: number): number {
+  const [neck, feet, to] = st;
+  if (y >= feet) return y;
+  if (y <= neck) return y - (neck - to);
+  return feet - ((feet - y) * (feet - to)) / (feet - neck);
+}
+
+function stretchSheet(img: Img, st: [number, number, number]): HTMLCanvasElement {
+  const [neck, feet, to] = st;
+  const c = document.createElement("canvas");
+  c.width = img.width;
+  c.height = img.height;
+  const g = c.getContext("2d")!;
+  for (let d = 0; d < img.height / CELL; d++)
+    for (let y = 0; y < CELL; y++) {
+      // the source row each row comes from (stretchRow, backwards)
+      const src = y >= feet ? y : y <= to ? y + (neck - to) : Math.round(feet - ((feet - y) * (feet - neck)) / (feet - to));
+      if (src >= 0 && src < CELL) g.drawImage(img, 0, d * CELL + src, img.width, 1, 0, d * CELL + y, img.width, 1);
+    }
+  return c;
+}
+
+// A body's rows as they are after stretching: its waist, neck, head anchor and bob, hands.
+function stretchDef(def: BodyDef): void {
+  const st = def.stretch;
+  if (!st) return;
+  const k = (st[1] - st[2]) / (st[1] - st[0]);
+  def.waist = Math.round(stretchRow(st, def.waist));
+  if (def.neck !== undefined) def.neck = Math.round(stretchRow(st, def.neck));
+  if (def.head) {
+    def.head.anchor = def.head.anchor.map(([x, y]) => [x, Math.round(stretchRow(st, y))]);
+    for (const dirs of Object.values(def.head.offsets)) for (const frames of dirs) for (const o of frames) o[1] *= k;
+  }
+  for (const dirs of Object.values(def.hands ?? {}))
+    for (const frames of dirs)
+      for (const a of frames) {
+        for (const key of ["r", "l", "c"] as const) {
+          const p = a[key];
+          if (p) a[key] = [p[0], Math.round(stretchRow(st, p[1]))];
+        }
+      }
+}
 
 // Wardrobe colours shift lightness by `light`; cloth dyes move the region's average lightness
 // (mean) to the dye's target. Either way the pixel keeps its shading.
@@ -173,6 +346,7 @@ export class Looks {
   constructor(data: { bodies: Record<string, BodyDef>; hair: HairData }) {
     this.bodies = data.bodies;
     this.hair = data.hair;
+    for (const def of Object.values(this.bodies)) stretchDef(def);
   }
 
   // Hairstyles that have a head layer.
@@ -232,8 +406,9 @@ export class Looks {
     const id = `${body}:${clips.join(",")}`;
     let p = this.sheets.get(id);
     if (!p) {
+      const st = this.bodies[body]?.stretch;
       p = Promise.all(clips.map((c) => loadImage(`assets/chars/${body}_${c}.png`)))
-        .then((imgs) => Object.fromEntries(clips.map((c, i) => [c, imgs[i]])));
+        .then((imgs) => Object.fromEntries(clips.map((c, i) => [c, st ? stretchSheet(imgs[i], st) : imgs[i]])));
       this.sheets.set(id, p);
     }
     return p;
@@ -268,15 +443,17 @@ export class Looks {
     const topDyes: Record<string, Dye | undefined> = same ? { ...bottomCloth, ...topCloth } : topCloth;
     if (!def.hairless) Object.assign(topDyes, { hair: hairDye, eyes: eyeDye });
     const split = (d: BodyDef) => (d.split ? { neck: d.split, offsets: d.head?.offsets } : null);
-    const upperC = recolor(upper, def.regions, topDyes, def.mean, split(def));
-    const lowerC = recolor(lower, bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
-    // per frame, how far the top moves down so its waist meets the bottom's
+    // one body: its halves fit as they are; two: each keeps only its own piece
+    // (the top reaches down to the lower of the two waists, so no gap opens between them)
+    const upperC = recolor(same ? upper : pieces(upper, def, true, Math.max(def.waist, bdef.waist)), def.regions, topDyes, def.mean, split(def));
+    const lowerC = recolor(same ? lower : pieces(lower, bdef, false), bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
+    // per frame, how far the top moves down to follow the bottom's bob (every body stands as
+    // tall as the others, so the top is not moved to make the waists meet: the head stays put)
     const bob = (d: BodyDef, clip: string, dir: number, f: number) => d.head?.offsets[clip]?.[dir]?.[f]?.[1] ?? 0;
     // a bottom without one of the top's clips (cast) moves its legs as in its swing
     const lowClip = (clip: string) => (lower[clip] ? clip : "swing");
-    const shift = (clip: string, dir: number, f: number, fb: number) =>
-      bdef.waist + bob(bdef, lowClip(clip), dir, fb) - (def.waist + bob(def, clip, dir, f));
-    let sheets = this.join(upperC, lowerC, bdef, shift, lowClip);
+    const shift = (clip: string, dir: number, f: number, fb: number) => bob(bdef, lowClip(clip), dir, fb) - bob(def, clip, dir, f);
+    let sheets = this.join(upperC, lowerC, bdef, shift, lowClip, !same);
     const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[lowClip(clip)], f));
     if (hair && def.head) {
       const head = recolor({ head: await this.loadHead(hair) }, this.hair.regions, { hair: hairDye, eyes: eyeDye }).head;
@@ -292,8 +469,9 @@ export class Looks {
     return Math.min(nl - 1, Math.floor((f * nl) / nu));
   }
 
-  // The bottom from its waist down, then the top above its waist moved by shift().
-  join(upper: Sheets, lower: Sheets, bdef: BodyDef, shift: (clip: string, dir: number, f: number, fb: number) => number, lowClip: (clip: string) => string): Sheets {
+  // The bottom from its waist down, then the top above its waist moved by shift(); a top cut
+  // into its own piece (layered) is laid over whole, its pieces below the waist included.
+  join(upper: Sheets, lower: Sheets, bdef: BodyDef, shift: (clip: string, dir: number, f: number, fb: number) => number, lowClip: (clip: string) => string, layered = false): Sheets {
     const out: Sheets = {};
     for (const [clip, sheet] of Object.entries(upper)) {
       const lc = lowClip(clip), low = lower[lc];
@@ -311,7 +489,14 @@ export class Looks {
           const wu = wl - sh; // the top's waist row in its own frame
           g.drawImage(low, fb * CELL, y + wl, CELL, CELL - wl, x, y + wl, CELL, CELL - wl);
           const top = Math.max(0, -sh);
-          if (wu > top) g.drawImage(sheet, x, y + top, CELL, wu - top, x, y + top + sh, CELL, wu - top);
+          if (layered) {
+            g.save();
+            g.beginPath();
+            g.rect(x, y, CELL, CELL);
+            g.clip();
+            g.drawImage(sheet, x, y, CELL, CELL, x, y + sh, CELL, CELL);
+            g.restore();
+          } else if (wu > top) g.drawImage(sheet, x, y + top, CELL, wu - top, x, y + top + sh, CELL, wu - top);
         }
       }
       out[clip] = c;

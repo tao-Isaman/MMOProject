@@ -7,6 +7,7 @@
 
 import { S2, mapX, mapY } from "./projection";
 import type { Atlas, Curve, Img, View } from "./types";
+import type { GroundSprite } from "./world3d/view";
 
 export const GROUND_GLOW = 0;
 export const SORTED = 1;
@@ -15,6 +16,26 @@ export const AIR_GLOW = 2;
 const MAX_PARTICLES = 12000;
 
 export const rand = (a: number, b: number): number => a + Math.random() * (b - a);
+
+// Particles that lie on the ground, as sprites for the 3D view to lay there (World3D.ground), so
+// characters stand on them: glows add light (add), the rest is laid over. Flowers baked for the
+// 2D view (`baked`) come from `flowers`, the same atlas seen from straight above.
+export function groundSprites(particles: Particle[], add: boolean, flowers: Atlas): GroundSprite[] {
+  const out: GroundSprite[] = [];
+  const cell = (a: Atlas, f: number): [number, number, number, number] => {
+    const c = f % a.cols, r = Math.floor(f / a.cols);
+    return [c / a.cols, r / a.rows, (c + 1) / a.cols, (r + 1) / a.rows];
+  };
+  for (const p of particles) {
+    const u = p.age / p.life, alpha = Math.min(1, curve(p.alpha, u)), size = curve(p.size, u);
+    if (alpha <= 0.003 || size <= 0.05) continue;
+    const at = { x: p.x, y: p.y, size, alpha, add };
+    if (p.baked) out.push({ ...at, img: flowers.levels[0], uv: cell(flowers, p.frame ?? 0), rot: ((p.turn ?? 0) / p.baked.cols) * Math.PI * 2 });
+    else if (p.atlas) out.push({ ...at, img: p.atlas.levels[0], uv: cell(p.atlas, p.frame ?? 0), rot: p.rot });
+    else if (p.tex) out.push({ ...at, img: p.tex, uv: [0, 0, 1, 1], rot: p.rot });
+  }
+  return out;
+}
 
 // Piecewise-linear curve over normalised life, as [[t, value], ...] (the Oriverse sequences).
 export function curve(points: Curve, t: number): number {

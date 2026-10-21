@@ -284,18 +284,14 @@ export class Title {
     if (!isTouch()) input.focus(); // on a phone the keyboard would cover the form
   }
 
-  // Write a new character's saves: class progress, starting bag with the chosen clothes and the
-  // class weapon and off-hand item worn, and the look.
+  // Write a new character's saves: class progress, the class weapon and off-hand item and the
+  // chosen clothes worn (the bag holds only potions), and the look.
   makeCharacter(name: string, cls: ClassId, look: Look, top: string, bottom: string): string {
     const id = newCharacterId(this.roster);
     useCharacter(id);
     const progress = new Progress();
     progress.reset(cls);
-    const inv = new Inventory();
-    for (const [want, slot] of [[CLASSES[cls].weapon, "weapon"], [CLASS_OFFHAND[cls], "offhand"], [top, "top"], [bottom, "bottom"]] as const) {
-      const i = want ? inv.slots.findIndex((s) => s?.id === want) : -1;
-      if (i >= 0) inv.equipTo(i, slot);
-    }
+    new Inventory().outfit({ weapon: CLASSES[cls].weapon, offhand: CLASS_OFFHAND[cls] ?? null, top, bottom });
     try {
       localStorage.setItem(saveKey("look.v1"), JSON.stringify(look));
     } catch {
