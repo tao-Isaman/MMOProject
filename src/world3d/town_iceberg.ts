@@ -220,6 +220,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
       x += c * 30;
       y += sn * 30;
     }
+    if (onWay()) console.error("ICEBERG-DEBUG on road", piece, u0, v0);
     put(ref, [x, y], h, { s });
     placed.push({ x, y, h, s, f, piece });
   }
@@ -261,7 +262,10 @@ export function buildIceberg(quality: { flowers: number }): Town {
   prop("iceberg:sled", 520, 452, FACE.w - 15, 120, true);
   for (const [u, v] of [[481, 302], [561, 301], [553, 465], [489, 372]] as UV[]) lamp(u, v);
 
-  // ---- the fork below the hall (where travellers arrive): a sign post, the shop's sled ----
+  // ---- the fork below the hall (where travellers arrive): braziers to warm them, a sign post,
+  // the shop's sled ----
+  prop("iceberg:brazier", 404, 404, 0, 60, true);
+  prop("iceberg:brazier", 452, 410, 0, 60, true);
   prop("common:sign_post", 454, 377, facing(-1, 0.4), 60);
   prop("iceberg:sled", 410, 446, FACE.e + 10, 110, true);
   prop("iceberg:snowy_barrels", 446, 448, 0, 100, true);
@@ -396,11 +400,11 @@ export function buildIceberg(quality: { flowers: number }): Town {
 
   // ---- outside the walls: snowy woods, kept off the roads and back from the river ----
   const wet = (x: number, y: number) => [[0, 0], [500, 0], [-500, 0], [0, 500], [0, -500]].some(([dx, dy]) => ground.kind(x + dx, y + dy) === 3);
-  town.woods({ x0: area.x0 + 600, x1: area.x1 - 600, y0: area.y0 + 600, y1: area.y1 - 600 }, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak", "Birch", "SnowPine"], (x, y) => {
+  town.woods({ x0: xS - 6500, x1: xN + 6500, y0: area.y0 + 600, y1: yW + 6500 }, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak", "Birch", "SnowPine"], (x, y) => {
     const inside = x > xS - 900 && x < xN + 900 && y > yH - 400 && y < yW + 900;
     const road = [[0, 0], [600, 0], [-600, 0], [0, 600], [0, -600]].some(([dx, dy]) => ground.kind(x + dx, y + dy) === 1);
     return inside || road || wet(x, y);
-  }, { count: Math.round(150 + 110 * Math.min(1, quality.flowers)), tries: 5000, spacing: 520 });
+  }, { count: Math.round(220 + 100 * Math.min(1, quality.flowers)), tries: 6000, spacing: 480 });
 
   // ---- build ----
   // the river: one plane of cold water under the ground, showing through where the ground is cut
@@ -419,7 +423,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
       { kind: "closed", x: GS[0] - 270, y: GS[1], w: 200, d: 520, rot: 0 },
     ],
     bounds: { minX: xS - 700, maxX: xN + 700, minY: yH - 700, maxY: yW + 700 },
-    spawn: pt(417, 386),
+    spawn: pt(428, 374),
     npcs: icebergNpcs(),
     warps: [],
     closed: [
@@ -459,7 +463,7 @@ function icebergNpcs(): NpcSpec[] {
   return [
     { id: "ice_guard_n", ...at(382, 201), face: 180, name: "ทหารยามกุนนาร์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy", "gold"),
       lines: ["ประตูเหนือยังไม่เปิด ทางขึ้นธารน้ำแข็งเหนือกำลังสำรวจอยู่", "เหนือขึ้นไปคือทะเลเหนือ ลมหนาวพัดลงมาทั้งปี ใส่เสื้อขนสัตว์ให้หนาเข้าไว้"] },
-    travelGuide("iceberg", P(436, 358), toward(436, 358, 417, 386)),
+    travelGuide("iceberg", P(436, 358), toward(436, 358, 428, 374)),
     { id: "ice_healer", ...at(393, 361), face: toward(393, 361, 417, 386), name: "แม่ชีซิกรุน", title: "นักบวช · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal", top: "top_priestess_white", bottom: "bottom_priestess_white" },
       lines: ["ขอให้ไฟในเตาผิงอบอุ่นหัวใจท่าน", "หายหนาวหายเหนื่อยแล้วนะ ระวังน้ำแข็งลื่นตอนเดินริมท่าเรือด้วย"] },

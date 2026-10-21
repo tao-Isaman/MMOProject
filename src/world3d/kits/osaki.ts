@@ -1557,6 +1557,34 @@ function monGate(): Geo {
   return translate(merge(...P), [-bx / 2, 0, 0]); // centre the footprint
 }
 
+// ---- a corner turret (sumi-yagura) for the walls: a battered stone base, two storeys of white
+// plaster with dark skirting and barred windows, kawara roofs; 6 x 6 m ----
+function yagura(): Geo {
+  const P: Geo[] = [];
+  const D = "WoodDark", Wh = "Osaki_Shikkui";
+  // the stone base: courses stepping in as they rise
+  for (let k = 0; k < 5; k++) {
+    const h = 300 - k * 12;
+    P.push(boxAt([2 * h, 2 * h, 36], [0, 0, k * 34], k % 2 ? "StoneGrey" : "MossStone", 3));
+  }
+  const z1 = 170, c1 = 230, h1 = 280;
+  // lower storey
+  P.push(boxAt([2 * c1, 2 * c1, h1], [0, 0, z1], Wh));
+  P.push(boxAt([2 * c1 + 6, 2 * c1 + 6, 80], [0, 0, z1], "Osaki_Kuro"));
+  for (const rot of [0, 90, 180, 270]) {
+    for (const y of [-120, 120]) P.push(rotateZ(mushiko(-c1 - 1, y, 90, z1 + 140, 64, Wh), rot));
+    for (let i = -4; i <= 4; i++) P.push(rotateZ(bb([-c1 - 5, i * 50 - 2, z1], [-c1 - 1, i * 50 + 2, z1 + 80], D), rot));
+  }
+  P.push(roof({ kind: "hip", hx: c1 + 90, hy: c1 + 90, z: z1 + h1 - 6, h: 120, ridge: 0, curve: 1.5, lift: 22, flare: 10, th: 16, nt: 5, ns: 8 }));
+  // upper storey and its irimoya roof
+  const z2 = z1 + h1 + 60, c2 = 160, h2 = 190;
+  P.push(boxAt([2 * c2, 2 * c2, h2 + 70], [0, 0, z2 - 70], Wh));
+  for (const rot of [0, 90, 180, 270]) P.push(rotateZ(mushiko(-c2 - 1, 0, 110, z2 + 50, 70, Wh), rot));
+  P.push(boxAt([2 * c2 + 8, 2 * c2 + 8, 14], [0, 0, z2 + h2 - 14], D));
+  P.push(roof({ kind: "irimoya", hx: c2 + 80, hy: c2 + 70, z: z2 + h2, h: 170, curve: 1.6, lift: 24, flare: 10, th: 16, gableAt: 0.5, nt: 6, ns: 8, oni: "Osaki_Ridge" }));
+  return merge(...P);
+}
+
 // ---- yatai: a street stall on two wheels with a little roof, noren and red lanterns; the
 // counter faces -X, two stools before it ----
 function yatai(): Geo {
@@ -1693,6 +1721,7 @@ export const KIT: Kit = {
     { id: "beach", name: "หาดทราย (6 ม.)", make: beach, tags: ["ground", "shore"] },
     { id: "mon_gate", name: "ประตูหลังคากระเบื้อง", make: monGate, tags: ["gate", "landmark"] },
     { id: "yatai", name: "แผงลอยยาไต", make: yatai, tags: ["market"] },
+    { id: "yagura", name: "ป้อมมุมกำแพง", make: yagura, tags: ["tower", "defence"] },
     { id: "rice_paddy", name: "นาข้าว (6 ม.)", make: ricePaddy, tags: ["ground", "farm"] },
   ],
   sample,

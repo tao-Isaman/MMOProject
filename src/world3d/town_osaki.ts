@@ -136,6 +136,8 @@ export function buildOsaki(quality: { flowers: number }): Town {
     { kind: "gate", x: 0, y: 245, w: 260, d: 130, rot: 0 },
   ];
   put("osaki:mon_gate", P(EAST, GATE_V), FACE.e, { solid: gateSolid });
+  // corner turrets where the east wall meets the sea, and where the precincts join it
+  for (const v of [92, 345, 832]) put("osaki:yagura", P(EAST, v), FACE.e, { solid: [{ kind: "tower", x: 0, y: 0, w: 640, d: 640, rot: 0 }] });
   put("osaki:mon_gate", P(640, 225), FACE.w, { solid: gateSolid });
 
   // ---- houses: machiya wall to wall along the streets, kura storehouses on the quay ----
@@ -184,7 +186,7 @@ export function buildOsaki(quality: { flowers: number }): Town {
   for (const v of PIERS)
     for (let i = 0; i < pierLen(v); i++) put("osaki:pier", [P(0, v)[0], P(QUAY_U - 10 - 20 * i, 0)[1]], 0, { z: -28, solid: "none" });
   // big stone lanterns at the pier heads and the quay's ends (the harbour lights)
-  for (const v of PIERS) put("osaki:stone_lantern", P(QUAY_U - 20 * pierLen(v) + 5, v - 5), 0, { s: 1.2, z: 18, solid: "none" });
+  for (const v of PIERS) put("osaki:stone_lantern", P(QUAY_U - 20 * pierLen(v) + 5, v - 5), 0, { s: 1.2, z: 18, solid: [{ kind: "post", x: 0, y: 0, r: 40 }] });
   put("osaki:stone_lantern", P(152, QUAY_V0 + 8), 0, { s: 1.6 });
   put("osaki:stone_lantern", P(152, QUAY_V1 - 8), 0, { s: 1.6 });
   // boats: junks alongside the piers, one riding out in the roads, sampans everywhere
@@ -266,7 +268,7 @@ export function buildOsaki(quality: { flowers: number }): Town {
   put("osaki:sake_barrels", P(905, 388), FACE.s);
   for (const [u, v] of [[838, 392], [838, 508]] as const) lanternPost(u, v, FACE.e);
   // the sacred grove behind and round it
-  for (const [u, v] of [[945, 360], [950, 405], [948, 498], [942, 540], [870, 360], [740, 360], [780, 365], [735, 540], [790, 538], [880, 540]] as const)
+  for (const [u, v] of [[932, 374], [950, 405], [948, 498], [942, 540], [870, 360], [740, 360], [780, 365], [735, 540], [790, 538], [880, 540]] as const)
     tree(rnd() < 0.4 ? "Pine" : "Cherry", u, v, 0.85);
   // a festival stall by the precinct wall
   put("osaki:yatai", P(760, 520), FACE.n, { colours: "osaki-red" });
@@ -289,7 +291,7 @@ export function buildOsaki(quality: { flowers: number }): Town {
   for (const [u, v, k] of [
     [662, 160, "Cherry"], [740, 135, "Cherry"], [665, 305, "Cherry"], [740, 320, "AutumnTree"], [780, 320, "Cherry"],
     [820, 320, "Pine"], [860, 230, "AutumnTree"], [870, 125, "Pine"], [940, 130, "Bamboo"], [945, 220, "Bamboo"], [940, 250, "Pine"],
-    [780, 140, "Cherry"], [830, 135, "AutumnTree"], [690, 330, "Pine"], [940, 325, "Cherry"],
+    [780, 140, "Cherry"], [830, 135, "AutumnTree"], [690, 330, "Pine"], [924, 322, "Cherry"],
   ] as const) tree(k, u, v, k === "Bamboo" ? 1 : 0.85);
 
   // ---- the tea house garden (south): koi pond, red bridge, stepping stones ----
@@ -385,7 +387,7 @@ export function buildOsaki(quality: { flowers: number }): Town {
     }
   }
   // pines on the headlands
-  for (const [u, v] of [[170, 200], [200, 170], [178, 720], [222, 760], [625, 114], [700, 96], [870, 94], [940, 838]] as const) tree("Pine", u, v, 0.85 + rnd() * 0.2);
+  for (const [u, v] of [[170, 200], [200, 170], [178, 720], [222, 760], [625, 114], [700, 96], [870, 94], [922, 838]] as const) tree("Pine", u, v, 0.85 + rnd() * 0.2);
 
   // ---- the sea is solid, but for the piers and the jetty ----
   const SEA_D = 3000;
@@ -510,9 +512,9 @@ function osakiNpcs(shop: [number, number]): NpcSpec[] {
   return [
     travelGuide("osaki", P(226, 428), facing(1, 1), "ฮารุกะ"),
     { id: "osaki_harbourmaster", ...at(172, 470), face: 90, name: "โยชิดะ", title: "นายท่าเรือ", role: "talk", look: samurai("top_warrior_navy", "silver"),
-      lines: ["ยินดีต้อนรับสู่เกาะโอซากิ ทุกคนมาถึงทางเรือที่ท่านี้แหละ", "เรือสำเภาจากแผ่นดินใหญ่เข้าออกทุกน้ำขึ้น ส่วนเรือแจวเป็นของชาวประมงบนเกาะ", "เห็นโทริอิแดงกลางทะเลไหม เวลาน้ำลงเดินไปถึงได้เลยนะ"] },
+      lines: ["ยินดีต้อนรับสู่เกาะโอซากิ ทุกคนมาถึงทางเรือที่ท่านี้แหละ", "เรือสำเภาจากแผ่นดินใหญ่เข้าออกทุกน้ำขึ้น ส่วนเรือแจวเป็นของชาวประมงบนเกาะ", "เห็นโทริอิแดงกลางทะเลไหม เรือทุกลำแล่นลอดมันก่อนเข้าท่า เป็นการขอพรเทพแห่งท้องทะเล"] },
     { id: "osaki_captain", ...at(92, 446), face: -90, name: "กัปตันมัตสึ", title: "นายเรือสำเภา", role: "talk", look: samurai("top_warrior", "auburn"),
-      lines: ["ข้าล่องเรือระหว่างโอซากิกับท่าเรืออีเดนทางตะวันตก", "ข้ามทะเลไปโยเดียทางใต้ก็ได้ ขนผ้าไหมกับสาเกไปขาย", "ถ้าอยากเดินทางเร็ว ไปหาผู้นำทางที่ลานท่าเรือสิ"] },
+      lines: ["ข้าล่องเรือระหว่างโอซากิกับท่าเรืออีเดนทางตะวันตก", "บางเที่ยวก็แล่นไปโยเดียทางตะวันตกเฉียงใต้ ขนผ้าไหมกับสาเกไปขาย", "ถ้าอยากเดินทางเร็ว ไปหาผู้นำทางที่ลานท่าเรือสิ"] },
     { id: "osaki_shop", x: shop[0], y: shop[1], face: 0, name: "โอฮานะ", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ยา เสบียง เครื่องมือ มีครบในร้านม่านโนเรนนี้"] },
     { id: "osaki_brewer", ...at(404, 462), face: 180, name: "โทคุเบ", title: "โรงเหล้าสาเก", role: "talk", look: samurai("top_warrior_forest"),

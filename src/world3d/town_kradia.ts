@@ -216,7 +216,7 @@ export function buildKradia(quality: { flowers: number }): Town {
   const lampBanner = (u: number, v: number, i: number) =>
     i % 2 ? put("kradia:banner_pole", P(u, v), 0) : lamp(u, v);
   // the house side of the ring road
-  row([190, 252], [326, 252], 46, lamps, clear);
+  row([222, 252], [326, 252], 35, lamps, clear);
   row([418, 252], [566, 252], 46, lamps, clear);
   row([219, 262], [219, 380], 40, lamps, clear);
   row([237, 462], [237, 552], 45, lamps, clear);
@@ -258,6 +258,11 @@ export function buildKradia(quality: { flowers: number }): Town {
   put("kradia:weapon_rack", P(662, 384), FACE.s);
   put("kradia:supplies", P(178, 382), 15);
   put("kradia:supplies", P(406, 606), -20);
+  // carts and crates by the gates, as if a convoy had just come in
+  put("common:market_cart", P(330, 228), FACE.s);
+  put("common:market_cart", P(186, 456), FACE.w);
+  put("common:market_cart", P(458, 612), FACE.n);
+  for (const [u, v] of [[326, 214], [404, 225], [181, 465], [190, 382], [455, 600], [632, 452]]) put("common:crate", P(u, v), rnd() * 90);
   // outside the east gate, facing the demon lands: rows of spiked barricades
   for (const [u, v] of [[712, 380], [712, 460], [730, 372], [730, 468], [748, 380], [748, 460], [770, 390], [770, 450]]) put("kradia:barricade", P(u, v), FACE.e);
 
@@ -267,6 +272,11 @@ export function buildKradia(quality: { flowers: number }): Town {
   for (const [u, v] of [[604, 186], [676, 292], [610, 290]]) put("kradia:supplies", P(u, v), rnd() * 90);
   for (const [u, v] of [[628, 180], [674, 180]]) put("kradia:brazier", P(u, v), 0);
   put("kradia:weapon_rack", P(600, 230), FACE.e);
+  put("kradia:weapon_rack", P(598, 208), FACE.e);
+  for (const [u, v] of [[676, 214], [676, 250], [618, 186]]) put("common:crate", P(u, v), rnd() * 90);
+  for (const v of [205, 280]) put("kradia:banner_pole", P(612, v), FACE.e);
+  // spare barricades stacked by the wall, ready to go out
+  for (const v of [304, 318]) put("kradia:barricade", P(676, v), FACE.s);
 
   // ---- the training yard (south-east corner): dummies, weapon racks ----
   for (const u of [612, 634, 656]) for (const v of [584, 606]) put("kradia:training_dummy", P(u, v), FACE.w);

@@ -1,15 +1,15 @@
 // บาฮามัส (Bahamas), the caravan city in the middle of the desert, the crossroads to the south.
-// Laid out as if drawn on paper like the player's other towns: a walled box about 166 x 161 m
-// with three gates. The main gate on the north (the road from Eden) opens onto the bazaar street,
-// two rows of awnings, spice stalls and rug piles in front of arcaded merchant houses, which runs
-// down to the obelisk square in the middle of town. West of the square a forecourt leads to the
-// palace under its turquoise dome, standing on its platform against the west wall; behind the
-// bazaar on the north-west the oasis lies in a ring of palms with houses round it; the
-// north-east is the quarter of blue-domed houses, two lanes off the bazaar street and a palm
-// garden behind; the east road goes out to the east gate; the south road down to the south
-// gate, beside it the caravan camp (tents, camel troughs, carts) under the caravanserai along
-// the east wall; the south-west is the adobe quarter: two lanes, a well square and the potters'
-// yard by the wall. Outside: open dunes with a few palms, cacti and rock arches.
+// Laid out as if drawn on paper like the player's other towns: a walled box about 166 x 161 m with
+// three gates. The main gate on the north (the road from Eden) opens onto the bazaar street, two
+// rows of awnings, spice stalls and rug piles in front of arcaded merchant houses, which runs down
+// to the obelisk square in the middle of town. West of the square a forecourt leads to the palace
+// under its turquoise dome, raised on a terrace against the west wall (the high side of town);
+// behind the bazaar on the north-west the oasis lies in two rings of palms with houses round it;
+// the north-east is the quarter of blue-domed houses, two lanes off the bazaar street and a date
+// palm garden behind; the east road goes out to the east gate; the south road down to the south
+// gate, beside it the caravan camp (tents, camel troughs, carts) under the caravanserai along the
+// east wall; the south-west is the adobe quarter: three lanes, a well square and the potters' yard
+// by the wall. Outside: open dunes with a few palms, cacti and rock arches.
 //
 // The plan is read in its own pixels (u right, v down, as drawn) and turned into the world:
 // north (up the page) is +X, east (right) is -Y. One plan pixel is 26 cm; the obelisk square
@@ -174,7 +174,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
   row([542, 457], [698, 457], "n", DOMES, 2);
   row([497, 517], [497, 560], "w", ["merchant_house"]);
   row([698, 492], [698, 720], "w", ["merchant_house"]);
-  // the adobe quarter (south-west): two lanes, the well square between
+  // the adobe quarter (south-west): three lanes, the well square on the middle one
   row([150, 515], [302, 515], "s", ADOBE, 2);
   row([130, 537], [410, 537], "n", ADOBE, 0);
   row([130, 601], [228, 601], "s", ADOBE, 4);
