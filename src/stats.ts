@@ -104,11 +104,11 @@ function spellHit(raw: number, stats: Stats, target: Defender): Hit {
   return { dmg: Math.max(1, Math.round(mitigate(raw, target.mdef, stats.pierce))), crit: false, magic: true, miss: false };
 }
 
-// A physical blow can miss (accuracy against evasion); one that lands can crit: harder, and
-// through half the armour.
+// A physical blow rolls its crit first, as in Ragnarok: a crit always lands, harder and through
+// half the armour. Any other blow can miss (accuracy against evasion).
 function physicalHit(raw: number, stats: Stats, critChance: number, target: Defender): Hit {
-  if (Math.random() >= hitChance(stats.hit, target.flee)) return { dmg: 0, crit: false, magic: false, miss: true };
   const crit = Math.random() < critChance;
+  if (!crit && Math.random() >= hitChance(stats.hit, target.flee)) return { dmg: 0, crit: false, magic: false, miss: true };
   const pierce = crit ? 1 - (1 - stats.pierce) * (1 - CRIT_PIERCE) : stats.pierce;
   const dmg = mitigate(raw * (crit ? 1 + stats.critDmg : 1), target.def, pierce);
   return { dmg: Math.max(1, Math.round(dmg)), crit, magic: false, miss: false };
@@ -151,8 +151,12 @@ export function skillDamage(stats: Stats, elements: Record<string, number>, skil
     : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target);
 }
 
-// A monster biting the player (a physical blow, it never crits): null when it misses.
-export function monsterDamage(atk: number, hit: number, stats: Stats): number | null {
-  if (Math.random() >= hitChance(hit, stats.flee)) return null;
-  return Math.max(1, Math.round(mitigate(atk * rand(0.85, 1.15), stats.def) * (1 - stats.dmgRed)));
+// What a monster's bite does to it: a physical blow by the same rules (a crit lands, +50% and
+// through half the player's armour; any other bite can miss). null when it misses.
+export const MONSTER_CRIT_DMG = 0.5;
+export function monsterDamage(m: { power: number; accuracy: number; crit: number }, stats: Stats): { dmg: number; crit: boolean } | null {
+  const crit = Math.random() < m.crit;
+  if (!crit && Math.random() >= hitChance(m.accuracy, stats.flee)) return null;
+  const hit = mitigate(m.power * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);
+  return { dmg: Math.max(1, Math.round(hit * (1 - stats.dmgRed))), crit };
 }

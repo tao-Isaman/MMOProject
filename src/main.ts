@@ -959,14 +959,14 @@ async function boot(): Promise<void> {
         floaters.add(player.x, player.y, 120, "พลาด", "miss");
         return;
       }
-      const dmg = monsterDamage(m.power, m.accuracy, hero.stats);
-      if (dmg === null) {
+      const bite = monsterDamage(m, hero.stats);
+      if (bite === null) {
         floaters.add(player.x, player.y, 120, "พลาด", "miss");
         return;
       }
-      const r = hero.takeDamage(dmg);
+      const r = hero.takeDamage(bite.dmg);
       if (r.absorbed) floaters.add(player.x, player.y, 120, `-${Math.round(r.absorbed)}`, "shield");
-      if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
+      if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, bite.crit ? "crit" : "hurt");
       if (r.died) {
         player.target = null;
         player.attack = null;

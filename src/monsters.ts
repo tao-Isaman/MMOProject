@@ -25,6 +25,7 @@ export interface Variant {
   mdef: number;
   accuracy?: number; // against the player's evasion (default: from its level)
   flee?: number;     // evasion against the player's accuracy (default: from its level)
+  crit?: number;     // chance its bite crits (default: from its level)
   xp: number;
   aggro: number;
   weight: number;
@@ -126,6 +127,7 @@ export class Monster {
   mdef = 0;
   accuracy = 0;
   flee = 0;
+  crit = 0;
   angry = 0;   // s left chasing the player
   biteCd = 0;
   stun = 0;
@@ -170,6 +172,7 @@ export class Monster {
     this.mdef = this.variant.mdef;
     this.accuracy = this.variant.accuracy ?? 10 + 1.4 * this.level;
     this.flee = this.variant.flee ?? 2 + 1.5 * this.level;
+    this.crit = this.variant.crit ?? 0.03 + 0.0002 * this.level;
     this.angry = 0;
     this.biteCd = 0;
     this.stun = 0;
