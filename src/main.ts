@@ -1,4 +1,4 @@
-import { mapX, mapY, groundFromMap, fromView, setYaw, yaw } from "./projection";
+import { mapX, mapY, groundAt, fromView, setYaw, yaw } from "./projection";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets";
 import { World3D } from "./world3d/view";
 import { SPAWN, debugShapes } from "./world";
@@ -423,7 +423,7 @@ async function boot(): Promise<void> {
     idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
   });
   // towns have no monsters; the list stays the same array (combat, skills and the bot hold it)
-  const monsters: Monster[] = current.town ? [] : spawnMonsters(slimes);
+  const monsters: Monster[] = current.town ? [] : spawnMonsters(slimes, { spots: current.spots, levels: current.levels });
   const combat = new Combat({
     fx, tex, floaters, monsters, hero,
     onKill(m) {
@@ -643,7 +643,8 @@ async function boot(): Promise<void> {
   let bannerTimer = 0;
   // (travelling: a map change under way behind the loading screen; the game waits)
   let travelling = false;
-  async function enterMap(id: MapId, at?: { x: number; y: number }): Promise<void> {
+  // (from: the map a warp leaves, whose gate in the new map is where she arrives)
+  async function enterMap(id: MapId, at?: { x: number; y: number }, from?: string): Promise<void> {
     if (travelling) return;
     travelling = true;
     await loading(`กำลังเดินทางไป${MAP_NAMES[id]}…`, 0.25);
@@ -660,10 +661,11 @@ async function boot(): Promise<void> {
     }
     w3d.load(current.level);
     monsters.length = 0;
-    if (!current.town) monsters.push(...spawnMonsters(slimes));
+    if (!current.town) monsters.push(...spawnMonsters(slimes, { spots: current.spots, levels: current.levels }));
     npcs = townsfolk(current);
-    player.x = at?.x ?? current.spawn.x;
-    player.y = at?.y ?? current.spawn.y;
+    const there = (from && current.gates[from]) || at || current.spawn;
+    player.x = there.x;
+    player.y = there.y;
     player.target = null;
     player.attack = null;
     walkTo = null;
@@ -690,7 +692,7 @@ async function boot(): Promise<void> {
   function aimPoint(): { x: number; y: number } | null {
     if (!pointer || !view) return null;
     const p = toMap(pointer);
-    return groundFromMap(p.x, p.y);
+    return groundAt(p.x, p.y);
   }
 
   let denyText = 0;
@@ -731,7 +733,7 @@ async function boot(): Promise<void> {
     if (pointer && view) {
       const p = toMap(pointer);
       player.target = null;
-      player.startAttack(w, groundFromMap(p.x, p.y));
+      player.startAttack(w, groundAt(p.x, p.y));
       return;
     }
     player.target = null;
@@ -838,8 +840,8 @@ async function boot(): Promise<void> {
       return false;
     }
     player.target = null;
-    if (walk) return walkToward(groundFromMap(mx, my));
-    player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundFromMap(mx, my));
+    if (walk) return walkToward(groundAt(mx, my));
+    player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundAt(mx, my));
     return false;
   }
   // A walk to a ground point round the solids (none if there is no way).
@@ -1043,7 +1045,7 @@ async function boot(): Promise<void> {
     if (!fwd && !left && bot.on) move = auto;
     if (holdWalk && pointer && view && (holdClock -= dt) <= 0) {
       holdClock = 0.2;
-      const p = toMap(pointer), goal = groundFromMap(p.x, p.y), end = walkTo?.path[walkTo.path.length - 1];
+      const p = toMap(pointer), goal = groundAt(p.x, p.y), end = walkTo?.path[walkTo.path.length - 1];
       if (!end || Math.hypot(end.x - goal.x, end.y - goal.y) > 60) walkToward(goal);
     }
     if (walkTo && !fwd && !left) {
@@ -1073,7 +1075,7 @@ async function boot(): Promise<void> {
     // warps to the next map; gates that are shut say so
     for (const w of current.warps) {
       if (Math.hypot(player.x - w.x, player.y - w.y) < w.r && hero.alive) {
-        void enterMap(w.to as MapId, w.arrive);
+        void enterMap(w.to as MapId, w.arrive, current.id);
         break;
       }
     }

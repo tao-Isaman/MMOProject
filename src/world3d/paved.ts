@@ -4,7 +4,7 @@
 // dirt.
 
 import * as THREE from "three";
-import { grassMap, detailCanvas, groundTexture } from "./textures";
+import { grassMap, dirtMap, detailCanvas, groundTexture } from "./textures";
 
 export type Poly = [number, number][];
 
@@ -16,7 +16,10 @@ export interface PavedSpec {
   cmPerPx?: number; // mask resolution
   base?: string;     // the open ground: grass (default), snow, sand, steppe, jungle, dirt, moss, rock
   road?: [number, number, number];  // tints over the cobbles and flagstones
+  track?: boolean;  // the roads are tracks of bare earth (soft edges, no kerb), not cobbles
   plaza?: [number, number, number];
+  height?: (x: number, y: number) => number; // ground that is not flat (src/world3d/terrain.ts)
+  cell?: number;                             // its mesh's grid, cm
 }
 
 export interface Paved {
@@ -53,7 +56,10 @@ export function buildPaved(spec: PavedSpec): Paved {
       g.fill();
     }
   };
+  // a track's edge fades into the grass
+  if (spec.track) g.filter = `blur(${Math.max(1, 60 / cm)}px)`;
   fill(spec.roads, "#ff0000");
+  g.filter = "none";
   fill(spec.plazas, "#00ff00");
   fill(spec.water ?? [], "#0000ff");
   const data = g.getImageData(0, 0, W, H).data;
@@ -69,10 +75,12 @@ export function buildPaved(spec: PavedSpec): Paved {
 
   const uniforms = {
     uGrass: { value: !spec.base || spec.base === "grass" ? grassMap() : groundTexture(spec.base, false) },
-    uRoad: { value: new THREE.Vector3(...(spec.road ?? [0.74, 0.70, 0.64])) },
+    uRoad: { value: new THREE.Vector3(...(spec.road ?? (spec.track ? [0.92, 0.86, 0.8] : [0.74, 0.70, 0.64]))) },
     uPlaza: { value: new THREE.Vector3(...(spec.plaza ?? [0.90, 0.87, 0.80])) },
     uBase: { value: !spec.base || spec.base === "grass" ? 0.86 : 1 },
-    uCobble: { value: texture(detailCanvas("cobble")) },
+    uCobble: { value: spec.track ? dirtMap() : texture(detailCanvas("cobble")) },
+    uKerb: { value: spec.track ? 0.12 : 0.45 },
+    uTile: { value: spec.track ? 300 : 120 },
     uFlag: { value: texture(detailCanvas("stone")) },
     uMask: { value: mask },
     uMin: { value: new THREE.Vector2(x0, y0) },
@@ -93,13 +101,13 @@ export function buildPaved(spec: PavedSpec): Paved {
         uniform sampler2D uGrass, uCobble, uFlag, uMask;
         uniform vec2 uMin, uSize, uTexel;
         uniform vec3 uRoad, uPlaza;
-        uniform float uBase;`)
+        uniform float uBase, uKerb, uTile;`)
       .replace("#include <map_fragment>", `
         vec2 w = vec2(vGround.x, -vGround.z);
         vec3 grass = mix(texture2D(uGrass, w / 260.0).rgb, texture2D(uGrass, w / 1130.0 + 0.37).rgb, 0.45);
         grass = pow(grass * uBase, vec3(2.2));
         // cobbles (1.2 m tiles) a warm grey; flagstones (3 m tiles, big slabs) pale
-        vec3 cobble = texture2D(uCobble, w / 120.0).rgb * uRoad;
+        vec3 cobble = texture2D(uCobble, w / uTile).rgb * uRoad;
         vec3 flag = texture2D(uFlag, w.yx / 300.0).rgb * uPlaza;
         cobble = pow(cobble, vec3(2.2));
         flag = pow(flag, vec3(2.2));
@@ -110,11 +118,20 @@ export function buildPaved(spec: PavedSpec): Paved {
         vec3 col = mix(mix(grass, cobble, road), flag, plaza);
         // a kerb: darker where paving meets grass
         float edge = max(k.r, k.g);
-        float kerb = 1.0 - 0.45 * (smoothstep(0.15, 0.45, edge) - smoothstep(0.55, 0.85, edge));
+        float kerb = 1.0 - uKerb * (smoothstep(0.15, 0.45, edge) - smoothstep(0.55, 0.85, edge));
         diffuseColor.rgb *= col * kerb;`);
   };
-  const geo = new THREE.PlaneGeometry(x1 - x0, y1 - y0);
+  // flat: one quad; with a height, a grid of `cell` squares (up to 600 a side) raised to it
+  const cell = spec.height ? Math.max(spec.cell ?? 100, (x1 - x0) / 600, (y1 - y0) / 600) : 0;
+  const geo = spec.height
+    ? new THREE.PlaneGeometry(x1 - x0, y1 - y0, Math.ceil((x1 - x0) / cell), Math.ceil((y1 - y0) / cell))
+    : new THREE.PlaneGeometry(x1 - x0, y1 - y0);
   geo.rotateX(-Math.PI / 2);
+  if (spec.height) {
+    const pos = geo.getAttribute("position") as THREE.BufferAttribute, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    for (let i = 0; i < pos.count; i++) pos.setY(i, spec.height(cx + pos.getX(i), cy - pos.getZ(i)));
+    geo.computeVertexNormals();
+  }
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(uniforms.uOrigin.value);
   mesh.receiveShadow = true;

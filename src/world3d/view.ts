@@ -12,11 +12,12 @@
 
 import * as THREE from "three";
 import { wind } from "./trees";
-import { groundFromMap, mapX, mapY } from "../projection";
+import { groundFromMap, heightAt, mapX, mapY } from "../projection";
 import type { View } from "../types";
 
 const DIST = 6000; // camera distance from what it looks at, cm
-const BIAS = 14;   // billboards sit this much toward the camera (their ground shadow clears the ground)
+const BIAS = 14;
+const AREA_N = 96; // points round the bot's hunting circle   // billboards sit this much toward the camera (their ground shadow clears the ground)
 const CUT_R = 260; // the cutaway's radius on screen, cm
 
 interface Billboard {
@@ -55,7 +56,7 @@ export interface ActorBox {
 export interface Level {
   root: THREE.Object3D;
   sky: string;                     // the colour past the edge of the ground
-  warps?: { x: number; y: number }[]; // warp portals to draw
+  warps?: { x: number; y: number; z?: number }[]; // warp portals to draw (in the root's own frame, z: the ground there)
 }
 
 export class World3D {
@@ -66,6 +67,7 @@ export class World3D {
   boards = new Map<object, Billboard>();
   ring: THREE.Mesh;
   area: THREE.LineLoop;
+  areaAt = { x: NaN, y: NaN, r: 0 };
   time = 0;
   quality: { flowers: number; shadow: number };
   sun: THREE.DirectionalLight;
@@ -113,13 +115,10 @@ export class World3D {
     this.ring.position.y = 1.5;
     this.ring.visible = false;
     s.add(this.ring);
-    const circle = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 96 }, (_, i) => {
-      const a = (i / 96) * Math.PI * 2;
-      return new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
-    }));
-    this.area = new THREE.LineLoop(circle, new THREE.LineDashedMaterial({ color: "#f4d27a", dashSize: 0.06, gapSize: 0.05, transparent: true, opacity: 0.6, depthWrite: false }));
-    this.area.computeLineDistances();
-    this.area.position.y = 2;
+    // (its points are laid on the ground wherever it is put)
+    const circle = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(AREA_N * 3), 3));
+    this.area = new THREE.LineLoop(circle, new THREE.LineDashedMaterial({ color: "#f4d27a", dashSize: 60, gapSize: 48, transparent: true, opacity: 0.6, depthWrite: false }));
+    this.area.frustumCulled = false;
     this.area.visible = false;
     s.add(this.area);
   }
@@ -136,7 +135,7 @@ export class World3D {
     this.scene.background = new THREE.Color(level.sky);
     this.portals = (level.warps ?? []).map((w) => {
       const p = portal();
-      p.position.set(w.x, 0, -w.y);
+      p.position.set(w.x, w.z ?? 0, -w.y);
       level.root.add(p);
       return p;
     });
@@ -209,7 +208,7 @@ export class World3D {
     for (const sp of [b.sprite, b.ghost]) {
       if (!sp) continue;
       sp.visible = true;
-      sp.position.set(box.x, 0, -box.y).addScaledVector(this.dir, -BIAS);
+      sp.position.set(box.x, heightAt(box.x, box.y), -box.y).addScaledVector(this.dir, -BIAS);
       sp.scale.set(cw / k, ch / k, 1);
       sp.center.set(0.5, (box.foot * k) / ch);
     }
@@ -285,11 +284,11 @@ export class World3D {
       sprites.forEach((sp, i) => {
         const h = sp.size / 2, c = Math.cos(sp.rot) * h, s = Math.sin(sp.rot) * h;
         const [u0, v0, u1, v1] = sp.uv;
-        // corners: the image's top towards north (+X), its left towards west (+Y); y up 3 cm
+        // corners: the image's top towards north (+X), its left towards west (+Y); 3 cm off the ground
         const corners: [number, number, number, number][] = [[-1, -1, u0, 1 - v0], [1, -1, u1, 1 - v0], [-1, 1, u0, 1 - v1], [1, 1, u1, 1 - v1]];
         corners.forEach(([a, b, u, v], j) => {
           const wx = sp.x - b * c - a * s, wy = sp.y - a * c + b * s;
-          P.set([wx, 3 + (sp.add ? 0 : 0.5), -wy], (i * 4 + j) * 3);
+          P.set([wx, heightAt(wx, wy) + 3 + (sp.add ? 0 : 0.5), -wy], (i * 4 + j) * 3);
           U.set([u, v], (i * 4 + j) * 2);
           C.set(sp.add ? [sp.alpha, sp.alpha, sp.alpha, 1] : [1, 1, 1, sp.alpha], (i * 4 + j) * 4);
         });
@@ -302,16 +301,21 @@ export class World3D {
   // ---- ground markers ----
   setRing(at: { x: number; y: number } | null): void {
     this.ring.visible = !!at;
-    if (at) this.ring.position.set(at.x, 1.5, -at.y);
+    if (at) this.ring.position.set(at.x, heightAt(at.x, at.y) + 1.5, -at.y);
   }
   setArea(at: { x: number; y: number } | null, radius = 0): void {
     this.area.visible = !!at;
     if (!at) return;
-    this.area.position.set(at.x, 2, -at.y);
-    this.area.scale.set(radius, 1, radius);
-    const m = this.area.material as THREE.LineDashedMaterial;
-    m.dashSize = 60 / radius;
-    m.gapSize = 48 / radius;
+    const was = this.areaAt;
+    if (was.x === at.x && was.y === at.y && was.r === radius) return;
+    Object.assign(was, { x: at.x, y: at.y, r: radius });
+    const pos = this.area.geometry.getAttribute("position") as THREE.BufferAttribute;
+    for (let i = 0; i < AREA_N; i++) {
+      const a = (i / AREA_N) * Math.PI * 2, x = at.x + Math.cos(a) * radius, y = at.y - Math.sin(a) * radius;
+      pos.setXYZ(i, x, heightAt(x, y) + 2, -y);
+    }
+    pos.needsUpdate = true;
+    this.area.computeLineDistances();
   }
 
   render(dt: number): void {
@@ -331,8 +335,10 @@ export class World3D {
     }
     this.camera.updateMatrixWorld();
     if (this.focus) {
-      const v = new THREE.Vector3(this.focus.x, 100, -this.focus.y).applyMatrix4(this.camera.matrixWorldInverse);
+      const h = heightAt(this.focus.x, this.focus.y);
+      const v = new THREE.Vector3(this.focus.x, h + 100, -this.focus.y).applyMatrix4(this.camera.matrixWorldInverse);
       CUT.value.set(v.x, v.y, v.z, CUT_R);
+      CUT_H.value = h;
     } else CUT.value.w = 0;
     this.renderer.render(this.scene, this.camera);
   }
@@ -405,9 +411,10 @@ export class World3D {
   }
 }
 
-// ---- the cutaway: lit surfaces more than 70 cm up and nearer the camera than the player are
-// dithered away in a circle round her on screen ----
+// ---- the cutaway: lit surfaces more than 70 cm above the ground she stands on and nearer the
+// camera than the player are dithered away in a circle round her on screen ----
 const CUT = { value: new THREE.Vector4(0, 0, 0, 0) }; // the player in view space, the radius
+const CUT_H = { value: 0 };                           // the height of the ground under her
 const cutDone = new WeakSet<THREE.Material>();
 function cutaway(m: THREE.Material): void {
   const lit = m as THREE.Material & { isMeshStandardMaterial?: boolean; isMeshLambertMaterial?: boolean; isMeshPhongMaterial?: boolean };
@@ -418,6 +425,7 @@ function cutaway(m: THREE.Material): void {
   m.onBeforeCompile = (shader, renderer) => {
     prev.call(m, shader, renderer);
     shader.uniforms.uCut = CUT;
+    shader.uniforms.uCutH = CUT_H;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nvarying float vCutY;")
       .replace("#include <project_vertex>", `#include <project_vertex>
@@ -427,9 +435,9 @@ function cutaway(m: THREE.Material): void {
         #endif
         vCutY = (modelMatrix * cutW).y;`);
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vCutY;\nuniform vec4 uCut;")
+      .replace("#include <common>", "#include <common>\nvarying float vCutY;\nuniform vec4 uCut;\nuniform float uCutH;")
       .replace("#include <clipping_planes_fragment>", `#include <clipping_planes_fragment>
-        if (uCut.w > 0.0 && vCutY > 70.0 && -vViewPosition.z > uCut.z + 80.0) {
+        if (uCut.w > 0.0 && vCutY > uCutH + 70.0 && -vViewPosition.z > uCut.z + 80.0) {
           float r = length(-vViewPosition.xy - uCut.xy) / uCut.w;
           float n = fract(52.9829189 * fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715))));
           if (r < 1.0 && n > smoothstep(0.65, 1.0, r)) discard;

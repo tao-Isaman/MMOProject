@@ -186,8 +186,8 @@ function coloured(g: Geo): THREE.BufferGeometry {
 }
 
 // White and yellow flowers scattered over `area` (world cm) where isOpen(x, y), as instanced
-// meshes that never hide a character (no depth written).
-export function flowerFields(isOpen: (x: number, y: number) => boolean, area: { x: number; y: number; w: number; h: number }, density = 1): THREE.Group {
+// meshes that never hide a character (no depth written), standing on the ground's `height`.
+export function flowerFields(isOpen: (x: number, y: number) => boolean, area: { x: number; y: number; w: number; h: number }, density = 1, height?: (x: number, y: number) => number): THREE.Group {
   const group = new THREE.Group();
   for (const [white, spacing, dens, seed, smin, smax] of [[true, 110, 0.45, 4, 0.7, 1.3], [false, 140, 0.35, 9, 0.7, 1.2]] as const) {
     const r = seeded(seed);
@@ -201,7 +201,7 @@ export function flowerFields(isOpen: (x: number, y: number) => boolean, area: { 
       if (!isOpen(x, y)) continue;
       const s = smin + r() * (smax - smin);
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * Math.PI * 2);
-      spots.push(m.clone().compose(new THREE.Vector3(x, 0, -y), q, new THREE.Vector3(s, s, s)));
+      spots.push(m.clone().compose(new THREE.Vector3(x, height ? height(x, y) : 0, -y), q, new THREE.Vector3(s, s, s)));
     }
     const inst = new THREE.InstancedMesh(geo, mat, spots.length);
     spots.forEach((mm, i) => inst.setMatrixAt(i, mm));

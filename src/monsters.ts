@@ -509,8 +509,28 @@ export class Monster {
   }
 }
 
-// One monster per spawn spot, variants picked by weight.
-export function spawnMonsters(sheets: Record<string, SlimeSet>): Monster[] {
+// A variant grown (or shrunk) to another level: its HP, attack, defences and experience follow
+// the level the way a character's do, so a slime of a far field is a fair fight there.
+export function atLevel(v: Variant, level: number): Variant {
+  const r = (level + 4) / (v.level + 4);
+  return {
+    ...v, level,
+    hp: Math.round(v.hp * r ** 1.6), atk: Math.round(v.atk * r ** 1.1),
+    def: Math.round(v.def * r), mdef: Math.round(v.mdef * r), xp: Math.round(v.xp * r ** 1.65),
+  };
+}
+
+// Where a map's monsters live: spots on open ground, and the range of their levels (none: the
+// variants' own). The first field (the courtyard) has its own spots.
+export interface Spawns {
+  spots?: Vec2[];
+  levels?: [number, number];
+}
+
+// One monster per spawn spot (and a green slime beside each on the first field), variants
+// picked by weight; on a field with levels, the weaker colours keep to the low end of its range
+// and the violet to the top.
+export function spawnMonsters(sheets: Record<string, SlimeSet>, where: Spawns = {}): Monster[] {
   const total = VARIANTS.reduce((a, v) => a + v.weight, 0);
   const pick = () => {
     let r = rand(0, total);
@@ -518,9 +538,19 @@ export function spawnMonsters(sheets: Record<string, SlimeSet>): Monster[] {
     return VARIANTS[0];
   };
   const list = [];
-  for (const home of SPAWNS) {
-    list.push(new Monster(pick(), home, sheets));
-    list.push(new Monster(VARIANTS[0], { x: home.x + 80, y: home.y - 90 }, sheets));
+  const lv = where.levels;
+  if (!lv) {
+    for (const home of where.spots ?? SPAWNS) {
+      list.push(new Monster(pick(), home, sheets));
+      list.push(new Monster(VARIANTS[0], { x: home.x + 80, y: home.y - 90 }, sheets));
+    }
+    return list;
+  }
+  const ranked = VARIANTS.length - 1;
+  for (const home of where.spots ?? SPAWNS) {
+    const v = pick(), at = VARIANTS.indexOf(v) / ranked;
+    const level = Math.round(lv[0] + (lv[1] - lv[0]) * Math.min(1, Math.max(0, at * 0.75 + rand(0, 0.25))));
+    list.push(new Monster(atLevel(v, level), home, sheets));
   }
   return list;
 }

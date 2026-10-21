@@ -394,7 +394,18 @@ function texture(canvas: HTMLCanvasElement, srgb = true): THREE.CanvasTexture {
 }
 
 // ---- materials by Oriverse name ----
-const DETAIL = { wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs };
+// Crag: a cliff's bare rock: blotchy stone in a few wavy ledges (along U), cracks running down.
+function crag(): HTMLCanvasElement {
+  const n = fbm([[3, 1], [8, 0.8], [24, 0.5], [64, 0.3]], 47), c = noise(10, 59), l = noise(5, 53);
+  return paint((u, v) => {
+    const lv = (((v * 3 + (l(u, v) - 0.5) * 0.8) % 1) + 1) % 1;
+    const ledge = lv < 0.05 ? 0.72 : lv < 0.1 ? 1.08 : 1;
+    const crack = Math.abs(c(u, v * 0.3) - 0.5) < 0.02 ? 0.65 : 1;
+    return grey((0.52 + n(u, v) * 0.55) * ledge * crack);
+  });
+}
+
+const DETAIL = { crag, wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs };
 export type DetailMap = keyof typeof DETAIL;
 // A fresh copy of a detail map's canvas (grey, one tile per metre).
 export const detailCanvas = (name: DetailMap): HTMLCanvasElement => DETAIL[name]();
@@ -470,6 +481,13 @@ const RECIPES: Record<string, Recipe> = {
   BarkBirch: { map: "bark", tint: "#e6e2d8", bump: 2 },
   BarkPalm: { map: "bark", tint: "#9a7a52", bump: 3 },
   WaterSea: { tint: "#2f6f8f", rough: 0.08, opacity: 0.9 },
+  // cliff faces (src/world3d/terrain.ts)
+  CliffRock: { map: "crag", tint: "#a89c8a", bump: 4 },
+  CliffMoss: { map: "crag", tint: "#949c80", bump: 4 },
+  CliffSnow: { map: "crag", tint: "#c9d3dc", bump: 3 },
+  CliffSand: { map: "crag", tint: "#d0a66e", bump: 4 },
+  CliffRed: { map: "crag", tint: "#b06a46", bump: 4 },
+  CliffBasalt: { map: "crag", tint: "#4a4446", bump: 4 },
 };
 
 // Kits can add their own materials (a name used by their meshes and a recipe).

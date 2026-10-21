@@ -74,14 +74,14 @@ export class Terrain {
   }
 
   // the height of the plateaus round a point, ignoring their ramps (null: none)
-  private top(x: number, y: number): number | null {
+  private plateauAt(x: number, y: number): number | null {
     let best: number | null = null;
     for (const p of this.spec.plateaus ?? []) if (inside(p.poly, x, y) && (best === null || p.h > best)) best = p.h;
     return best;
   }
 
   height(x: number, y: number): number {
-    const t = this.top(x, y);
+    const t = this.plateauAt(x, y);
     let h = t ?? this.base(x, y);
     // ramps: from the plateau's top down to whatever is at their foot
     for (const p of this.spec.plateaus ?? [])
@@ -94,6 +94,20 @@ export class Terrain {
         if (t === null) h = Math.max(this.base(x, y), v);
       }
     return h;
+  }
+
+  // the highest the ground goes (or a little over)
+  top(): number {
+    const hills = (this.spec.hills ?? []).reduce((t, h) => t + Math.max(0, h.h), 0);
+    return Math.max(0, ...(this.spec.plateaus ?? []).map((p) => p.h)) + hills;
+  }
+
+  // whether the ground within r of (x, y) is level enough to stand a thing on (no cliff or
+  // ramp side there): no more than a gentle slope across it
+  level(x: number, y: number, r: number): boolean {
+    const h = this.height(x, y);
+    return [[r, 0], [-r, 0], [0, r], [0, -r], [r * 0.7, r * 0.7], [-r * 0.7, -r * 0.7], [r * 0.7, -r * 0.7], [-r * 0.7, r * 0.7]]
+      .every(([dx, dy]) => Math.abs(this.height(x + dx, y + dy) - h) < 25 + r * 0.25);
   }
 
   // the ground under a plateau's edge, outside it (a lower plateau or the hills)

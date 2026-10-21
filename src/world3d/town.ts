@@ -15,6 +15,7 @@ import type { Paved, Poly } from "./paved";
 import { flowerFields } from "./courtyard";
 import { COMMON, FLORA } from "./kits/common";
 import type { Kit, KitItem } from "./kits/types";
+import type { Terrain } from "./terrain";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
 import type { Level } from "./view";
@@ -162,9 +163,14 @@ export interface Town {
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
   spawn: { x: number; y: number };
   npcs: NpcSpec[];
-  warps: { x: number; y: number; r: number; to: string; arrive: { x: number; y: number } }[];
+  // a warp to map `to` lands where that map's gates[<this map>] says (or at `arrive`)
+  warps: { x: number; y: number; r: number; to: string; arrive?: { x: number; y: number } }[];
+  gates?: Record<string, { x: number; y: number }>; // where you arrive from each map next door
   closed: { x: number; y: number; r: number; text: string }[];
   labels: MapLabel[];
+  height?: (x: number, y: number) => number; // the ground's height (world cm), when it is not flat
+  top?: number;                              // and the highest it goes
+  spots?: { x: number; y: number }[];        // where monsters live (a field)
 }
 
 type XY = [number, number];
@@ -174,6 +180,7 @@ export class TownBuilder {
   extra: SolidSpec[] = []; // solids that are no piece's (the sea, a river)
   rnd: () => number;
   doors: Record<string, XY> = {}; // just outside the first of each terrace piece (world)
+  terrain: Terrain | null = null;  // ground that is not flat: every piece stands on it
 
   constructor(seed: number) {
     this.rnd = seeded(seed);
@@ -252,7 +259,7 @@ export class TownBuilder {
       for (let y = y0 + m; y < box.y1 - m; y += step) {
         const px = x + (rnd() - 0.5) * 300, py = y + (rnd() - 0.5) * 300;
         // grass all round (not a road, plaza or water)
-        if ([[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(px + dx, py + dy) !== 0) || !free(px, py)) continue;
+        if ([[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(px + dx, py + dy) !== 0) || !free(px, py) || !this.level(px, py, 150)) continue;
         if (rnd() < (o.chance ?? 0.62)) this.put(`flora:${o.trees[Math.floor(rnd() * o.trees.length)]}`, [px, py], rnd() * 360, { s: 0.6 + rnd() * 0.25 });
         else this.put(o.other, [px, py], rnd() * 90);
         mark(px, py, 300);
@@ -265,10 +272,15 @@ export class TownBuilder {
     const woods: XY[] = [], rnd = this.rnd, spacing = o.spacing ?? 450;
     for (let i = 0; i < (o.tries ?? 2600) && woods.length < (o.count ?? 150); i++) {
       const x = box.x0 + rnd() * (box.x1 - box.x0), y = box.y0 + rnd() * (box.y1 - box.y0);
-      if (keepOut(x, y) || woods.some(([ox, oy]) => Math.hypot(ox - x, oy - y) < spacing)) continue;
+      if (keepOut(x, y) || !this.level(x, y, 150) || woods.some(([ox, oy]) => Math.hypot(ox - x, oy - y) < spacing)) continue;
       woods.push([x, y]);
       this.put(`${o.kit ?? "flora"}:${kinds[Math.floor(rnd() * kinds.length)]}`, [x, y], rnd() * 360, { s: 0.8 + rnd() * 0.4, solid: "none" });
     }
+  }
+
+  // Whether the ground round (x, y) is level enough to stand something on (no cliff within r).
+  level(x: number, y: number, r: number): boolean {
+    return !this.terrain || this.terrain.level(x, y, r);
   }
 
   // Everything into one scene and the game's terms, at TOWN_SCALE. `scenery`: meshes of the
@@ -284,13 +296,21 @@ export class TownBuilder {
     spawn: { x: number; y: number };
     npcs: NpcSpec[];
     warps: Town["warps"];
+    gates?: Town["gates"];
     closed: Town["closed"];
     labels: MapLabel[];
+    spots?: { x: number; y: number }[];
   }): Town {
     // ---- one instanced mesh per piece, material and 50 m block ----
     const root = new THREE.Group();
     root.add(o.ground.mesh);
     for (const s of o.scenery ?? []) root.add(s);
+    // every piece on the ground; the cliffs' rock faces and the solids along them
+    const terrain = this.terrain;
+    if (terrain) {
+      for (const pl of this.puts) pl.z += terrain.height(pl.x, pl.y);
+      if (terrain.cliffs().length) root.add(terrain.faces());
+    }
     const groups = new Map<string, Placement[]>();
     for (const pl of this.puts) {
       const key = `${pl.ref}|${pl.colours ?? ""}|${Math.floor(pl.x / 5000)},${Math.floor(pl.y / 5000)}`;
@@ -314,7 +334,7 @@ export class TownBuilder {
         root.add(inst);
       });
     }
-    const solids: SolidSpec[] = [...this.extra];
+    const solids: SolidSpec[] = [...this.extra, ...(terrain?.solids() ?? [])];
     for (const pl of this.puts) solids.push(...solidsOf(pl, protoOf(pl.ref, pl.colours)));
     // ---- flowers on the open grass, not under a house or a prop (their footprints, a little
     // grown, on a 1 m grid) ----
@@ -338,7 +358,7 @@ export class TownBuilder {
         return i >= 0 && j >= 0 && i < gw && j < gh && !taken[j * gw + i];
       };
       const open = o.flowers.open;
-      root.add(flowerFields((x, y) => open(x, y) && free(x, y), box, o.flowers.density));
+      root.add(flowerFields((x, y) => open(x, y) && free(x, y) && this.level(x, y, 60), box, o.flowers.density, terrain ? (x, y) => terrain.height(x, y) : undefined));
     }
     solids.push(...(o.late ?? []));
 
@@ -349,14 +369,17 @@ export class TownBuilder {
     const at = <T extends { x: number; y: number }>(p: T): T => ({ ...p, x: p.x * k, y: p.y * k });
     const b = o.bounds;
     return {
-      level: { root, sky: o.sky, warps: o.warps },
+      level: { root, sky: o.sky, warps: o.warps.map((w) => ({ ...w, z: terrain?.height(w.x, w.y) ?? 0 })) },
       solids: solids.map((sp) => ("r" in sp ? { ...at(sp), r: sp.r * k } : { ...at(sp), w: sp.w * k, d: sp.d * k })),
       bounds: { minX: b.minX * k, maxX: b.maxX * k, minY: b.minY * k, maxY: b.maxY * k },
       spawn: at(o.spawn),
       npcs: o.npcs.map(at),
       warps: o.warps.map((w) => ({ ...at(w), r: w.r * k })),
+      gates: Object.fromEntries(Object.entries(o.gates ?? {}).map(([id, g]) => [id, at(g)])),
+      ...(o.spots ? { spots: o.spots.map(at) } : {}),
       closed: o.closed.map((c) => ({ ...at(c), r: c.r * k })),
       labels: o.labels.map(at),
+      ...(terrain ? { height: terrain.sampler(b, k, 40), top: terrain.top() * k } : {}),
     };
   }
 }

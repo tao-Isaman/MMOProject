@@ -1,10 +1,15 @@
 // The maps: the city of Eden (where everyone starts, no monsters), the field west of it (the
-// courtyard of courtyard.weave, with its slimes) and the other towns of the world map, each in
-// its own module loaded the first time it is entered (src/world3d/town_<id>.ts). A map is
-// built once and kept; entering makes its solids current (src/world.ts) and hands back its
-// scenery, townsfolk, warps and shut gates.
+// courtyard of courtyard.weave, with its slimes), the other towns of the world map and the
+// fields between them, each in its own module loaded the first time it is entered
+// (src/world3d/town_<id>.ts, src/world3d/field_<id>.ts). A map is built once and kept; entering
+// makes its solids and its ground's height current (src/world.ts, src/projection.ts) and hands
+// back its scenery, townsfolk, warps and shut gates.
+//
+// Warps join the maps both ways: a warp to map B lands at B's gates[A], A being the map it
+// leaves (each map says where its own ways in are).
 
 import { setMap } from "./world";
+import { setHeights } from "./projection";
 import type { SolidSpec } from "./world";
 import { buildEden } from "./world3d/town_eden";
 import { TOWN_SCALE } from "./world3d/town";
@@ -16,11 +21,37 @@ import type { Level } from "./world3d/view";
 import type { Vec2 } from "./types";
 
 export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki";
-export type MapId = TownId | "field";
-export const MAP_NAMES: Record<MapId, string> = {
+
+// The fields: name, monster levels, and the builder (src/world3d/field_<id>.ts).
+export const FIELDS = {
+  west_woods: { name: "ป่าใหญ่ตะวันตก", levels: [8, 15], load: () => import("./world3d/field_west_woods") },
+  royal_road: { name: "ถนนหลวง", levels: [10, 18], load: () => import("./world3d/field_royal_road") },
+  snow_foothills: { name: "เชิงเขาหิมะ", levels: [35, 45], load: () => import("./world3d/field_snow_foothills") },
+  ice_pass: { name: "ช่องเขาน้ำแข็ง", levels: [45, 55], load: () => import("./world3d/field_ice_pass") },
+  north_icefield: { name: "ทุ่งน้ำแข็งเหนือ", levels: [55, 70], load: () => import("./world3d/field_north_icefield") },
+  pine_river: { name: "ป่าสนริมแม่น้ำ", levels: [20, 30], load: () => import("./world3d/field_pine_river") },
+  west_steppe: { name: "สเตปป์ตะวันตก", levels: [30, 40], load: () => import("./world3d/field_west_steppe") },
+  horse_meadow: { name: "ทุ่งเลี้ยงม้า", levels: [40, 50], load: () => import("./world3d/field_horse_meadow") },
+  stone_plain: { name: "ที่ราบหินโบราณ", levels: [50, 60], load: () => import("./world3d/field_stone_plain") },
+  border_woods: { name: "ป่าชายแดน", levels: [60, 70], load: () => import("./world3d/field_border_woods") },
+  border_line: { name: "แนวป้องกันชายแดน", levels: [70, 85], load: () => import("./world3d/field_border_line") },
+  demon_land: { name: "ดินแดนอสูร", levels: [85, 100], load: () => import("./world3d/field_demon_land") },
+  south_savanna: { name: "ทุ่งสะวันนาใต้", levels: [12, 20], load: () => import("./world3d/field_south_savanna") },
+  desert_edge: { name: "ขอบทะเลทราย", levels: [20, 30], load: () => import("./world3d/field_desert_edge") },
+  great_desert: { name: "ทะเลทรายใหญ่", levels: [30, 45], load: () => import("./world3d/field_great_desert") },
+  south_jungle: { name: "ป่าดิบแดนใต้", levels: [25, 35], load: () => import("./world3d/field_south_jungle") },
+  mangrove_coast: { name: "ชายฝั่งป่าชายเลน", levels: [35, 45], load: () => import("./world3d/field_mangrove_coast") },
+  sakura_hills: { name: "เนินซากุระและป่าไผ่", levels: [45, 60], load: () => import("./world3d/field_sakura_hills") },
+  volcano: { name: "ยอดภูเขาไฟ", levels: [60, 75], load: () => import("./world3d/field_volcano") },
+} satisfies Record<string, { name: string; levels: [number, number]; load: () => Promise<{ build: (quality: { flowers: number }) => Town }> }>;
+export type FieldId = keyof typeof FIELDS;
+export type MapId = TownId | FieldId | "field";
+
+export const MAP_NAMES = {
   eden: "อีเดน", field: "ทุ่งหญ้าตะวันตก", iceberg: "ไอซ์เบิร์ก", trunrada: "ทรุนราดา", kradia: "คราเดีย",
   bahamas: "บาฮามัส", yodia: "โยเดีย", osaki: "โอซากิ",
-};
+  ...(Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.name])) as Record<FieldId, string>),
+} as Record<MapId, string>;
 // the towns a travel guide can send you to (every town)
 export const TOWNS: TownId[] = ["eden", "iceberg", "trunrada", "kradia", "bahamas", "yodia", "osaki"];
 
@@ -48,7 +79,7 @@ export interface Warp {
   y: number;
   r: number;
   to: string;
-  arrive: Vec2;
+  arrive?: Vec2; // where it lands, when the map it goes to has no gate for this one
 }
 
 export interface GameMap {
@@ -63,6 +94,11 @@ export interface GameMap {
   warps: Warp[];
   closed: { x: number; y: number; r: number; text: string }[];
   labels: MapLabel[];
+  gates: Record<string, Vec2>; // where you arrive from each map next door (by its id)
+  height?: (x: number, y: number) => number; // ground that is not flat (world cm)
+  top?: number;
+  spots?: Vec2[];             // where monsters live (a field)
+  levels?: [number, number];  // and their levels
 }
 
 // The courtyard's footprints (from the Oriverse world), in sim centimetres.
@@ -98,23 +134,30 @@ const FIELD_SOLIDS: SolidSpec[] = [
 const FIELD_BOUNDS = { minX: 60, maxX: 2650, minY: -760, maxY: 2050 };
 // where Eden's west gate leads out, and where the way back in stands
 const FIELD_WARP = { x: 400, y: -680, r: 150, to: "eden", arrive: { x: 54 * TOWN_SCALE, y: 8550 * TOWN_SCALE } };
+// and the way on west into the great forest
+const FIELD_WOODS = { x: 760, y: 1990, r: 150, to: "west_woods" };
 
 const built = new Map<MapId, GameMap>();
 
 export async function loadMap(id: MapId, quality: { flowers: number }): Promise<GameMap> {
   let map = built.get(id);
   if (!map) {
-    if (id !== "field") {
-      const t = (await BUILDERS[id]())(quality);
-      map = { id, name: MAP_NAMES[id], town: true, ...t };
+    if (id in FIELDS) {
+      const f = FIELDS[id as FieldId];
+      const t = (await f.load()).build(quality);
+      map = { id, name: f.name, town: false, gates: {}, levels: f.levels as [number, number], ...t };
+    } else if (id !== "field") {
+      const t = (await BUILDERS[id as TownId]())(quality);
+      map = { id, name: MAP_NAMES[id], town: true, gates: {}, ...t };
     } else {
       // the flowers keep off the solids, so they must be current before the scenery is built
       setMap(FIELD_SOLIDS, FIELD_BOUNDS, { x: 1000, y: 250 });
       map = {
         id, name: MAP_NAMES.field, town: false, spawn: { x: 1000, y: 250 }, bounds: FIELD_BOUNDS, solids: FIELD_SOLIDS,
-        level: fieldLevel(quality, [FIELD_WARP]),
+        level: fieldLevel(quality, [FIELD_WARP, FIELD_WOODS]),
         npcs: [{ id: "mira", x: MERCHANT.x, y: MERCHANT.y, face: 180, name: MERCHANT.name, title: MERCHANT.title, role: "shop", sprite: "merchant", lines: ["ยินดีต้อนรับจ้า"] }],
-        warps: [FIELD_WARP],
+        warps: [FIELD_WARP, FIELD_WOODS],
+        gates: { eden: { x: 420, y: -520 }, west_woods: { x: 850, y: 1700 } },
         closed: [],
         labels: [{ x: 1910, y: 1440, text: "บ้านไร่" }, { x: 1100, y: 820, text: "บ่อน้ำ", kind: "small" }],
       };
@@ -122,5 +165,6 @@ export async function loadMap(id: MapId, quality: { flowers: number }): Promise<
     built.set(id, map);
   }
   setMap(map.solids, map.bounds, map.spawn);
+  setHeights(map.height ?? null, map.top ?? 0);
   return map;
 }

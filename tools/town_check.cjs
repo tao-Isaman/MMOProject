@@ -1,4 +1,4 @@
-// Check a town in the running game (dev server on 127.0.0.1:8766): load it, report its solids,
+// Check a town or a field in the running game (dev server on 127.0.0.1:8766): load it, report its solids,
 // whether the spawn and every townsperson stand clear and can be walked to from the spawn,
 // save the map picture (the scenery from straight above) and a game view at each point asked.
 //
@@ -48,7 +48,12 @@ const [id, out, ...pts] = process.argv.slice(2);
     return {
       map: m.id, name: m.name, bounds: m.bounds, solids: m.solids.length,
       spawn: [r(m.spawn.x), r(m.spawn.y)], spawnBlocked: g.nav.blocked(m.spawn, R),
-      warps: m.warps.length, closed: m.closed.map((c) => c.text), npcs, labels,
+      warps: m.warps.map((w) => ({ to: w.to, at: [r(w.x), r(w.y)], reachable: !!g.nav.findPath(m.spawn, w, R) })),
+      gates: Object.entries(m.gates || {}).map(([id, p]) => ({ from: id, at: [r(p.x), r(p.y)], clear: !g.nav.blocked(p, R), reachable: !!g.nav.findPath(m.spawn, p, R),
+        inWarp: m.warps.some((w) => Math.hypot(w.x - p.x, w.y - p.y) < w.r + 60) })),
+      monsterSpots: m.spots ? { count: m.spots.length, unreachable: m.spots.filter((p) => !g.nav.findPath(m.spawn, p, R)).map((p) => [r(p.x), r(p.y)]) } : null,
+      levels: m.levels || null, top: m.top || 0,
+      closed: m.closed.map((c) => c.text), npcs, labels,
       instanced: (() => { let n = 0; g.world.level.traverse((o) => { if (o.isInstancedMesh) n++; }); return n; })(),
     };
   });
