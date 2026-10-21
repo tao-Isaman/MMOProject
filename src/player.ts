@@ -49,7 +49,7 @@ interface Cast {
 }
 
 const SPEED = 380;        // cm/s
-const RADIUS = 24;        // collision radius, cm
+export const RADIUS = 24; // collision radius, cm
 const HEIGHT = 128;       // on-screen height of the character, map px
 const HEAD = 0.93;        // fraction of the height from the pivot up to just above the hair
 const WALK_CYCLE = 170;   // cm walked per walk loop (two steps)

@@ -26,6 +26,8 @@ import { Skills } from "./skills";
 import { monsterDamage } from "./stats";
 import { Vitals, ClassPicker, StatusUI, SkillUI, skillTip } from "./charui";
 import { icon } from "./icons";
+import { Bot } from "./bot";
+import { BotUI } from "./botui";
 import type { FlowerSpell } from "./spell";
 import type { OccluderData } from "./occluders";
 import type { Atlas, Img, Textures, View } from "./types";
@@ -253,14 +255,17 @@ async function boot(): Promise<void> {
   const combat = new Combat({
     fx, tex, floaters, monsters, hero,
     onKill(m) {
+      let got = 0;
       for (const id of rollDrops(m.variant, hero.stats.drop)) {
         const left = inv.add(id, 1);
+        if (!left) got++;
         floaters.add(m.x, m.y, m.height + 20, left ? "กระเป๋าเต็ม" : `+ ${ITEMS[id].name}`, left ? "info" : "loot");
       }
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
       floaters.add(m.x, m.y, m.height + 45, `+${xp} EXP`, "loot");
+      bot.noteKill(xp, got);
       if (progress.addXp(xp) > 0) levelUp();
     },
   });
@@ -291,6 +296,18 @@ async function boot(): Promise<void> {
     hero.recompute();
   });
   refreshBar();
+
+  // ---- auto-hunt bot ----
+  const bot = new Bot({
+    player, hero, progress, skills, monsters, inv,
+    weapon: () => weaponStats(inv.equipped.weapon, hero.stats),
+    weaponId: () => inv.equipped.weapon,
+    onSkill(id) {
+      const i = progress.hotbar.indexOf(id);
+      if (i >= 0) hud.pulse(i, "flash");
+    },
+    say: (text) => floaters.add(player.x, player.y, 150, text, "info"),
+  });
 
   const invUI = new InventoryUI(inv, iconFor, (i) => {
     const stack = inv.slots[i];
@@ -331,6 +348,7 @@ async function boot(): Promise<void> {
     },
   });
   if (!progress.cls) picker.show();
+  const botUI = new BotUI(bot, progress);
   const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook(), looks.hairstyles, (lk) => looks.note(lk, inv.equipped));
   inv.onChange(() => {
     applyLook();
@@ -399,7 +417,9 @@ async function boot(): Promise<void> {
 
   // ---- input ----
   const held = new Set<string>();
-  const typing = (e: Event) => e.target instanceof HTMLInputElement;
+  // keys typed into a number box or a menu are not game keys (checkboxes and sliders are)
+  const typing = (e: Event) => e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement
+    || (e.target instanceof HTMLInputElement && !["checkbox", "range", "button"].includes(e.target.type));
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || typing(e)) return;
     if (MOVE_KEYS[e.code]) {
@@ -415,24 +435,30 @@ async function boot(): Promise<void> {
     }
     if (e.code === "Space") {
       e.preventDefault();
-      if (!e.repeat) quickAttack();
+      if (!e.repeat) {
+        bot.noteManual();
+        quickAttack();
+      }
       return;
     }
     if (e.code === "KeyI" && !e.repeat) invUI.toggle();
     if (e.code === "KeyC" && !e.repeat) wardrobe.toggle();
     if (e.code === "KeyP" && !e.repeat) statusUI.toggle();
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
+    if (e.code === "KeyB" && !e.repeat) botUI.toggle();
     if (e.code === "Escape") {
       invUI.toggle(false);
       wardrobe.toggle(false);
       statusUI.toggle(false);
       skillUI.toggle(false);
+      botUI.toggle(false);
     }
     if (e.code === "Backquote") showDebug = !showDebug;
     if ((e.code === "KeyQ" || e.code === "KeyE") && !e.repeat) rotateCamera(e.code === "KeyQ" ? -1 : 1);
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()], ["btn-wardrobe", () => wardrobe.toggle()],
-    ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()]];
+    ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()],
+    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()]];
   for (const [id, fn] of buttons) {
     document.getElementById(id)?.addEventListener("click", (e) => {
       (e.currentTarget as HTMLElement).blur();
@@ -452,6 +478,7 @@ async function boot(): Promise<void> {
   canvas.addEventListener("pointerleave", () => (pointer = null));
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || !view || !hero.alive) return;
+    bot.noteManual();
     const { x: mx, y: my } = toMap(e);
     const m = monsters.find((mon) => mon.contains(mx, my));
     if (m) {
@@ -556,12 +583,16 @@ async function boot(): Promise<void> {
       fwd += MOVE_KEYS[code][0];
       left += MOVE_KEYS[code][1];
     }
-    const move = fromView(fwd, left);
+    let move = fromView(fwd, left);
     if (hero.update(dt) === "respawn") {
       player.x = SPAWN.x;
       player.y = SPAWN.y;
       floaters.add(player.x, player.y, 140, "ฟื้นแล้ว", "heal");
     }
+    // the bot walks when the keys don't
+    if (fwd || left) bot.noteManual();
+    const auto = bot.update(dt);
+    if (!fwd && !left && bot.on) move = auto;
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
@@ -587,6 +618,7 @@ async function boot(): Promise<void> {
     if (uiClock > 0.25) {
       uiClock = 0;
       statusUI.render();
+      botUI.tick();
       deathNote.classList.toggle("hidden", hero.alive);
       if (!hero.alive) deathNote.textContent = `ล้มลงแล้ว · ฟื้นที่จุดเกิดในอีก ${Math.ceil(hero.dead)} วินาที`;
     }
@@ -631,9 +663,24 @@ async function boot(): Promise<void> {
     fx.draw(ctx, vw, fx.layer(GROUND_GLOW));
     ctx.globalCompositeOperation = "source-over";
 
-    // target ring under the slime being attacked
-    if (player.target?.alive) {
-      const t = player.target;
+    // the bot's hunting area
+    if (bot.on || botUI.open) {
+      const a = bot.on ? bot.anchor : player;
+      ctx.save();
+      ctx.setLineDash([10 * k, 8 * k]);
+      ctx.strokeStyle = "rgba(244, 210, 122, 0.45)";
+      ctx.lineWidth = 2 * k;
+      ctx.beginPath();
+      const r = bot.settings.radius;
+      ctx.ellipse(mapX(a.x, a.y) * k + vw.ox, mapY(a.x, a.y) * k + vw.oy, r * k, r * Math.SQRT1_2 * k, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // target ring under the slime being attacked (or the one the bot is heading for)
+    const ringed = player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target : null;
+    if (ringed) {
+      const t = ringed;
       ctx.strokeStyle = "rgba(255, 214, 120, 0.9)";
       ctx.lineWidth = 2.5 * k;
       ctx.beginPath();
@@ -680,7 +727,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, occluders };
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, occluders, bot, botUI };
 
   document.getElementById("loading")?.classList.add("done");
   requestAnimationFrame((t) => {
