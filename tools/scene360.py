@@ -39,6 +39,17 @@ SHAPE = {
     "house": (1000, 120), "tree": (900, 380), "hedge": (320, 140), "well": (480, 120),
     "box": (150, 40), "post": (160, 30), "bush": (170, 70), "rock": (70, 20),
 }
+# Rough 3-D stand-ins for deciding which object a pixel shows: a pixel belongs to the stand-in
+# its view ray hits first. ("box", extra cm around the footprint, top[, bottom]) or ("ellipsoid",
+# extra radius, centre height, vertical radius); the house is walls plus a roof with eaves,
+# the gazebo posts plus a roof, trees a trunk plus a crown.
+PROXY = {
+    "house": [("box", 8, 520), ("box", 110, 1080, 470)], "well": [("box", 2, 205), ("box", 8, 280, 204), ("box", -45, 365, 280)],
+    "box": [("box", 12, None)],  # height from its size: cart, bench or fence, crate
+    "post": [("box", 20, 170)], "rock": [("ellipsoid", 12, 15, 45)],
+    "bush": [("ellipsoid", 30, 80, 95)], "hedge": [("ellipsoid", 60, 150, 190)],
+    "tree": [("box", 10, 420), ("ellipsoid", 330, 600, 330)],
+}
 
 
 def solids():
@@ -66,6 +77,69 @@ def project(theta, x, y, z=0.0):
     return -left, -(fwd + z) * S2
 
 
+FOLIAGE = {"tree", "hedge", "bush"}
+
+
+def leafy(rgb):
+    """Pixels that look like leaves: green clearly above red and blue."""
+    f = rgb.astype(np.int16)
+    r, g, b = f[..., 0], f[..., 1], f[..., 2]
+    return (g > r + 8) & (g > b + 20)
+
+
+def ray_hits(theta, s, sx, sy, leaves=None):
+    """Distance along the view ray (smaller = nearer the camera) at which each screen point
+    (offsets from the centre) first meets the object's stand-in; inf where it misses. leaves:
+    per point, whether it looks like foliage (rounded stand-ins only claim those)."""
+    fx, fy = math.cos(theta), math.sin(theta)
+    x0, y0 = unproject(theta, sx, sy)  # where the ray meets the ground; P(t) = (x0, y0, 0) + t (fx, fy, -1)
+    best = np.full(np.shape(sx), np.inf)
+    for part in PROXY[s["kind"]]:
+        if part[0] == "box":
+            pad, height = part[1], part[2]
+            if height is None:
+                big, small = max(s["w"], s["d"]), min(s["w"], s["d"])
+                height = 230 if small >= 100 else 115 if big >= 150 else 75
+            bottom = part[3] if len(part) > 3 else 0.0
+            if "r" in s:
+                hw = hd = s["r"] + pad
+                c, sn = 1.0, 0.0
+            else:
+                hw, hd = s["w"] / 2 + pad, s["d"] / 2 + pad
+                c, sn = math.cos(math.radians(s.get("rot", 0))), math.sin(math.radians(s.get("rot", 0)))
+            ox, oy = x0 - s["x"], y0 - s["y"]
+            lx, ly = ox * c + oy * sn, -ox * sn + oy * c        # ray origin in the box frame
+            dx, dy = fx * c + fy * sn, -fx * sn + fy * c        # ray direction in the box frame
+            t0 = np.full(np.shape(sx), -np.inf)
+            t1 = np.full(np.shape(sx), np.inf)
+            for o, d, h in ((lx, dx, hw), (ly, dy, hd)):
+                if abs(d) < 1e-9:
+                    inside = np.abs(o) <= h
+                    t0 = np.where(inside, t0, np.inf)
+                else:
+                    a, b = (-h - o) / d, (h - o) / d
+                    t0 = np.maximum(t0, np.minimum(a, b))
+                    t1 = np.minimum(t1, np.maximum(a, b))
+            # height: z = -t between the bottom and the top
+            t0 = np.maximum(t0, -height)
+            t1 = np.minimum(t1, -bottom)
+            t = np.where(t0 <= t1, t0, np.inf)
+        else:
+            pad, cz, rz = part[1], part[2], part[3]
+            r = (s["r"] if "r" in s else max(s["w"], s["d"]) / 2) + pad
+            ox, oy = x0 - s["x"], y0 - s["y"]
+            A = 1 / r ** 2 + 1 / rz ** 2
+            B = 2 * ((ox * fx + oy * fy) / r ** 2 + cz / rz ** 2)
+            C = (ox ** 2 + oy ** 2) / r ** 2 + cz ** 2 / rz ** 2 - 1
+            disc = B * B - 4 * A * C
+            t = np.where(disc >= 0, (-B - np.sqrt(np.maximum(disc, 0))) / (2 * A), np.inf)
+            # a crown or bush stand-in is rounder than the real leaves: it only claims leaf pixels
+            if leaves is not None:
+                t = np.where(leaves, t, np.inf)
+        best = np.minimum(best, t)
+    return best
+
+
 def unproject(theta, sx, sy):
     """Screen offset at heading theta -> world point on the ground."""
     fx, fy = math.cos(theta), math.sin(theta)
@@ -73,17 +147,15 @@ def unproject(theta, sx, sy):
     return CX + fwd * fx - left * fy, CY + fwd * fy + left * fx
 
 
-def stitch(paths, rows, cols, caption_fill):
+def stitch(paths, rows, cols, caption_fill=None):
     canvas = np.zeros((rows * TH, cols * TW, 3), np.uint8)
     for r in range(rows):
         for c in range(cols):
             im = np.array(Image.open(paths(r, c)).convert("RGB"))
             if im.shape[:2] != (TH, TW):
                 raise SystemExit(f"{paths(r, c)} is {im.shape[1]}x{im.shape[0]}, expected {TW}x{TH}")
-            if caption_fill is None:  # cover the caption with the mirrored strip below it
-                im[:CAPTION[1], :CAPTION[0]] = im[CAPTION[1]:2 * CAPTION[1], :CAPTION[0]][::-1]
-            else:
-                im[:CAPTION[1], :CAPTION[0]] = caption_fill
+            # cover the caption with the mirrored strip below it
+            im[:CAPTION[1], :CAPTION[0]] = im[CAPTION[1]:2 * CAPTION[1], :CAPTION[0]][::-1]
             canvas[r * TH:(r + 1) * TH, c * TW:(c + 1) * TW] = im
     return canvas
 
@@ -164,24 +236,27 @@ def main():
                           "x0": px.min() - spread - x0, "x1": px.max() + spread - x0,
                           "front": py.max() - y0, "top": py.min() - h * S2 - spread * S2 - y0})
         ys, xs = np.nonzero(alpha > 0)
+        green = leafy(rgb)[ys, xs]
         best = np.full(len(xs), np.inf)
         own = np.full(len(xs), -1)
         far = np.full(len(xs), np.inf)
         near = np.full(len(xs), -1)
         for b in boxes:
-            inside = (xs >= b["x0"]) & (xs <= b["x1"]) & (ys <= b["front"] + 12) & (ys >= b["top"])
-            half = max(1.0, (b["x1"] - b["x0"]) / 2)
-            score = np.abs(xs - b["bx"]) / half + np.clip(ys - b["by"], 0, None) / 60
-            take = inside & (score < best)
-            best[take] = score[take]
-            own[take] = b["i"]
-            # fallback for pixels outside every box: the nearest box edge
+            # the nearest stand-in along the view ray wins the pixel
+            cand = (xs >= b["x0"] - 40) & (xs <= b["x1"] + 40) & (ys <= b["front"] + 40) & (ys >= b["top"] - 40)
+            if cand.any():
+                t = ray_hits(theta, objs[b["i"]], xs[cand] + x0, ys[cand] + y0, green[cand] if objs[b["i"]]["kind"] in FOLIAGE else None)
+                idx = np.nonzero(cand)[0]
+                take = t < best[idx]
+                best[idx[take]] = t[take]
+                own[idx[take]] = b["i"]
+            # fallback for pixels no stand-in covers: the nearest box edge
             d = np.hypot(np.clip(np.maximum(b["x0"] - xs, xs - b["x1"]), 0, None),
                          np.clip(np.maximum(b["top"] - ys, ys - b["front"]), 0, None))
             closer = d < far
             far[closer] = d[closer]
             near[closer] = b["i"]
-        own = np.where(own >= 0, own, np.where(far < 80, near, -1))
+        own = np.where(own >= 0, own, near)
         owner = np.full(alpha.shape, -1, np.int32)
         owner[ys, xs] = own
         clean = despill(rgb, alpha)

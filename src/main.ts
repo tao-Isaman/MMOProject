@@ -6,11 +6,10 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles";
 import { Player, directionIndex } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, DYES } from "./items";
+import { ITEMS, WEAPON_TYPES, DYES, SHAPES } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory } from "./inventory";
-import { InventoryUI, WardrobeUI, loadLook } from "./ui";
-import type { Look } from "./ui";
+import { InventoryUI, loadLook } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { slimeSheets, spawnMonsters, rollDrops } from "./monsters";
 import type { Monster, MonsterCtx } from "./monsters";
@@ -410,6 +409,14 @@ async function boot(): Promise<void> {
     statusUI.render();
     skillUI.render();
     return `ปลดล็อค${msg}แล้ว`;
+  }, (id) => {
+    // clothes whose body has no animations yet, or that are for the other build
+    const item = ITEMS[id];
+    if ((item.kind !== "top" && item.kind !== "bottom") || !item.shape) return null;
+    const sh = SHAPES[item.kind][item.shape];
+    if (sh.gender !== look.gender) return `ใส่ได้เฉพาะตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"}`;
+    if (!looks.ready(sh.body)) return `ยังใส่ไม่ได้: ทรง${sh.name}กำลังสร้างท่าเดินและท่าโจมตีใน Oriverse ใส่ได้เมื่อเสร็จ`;
+    return null;
   });
 
   // ---- character windows ----
@@ -451,25 +458,10 @@ async function boot(): Promise<void> {
     const goal = { x: merchant.x - 90, y: merchant.y };
     toMerchant = { path: findPath(player, goal, RADIUS) ?? [] };
   }
-  const wardrobe = new WardrobeUI(look, drawPreview, () => applyLook(), looks.hairstyles, (lk) => looks.note(lk, inv.equipped));
   inv.onChange(() => {
     applyLook();
     hero.recompute();
-    if (!wardrobe.win.classList.contains("hidden")) wardrobe.sync();
   });
-
-  // Wardrobe preview: the idle frame of the chosen direction, recoloured, scaled up.
-  let previewSeq = 0;
-  async function drawPreview(cv: HTMLCanvasElement, lk: Look, turn: number): Promise<void> {
-    const seq = ++previewSeq;
-    const { sheets } = await looks.build(lk, inv.equipped, ["idle"]);
-    if (seq !== previewSeq) return;
-    const g = cv.getContext("2d")!;
-    const cell = sheets.idle.height / 8;
-    g.clearRect(0, 0, cv.width, cv.height);
-    g.imageSmoothingEnabled = false;
-    g.drawImage(sheets.idle, 0, turn * cell, cell, cell, 0, 0, cv.width, cv.height);
-  }
 
   // The ground point under the mouse, or null without a mouse.
   function aimPoint(): { x: number; y: number } | null {
@@ -544,7 +536,6 @@ async function boot(): Promise<void> {
       return;
     }
     if (e.code === "KeyI" && !e.repeat) invUI.toggle();
-    if (e.code === "KeyC" && !e.repeat) wardrobe.toggle();
     if (e.code === "KeyP" && !e.repeat) statusUI.toggle();
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
@@ -554,7 +545,6 @@ async function boot(): Promise<void> {
     }
     if (e.code === "Escape") {
       invUI.toggle(false);
-      wardrobe.toggle(false);
       statusUI.toggle(false);
       skillUI.toggle(false);
       botUI.toggle(false);
@@ -563,7 +553,7 @@ async function boot(): Promise<void> {
     if (e.code === "Backquote") showDebug = !showDebug;
     if ((e.code === "KeyQ" || e.code === "KeyE") && !e.repeat) rotateCamera(e.code === "KeyQ" ? -1 : 1);
   });
-  const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()], ["btn-wardrobe", () => wardrobe.toggle()],
+  const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()],
     ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()]];
   for (const [id, fn] of buttons) {
@@ -823,7 +813,7 @@ async function boot(): Promise<void> {
   }
 
   // Exposed for automated checks and console poking.
-  (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, wardrobe, quickAttack, directionIndex,
+  (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
     progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, scene, bot, botUI, shopUI, merchant, drink };
 
   document.getElementById("loading")?.classList.add("done");
