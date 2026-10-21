@@ -4,12 +4,13 @@
 import { el, makeWindow } from "./ui";
 import { icon } from "./icons";
 import {
-  CLASSES, TREES, MASTERIES, ELEMENTS, ACTIVES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
+  CLASSES, TREES, MASTERIES, ELEMENTS, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
 } from "./progression";
-import { ITEMS } from "./items";
+import { ITEMS, WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
-import type { ClassId, Progress } from "./progression";
+import type { ClassId, Progress, SkillDef, StatBag, TreeNode } from "./progression";
 import type { Hero } from "./hero";
+import { skillPower } from "./stats";
 import type { Stats } from "./stats";
 import type { Img } from "./types";
 
@@ -176,11 +177,64 @@ export class StatusUI {
 }
 
 // ---- skill window ----
+// Stat bag keys as shown to the player, and which of them are fractions.
+const BAG_NAMES: Record<string, string> = {
+  ...STAT_NAMES, atkPct: "พลังโจมตี", matkPct: "พลังเวท", defPct: "ป้องกัน", mdefPct: "ต้านเวท", maxHpPct: "HP สูงสุด",
+  maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", pierce: "เจาะเกราะ", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ",
+  dmg: "ดาเมจ", reach: "ระยะโจมตี", stunHit: "โอกาสตีให้มึน",
+};
+const isPct = (k: string) => k.endsWith("Pct") || PERCENT_STATS.has(k) || ["pierce", "drop", "dmg", "reach", "stunHit"].includes(k);
+const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
+const num = (v: number) => `${+v.toFixed(1)}`;
+const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => `${BAG_NAMES[k] ?? k} +${isPct(k) ? pct(v) : num(v)}`).join(" · ");
+const statName = (s: SkillDef) => (s.stat === "matk" ? "พลังเวท" : "พลังโจมตี");
+
+// What one rank of a node gives, as short parts: the headline number first.
+function rankParts(node: TreeNode, r: number): string[] {
+  if (node.kind === "passive") return node.stats ? [bagText(node.stats(r))] : [];
+  const s = node.skill!, out: string[] = [];
+  if (s.mult) out.push(`${pct(s.mult(r))} ของ${statName(s)}${s.hits ? ` × ${s.hits}` : s.pulses ? ` × ${s.pulses}` : s.ticks ? ` × ${s.ticks}` : ""}`);
+  if (s.heal) out.push(`ฟื้น ${pct(s.heal(r))} HP สูงสุด`);
+  if (s.base) out.push(`โล่ ${pct(s.base(r))} MP สูงสุด`);
+  if (s.stun) out.push(`มึน ${num(s.stun(r))} วิ`);
+  if (s.slow) out.push(`ช้า ${num(s.slow(r))} วิ`);
+  if (s.freeze) out.push(`หยุด ${num(s.freeze(r))} วิ`);
+  if (s.buff) out.push(bagText(s.buff(r)));
+  return out;
+}
+
+// How much one more rank adds over the one before, for the headline number.
+function rankGain(node: TreeNode, r: number): string {
+  if (r <= 1) return "";
+  if (node.kind === "passive" && node.stats) {
+    const a = node.stats(r), b = node.stats(r - 1);
+    return Object.keys(a).map((k) => {
+      const d = (a[k as keyof StatBag] ?? 0) - (b[k as keyof StatBag] ?? 0);
+      return `+${isPct(k) ? pct(d) : num(d)}`;
+    }).join(" ");
+  }
+  const s = node.skill!;
+  if (s.mult) return `+${pct(s.mult(r) - s.mult(r - 1))}`;
+  if (s.buff) {
+    const a = s.buff(r), b = s.buff(r - 1);
+    return Object.keys(a).map((k) => {
+      const d = (a[k as keyof StatBag] ?? 0) - (b[k as keyof StatBag] ?? 0);
+      return d ? `+${isPct(k) ? pct(d) : num(d)}` : "";
+    }).filter(Boolean).join(" ");
+  }
+  if (s.heal) return `+${pct(s.heal(r) - s.heal(r - 1))}`;
+  return "";
+}
+
 interface SkillUIDeps {
   weapon: () => string | null;
   weaponImg: (type: WeaponId) => Img | undefined;
   onDropSkill: (id: string, x: number, y: number) => void;
 }
+
+// Tree drawing: node centres by column (fraction of the width) and row (px).
+const COL_X = [0.18, 0.5, 0.82];
+const rowY = (r: number) => 58 + r * 128;
 
 export class SkillUI {
   progress: Progress;
@@ -194,6 +248,9 @@ export class SkillUI {
   tab: "trees" | "mastery" | "elements" = "trees";
   body: HTMLElement;
   tip: HTMLElement;
+  help: HTMLElement;
+  tree: string | null = null;      // tree shown on the trees tab
+  picked: string | null = null;    // node shown in the detail panel
 
   // weaponImg(type): weapon art image; onDropSkill(id, x, y): dropped at a screen point
   constructor(progress: Progress, hero: Hero, { weaponImg, onDropSkill, weapon }: SkillUIDeps) {
@@ -219,7 +276,7 @@ export class SkillUI {
     }
     this.body = el("div", "sk-body", this.win);
     this.tip = el("div", "inv-tip hidden", document.body);
-    el("p", "wr-note sk-help", this.win).textContent = "กด + เพื่อลงแต้ม · ลากไอคอนสกิลที่เรียนแล้วไปวางที่แถบสกิล หรือดับเบิลคลิกเพื่อใส่ช่องว่าง";
+    this.help = el("p", "wr-note sk-help", this.win);
     progress.onChange(() => this.render());
     this.bindDrag();
   }
@@ -235,19 +292,28 @@ export class SkillUI {
     const p = this.progress;
     this.points.innerHTML = `แต้มสกิล <b>${p.free}</b> / ${p.points}`;
     for (const b of this.tabs.children) b.classList.toggle("on", (b as HTMLElement).dataset.tab === this.tab);
+    const scroll = this.body.scrollTop;
     this.body.replaceChildren();
+    this.tip.classList.add("hidden");
     if (this.tab === "trees") this.renderTrees();
     else if (this.tab === "mastery") this.renderMastery();
     else this.renderElements();
+    this.body.scrollTop = scroll;
+    this.help.textContent = this.tab === "trees"
+      ? "คลิกสกิลเพื่อดูรายละเอียด · เส้นบอกว่าต้องอัพสกิลไหนถึงระดับเท่าไรก่อน · ลากไอคอนสกิลที่เรียนแล้วไปวางที่แถบสกิล หรือดับเบิลคลิกเพื่อใส่ช่องว่าง"
+      : "อัพเป็นเส้นตรง ระดับละ 1 แต้ม · ถึงจุดบนเส้นเมื่อไรได้ความสามารถพิเศษเพิ่ม · ชี้ที่จุดเพื่อดูรายละเอียด";
   }
 
-  plus(parent: HTMLElement, enabled: boolean, why: string | null, onClick: () => void): HTMLButtonElement {
+  plus(parent: HTMLElement, enabled: boolean, why: string | null, onClick: () => void, text = "+"): HTMLButtonElement {
     const b = el("button", "sk-plus", parent);
     b.type = "button";
-    b.textContent = "+";
+    b.textContent = text;
     b.disabled = !enabled;
     if (why) b.title = why;
-    b.addEventListener("click", onClick);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
     return b;
   }
 
@@ -276,43 +342,195 @@ export class SkillUI {
     node.addEventListener("pointerleave", () => this.tip.classList.add("hidden"));
   }
 
+  raise(treeId: string, id: string): void {
+    this.progress.raiseNode(treeId, id);
+    this.hero.recompute();
+  }
+
+  // ---- trees: a list of trees, the chosen one drawn with its links, and the picked node ----
   renderTrees(): void {
     const p = this.progress;
-    const grid = el("div", "sk-trees", this.body);
-    for (const treeId of p.trees()) {
-      const tree = TREES[treeId];
-      const col = el("div", "sk-tree", grid);
-      col.style.setProperty("--tree", tree.color);
-      const h = el("div", "sk-tree-head", col);
-      this.skillIcon(h, tree.glyph, tree.color, null, true);
-      const t = el("div", "", h);
-      el("strong", "", t).textContent = tree.name;
-      el("span", "sk-sub", t).textContent = `${tree.note} · ลงแล้ว ${p.pointsIn(treeId)}`;
-      for (const n of tree.nodes) {
-        const rank = p.ranks[n.id] ?? 0;
-        const row = el("div", `sk-node${rank ? " learned" : ""}`, col);
-        this.skillIcon(row, n.glyph, tree.color, n.kind === "active" ? n.id : null, rank > 0);
-        const info = el("div", "sk-info", row);
-        el("strong", "", info).textContent = n.name;
-        el("span", "sk-sub", info).textContent = `${n.kind === "active" ? "สกิล" : "ติดตัว"} · ${rank}/${n.max}${n.need ? ` · ต้องลง ${n.need}` : ""}`;
-        const why = p.blockNode(treeId, n);
-        this.plus(row, !why, why, () => {
-          p.raiseNode(treeId, n.id);
-          this.hero.recompute();
-        });
-        this.hoverTip(row, () => n.kind === "active" ? skillTip(n.id, rank)
-          : `<strong>${n.name} · ระดับ ${rank}/${n.max}</strong>สกิลติดตัว<br>${n.desc(Math.max(1, rank))}${rank < n.max ? `<br>ระดับถัดไป: ${n.desc(rank + 1)}` : ""}`);
+    const open = p.trees();
+    if (!this.tree || !TREES[this.tree] || !(open.includes(this.tree) || p.lockedTrees().includes(this.tree))) this.tree = open[0] ?? null;
+    const view = el("div", "sk-treeview", this.body);
+    const list = el("div", "sk-treelist", view);
+    for (const treeId of [...open, ...p.lockedTrees()]) {
+      const t = TREES[treeId], locked = !open.includes(treeId);
+      const b = el("button", `sk-treetab${treeId === this.tree ? " on" : ""}${locked ? " locked" : ""}`, list);
+      b.type = "button";
+      b.style.setProperty("--tree", t.color);
+      this.skillIcon(b, t.glyph, t.color, null, !locked);
+      const txt = el("span", "", b);
+      el("strong", "", txt).textContent = `${t.name}${locked ? " 🔒" : ""}`;
+      el("small", "", txt).textContent = locked ? "ต้องใช้คัมภีร์" : `ลงแล้ว ${p.pointsIn(treeId)} แต้ม`;
+      b.addEventListener("click", () => {
+        this.tree = treeId;
+        this.picked = null;
+        this.render();
+      });
+    }
+    if (!this.tree) return;
+    const tree = TREES[this.tree], treeId = this.tree, locked = !open.includes(treeId);
+    if (!this.picked || !tree.nodes.some((n) => n.id === this.picked)) this.picked = tree.nodes[0].id;
+
+    // the drawing: links first (SVG), then the nodes over them
+    const box = el("div", `sk-canvas${locked ? " locked" : ""}`, view);
+    box.style.setProperty("--tree", tree.color);
+    const head = el("div", "sk-canvas-head", box);
+    el("strong", "", head).textContent = tree.name;
+    el("span", "", head).textContent = tree.note;
+    const rows = Math.max(...tree.nodes.map((n) => n.pos[1])) + 1;
+    const stage = el("div", "sk-stage", box);
+    const height = rowY(rows - 1) + 70;
+    stage.style.height = `${height}px`;
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "sk-links");
+    svg.setAttribute("viewBox", `0 0 100 ${height}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    stage.append(svg);
+    const at = (n: TreeNode) => ({ x: COL_X[n.pos[0]] * 100, y: rowY(n.pos[1]) });
+    for (const n of tree.nodes) {
+      for (const [id, need] of n.req ?? []) {
+        const from = at(NODES[id].node), to = at(n);
+        const met = (p.ranks[id] ?? 0) >= need;
+        const y1 = from.y + 34, y2 = to.y - 34, my = (y1 + y2) / 2;
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("d", `M ${from.x} ${y1} C ${from.x} ${my}, ${to.x} ${my}, ${to.x} ${y2}`);
+        path.setAttribute("class", met ? "met" : "");
+        path.setAttribute("vector-effect", "non-scaling-stroke");
+        svg.append(path);
+        const tag = el("span", `sk-req${met ? " met" : ""}`, stage);
+        tag.style.left = `${(from.x + to.x) / 2}%`;
+        tag.style.top = `${my}px`;
+        tag.textContent = `${met ? "✓ " : ""}${NODES[id].node.name} Lv ${need}`;
       }
     }
-    for (const treeId of p.lockedTrees()) {
-      const tree = TREES[treeId];
-      const col = el("div", "sk-tree locked", grid);
-      const h = el("div", "sk-tree-head", col);
-      this.skillIcon(h, tree.glyph, tree.color, null, false);
-      const t = el("div", "", h);
-      el("strong", "", t).textContent = `${tree.name} 🔒`;
-      el("span", "sk-sub", t).textContent = tree.note;
-      el("p", "sk-lock", col).textContent = `ปลดล็อคด้วย ${ITEMS[tree.book ?? ""]?.name ?? "คัมภีร์"} (ดรอปจากสไลม์)`;
+    for (const n of tree.nodes) {
+      const rank = p.ranks[n.id] ?? 0;
+      const why = locked ? "ยังไม่ได้ปลดล็อคต้นสกิลนี้" : p.blockNode(treeId, n);
+      const reqOk = !locked && !p.missing(n).length;
+      const node = el("div", `sk-tnode${rank ? " learned" : ""}${rank >= n.max ? " max" : ""}${!why ? " can" : ""}${reqOk ? "" : " blocked"}${n.id === this.picked ? " picked" : ""}`, stage);
+      node.style.left = `${COL_X[n.pos[0]] * 100}%`;
+      node.style.top = `${rowY(n.pos[1])}px`;
+      node.tabIndex = 0;
+      node.setAttribute("role", "button");
+      node.setAttribute("aria-label", `${n.name} ระดับ ${rank}/${n.max}`);
+      const ic = this.skillIcon(node, n.glyph, tree.color, n.kind === "active" ? n.id : null, rank > 0);
+      if (!reqOk) el("span", "sk-lockmark", ic).textContent = "🔒";
+      el("span", "sk-rank", node).textContent = `${rank}/${n.max}`;
+      el("span", "sk-tname", node).textContent = n.name;
+      el("span", "sk-tkind", node).textContent = n.kind === "active" ? "สกิล" : "ติดตัว";
+      if (!why) this.plus(node, true, "อัพ 1 ระดับ", () => this.raise(treeId, n.id)).classList.add("mini");
+      const pick = () => {
+        this.picked = n.id;
+        this.render();
+      };
+      node.addEventListener("click", pick);
+      node.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") pick();
+      });
+    }
+    this.renderNode(view, treeId, tree.nodes.find((n) => n.id === this.picked)!, locked);
+  }
+
+  // The picked node: what it does now, every rank's numbers, what it needs and opens.
+  renderNode(parent: HTMLElement, treeId: string, n: TreeNode, locked: boolean): void {
+    const p = this.progress, tree = TREES[treeId];
+    const rank = p.ranks[n.id] ?? 0;
+    const panel = el("div", "sk-detail", parent);
+    panel.style.setProperty("--tree", tree.color);
+    const head = el("div", "sk-detail-head", panel);
+    this.skillIcon(head, n.glyph, tree.color, n.kind === "active" ? n.id : null, rank > 0);
+    const t = el("div", "", head);
+    el("strong", "", t).textContent = n.name;
+    el("span", "sk-sub", t).textContent = `${n.kind === "active" ? "สกิลกดใช้" : "สกิลติดตัว (ได้ผลตลอด)"} · ระดับ ${rank}/${n.max}`;
+    el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
+    if (n.kind === "active" && n.skill) {
+      const s = n.skill;
+      el("p", "sk-meta", panel).textContent = `MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}`;
+    }
+
+    // requirements
+    const reqs = n.req ?? [];
+    const need = el("div", "sk-needs", panel);
+    el("h4", "", need).textContent = "ต้องอัพก่อน";
+    if (!reqs.length) el("p", "sk-ok", need).textContent = "✓ อัพได้ทันที ไม่ต้องมีสกิลอื่นก่อน";
+    for (const [id, lv] of reqs) {
+      const have = p.ranks[id] ?? 0, ok = have >= lv;
+      el("p", ok ? "sk-ok" : "sk-miss", need).textContent = `${ok ? "✓" : "✗"} ${NODES[id].node.name} ระดับ ${lv} (ตอนนี้ ${have})`;
+    }
+    const opens = tree.nodes.filter((o) => o.req?.some(([id]) => id === n.id));
+    if (opens.length) {
+      el("h4", "", need).textContent = "เปิดทางไปสู่";
+      for (const o of opens) {
+        const lv = o.req!.find(([id]) => id === n.id)![1];
+        el("p", rank >= lv ? "sk-ok" : "sk-next", need).textContent = `${rank >= lv ? "✓" : "→"} ${o.name} เมื่อสกิลนี้ถึงระดับ ${lv}`;
+      }
+    }
+
+    // every rank
+    const tableWrap = el("div", "sk-ranks", panel);
+    el("h4", "", tableWrap).textContent = n.kind === "active" ? "ความแรงแต่ละระดับ" : "ค่าที่ได้แต่ละระดับ";
+    const table = el("table", "", tableWrap);
+    const hr = el("tr", "", el("thead", "", table));
+    for (const h of ["ระดับ", n.kind === "active" ? "ผล" : "รวม", "เพิ่ม", n.kind === "active" && n.skill?.mult ? "ดาเมจตอนนี้*" : ""]) {
+      if (h) el("th", "", hr).textContent = h;
+    }
+    const tb = el("tbody", "", table);
+    const w = WEAPON_TYPES[this.weapon() as WeaponId] ?? null;
+    for (let r = 1; r <= n.max; r++) {
+      const tr = el("tr", r === rank ? "now" : r === rank + 1 ? "next" : r < rank ? "done" : "", tb);
+      el("td", "", tr).textContent = `${r}${r === rank ? " ◀" : ""}`;
+      el("td", "", tr).textContent = rankParts(n, r).join(" · ");
+      el("td", "gain", tr).textContent = rankGain(n, r);
+      if (n.kind === "active" && n.skill?.mult) el("td", "num", tr).textContent = `≈ ${Math.round(skillPower(this.hero.stats, p.elements, n.skill, r, w))}`;
+    }
+    if (n.kind === "active" && n.skill?.mult) {
+      el("p", "sk-meta", tableWrap).textContent = `*ต่อครั้งที่โดน จาก${statName(n.skill)}ตอนนี้ ${Math.round(n.skill.stat === "matk" ? this.hero.stats.matk : this.hero.stats.atk)} รวมอาวุธ ธาตุไฟ ก่อนหักการป้องกัน`;
+    }
+
+    // actions
+    const act = el("div", "sk-actions", panel);
+    const why = locked ? "ยังไม่ได้ปลดล็อคต้นสกิลนี้" : p.blockNode(treeId, n);
+    const b = this.plus(act, !why, why, () => this.raise(treeId, n.id), rank ? `อัพเป็นระดับ ${Math.min(n.max, rank + 1)} (1 แต้ม)` : "เรียนสกิลนี้ (1 แต้ม)");
+    b.classList.add("wide");
+    if (why) el("p", "sk-why", act).textContent = why;
+    if (n.kind === "active" && rank > 0) {
+      const slot = el("button", "wr-choice", act);
+      slot.type = "button";
+      slot.textContent = p.hotbar.includes(n.id) ? `อยู่ในแถบสกิลช่อง ${(p.hotbar.indexOf(n.id) + 1) % 10}` : "ใส่แถบสกิล";
+      slot.disabled = p.hotbar.includes(n.id);
+      slot.addEventListener("click", () => {
+        p.autoSlot(n.id);
+        p.changed();
+      });
+    }
+  }
+
+  // ---- masteries and elements: a line from 0 to max with a dot at every milestone ----
+  track(parent: HTMLElement, opts: {
+    lv: number; max: number; color: string; open: boolean;
+    marks: { at: number; name: string; glyph: string; active?: string; tip: () => string }[];
+  }): void {
+    const { lv, max, color, open, marks } = opts;
+    const tr = el("div", `sk-track${open ? "" : " locked"}`, parent);
+    tr.style.setProperty("--fill", color);
+    const line = el("div", "sk-line-bar", tr);
+    el("i", "", line).style.width = `${(100 * lv) / max}%`;
+    const here = el("span", "sk-here", tr);
+    here.style.left = `${(100 * lv) / max}%`;
+    here.textContent = String(lv);
+    const next = marks.find((m) => lv < m.at);
+    for (const m of marks) {
+      const got = lv >= m.at;
+      const dot = el("div", `sk-dot${got ? " got" : ""}${m === next ? " next" : ""}`, tr);
+      dot.style.left = `${(100 * m.at) / max}%`;
+      el("span", "sk-dot-lv", dot).textContent = `Lv ${m.at}`;
+      const ic = this.skillIcon(dot, m.glyph, got ? color : "#9aa08a", m.active ?? null, got);
+      ic.classList.add("small");
+      el("span", "sk-dot-name", dot).textContent = m.name;
+      this.hoverTip(dot, m.tip);
     }
   }
 
@@ -325,7 +543,8 @@ export class SkillUI {
       const open = p.masteries().includes(id);
       const lv = p.mastery[id] ?? 0;
       const row = el("div", `sk-line${open ? "" : " locked"}${m.weapons?.includes(holding as WeaponId) ? " holding" : ""}`, list);
-      const art = el("span", "sk-icon", row);
+      const top = el("div", "sk-line-top", row);
+      const art = el("span", "sk-icon", top);
       const img = m.weapons ? this.weaponImg(m.weapons[0]) : null;
       if (img) {
         const c = el("canvas", "sk-weapon", art);
@@ -337,32 +556,29 @@ export class SkillUI {
         if (img.height > img.width * 1.6) g.rotate(Math.PI / 4);
         g.drawImage(img, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
       } else {
-        art.replaceWith(this.skillIcon(row, m.glyph, "#8fbf6a", null, open));
+        art.replaceWith(this.skillIcon(top, m.glyph, "#8fbf6a", null, open));
       }
-      const info = el("div", "sk-info", row);
-      el("strong", "", info).textContent = `${m.name}${open ? "" : " 🔒"}`;
-      el("span", "sk-sub", info).textContent = open ? `ระดับ ${lv}/${m.max} · ${m.perDesc}` : `ปลดล็อคด้วย ${ITEMS[m.book ?? ""]?.name ?? "คัมภีร์"}`;
-      const bar = el("div", "sk-progress", info);
-      el("i", "", bar).style.width = `${(100 * lv) / m.max}%`;
-      const chips = el("div", "sk-chips", info);
-      for (const r of m.rewards) {
-        const got = lv >= r.at;
-        const chip = el("span", `sk-chip${got ? " got" : ""}${r.kind === "active" ? " active" : ""}`, chips);
-        if (r.kind === "active") {
-          const ic = this.skillIcon(chip, r.glyph ?? "star", "#ffe6a8", r.id, got);
-          ic.classList.add("small");
-        }
-        el("span", "", chip).textContent = `${r.at}: ${r.name}`;
-        this.hoverTip(chip, () => r.kind === "active" && r.id ? skillTip(r.id, got ? 1 : 0) + (m.weapons ? "<br>ต้องถืออาวุธนี้" : "")
-          : `<strong>${r.name}</strong>ติดตัวเมื่อระดับ ${r.at}<br>${r.desc}`);
-      }
+      const info = el("div", "sk-info", top);
+      el("strong", "", info).textContent = `${m.name} · ระดับ ${lv}/${m.max}${open ? "" : " 🔒"}${m.weapons?.includes(holding as WeaponId) ? " · ถืออยู่" : ""}`;
+      el("span", "sk-sub", info).textContent = open
+        ? `${m.perDesc}${lv ? ` · ตอนนี้ ${bagText(Object.fromEntries(Object.entries(m.per).map(([k, v = 0]) => [k, v * lv])))}` : ""}`
+        : `ปลดล็อคด้วย ${ITEMS[m.book ?? ""]?.name ?? "คัมภีร์"} (ดรอปจากสไลม์)`;
       if (open) {
         const full = lv >= m.max;
-        this.plus(row, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => {
+        this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => {
           p.raiseMastery(id);
           this.hero.recompute();
         });
       }
+      this.track(row, {
+        lv, max: m.max, color: "#f4d27a", open,
+        marks: m.rewards.map((r) => ({
+          at: r.at, name: r.name, glyph: r.glyph ?? (r.kind === "active" ? "star" : "up"), active: r.kind === "active" ? r.id : undefined,
+          tip: () => r.kind === "active" && r.id
+            ? `${skillTip(r.id, lv >= r.at ? 1 : 0)}<br><b>ได้เมื่อ${m.name}ระดับ ${r.at}</b>${m.weapons ? " · ต้องถืออาวุธนี้" : ""}`
+            : `<strong>${r.name}</strong>ติดตัวเมื่อ${m.name}ระดับ ${r.at}${lv >= r.at ? " ✓" : ` (อีก ${r.at - lv} ระดับ)`}<br>${r.desc}`,
+        })),
+      });
     }
   }
 
@@ -374,24 +590,29 @@ export class SkillUI {
       const open = p.elementsOpen().includes(id);
       const lv = p.elements[id] ?? 0;
       const row = el("div", `sk-line${open ? "" : " locked"}`, list);
-      this.skillIcon(row, e.glyph, e.color, null, open);
-      const info = el("div", "sk-info", row);
-      el("strong", "", info).textContent = `ธาตุ${e.name} · เด่นด้าน${e.side}${open ? "" : " 🔒"}`;
-      const per = Object.entries(e.per).map(([k, v = 0]) => `${STAT_NAMES[k]} +${PERCENT_STATS.has(k) ? `${(v * 100).toFixed(1)}%` : v}`).join(" · ");
-      el("span", "sk-sub", info).textContent = open ? `ระดับ ${lv}/${e.max} · ต่อระดับ: ${per}` : `ปลดล็อคด้วย ${ITEMS[e.book ?? ""]?.name ?? "คัมภีร์"}`;
-      const bar = el("div", "sk-progress", info);
-      bar.style.setProperty("--fill", e.color);
-      el("i", "", bar).style.width = `${(100 * lv) / e.max}%`;
-      const chips = el("div", "sk-chips", info);
-      el("span", `sk-chip${lv > 0 ? " got" : ""}`, chips).textContent = `เสริมสกิล: ${e.skill}`;
-      el("span", `sk-chip${lv >= 10 ? " got" : ""}`, chips).textContent = `10: ${e.at10}`;
+      row.style.setProperty("--fill", e.color);
+      const top = el("div", "sk-line-top", row);
+      this.skillIcon(top, e.glyph, e.color, null, open);
+      const info = el("div", "sk-info", top);
+      el("strong", "", info).textContent = `ธาตุ${e.name} · เด่นด้าน${e.side} · ระดับ ${lv}/${e.max}${open ? "" : " 🔒"}`;
+      el("span", "sk-sub", info).textContent = open
+        ? `ต่อระดับ: ${bagText(e.per)} · ${e.skill}`
+        : `ปลดล็อคด้วย ${ITEMS[e.book ?? ""]?.name ?? "คัมภีร์"} (ดรอปจากสไลม์)`;
+      if (open && lv) el("span", "sk-sub now", info).textContent = `ตอนนี้: ${bagText(Object.fromEntries(Object.entries(e.per).map(([k, v = 0]) => [k, v * lv])))}`;
       if (open) {
         const full = lv >= e.max;
-        this.plus(row, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => {
+        this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => {
           p.raiseElement(id);
           this.hero.recompute();
         });
       }
+      this.track(row, {
+        lv, max: e.max, color: e.color, open,
+        marks: e.marks.map((m) => ({
+          at: m.at, name: m.name, glyph: m.stats ? "up" : e.glyph,
+          tip: () => `<strong>${m.name}</strong>เมื่อธาตุ${e.name}ระดับ ${m.at}${lv >= m.at ? " ✓" : ` (อีก ${m.at - lv} ระดับ)`}<br>${m.desc}`,
+        })),
+      });
     }
   }
 
@@ -439,4 +660,3 @@ export class SkillUI {
     });
   }
 }
-

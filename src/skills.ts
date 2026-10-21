@@ -1,10 +1,14 @@
 // Active skills: checks (learned, weapon, MP, cooldown), the caster's animation, and the effect
-// of each skill type, with element bonuses (progression.js ELEMENTS):
-//   fire       +1% skill damage per level; 10+: hits burn for 20% over 3 s
-//   water      +2% healing per level; 10+: hits heal 5% of the damage
-//   wind       cooldown (in stats); 10+: +25% move speed for 2 s after a skill
-//   earth      shield of 0.4% max HP per level on every skill; 10+: stuns and slows last 30% longer
-//   lightning  +0.3% skill crit per level; 10+: hits jump to one more monster for 30%
+// of each skill type, with element bonuses (progression.ts ELEMENTS, milestones in brackets):
+//   fire       +1% skill damage per level [50: +15% more]; [10: hits burn for 20% over 3 s, 35: 40%]
+//   water      +2% healing per level; [10: hits heal 5% of the damage, 50: 10%;
+//              35: every skill heals 3% max HP]
+//   wind       cooldown (in stats); [10: +25% move speed for 2 s after a skill;
+//              35: 15% chance a skill's cooldown is skipped]
+//   earth      shield of 0.4% max HP per level on every skill [35: twice that];
+//              [10: stuns, slows and freezes last 30% longer]
+//   lightning  +0.3% skill crit per level; [10: hits jump to one more monster for 30%;
+//              35: to two; 50: for 60%]
 //
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point) · nova, storm (around the
 // caster) · cone (in front) · beam (a line) · dash · heal · shield · buff · flower.
@@ -87,6 +91,10 @@ export class Skills {
     if (!this.hero.spend(s.mp)) return "MP ไม่พอ";
     this.hero.cooldowns.set(id, s.cd * (1 - this.hero.stats.cdr));
     this.hero.cdTotal.set(id, s.cd * (1 - this.hero.stats.cdr));
+    if ((this.el.wind ?? 0) >= 35 && Math.random() < 0.15) {
+      this.hero.cooldowns.delete(id);
+      this.floaters.add(this.player.x, this.player.y, 170, "พายุหมุน!", "info");
+    }
 
     const p = this.player;
     let dir = p.facing();
@@ -123,32 +131,35 @@ export class Skills {
 
   // Element effects that follow any skill.
   afterCast(): void {
-    const earth = this.el.earth ?? 0, wind = this.el.wind ?? 0;
+    const earth = this.el.earth ?? 0, wind = this.el.wind ?? 0, water = this.el.water ?? 0;
     if (earth) {
-      this.hero.addShield(this.hero.stats.maxHp * 0.004 * earth, 4);
+      this.hero.addShield(this.hero.stats.maxHp * 0.004 * earth * (earth >= 35 ? 2 : 1), 4);
       this.ring(this.player.x, this.player.y, "#d6a35c", 90, 0.5);
     }
     if (wind >= 10) this.hero.addBuff("wind_rush", "สายลม", { move: 0.25 }, 2);
+    if (water >= 35) this.hero.heal(this.hero.stats.maxHp * 0.03);
   }
 
   // Damage a monster with a skill, then the element riders.
   hit(m: Monster, s: SkillDef, rank: number, dir: Vec2, knock = 20, chained = false): void {
     if (!m.alive) return;
     const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon() as WeaponId]);
-    if (chained) r.dmg = Math.max(1, Math.round(r.dmg * 0.3));
+    if (chained) r.dmg = Math.max(1, Math.round(r.dmg * ((this.el.lightning ?? 0) >= 50 ? 0.6 : 0.3)));
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);
     if (s.freeze) m.freeze = Math.max(m.freeze, s.freeze(rank) * earth);
     if (s.slow) m.slow = Math.max(m.slow, s.slow(rank) * earth);
     this.combat.apply(m, r, dir, knock);
-    if ((this.el.fire ?? 0) >= 10) m.burns.push({ dps: (r.dmg * 0.2) / 3, t: 3 });
-    if ((this.el.water ?? 0) >= 10) this.hero.heal(r.dmg * 0.05);
-    if (!chained && (this.el.lightning ?? 0) >= 10) {
+    const fire = this.el.fire ?? 0, water = this.el.water ?? 0, lightning = this.el.lightning ?? 0;
+    if (fire >= 10) m.burns.push({ dps: (r.dmg * (fire >= 35 ? 0.4 : 0.2)) / 3, t: 3 });
+    if (water >= 10) this.hero.heal(r.dmg * (water >= 50 ? 0.1 : 0.05));
+    if (!chained && lightning >= 10) {
       const next = this.monsters.filter((o) => o !== m && o.alive && Math.hypot(o.x - m.x, o.y - m.y) < 260)
-        .sort((a, b) => Math.hypot(a.x - m.x, a.y - m.y) - Math.hypot(b.x - m.x, b.y - m.y))[0];
-      if (next) {
-        this.zap(m, next);
-        this.hit(next, s, rank, dir, 0, true);
+        .sort((a, b) => Math.hypot(a.x - m.x, a.y - m.y) - Math.hypot(b.x - m.x, b.y - m.y))
+        .slice(0, lightning >= 35 ? 2 : 1);
+      for (const o of next) {
+        this.zap(m, o);
+        this.hit(o, s, rank, dir, 0, true);
       }
     }
   }

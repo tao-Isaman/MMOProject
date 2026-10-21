@@ -40,7 +40,10 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   const bag = s as unknown as Record<string, number>;
   add(bag, cls.base);
   add(bag, cls.growth, progress.level - 1);
-  for (const [id, lv] of Object.entries(progress.elements)) add(bag, ELEMENTS[id].per, lv);
+  for (const [id, lv] of Object.entries(progress.elements)) {
+    add(bag, ELEMENTS[id].per, lv);
+    for (const m of ELEMENTS[id].marks) if (m.stats && lv >= m.at) add(bag, m.stats);
+  }
   for (const treeId of progress.trees()) {
     for (const n of TREES[treeId].nodes) {
       const r = progress.ranks[n.id];
@@ -96,12 +99,18 @@ export function weaponPower(w: WeaponType | null | undefined, magic: boolean): n
   return w && isMagic(w) === magic ? (w.damage[0] + w.damage[1]) / 2 : 0;
 }
 
-// A skill hit: the skill's multiplier of attack stat plus weapon power, fire and lightning
-// levels on top.
+// What a skill hit does before defence, crits and the random spread: the skill's multiplier
+// of attack stat plus weapon power, with fire on top (+1% a level, +15% more at 50).
+export function skillPower(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, weapon: WeaponType | null = null): number {
+  const magic = skill.stat === "matk", fire = elements.fire ?? 0;
+  const base = (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic);
+  return base * (skill.mult?.(rank) ?? 1) * (1 + stats.dmg) * (1 + 0.01 * fire) * (fire >= 50 ? 1.15 : 1);
+}
+
+// A skill hit: skillPower, then crits (lightning adds to the chance), the spread and defence.
 export function skillDamage(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, target: Defender, weapon: WeaponType | null = null): Hit {
   const magic = skill.stat === "matk";
-  const base = (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic);
-  const raw = base * (skill.mult?.(rank) ?? 1) * (1 + stats.dmg) * (1 + 0.01 * (elements.fire ?? 0));
+  const raw = skillPower(stats, elements, skill, rank, weapon);
   const crit = Math.random() < stats.crit + 0.003 * (elements.lightning ?? 0);
   const hit = mitigate(raw * (crit ? 1 + stats.critDmg : 1) * rand(0.92, 1.08), magic ? target.mdef : target.def, stats.pierce);
   return { dmg: Math.max(1, Math.round(hit)), crit, magic };
