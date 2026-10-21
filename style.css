@@ -240,7 +240,7 @@ kbd {
 .picker-trees { font-size: 12px; color: var(--muted); }
 
 /* ---- status window ---- */
-#status { left: 14px; right: auto; top: 178px; }
+#status { left: 14px; right: auto; top: 178px; max-height: calc(100vh - 190px); } /* scrolls rather than run off the bottom */
 .st-body { padding: 12px 14px 14px; width: 300px; max-width: 100%; }
 .st-head { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
 .st-head strong { color: var(--gold); font-size: 16px; }

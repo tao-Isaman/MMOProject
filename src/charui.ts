@@ -185,17 +185,21 @@ export class StatusUI {
       el("b", "", row).textContent = fmt(k, s[k as keyof Stats]);
       return row;
     }));
-    // attack and defence in each element the character has any of
-    const own = ELEMENT_IDS.filter((e) => s[`${e}Atk`] || s[`${e}Def`]);
-    this.elements.replaceChildren(...(own.length ? [el("div", "st-sub")] : []), ...own.map((e) => {
+    // attack / defence in every element the character can level (and any other it has some of)
+    const open = new Set(p.elementsOpen());
+    const shown = ELEMENT_IDS.filter((e) => open.has(e) || s[`${e}Atk`] || s[`${e}Def`]);
+    const head = el("div", "st-sub");
+    head.textContent = "พลังธาตุ โจมตี / ป้องกัน (หักลบกัน 1 แต้ม = 1%)";
+    const grid = el("div", "st-table");
+    grid.replaceChildren(...shown.map((e) => {
       const row = el("div", "st-row");
       const name = el("span", "", row);
-      name.textContent = `ธาตุ${ELEMENTS[e].name}`;
+      name.textContent = ELEMENTS[e].name;
       name.style.color = ELEMENTS[e].color;
-      el("b", "", row).textContent = `โจมตี ${Math.round(s[`${e}Atk`])} · ป้องกัน ${Math.round(s[`${e}Def`])}`;
+      el("b", "", row).textContent = `${Math.round(s[`${e}Atk`])} / ${Math.round(s[`${e}Def`])}`;
       return row;
     }));
-    if (own.length) this.elements.firstElementChild!.textContent = "พลังธาตุ (โจมตีหักลบกับป้องกัน 1 แต้ม = 1%)";
+    this.elements.replaceChildren(head, grid);
   }
 }
 
