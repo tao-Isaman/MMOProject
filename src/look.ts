@@ -23,6 +23,8 @@ import { loadImage } from "./assets";
 import type { Img } from "./types";
 
 export const CLIPS = ["idle", "walk", "swing", "thrust", "shoot", "cast"];
+// Cast is optional: a body without it raises its arms with its swing instead (player.ts).
+const NEEDED = CLIPS.filter((c) => c !== "cast");
 const CELL = 96;
 
 type Range = [number, number];
@@ -180,7 +182,8 @@ export class Looks {
 
   // A body is used once all its clips are in (bodies.json lists them).
   ready(body: string): boolean {
-    return this.bodies[body]?.clips?.length === CLIPS.length;
+    const have = this.bodies[body]?.clips;
+    return !!have && NEEDED.every((c) => have.includes(c));
   }
 
   // The shape a slot shows: the worn item's, or the build's default when it is empty, made
@@ -223,7 +226,9 @@ export class Looks {
     return [r.top.shape, r.top.dye, r.bottom.shape, r.bottom.dye, r.hair, look.hairColor, look.eyes].join("|");
   }
 
-  loadBody(body: string, clips = CLIPS): Promise<Sheets> {
+  loadBody(body: string, wanted = CLIPS): Promise<Sheets> {
+    const have = this.bodies[body]?.clips;
+    const clips = have ? wanted.filter((c) => have.includes(c)) : wanted;
     const id = `${body}:${clips.join(",")}`;
     let p = this.sheets.get(id);
     if (!p) {
@@ -263,10 +268,12 @@ export class Looks {
     const lowerC = recolor(lower, bdef.regions, cloth(bdef, bdef.cloth.bottom, bottom.dye), bdef.mean, split(bdef));
     // per frame, how far the top moves down so its waist meets the bottom's
     const bob = (d: BodyDef, clip: string, dir: number, f: number) => d.head?.offsets[clip]?.[dir]?.[f]?.[1] ?? 0;
+    // a bottom without one of the top's clips (cast) moves its legs as in its swing
+    const lowClip = (clip: string) => (lower[clip] ? clip : "swing");
     const shift = (clip: string, dir: number, f: number, fb: number) =>
-      bdef.waist + bob(bdef, clip, dir, fb) - (def.waist + bob(def, clip, dir, f));
-    let sheets = this.join(upperC, lowerC, bdef, shift);
-    const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[clip], f));
+      bdef.waist + bob(bdef, lowClip(clip), dir, fb) - (def.waist + bob(def, clip, dir, f));
+    let sheets = this.join(upperC, lowerC, bdef, shift, lowClip);
+    const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[lowClip(clip)], f));
     if (hair && def.head) {
       const head = recolor({ head: await this.loadHead(hair) }, this.hair.regions, { hair: hairDye, eyes: eyeDye }).head;
       sheets = this.attachHead(sheets, def.head, head, this.hair.styles[hair], moved);
@@ -282,10 +289,10 @@ export class Looks {
   }
 
   // The bottom from its waist down, then the top above its waist moved by shift().
-  join(upper: Sheets, lower: Sheets, bdef: BodyDef, shift: (clip: string, dir: number, f: number, fb: number) => number): Sheets {
+  join(upper: Sheets, lower: Sheets, bdef: BodyDef, shift: (clip: string, dir: number, f: number, fb: number) => number, lowClip: (clip: string) => string): Sheets {
     const out: Sheets = {};
     for (const [clip, sheet] of Object.entries(upper)) {
-      const low = lower[clip];
+      const lc = lowClip(clip), low = lower[lc];
       const c = document.createElement("canvas");
       c.width = sheet.width;
       c.height = sheet.height;
@@ -295,7 +302,7 @@ export class Looks {
         for (let f = 0; f < frames; f++) {
           const fb = this.bottomFrame(sheet, low, f);
           const x = f * CELL, y = d * CELL;
-          const wl = Math.round(bdef.waist + (bdef.head?.offsets[clip]?.[d]?.[fb]?.[1] ?? 0));
+          const wl = Math.round(bdef.waist + (bdef.head?.offsets[lc]?.[d]?.[fb]?.[1] ?? 0));
           const sh = Math.round(shift(clip, d, f, fb));
           const wu = wl - sh; // the top's waist row in its own frame
           g.drawImage(low, fb * CELL, y + wl, CELL, CELL - wl, x, y + wl, CELL, CELL - wl);
