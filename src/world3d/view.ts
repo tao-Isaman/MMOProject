@@ -11,10 +11,10 @@
 
 import * as THREE from "three";
 import { buildCourtyard } from "./courtyard";
-import { buildGround, buildGrass } from "./ground";
+import { buildGround } from "./ground";
 import { wind } from "./trees";
 import { groundFromMap, mapX, mapY } from "../projection";
-import { blocked, BOUNDS } from "../world";
+import { blocked } from "../world";
 import type { View } from "../types";
 
 const DIST = 6000; // camera distance from what it looks at, cm
@@ -48,14 +48,14 @@ export class World3D {
   area: THREE.LineLoop;
   time = 0;
 
-  constructor(canvas: HTMLCanvasElement, quality: { grass: number; flowers: number; shadow: number }) {
+  constructor(canvas: HTMLCanvasElement, quality: { flowers: number; shadow: number }) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    // nothing in the courtyard moves but leaves and grass: draw the sun's shadows once
+    // nothing in the courtyard moves but leaves: draw the sun's shadows once
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = true;
 
@@ -77,11 +77,10 @@ export class World3D {
     sun.shadow.radius = 3;
     s.add(sun, sun.target);
 
-    // ground, grass, props, trees, flowers
+    // ground, props, trees, flowers
     const ground = buildGround();
     s.add(ground.mesh);
     const open = (x: number, y: number) => ground.dirt(x, y) < 0.35 && !blocked({ x, y }, 6);
-    s.add(buildGrass(quality.grass, { x0: BOUNDS.minX - 600, y0: BOUNDS.minY - 600, x1: BOUNDS.maxX + 600, y1: BOUNDS.maxY + 600 }, open));
     s.add(buildCourtyard(open, { flowerScale: quality.flowers }).root);
 
     // the target ring and the bot's hunting circle lie on the ground

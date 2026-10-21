@@ -266,7 +266,7 @@ async function boot(): Promise<void> {
 
   // ---- the 3D courtyard (src/world3d), lighter on phones ----
   detectTouch();
-  world = new World3D(worldCanvas, isTouch() ? { grass: 450, flowers: 0.6, shadow: 2048 } : { grass: 1300, flowers: 1, shadow: 4096 });
+  world = new World3D(worldCanvas, isTouch() ? { flowers: 0.6, shadow: 2048 } : { flowers: 1, shadow: 4096 });
   const w3d = world;
 
   // ---- title screen: which character to play ----

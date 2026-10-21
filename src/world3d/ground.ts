@@ -1,9 +1,8 @@
 // The ground: one wide plane, grass mixed with dirt where courtyard.weave paints its paths
-// (#terrain_paint CourtyardPaint, polygons in metres), and tufts of grass blades that sway.
+// (#terrain_paint CourtyardPaint, polygons in metres).
 
 import * as THREE from "three";
 import { grassMap, dirtMap } from "./textures";
-import { wind } from "./trees";
 
 // Dirt paths: the paint polygons of courtyard.weave, world metres.
 const PATHS: [number, number][][] = [
@@ -88,62 +87,4 @@ export function buildGround(): Ground {
   mesh.position.set(1300, 0, -650);
   mesh.receiveShadow = true;
   return { mesh, dirt };
-}
-
-// Grass tufts: three blades each, dark at the root and bright at the tip, `count` scattered
-// over the rectangle where isOpen(x, y) allows.
-export function buildGrass(count: number, area: { x0: number; y0: number; x1: number; y1: number }, isOpen: (x: number, y: number) => boolean): THREE.InstancedMesh {
-  const pos: number[] = [], col: number[] = [], nor: number[] = [];
-  const root = new THREE.Color("#3f7d1f"), tip = new THREE.Color("#b4dd56");
-  for (let b = 0; b < 3; b++) {
-    const a = (b / 3) * Math.PI + 0.3, cx = Math.cos(a), sz = Math.sin(a);
-    const lean = (b - 1) * 0.25, w = 3.4;
-    // a blade: two root corners and a tip (local height 1, scaled per tuft)
-    const pts = [[-cx * w, 0, -sz * w], [cx * w, 0, sz * w], [lean * 10, 1, lean * 6]];
-    pts.forEach(([x, y, z]) => {
-      pos.push(x, y, z);
-      nor.push(0, 1, 0);
-      const c = y ? tip : root;
-      col.push(c.r, c.g, c.b);
-    });
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  // grass is drawn after the props and leaves no depth behind, so it never hides a character's
-  // feet (the characters are billboards standing just in front of their feet)
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.9, depthWrite: false });
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uWind = wind;
-    shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nuniform float uWind;")
-      .replace("#include <begin_vertex>", `#include <begin_vertex>
-        vec4 base = instanceMatrix[3];
-        float bend = sin(uWind * 2.1 + base.x * 0.013 + base.z * 0.011) * 0.6 + sin(uWind * 3.7 + base.x * 0.05) * 0.25;
-        transformed.x += bend * 7.0 * position.y;
-        transformed.z += bend * 3.0 * position.y;`);
-  };
-  let s = 97;
-  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const mats: THREE.Matrix4[] = [];
-  const colors: THREE.Color[] = [];
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  for (let i = 0; i < count * 3 && mats.length < count; i++) {
-    const x = area.x0 + rnd() * (area.x1 - area.x0), y = area.y0 + rnd() * (area.y1 - area.y0);
-    if (!isOpen(x, y)) continue;
-    const h = 14 + rnd() * 18, w = 0.8 + rnd() * 0.5;
-    q.setFromAxisAngle(up, rnd() * Math.PI * 2);
-    mats.push(m.clone().compose(new THREE.Vector3(x, 0, -y), q, new THREE.Vector3(w, h, w)));
-    const v = 0.8 + rnd() * 0.35;
-    colors.push(new THREE.Color(v, v * (0.95 + rnd() * 0.1), v * 0.9));
-  }
-  const inst = new THREE.InstancedMesh(geo, mat, mats.length);
-  mats.forEach((mm, i) => {
-    inst.setMatrixAt(i, mm);
-    inst.setColorAt(i, colors[i]);
-  });
-  inst.receiveShadow = true;
-  inst.renderOrder = 1;
-  return inst;
 }

@@ -196,7 +196,7 @@ export interface Courtyard {
   props: THREE.Object3D[]; // things that stand up (for fading when they hide the player)
 }
 
-// isOpen(x, y): ground where grass and flowers may grow (not a path, not under a prop).
+// isOpen(x, y): ground where flowers may grow (not a path, not under a prop).
 export function buildCourtyard(isOpen: (x: number, y: number) => boolean, opts: { flowerScale?: number } = {}): Courtyard {
   const root = new THREE.Group();
   const props: THREE.Object3D[] = [];
@@ -274,7 +274,7 @@ export function buildCourtyard(isOpen: (x: number, y: number) => boolean, opts: 
     const inst = new THREE.InstancedMesh(geo, mat, spots.length);
     spots.forEach((mm, i) => inst.setMatrixAt(i, mm));
     inst.receiveShadow = true;
-    inst.renderOrder = 1; // like the grass: after the props, never over a character
+    inst.renderOrder = 1; // after the props, and never over a character (no depth written)
     root.add(inst);
   }
   return { root, props };
