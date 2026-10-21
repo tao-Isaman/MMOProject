@@ -11,12 +11,13 @@ export interface PavedSpec {
   area: { x0: number; y0: number; x1: number; y1: number }; // the ground plane (world cm)
   roads: Poly[];
   plazas: Poly[];
+  water?: Poly[];    // holes in the ground where the sea comes in (a harbour basin)
   cmPerPx?: number; // mask resolution
 }
 
 export interface Paved {
   mesh: THREE.Mesh;
-  // 0 grass, 1 road, 2 plaza at a world point
+  // 0 grass, 1 road, 2 plaza, 3 water at a world point
   kind: (x: number, y: number) => number;
 }
 
@@ -31,7 +32,7 @@ export function buildPaved(spec: PavedSpec): Paved {
   const { x0, y0, x1, y1 } = spec.area;
   const cm = spec.cmPerPx ?? 25;
   const W = Math.ceil((x1 - x0) / cm), H = Math.ceil((y1 - y0) / cm);
-  // the mask: red = road, green = plaza; canvas x runs along world x, canvas y along world y
+  // the mask: red = road, green = plaza, blue = water; canvas x runs along world x, canvas y along world y
   const c = document.createElement("canvas");
   c.width = W;
   c.height = H;
@@ -50,12 +51,13 @@ export function buildPaved(spec: PavedSpec): Paved {
   };
   fill(spec.roads, "#ff0000");
   fill(spec.plazas, "#00ff00");
+  fill(spec.water ?? [], "#0000ff");
   const data = g.getImageData(0, 0, W, H).data;
   const kind = (x: number, y: number) => {
     const px = Math.floor((x - x0) / cm), py = Math.floor((y - y0) / cm);
     if (px < 0 || py < 0 || px >= W || py >= H) return 0;
     const i = (py * W + px) * 4;
-    return data[i + 1] > 127 ? 2 : data[i] > 127 ? 1 : 0;
+    return data[i + 2] > 127 ? 3 : data[i + 1] > 127 ? 2 : data[i] > 127 ? 1 : 0;
   };
   const mask = new THREE.CanvasTexture(c);
   mask.flipY = false;
@@ -92,6 +94,7 @@ export function buildPaved(spec: PavedSpec): Paved {
         flag = pow(flag, vec3(2.2));
         vec2 m = (w - uMin) / uSize;
         vec3 k = texture2D(uMask, m).rgb;
+        if (k.b > 0.5) discard; // the water below shows through
         float road = smoothstep(0.3, 0.7, k.r), plaza = smoothstep(0.3, 0.7, k.g);
         vec3 col = mix(mix(grass, cobble, road), flag, plaza);
         // a kerb: darker where paving meets grass

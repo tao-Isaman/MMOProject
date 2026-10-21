@@ -376,14 +376,14 @@ function quoins(hx: number, hy: number, z0: number, z1: number, corners: [number
     }
   return merge(...out);
 }
-// A small gabled dormer facing -X on a roof: its front at x, window inside.
-function dormer(x: number, y: number, z0: number, w: number, depth: number): Geo {
-  const hw = w / 2, h = 150;
+// A small gabled dormer facing -X on a roof: its front at x, window inside (`h` high to the eaves).
+function dormer(x: number, y: number, z0: number, w: number, depth: number, h = 150): Geo {
+  const hw = w / 2;
   return translate(merge(
     boxBounds([0, -hw, 0], [depth, hw, h], "Eden_Plaster"),
     gableRoof([depth + 10, w, 8], [depth / 2 - 5, 0, h], 60, 10, "RoofBlue"),
     gableWall(0, hw, h, 56, "Eden_Plaster"),
-    onFace(windowGeo(w - 76, 70, { frame: "Eden_PaintWhite" }), "-x", 0, 0, 44),
+    onFace(windowGeo(w - 76, 70, { frame: "Eden_PaintWhite" }), "-x", 0, 0, Math.round((h - 70) / 2) + 4),
   ), [x, y, z0]);
 }
 
