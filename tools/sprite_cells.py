@@ -28,7 +28,13 @@ def cells(path, size=128):
             continue
         if checker[y, x:x + size].mean() > 0.6 and checker[y:y + size, x].mean() > 0.6:
             found.append((y, x))
-    found.sort(key=lambda p: (round(p[0] / 40), p[1]))
+    # a checker pixel inside a cell can look like a corner too (a weapon drawn near the cell's
+    # top left): keep only corners outside the cells already found, scanning top to bottom
+    kept = []
+    for y, x in sorted(found):
+        if not any(ky <= y < ky + size and kx <= x < kx + size for ky, kx in kept):
+            kept.append((y, x))
+    found = sorted(kept, key=lambda p: (round(p[0] / 40), p[1]))
     out = []
     for y, x in found:
         c = a[y:y + size, x:x + size]
