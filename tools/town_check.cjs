@@ -10,6 +10,7 @@ const [id, out, ...pts] = process.argv.slice(2);
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   const page = await (await browser.newContext({ viewport: { width: 960, height: 600 } })).newPage();
+  page.setDefaultTimeout(180000); // a busy machine renders slowly
   // no hot reloads mid-check: other edits land on the dev server while it runs
   await page.route("**/@vite/client", (r) => r.fulfill({ contentType: "application/javascript", body: "export function updateStyle(){} export function removeStyle(){} export function createHotContext(){ return { accept(){}, dispose(){}, prune(){}, invalidate(){}, on(){}, off(){}, send(){}, data: {} }; } export function injectQuery(u){ return u; }" }));
   const errors = [];
@@ -58,7 +59,7 @@ const [id, out, ...pts] = process.argv.slice(2);
     await page.evaluate(([x, y]) => { const p = window.__game.player; p.x = x; p.y = y; }, [x, y]);
     const t = await page.evaluate(() => window.__game.fx.time);
     await page.waitForFunction((t) => window.__game.fx.time > t + 0.2, t, { timeout: 300000 });
-    await page.screenshot({ path: `${out}/${id}_view${i}.png` });
+    await page.screenshot({ path: `${out}/${id}_view${i}.png`, timeout: 180000 });
   }
   console.log("saved", fs.readdirSync(out).filter((f) => f.startsWith(id)).join(" "));
   console.log("errors", JSON.stringify(errors));
