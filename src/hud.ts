@@ -1,5 +1,8 @@
 // Skill bar: ten slots bound to keys 1-9 and 0, filled from the character's hotbar. Learned
-// skills are dragged in from the skill window; right-click empties a slot.
+// skills are dragged in from the skill window; right-click empties a slot (not on phones, where a
+// long press would).
+
+import { isTouch } from "./touch";
 
 export const SLOT_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
@@ -57,7 +60,7 @@ export class SkillBar {
       });
       el.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        onClear(i);
+        if (!isTouch()) onClear(i); // a long press on a phone is not a right-click
       });
       root.append(el);
       return { el, art, cd, cdText, tip, id: null };

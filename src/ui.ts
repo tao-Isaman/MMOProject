@@ -1,7 +1,8 @@
 // Inventory window (I), and the look choices the character creator offers.
 //
 // Both are plain DOM panels over the canvas. Items are dragged with pointer events (works with
-// mouse, pen and touch); double-click equips or takes off.
+// mouse, pen and touch); double-click equips or takes off, and on a phone a tap opens the item's
+// menu with what it does.
 
 import { saveKey } from "./save";
 import { ITEMS, EQUIP_SLOTS, describe, itemSlot, fitsSlot, isTwoHanded } from "./items";
@@ -10,6 +11,7 @@ import { COLS } from "./inventory";
 import type { Inventory } from "./inventory";
 import type { Dye } from "./recolor";
 import type { Img } from "./types";
+import { isTouch } from "./touch";
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -35,7 +37,7 @@ export function makeWindow(id: string, title: string, key: string): HTMLElement 
   // drag by the title bar; the window is pinned where it stands first (some windows are
   // centred with a transform, which would otherwise make them jump)
   bar.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || (e.target instanceof Element && e.target.closest(".window-close"))) return;
+    if (e.button !== 0 || isTouch() || (e.target instanceof Element && e.target.closest(".window-close"))) return;
     e.preventDefault();
     const r = win.getBoundingClientRect();
     Object.assign(win.style, { transform: "none", left: `${r.left}px`, top: `${r.top}px`, right: "auto" });
@@ -131,21 +133,50 @@ export class InventoryUI {
     this.menu.classList.add("hidden");
   }
 
-  // Right-click menu for a bag slot; confirm: go straight to "throw it all away?".
-  openMenu(index: number, x: number, y: number, confirm = false): void {
+  // A button in the item menu.
+  menuButton(text: string, fn: () => void, danger = false): void {
+    const b = el("button", `inv-menu-btn${danger ? " danger" : ""}`, this.menu);
+    b.type = "button";
+    b.textContent = text;
+    b.addEventListener("click", () => {
+      this.closeMenu();
+      fn();
+    });
+  }
+
+  // The item's name, and with `info` what it does (a tap has no hover tooltip).
+  menuHead(id: string, info: boolean): void {
+    el("p", "inv-menu-q", this.menu).textContent = ITEMS[id].name;
+    if (!info) return;
+    const why = itemSlot(id) ? this.wearable(id) : null;
+    el("div", "inv-menu-info", this.menu).innerHTML = `${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
+  }
+
+  placeMenu(x: number, y: number): void {
+    this.menu.classList.remove("hidden");
+    const r = this.menu.getBoundingClientRect();
+    this.menu.style.left = `${Math.max(8, Math.min(innerWidth - r.width - 8, x))}px`;
+    this.menu.style.top = `${Math.max(8, Math.min(innerHeight - r.height - 8, y))}px`;
+  }
+
+  // Menu for a worn item (taps on an equipment cell).
+  openEquipMenu(slot: EquipSlot, x: number, y: number): void {
+    const id = this.inv.equipped[slot];
+    if (!id) return;
+    this.menu.replaceChildren();
+    this.menuHead(id, true);
+    this.menuButton("ถอด", () => this.flash(this.inv.unequip(slot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม"));
+    this.placeMenu(x, y);
+  }
+
+  // Right-click menu for a bag slot; confirm: go straight to "throw it all away?"; info: also
+  // say what the item does.
+  openMenu(index: number, x: number, y: number, confirm = false, info = false): void {
     const s = this.inv.slots[index];
     if (!s) return;
     const item = ITEMS[s.id];
     this.menu.replaceChildren();
-    const button = (text: string, fn: () => void, danger = false) => {
-      const b = el("button", `inv-menu-btn${danger ? " danger" : ""}`, this.menu);
-      b.type = "button";
-      b.textContent = text;
-      b.addEventListener("click", () => {
-        this.closeMenu();
-        fn();
-      });
-    };
+    const button = (text: string, fn: () => void, danger = false) => this.menuButton(text, fn, danger);
     const ask = (count: number) => {
       this.menu.replaceChildren();
       el("p", "inv-menu-q", this.menu).textContent = `ทิ้ง${item.name}${count > 1 ? ` × ${count}` : ""}? ทิ้งแล้วเอาคืนไม่ได้`;
@@ -157,7 +188,7 @@ export class InventoryUI {
     };
     if (confirm) ask(s.count);
     else {
-      el("p", "inv-menu-q", this.menu).textContent = item.name;
+      this.menuHead(s.id, info);
       if (item.kind === "potion" || item.kind === "book") button(item.kind === "potion" ? "ดื่ม" : "อ่าน", () => this.flash(this.use(index), true));
       else if (itemSlot(s.id)) {
         button(item.kind === "weapon" ? "ใส่มือหลัก" : "สวมใส่", () => this.wear(index));
@@ -166,10 +197,7 @@ export class InventoryUI {
       if (s.count > 1) button("ทิ้ง 1 ชิ้น", () => ask(1), true);
       button(s.count > 1 ? `ทิ้งทั้งหมด (${s.count})` : "ทิ้ง", () => ask(s.count), true);
     }
-    this.menu.classList.remove("hidden");
-    const r = this.menu.getBoundingClientRect();
-    this.menu.style.left = `${Math.min(innerWidth - r.width - 8, x)}px`;
-    this.menu.style.top = `${Math.min(innerHeight - r.height - 8, y)}px`;
+    this.placeMenu(x, y);
   }
 
   fill(cell: HTMLElement, id: string | null | undefined, count: number | undefined): void {
@@ -195,7 +223,9 @@ export class InventoryUI {
     this.equipEls.offhand.classList.toggle("held", both);
     if (both) this.fill(this.equipEls.offhand, this.inv.equipped.weapon, 1);
     const used = this.inv.slots.filter(Boolean).length;
-    this.status.textContent = `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
+    this.status.textContent = isTouch()
+      ? `${used} / ${this.inv.slots.length} ช่อง · แตะไอเท็มเพื่อดูว่าทำอะไรได้ · ลากเพื่อย้ายหรือใส่`
+      : `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
     this.gold.innerHTML = `<i></i>${this.inv.gold.toLocaleString()} ทอง`;
   }
 
@@ -227,7 +257,7 @@ export class InventoryUI {
   }
 
   bindPointer(): void {
-    let drag: { from: HTMLElement; ghost: Img | undefined; x: number; y: number; moved: boolean } | null = null;
+    let drag: { from: HTMLElement; ghost: Img | undefined; x: number; y: number; moved: boolean; touch: boolean } | null = null;
     const cellFrom = (target: EventTarget | null) => (target instanceof Element ? target.closest<HTMLElement>(".inv-cell") : null);
     this.win.addEventListener("pointerover", (e) => {
       const c = cellFrom(e.target);
@@ -265,7 +295,7 @@ export class InventoryUI {
       const src = c.querySelector<HTMLCanvasElement | HTMLImageElement>(".inv-icon");
       const ghost = src?.cloneNode(true) as Img | undefined;
       if (src && ghost instanceof HTMLCanvasElement) ghost.getContext("2d")!.drawImage(src, 0, 0);
-      drag = { from: c, ghost, x: e.clientX, y: e.clientY, moved: false };
+      drag = { from: c, ghost, x: e.clientX, y: e.clientY, moved: false, touch: e.pointerType === "touch" };
       this.tip.classList.add("hidden");
     });
     window.addEventListener("pointermove", (e) => {
@@ -289,7 +319,12 @@ export class InventoryUI {
       drag = null;
       d.ghost?.remove();
       d.from.classList.remove("dragging");
-      if (!d.moved) return;
+      if (!d.moved) {
+        // a tap with a finger: the item's menu
+        if (d.touch && d.from.dataset.equip) this.openEquipMenu(d.from.dataset.equip as EquipSlot, e.clientX, e.clientY);
+        else if (d.touch) this.openMenu(Number(d.from.dataset.index), e.clientX, e.clientY, false, true);
+        return;
+      }
       const over = document.elementFromPoint(e.clientX, e.clientY);
       // dropped outside the bag, onto the game: ask before throwing it away
       if (!d.from.dataset.equip && over instanceof Element && !this.win.contains(over) && over.id === "game") {

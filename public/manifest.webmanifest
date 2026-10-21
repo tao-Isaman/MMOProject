@@ -1,0 +1,13 @@
+{
+  "name": "Flower Field — MMO prototype",
+  "short_name": "Flower Field",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#16210f",
+  "theme_color": "#16210f",
+  "icons": [
+    { "src": "assets/app_icon_192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/app_icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

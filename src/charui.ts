@@ -670,5 +670,9 @@ export class SkillUI {
       d.ghost.remove();
       if (d.moved) this.onDropSkill(d.id, e.clientX, e.clientY);
     });
+    window.addEventListener("pointercancel", () => {
+      drag?.ghost.remove();
+      drag = null;
+    });
   }
 }

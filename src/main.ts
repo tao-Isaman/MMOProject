@@ -33,6 +33,7 @@ import { Npc, ShopUI, MERCHANT, TALK_RANGE } from "./shop";
 import { findPath } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
+import { detectTouch, onTouchMode, goLandscape, Joystick } from "./touch";
 import type { FlowerSpell } from "./spell";
 import type { SceneData } from "./scene";
 import type { Atlas, Img, Textures, View } from "./types";
@@ -273,6 +274,7 @@ async function boot(): Promise<void> {
   };
 
   // ---- title screen: which character to play ----
+  detectTouch();
   const looks = new Looks({ bodies, hair });
   document.getElementById("loading")?.classList.add("done");
   const charId = await new Title(looks).run();
@@ -541,9 +543,24 @@ async function boot(): Promise<void> {
   }
 
   let denyText = 0;
+  // The monster nearest the player within `range` cm (edge to edge), or null.
+  function nearestMonster(range: number): Monster | null {
+    let best: Monster | null = null, bestD = range;
+    for (const m of monsters) {
+      if (!m.alive) continue;
+      const d = Math.hypot(m.x - player.x, m.y - player.y) - m.radius;
+      if (d < bestD) {
+        best = m;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
   function useSlot(i: number): void {
     const id = progress.hotbar[i];
-    const aim = aimPoint() ?? (player.target?.alive ? player.target : null);
+    // aim: the mouse, else the target, else (touch) the nearest monster in sight
+    const aim = aimPoint() ?? (player.target?.alive ? player.target : null) ?? nearestMonster(900);
     const why = id ? skills.use(id, aim) : "ช่องว่าง";
     if (why) {
       hud.pulse(i, "denied");
@@ -566,17 +583,20 @@ async function boot(): Promise<void> {
       player.startAttack(w, groundFromMap(p.x, p.y));
       return;
     }
-    let best = null, bestD = attackRange(w) + 40;
-    for (const m of monsters) {
-      if (!m.alive) continue;
-      const d = Math.hypot(m.x - player.x, m.y - player.y) - m.radius;
-      if (d < bestD) {
-        best = m;
-        bestD = d;
-      }
-    }
     player.target = null;
-    player.startAttack(w, best);
+    player.startAttack(w, nearestMonster(attackRange(w) + 40));
+  }
+
+  // The touch attack button: keep on the current target, else lock onto the nearest monster
+  // within 7 m (the player walks up and keeps hitting it), else swing where she faces.
+  function touchAttack() {
+    if (!hero.alive) return;
+    bot.noteManual();
+    toMerchant = null;
+    if (player.target?.alive) return;
+    const m = nearestMonster(700);
+    if (m) player.target = m;
+    else player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), null);
   }
 
   // ---- input ----
@@ -643,8 +663,9 @@ async function boot(): Promise<void> {
     if (e.pointerType === "mouse") pointer = { clientX: e.clientX, clientY: e.clientY };
   });
   canvas.addEventListener("pointerleave", () => (pointer = null));
-  canvas.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || !view || !hero.alive) return;
+  // A click or tap on the game: the merchant, a monster to chase, or a swing toward the ground.
+  function tapAt(e: { clientX: number; clientY: number }): void {
+    if (!view || !hero.alive) return;
     bot.noteManual();
     const { x: mx, y: my } = toMap(e);
     if (merchant.contains(mx, my)) {
@@ -660,6 +681,9 @@ async function boot(): Promise<void> {
     }
     player.target = null;
     player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundFromMap(mx, my));
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch" && e.button === 0) tapAt(e);
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
   window.addEventListener("blur", () => held.clear());
@@ -702,7 +726,82 @@ async function boot(): Promise<void> {
   });
   const endDrag = () => (dragTurn = null);
   canvas.addEventListener("pointerup", (e) => e.button === 2 && endDrag());
-  canvas.addEventListener("lostpointercapture", endDrag);
+  canvas.addEventListener("lostpointercapture", (e) => e.pointerType !== "touch" && endDrag());
+
+  // ---- touch: a thumb on the left third walks (joystick); elsewhere a tap acts like a click
+  // and a sideways swipe turns the camera ----
+  const stick = new Joystick();
+  const swipes = new Map<number, { x: number; y: number; yaw: number; turning: boolean }>();
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    canvas.setPointerCapture(e.pointerId);
+    if (!stick.active && e.clientX < innerWidth * 0.38) {
+      stick.start(e);
+      bot.noteManual();
+      toMerchant = null;
+      return;
+    }
+    swipes.set(e.pointerId, { x: e.clientX, y: e.clientY, yaw, turning: false });
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "touch") return;
+    if (e.pointerId === stick.id) return stick.move(e);
+    const s = swipes.get(e.pointerId);
+    if (!s || !scene.turns) return;
+    if (!s.turning && Math.abs(e.clientX - s.x) > 14) {
+      s.turning = true;
+      turnTo = null;
+    }
+    if (s.turning) turnCamera(s.yaw - (e.clientX - s.x) * 0.0085);
+  });
+  const touchUp = (e: PointerEvent, tap: boolean) => {
+    if (e.pointerType !== "touch") return;
+    if (e.pointerId === stick.id) return stick.end(e);
+    const s = swipes.get(e.pointerId);
+    swipes.delete(e.pointerId);
+    if (tap && s && !s.turning && Math.hypot(e.clientX - s.x, e.clientY - s.y) < 14) tapAt(e);
+  };
+  canvas.addEventListener("pointerup", (e) => touchUp(e, true));
+  canvas.addEventListener("pointercancel", (e) => touchUp(e, false));
+
+  // on-screen buttons: attack, the two potions, full screen
+  const attackBtn = document.getElementById("btn-attack")!;
+  attackBtn.append(icon("sword", "#ffd27a"));
+  attackBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    touchAttack();
+  });
+  const potionBtns = (["hp", "mp"] as const).map((kind) => {
+    const b = document.getElementById(`btn-pot-${kind}`)!;
+    b.prepend(potionIcon(kind === "hp" ? "#ff6a5a" : "#5aa8ff", false));
+    b.addEventListener("click", () => {
+      bot.noteManual();
+      if (!drink(kind)) floaters.add(player.x, player.y, 150, hero.alive && (kind === "hp" ? hero.hp >= hero.stats.maxHp : hero.mp >= hero.stats.maxMp) ? "เต็มอยู่แล้ว" : "ไม่มียา", "info");
+    });
+    return [kind, b.querySelector("span")!] as const;
+  });
+  const countPotions = () => {
+    for (const [kind, span] of potionBtns) span.textContent = String(inv.slots.reduce((n, s) => n + (s && ITEMS[s.id].restore?.[kind] ? s.count : 0), 0));
+  };
+  inv.onChange(countPotions);
+  countPotions();
+  const fullBtn = document.getElementById("btn-full")!;
+  fullBtn.hidden = !document.fullscreenEnabled;
+  fullBtn.addEventListener("click", () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void goLandscape();
+  });
+  // phones: one window at a time, so a window never hides another under it
+  onTouchMode(() => {
+    const wins = [...document.querySelectorAll<HTMLElement>(".window")];
+    const watch = new MutationObserver((changes) => {
+      for (const c of changes) {
+        const w = c.target as HTMLElement;
+        if (!w.classList.contains("hidden")) for (const o of wins) if (o !== w) o.classList.add("hidden");
+      }
+    });
+    for (const w of wins) watch.observe(w, { attributes: true, attributeFilter: ["class"] });
+  });
   const deathNote = document.getElementById("death")!;
   // what monsters need from the player: where to chase and how a bite lands
   const monsterCtx: MonsterCtx = {
@@ -734,6 +833,11 @@ async function boot(): Promise<void> {
     for (const code of held) {
       fwd += MOVE_KEYS[code][0];
       left += MOVE_KEYS[code][1];
+    }
+    if (stick.active) {
+      const s = stick.steps;
+      fwd += s.fwd;
+      left += s.left;
     }
     let move = fromView(fwd, left);
     if (hero.update(dt) === "respawn") {

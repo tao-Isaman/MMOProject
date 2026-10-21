@@ -3,7 +3,12 @@
 <head>
 <meta charset="utf-8">
 <title>Flower Field — MMO prototype</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/app_icon_192.png">
 <meta name="theme-color" content="#16210f">
 <meta name="description" content="ลานหมู่บ้านจาก Oriverse: เลือกคลาสจอมเวทหรือนักรบ ตีสไลม์เก็บเลเวล ลงแต้มต้นสกิล ความเชี่ยวชาญ และธาตุ แต่งตัว และเก็บของเข้ากระเป๋า">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,9 +31,22 @@
     <button type="button" class="menu-btn" id="btn-skills"><kbd>K</kbd>สกิล</button>
     <button type="button" class="menu-btn" id="btn-status"><kbd>P</kbd>สถานะ</button>
     <button type="button" class="menu-btn" id="btn-inventory"><kbd>I</kbd>กระเป๋า</button>
-    <button type="button" class="menu-btn" id="btn-bot"><kbd>B</kbd>ตั้งค่าบอท</button>
+    <button type="button" class="menu-btn" id="btn-bot"><kbd>B</kbd><span><span class="desk-only">ตั้งค่า</span>บอท</span></button>
     <button type="button" class="menu-btn auto" id="btn-auto" aria-label="เปิดหรือปิดบอท">▶ ออโต้</button>
+    <button type="button" class="menu-btn touch-only" id="btn-full" aria-label="เต็มจอ">⛶</button>
   </div>
+</div>
+
+<!-- phones (body.touch): attack button (the skill slots sit around it) and potions -->
+<button type="button" class="touch-attack touch-only" id="btn-attack" aria-label="โจมตี"></button>
+<div class="touch-potions touch-only">
+  <button type="button" class="touch-potion" id="btn-pot-hp" aria-label="ดื่มยาแดง"><span>0</span></button>
+  <button type="button" class="touch-potion" id="btn-pot-mp" aria-label="ดื่มยาฟ้า"><span>0</span></button>
+</div>
+<div class="rotate-note" role="alert">
+  <div class="rotate-phone" aria-hidden="true"></div>
+  <p>หมุนโทรศัพท์เป็นแนวนอนเพื่อเล่น</p>
+  <small>เกมนี้เล่นได้เฉพาะแนวนอน</small>
 </div>
 
 <div class="loading" id="loading">

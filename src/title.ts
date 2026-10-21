@@ -16,6 +16,7 @@ import {
 } from "./save";
 import type { CharEntry, Roster } from "./save";
 import type { Looks } from "./look";
+import { isTouch, goLandscape } from "./touch";
 
 const CLASS_WEAPON: Record<ClassId, string> = { mage: "staff", warrior: "sword_1h" };
 // what each class starts with in the off hand (mages: a tome; staves are one-handed)
@@ -33,6 +34,7 @@ export class Title {
   box: HTMLElement;
   roster: Roster;
   selected: string | null;
+  tapped = 0; // when a character card was last tapped
   done!: (id: string) => void;
 
   constructor(looks: Looks) {
@@ -89,10 +91,12 @@ export class Title {
       el("strong", "", card).textContent = c.name;
       el("span", "", card).textContent = `${CLASSES[c.cls]?.name ?? "-"} · Lv ${c.level}`;
       card.addEventListener("click", () => {
+        // a second tap soon after the first starts (phones don't always send dblclick)
+        if (this.selected === c.id && performance.now() - this.tapped < 450) return this.start(c.id);
+        this.tapped = performance.now();
         this.selected = c.id;
         this.list();
       });
-      card.addEventListener("dblclick", () => this.start(c.id));
     }
     if (this.roster.chars.length < MAX_CHARACTERS) {
       const add = el("button", "title-char add", row);
@@ -131,7 +135,9 @@ export class Title {
       no.textContent = "ยกเลิก";
       no.addEventListener("click", () => this.list());
     });
-    el("p", "title-note", this.box).textContent = "ดับเบิลคลิกที่ตัวละครเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากหน้าต่างสถานะ (P)";
+    el("p", "title-note", this.box).textContent = isTouch()
+      ? "แตะตัวละครสองครั้งเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากหน้าต่างสถานะ"
+      : "ดับเบิลคลิกที่ตัวละครเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากหน้าต่างสถานะ (P)";
   }
 
   start(id: string): void {
@@ -139,6 +145,7 @@ export class Title {
     const c = this.roster.chars.find((e) => e.id === id);
     if (c) c.played = Date.now();
     saveRoster(this.roster);
+    void goLandscape(); // phones: full screen, turned sideways (still inside the tap)
     this.done(id);
   }
 
@@ -274,7 +281,7 @@ export class Title {
       back.addEventListener("click", () => this.list());
     }
     refresh();
-    input.focus();
+    if (!isTouch()) input.focus(); // on a phone the keyboard would cover the form
   }
 
   // Write a new character's saves: class progress, starting bag with the chosen clothes and the

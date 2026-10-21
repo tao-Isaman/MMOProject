@@ -9,6 +9,7 @@ import { ITEMS, sellPrice, stackLimit } from "./items";
 import { el, makeWindow } from "./ui";
 import type { Inventory } from "./inventory";
 import type { Img, Vec2, View } from "./types";
+import { isTouch } from "./touch";
 
 const CELL = 96;
 const HEIGHT = 128;   // on-screen height, like the player
@@ -87,7 +88,7 @@ export class Npc {
     ctx.fillStyle = "#ffe6a8";
     ctx.fillText(this.name, gx, top);
     ctx.font = `${12 * k}px Kanit, sans-serif`;
-    const label = near ? `${this.title} · คลิกหรือกด F` : this.title;
+    const label = near ? `${this.title} · ${isTouch() ? "แตะเพื่อคุย" : "คลิกหรือกด F"}` : this.title;
     ctx.strokeText(label, gx, top - 17 * k);
     ctx.fillStyle = near ? "#9df0b4" : "#d8d2bf";
     ctx.fillText(label, gx, top - 17 * k);
