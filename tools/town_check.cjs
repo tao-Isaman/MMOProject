@@ -24,6 +24,8 @@ const [id, out, ...pts] = process.argv.slice(2);
   await ready();
   if (id !== "eden") {
     await page.evaluate((i) => window.__game.enterMap(i), id);
+    // (the loading screen can still read "done" from before the trip)
+    await page.waitForFunction((i) => window.__game.map.id === i, id, { timeout: 400000 });
     await ready();
   }
   const report = await page.evaluate(() => {
@@ -58,7 +60,7 @@ const [id, out, ...pts] = process.argv.slice(2);
   for (const [i, [x, y]] of spots.entries()) {
     await page.evaluate(([x, y]) => { const p = window.__game.player; p.x = x; p.y = y; }, [x, y]);
     const t = await page.evaluate(() => window.__game.fx.time);
-    await page.waitForFunction((t) => window.__game.fx.time > t + 0.2, t, { timeout: 300000 });
+    await page.waitForFunction((t) => window.__game.fx.time > t + 1.5, t, { timeout: 300000 }); // the camera catches up
     await page.screenshot({ path: `${out}/${id}_view${i}.png`, timeout: 180000 });
   }
   console.log("saved", fs.readdirSync(out).filter((f) => f.startsWith(id)).join(" "));

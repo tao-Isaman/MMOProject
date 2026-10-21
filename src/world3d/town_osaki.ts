@@ -196,7 +196,7 @@ export function buildOsaki(quality: { flowers: number }): Town {
   for (const [u, v, h] of [[112, 380, 95], [118, 512, -85], [60, 352, 92], [96, 548, -95], [40, 476, 88], [118, 300, 100], [-20, 560, 70], [118, 655, -80]] as const)
     put("osaki:sampan", P(u, v), h, { z: -40 });
   // the great torii standing in the sea off the main pier
-  put("osaki:torii", P(-80, 450), FACE.w, { s: 1.7, z: -40, solid: "none" });
+  put("osaki:torii", P(-46, 450), FACE.w, { s: 1.7, z: -40, solid: "none" });
   // lanterns, cargo and stalls on the quay
   for (const v of [262, 300, 360, 400, 500, 540, 610, 650]) lanternPost(194, v, FACE.w);
   for (const [u, v, h] of [[176, 268, 0], [176, 662, 0]] as const) put("osaki:sake_barrels", P(u, v), h);
