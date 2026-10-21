@@ -26,7 +26,7 @@ import { Vitals, ClassPicker, StatusUI, SkillUI, skillTip } from "./charui";
 import { icon } from "./icons";
 import { Bot } from "./bot";
 import { Title } from "./title";
-import { useCharacter, loadRoster, touchCharacter } from "./save";
+import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./save";
 import { ShopUI } from "./shop";
 import { Npc, TALK_RANGE } from "./npcs";
 import { loadMap, MAP_NAMES } from "./maps";
@@ -367,12 +367,20 @@ async function boot(): Promise<void> {
     return c;
   };
 
-  // ---- world: everyone starts in Eden ----
-  await loading(`กำลังสร้าง${MAP_NAMES.eden}…`, 0.3);
-  let current: GameMap = loadMap("eden", quality);
+  // ---- world: a new character starts in Eden, the others where they left off ----
+  const placeKey = saveKey("place.v1");
+  const left = readJson<{ map: MapId; x: number; y: number }>(placeKey);
+  const startMap: MapId = left && left.map in MAP_NAMES ? left.map : "eden";
+  await loading(`กำลังสร้าง${MAP_NAMES[startMap]}…`, 0.3);
+  let current: GameMap = loadMap(startMap, quality);
   w3d.load(current.level);
   const fx = new Particles();
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
+  // back on the spot, unless something now stands there
+  if (left?.map === startMap && Number.isFinite(left.x) && Number.isFinite(left.y) && !blocked(left, RADIUS)) {
+    player.x = left.x;
+    player.y = left.y;
+  }
   w3d.focus = player;
   player.builtin = first.builtin;
   applyLook();
@@ -951,6 +959,7 @@ async function boot(): Promise<void> {
   };
   let last = performance.now();
   let fps = 60;
+  let placeClock = 2;
 
   function frame(now: number): void {
     if (travelling) {
@@ -988,6 +997,10 @@ async function boot(): Promise<void> {
       walkTo = null;
     }
     potionCd = Math.max(0, potionCd - dt);
+    if ((placeClock -= dt) <= 0) {
+      placeClock = 2;
+      savePlace();
+    }
     const auto = bot.update(dt);
     if (!fwd && !left && bot.on) move = auto;
     if (holdWalk && pointer && view && (holdClock -= dt) <= 0) {
@@ -1129,6 +1142,23 @@ async function boot(): Promise<void> {
     progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS } };
+
+  // Where the character stands, for the next session: every couple of seconds while alive, and
+  // when the page goes away (closing the tab, or back to the title, which reloads it).
+  let placeSaved = "";
+  function savePlace(): void {
+    if (!hero.alive) return; // the dead get up in Eden; keep where they last stood alive
+    const place = JSON.stringify({ map: current.id, x: Math.round(player.x), y: Math.round(player.y) });
+    if (place === placeSaved) return;
+    placeSaved = place;
+    try {
+      localStorage.setItem(placeKey, place);
+    } catch {
+      // not persisted
+    }
+  }
+  window.addEventListener("pagehide", savePlace);
+  document.addEventListener("visibilitychange", () => document.hidden && savePlace());
 
   await settle(current);
   loaded();

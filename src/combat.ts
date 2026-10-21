@@ -45,6 +45,21 @@ interface Floater {
   t: number;
   life: number;
   dx: number;
+  seed: number; // the crit burst's spikes and tilt
+}
+
+// A comic-book explosion behind a critical hit's number: a jagged star around (x, y).
+function burst(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, seed: number): void {
+  const n = 13;
+  ctx.beginPath();
+  for (let i = 0; i < n * 2; i++) {
+    const a = seed * Math.PI * 2 + (i * Math.PI) / n;
+    const r = i % 2 ? 0.6 + 0.08 * Math.sin(seed * 51 + i * 3.1) : 1 + 0.14 * Math.sin(seed * 97 + i * 7.3);
+    const px = x + Math.cos(a) * rx * r, py = y + Math.sin(a) * ry * r;
+    if (i) ctx.lineTo(px, py);
+    else ctx.moveTo(px, py);
+  }
+  ctx.closePath();
 }
 
 export class Floaters {
@@ -52,7 +67,7 @@ export class Floaters {
 
   add(x: number, y: number, z: number, text: string, style: FloaterStyle = "damage"): void {
     const long = style === "loot" || style === "level";
-    this.list.push({ x, y, z, text, style, t: 0, life: long ? 1.8 : 0.9, dx: style === "level" ? 0 : rand(-14, 14) });
+    this.list.push({ x, y, z, text, style, t: 0, life: long ? 1.8 : 0.9, dx: style === "level" ? 0 : rand(-14, 14), seed: Math.random() });
   }
 
   update(dt: number): void {
@@ -68,7 +83,7 @@ export class Floaters {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
-    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffb347", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff" };
+    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffe14a", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff" };
     for (const f of this.list) {
       const u = f.t / f.life;
       const rise = f.style === "loot" || f.style === "level" ? 40 * u : 60 * Math.sqrt(u);
@@ -78,8 +93,21 @@ export class Floaters {
       const size = (big ? 30 : f.style === "loot" ? 17 : 22) * k * (big ? 1 + 0.3 * Math.max(0, 1 - u * 4) : 1);
       ctx.globalAlpha = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;
       ctx.font = `600 ${size}px Kanit, system-ui, sans-serif`;
+      if (f.style === "crit") {
+        // yellow on a red explosion
+        const cy = py - size * 0.36, rx = ctx.measureText(f.text).width / 2 + size * 0.8, ry = size * 1.05;
+        burst(ctx, px, cy, rx, ry, f.seed);
+        const glow = ctx.createRadialGradient(px, cy, 0, px, cy, rx);
+        glow.addColorStop(0, "#ff6a2e");
+        glow.addColorStop(1, "#c8140c");
+        ctx.fillStyle = glow;
+        ctx.lineWidth = Math.max(2, size * 0.1);
+        ctx.strokeStyle = "#4a0805";
+        ctx.fill();
+        ctx.stroke();
+      }
       ctx.lineWidth = Math.max(2, size * 0.16);
-      ctx.strokeStyle = "rgba(20, 14, 10, 0.9)";
+      ctx.strokeStyle = f.style === "crit" ? "#5a0d05" : "rgba(20, 14, 10, 0.9)";
       ctx.fillStyle = colors[f.style];
       ctx.strokeText(f.text, px, py);
       ctx.fillText(f.text, px, py);

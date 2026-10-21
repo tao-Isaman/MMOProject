@@ -91,12 +91,12 @@ export function newCharacterId(r: Roster): string {
 export function deleteCharacter(r: Roster, id: string): void {
   r.chars = r.chars.filter((c) => c.id !== id);
   if (r.last === id) r.last = r.chars[0]?.id ?? null;
-  for (const what of LEGACY) {
-    try {
-      localStorage.removeItem(saveKey(what, id));
-    } catch {
-      // nothing to remove
-    }
+  // every save of that character (a new one may get the same id)
+  try {
+    const prefix = saveKey("", id);
+    for (const key of Object.keys(localStorage)) if (key.startsWith(prefix)) localStorage.removeItem(key);
+  } catch {
+    // nothing to remove
   }
   saveRoster(r);
 }
