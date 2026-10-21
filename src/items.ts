@@ -117,6 +117,7 @@ export interface Shape {
   body: string;
   gender: Gender;
   note: string;
+  bare?: boolean; // what a character wears with the slot empty; no item has this shape
 }
 
 export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
@@ -125,17 +126,23 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     priestess: { name: "เสื้อนักบวช", body: "priestess", gender: "female", note: "เสื้อแขนยาว ปกสูง ผ้าคลุมไหล่สีขาว" },
     adventurer: { name: "เสื้อกั๊กนักผจญภัย", body: "adventurer", gender: "female", note: "เสื้อกั๊กหนัง เกราะไหล่ สายสะพาย ผ้าพันแขน" },
     warrior: { name: "แจ็กเก็ตนักรบ", body: "warrior", gender: "male", note: "แจ็กเก็ตแขนพับ เสื้อด้านในสีดำ" },
+    plain: { name: "เสื้อยืดผ้าฝ้าย", body: "plainf", gender: "female", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
+    plain_m: { name: "เสื้อยืดผ้าฝ้าย", body: "plainm", gender: "male", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
   },
   bottom: {
     mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "ชายเสื้อคลุมยาว กางเกงรัดรูปสีเข้ม บูทหนัง" },
     priestess: { name: "กระโปรงยาวนักบวช", body: "priestess", gender: "female", note: "กระโปรงยาวถึงข้อเท้า ผ้าคาดหน้าตราอาทิตย์" },
     adventurer: { name: "กระโปรงจีบนักผจญภัย", body: "adventurer", gender: "female", note: "กระโปรงจีบสั้น เลกกิ้ง บูทผูกเชือกสูง" },
     warrior: { name: "กางเกงนักรบ", body: "warrior", gender: "male", note: "กางเกงขายาว บูทหนัง" },
+    plain: { name: "กางเกงผ้าฝ้าย", body: "plainf", gender: "female", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
+    plain_m: { name: "กางเกงผ้าฝ้าย", body: "plainm", gender: "male", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
   },
 };
 
-// The shape worn when a slot is empty (or holds something for the other build).
-export const DEFAULT_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
+// The shape worn when a slot is empty (or holds something for the other build): a plain brown
+// T-shirt and trousers. Until those bodies are in, the build's first outfit stands in.
+export const DEFAULT_SHAPE: Record<Gender, string> = { female: "plain", male: "plain_m" };
+export const FALLBACK_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
 
 export type ItemKind = "weapon" | "offhand" | "top" | "bottom" | "potion" | "book" | "material";
 export type EquipSlot = "weapon" | "offhand" | "top" | "bottom";

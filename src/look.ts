@@ -20,7 +20,7 @@
 
 import { mapColors, rgbToHsl, hslToRgb } from "./recolor";
 import type { Dye, RGB } from "./recolor";
-import { DYES, ITEMS, SHAPES, DEFAULT_SHAPE } from "./items";
+import { DYES, ITEMS, SHAPES, DEFAULT_SHAPE, FALLBACK_SHAPE, type Gender } from "./items";
 import { HAIR_COLORS, EYE_COLORS } from "./ui";
 import type { Look } from "./ui";
 import type { Equipped } from "./inventory";
@@ -112,9 +112,10 @@ const clamp01 = (v: number) => Math.max(0.02, Math.min(0.98, v));
 const SKIN: Region = { h: [0, 35], s: [0.15, 0.8], l: [0.55, 0.92] };
 
 // One body's sheet as one piece of a mixed outfit, frame by frame at the body's waist. As the
-// top (asTop): everything above the waist, and below it only the top's own pixels: the hands, what
-// lies within 3 px of them (sleeves, cuffs) unless it is the bottom's cloth, the `tails` regions
-// and the trim and outline within 2 px of them. As the bottom: below the waist without those, each
+// top (asTop): everything above the waist, and below it only the top's own pixels: the hands (skin
+// above the feet rows; down there it is bare ankles), what lies within 3 px of them (sleeves,
+// cuffs) unless it is the bottom's cloth, the `tails` regions and the trim and outline within 2 px
+// of them. As the bottom: below the waist without those, each
 // hole filled from the pixel under it (column by column, upward), so legs run on up under where a
 // coat was; with `legs` set, in that colour.
 function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.waist): HTMLCanvasElement {
@@ -159,6 +160,7 @@ function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.w
   let hands: number[] = [], edge: number[] = [];
   for (let p = 0; p < W * H; p++) {
     if ((kind[p] !== 1 && kind[p] !== 2) || !low(p % W, (p / W) | 0)) continue;
+    if (kind[p] === 1 && ((p / W) | 0) % CELL >= CELL - 14) continue; // bare ankles, not hands
     top[p] = 1;
     (kind[p] === 1 ? hands : edge).push(p);
   }
@@ -366,8 +368,9 @@ export class Looks {
     const item = ITEMS[equipped[slot] ?? ""];
     const sh = item?.shape ? SHAPES[slot][item.shape] : undefined;
     if (sh && sh.gender === look.gender && this.ready(sh.body)) return { shape: item!.shape!, dye: item!.dye ?? null, worn: true };
-    const def = DEFAULT_SHAPE[look.gender as keyof typeof DEFAULT_SHAPE] ?? "mage";
-    return { shape: this.ready(SHAPES[slot][def]?.body) ? def : "mage", dye: null, worn: false };
+    const g = look.gender as Gender;
+    const shape = [DEFAULT_SHAPE[g], FALLBACK_SHAPE[g]].find((s) => s && this.ready(SHAPES[slot][s]?.body)) ?? "mage";
+    return { shape, dye: null, worn: false };
   }
 
   // Which bodies and hairstyle a look and its clothes end up using.
@@ -389,7 +392,7 @@ export class Looks {
       if (sh.gender !== look.gender) return `${item.name}สำหรับตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"} จึงใช้ทรงตั้งต้นแทน`;
       return `${sh.name}ยังรอท่าทางจาก Oriverse ให้ครบ ระหว่างนี้ใช้ทรงตั้งต้นแทน`;
     }
-    if (!r.def.hairless && r.topBody === "warrior") return "ตัวละครชายใช้ทรงผมของตัวเอง ย้อมสีผมได้";
+    if (!r.def.hairless && look.gender === "male") return "ตัวละครชายใช้ทรงผมของตัวเอง ย้อมสีผมได้";
     if (!r.def.hairless && look.hair !== "twintail") return "เสื้อตัวนี้มาพร้อมผมทวินเทล ทรงผมที่เลือกจะใช้กับเสื้อตัวอื่น";
     if (r.hair && r.hair !== look.hair) return "ทรงผมนี้ยังใช้ไม่ได้";
     return "เปลี่ยนเสื้อและกางเกงได้จากไอเท็มในกระเป๋า (ปุ่ม I) ทรงไหนใส่คู่กับทรงไหนก็ได้";

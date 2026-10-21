@@ -7,7 +7,7 @@ import { GENDERS, HAIRSTYLES, HAIR_COLORS, EYE_COLORS } from "./ui";
 import type { Look, ColorChoice } from "./ui";
 import { CLASSES, TREES, Progress } from "./progression";
 import type { ClassId } from "./progression";
-import { SHAPES, ITEMS, DEFAULT_SHAPE } from "./items";
+import { SHAPES, ITEMS, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
 import { Inventory } from "./inventory";
 import type { Equipped } from "./inventory";
@@ -24,8 +24,10 @@ const CLASS_OFFHAND: Partial<Record<ClassId, string>> = { mage: "spell_tome", wa
 const CELL = 96;
 
 // The item id of a shape's own-colour piece.
-function plainItem(slot: "top" | "bottom", shape: string): string {
-  return Object.keys(ITEMS).find((id) => ITEMS[id].kind === slot && ITEMS[id].shape === shape && !ITEMS[id].dye)!;
+// The undyed item of a shape; null for the bare shape (the brown T-shirt and trousers worn with
+// the slot empty).
+function plainItem(slot: "top" | "bottom", shape: string): string | null {
+  return Object.keys(ITEMS).find((id) => ITEMS[id].kind === slot && ITEMS[id].shape === shape && !ITEMS[id].dye) ?? null;
 }
 
 export class Title {
@@ -235,10 +237,10 @@ export class Title {
     const refresh = () => {
       genderRow.replaceChildren();
       for (const g of GENDERS) {
-        const ready = this.looks.ready(SHAPES.top[DEFAULT_SHAPE[g.id as Gender]].body);
+        const ready = this.looks.ready(SHAPES.top[FALLBACK_SHAPE[g.id as Gender]].body);
         choice(genderRow, g.name, look.gender === g.id, ready, () => {
           look.gender = g.id;
-          top = bottom = DEFAULT_SHAPE[g.id as Gender];
+          top = bottom = FALLBACK_SHAPE[g.id as Gender];
         }, ready ? "" : "รอสร้างตัวละคร");
       }
       clsRow.replaceChildren();
@@ -250,6 +252,7 @@ export class Title {
         for (const [id, sh] of Object.entries(SHAPES[slot])) {
           if (sh.gender !== look.gender) continue;
           const ready = this.looks.ready(sh.body);
+          if (sh.bare && !ready) continue; // the plain clothes show up once their body is in
           const on = (slot === "top" ? top : bottom) === id;
           choice(row, sh.name, on, ready, () => (slot === "top" ? (top = id) : (bottom = id)), ready ? "" : "รอท่าทางจาก Oriverse");
         }
@@ -286,7 +289,7 @@ export class Title {
 
   // Write a new character's saves: class progress, the class weapon and off-hand item and the
   // chosen clothes worn (the bag holds only potions), and the look.
-  makeCharacter(name: string, cls: ClassId, look: Look, top: string, bottom: string): string {
+  makeCharacter(name: string, cls: ClassId, look: Look, top: string | null, bottom: string | null): string {
     const id = newCharacterId(this.roster);
     useCharacter(id);
     const progress = new Progress();
