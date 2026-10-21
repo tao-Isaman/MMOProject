@@ -18,7 +18,7 @@ import { material, defineMaterial } from "./textures";
 import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { KIT } from "./kits/iceberg";
-import { Plan, TownBuilder, useKits, facing, FACE, travelGuide, protoOf, solidsOf } from "./town";
+import { Plan, TownBuilder, useKits, facing, FACE, travelGuide, protoOf, solidsOf, gateWay, waysOut } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -416,19 +416,12 @@ export function buildIceberg(quality: { flowers: number }): Town {
     ground,
     scenery: [river],
     sky: "#c9d6e4",
-    // the gates are shut for now: a bar across the far end of each passage
-    late: [
-      { kind: "closed", x: GN[0] + 270, y: GN[1], w: 200, d: 520, rot: 0 },
-      { kind: "closed", x: GS[0] - 270, y: GS[1], w: 200, d: 520, rot: 0 },
-    ],
     bounds: { minX: xS - 700, maxX: xN + 700, minY: yH - 700, maxY: yW + 700 },
     spawn: pt(428, 374),
     npcs: icebergNpcs(),
-    warps: [],
-    closed: [
-      { x: GN[0] + 120, y: GN[1], r: 260, text: "ประตูเหนือยังไม่เปิด ทางขึ้นธารน้ำแข็งเหนือกำลังสำรวจ" },
-      { x: GS[0] - 120, y: GS[1], r: 260, text: "ประตูใต้ยังไม่เปิด ทางลงใต้สู่ที่ราบภาคกลางกำลังสำรวจ" },
-    ],
+    // north out onto the icefield by the North Sea, south down the ice pass
+    ...waysOut([gateWay(GN, "n", "north_icefield", 480, 420), gateWay(GS, "s", "ice_pass", 480, 420)]),
+    closed: [],
     // names on the map window
     labels: [
       { ...pt(404, 319), text: "โถงใหญ่" },
@@ -441,8 +434,8 @@ export function buildIceberg(quality: { flowers: number }): Town {
       { ...pt(608, 430), text: "หมู่บ้านชาวประมง", kind: "small" },
       { ...pt(418, 400), text: "ทางแยกกลางเมือง", kind: "small" },
       { ...pt(225, 495), text: "ย่านบ้านซุง", kind: "small" },
-      { x: GN[0] - 220, y: GN[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
-      { x: GS[0] + 220, y: GS[1], text: "ประตูใต้ (ปิด)", kind: "gate" },
+      { x: GN[0] - 220, y: GN[1], text: "ประตูเหนือ · ทุ่งน้ำแข็ง", kind: "gate" },
+      { x: GS[0] + 220, y: GS[1], text: "ประตูใต้ · ช่องเขาน้ำแข็ง", kind: "gate" },
     ],
   });
 }
@@ -461,7 +454,7 @@ function icebergNpcs(): NpcSpec[] {
   const guard = (top: string, hairColor = "ink") => ({ gender: "male", hair: "", hairColor, eyes: "blue", top, bottom: "bottom_warrior_black" });
   return [
     { id: "ice_guard_n", ...at(382, 201), face: 180, name: "ทหารยามกุนนาร์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy", "gold"),
-      lines: ["ประตูเหนือยังไม่เปิด ทางขึ้นธารน้ำแข็งเหนือกำลังสำรวจอยู่", "เหนือขึ้นไปคือทะเลเหนือ ลมหนาวพัดลงมาทั้งปี ใส่เสื้อขนสัตว์ให้หนาเข้าไว้"] },
+      lines: ["ออกประตูเหนือไปคือทุ่งน้ำแข็งริมทะเลเหนือ มอนสเตอร์แถวนั้นแข็งแกร่งนัก", "เหนือขึ้นไปคือทะเลเหนือ ลมหนาวพัดลงมาทั้งปี ใส่เสื้อขนสัตว์ให้หนาเข้าไว้"] },
     travelGuide("iceberg", P(436, 358), toward(436, 358, 428, 374)),
     { id: "ice_healer", ...at(393, 361), face: toward(393, 361, 417, 386), name: "แม่ชีซิกรุน", title: "นักบวช · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal", top: "top_priestess_white", bottom: "bottom_priestess_white" },
@@ -480,6 +473,6 @@ function icebergNpcs(): NpcSpec[] {
       look: { gender: "female", hair: "hime", hairColor: "gold", eyes: "blue", top: "top_adventurer_teal", bottom: "bottom_adventurer_cocoa" },
       lines: ["แหผืนนี้ต้องซ่อมให้เสร็จก่อนเรือกลับเข้าท่า", "ที่ลานกว้างมีพ่อค้าขนสัตว์ ขนหมีขาวอุ่นที่สุดในแดนเหนือเลยนะ"] },
     { id: "ice_guard_s", ...at(444, 601), face: 0, name: "ทหารยามโอลาฟ", title: "ทหารยามประตูใต้", role: "talk", look: guard("top_warrior_navy"),
-      lines: ["ประตูใต้ยังไม่เปิด ทางลงใต้สู่ที่ราบภาคกลางกำลังสำรวจ", "คืนไหนพายุหิมะมา เราจะปิดประตูแล้วจุดไฟบนหอสัญญาณริมท่าเรือ"] },
+      lines: ["ออกประตูใต้ลงไปคือช่องเขาน้ำแข็ง ผ่านเชิงเขาหิมะลงไปถึงถนนหลวงของอีเดน", "คืนไหนพายุหิมะมา เราจะปิดประตูแล้วจุดไฟบนหอสัญญาณริมท่าเรือ"] },
   ];
 }

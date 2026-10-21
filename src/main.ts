@@ -606,7 +606,7 @@ async function boot(): Promise<void> {
     }
     npc.talk();
     // a travel guide: the world map, to pick a town to go to
-    if (npc.spec.role === "travel") mapUI.travel();
+    if (npc.spec.role === "travel") mapUI.travel(npc.spec.ports);
     if (npc.spec.role === "heal" && hero.alive) {
       hero.refill();
       floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");

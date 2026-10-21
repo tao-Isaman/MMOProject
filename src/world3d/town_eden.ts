@@ -18,7 +18,7 @@ import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { KIT as EDEN } from "./kits/eden";
 import { KIT as YODIA } from "./kits/yodia";
-import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE, travelGuide } from "./town";
+import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE, travelGuide, gateWay, waysOut } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -331,19 +331,16 @@ export function buildEden(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0 && x < NORTH - 500 && x > SOUTH + 500 && y < WEST - 500 && y > EAST - 3000,
       density: 0.35 * quality.flowers,
     },
-    // the north and south gates are shut for now: a bar across the far end of each passage
-    late: [
-      { kind: "closed", x: GATE_N[0] + 420, y: GATE_N[1], w: 200, d: 520, rot: 0 },
-      { kind: "closed", x: GATE_S[0] - 420, y: GATE_S[1], w: 200, d: 520, rot: 0 },
-    ],
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: SHORE - 2800, maxY: WEST + 1400 },
     spawn: pt(780, 740),
     npcs: edenNpcs(town.doors),
-    warps: [{ x: GATE_W[0], y: WEST + 1050, r: 160, to: "field", arrive: { x: 420, y: -520 } }],
-    closed: [
-      { x: GATE_N[0] + 250, y: GATE_N[1], r: 260, text: "ประตูเหนือปิดซ่อมอยู่ ทางไปปราสาทยังไม่เปิด" },
-      { x: GATE_S[0] - 250, y: GATE_S[1], r: 260, text: "ประตูใต้ยังไม่เปิด ทางไปทะเลทรายบาฮามัสกำลังสำรวจ" },
-    ],
+    // out of the west gate to the first field; north up the royal road, south to the savanna
+    ...waysOut([
+      { warp: { x: GATE_W[0], y: WEST + 1050, r: 160, to: "field" }, back: { x: 54, y: 8550 } },
+      gateWay(GATE_N, "n", "royal_road", 480, 450),
+      gateWay(GATE_S, "s", "south_savanna", 480, 450),
+    ]),
+    closed: [],
     // names on the map window
     labels: [
       { ...pt(262, 232), text: "มหาวิหาร" },
@@ -353,8 +350,8 @@ export function buildEden(quality: { flowers: number }): Town {
       { ...pt(625, 640), text: "สี่แยกกลางเมือง", kind: "small" },
       { ...pt(1110, 720), text: "ท่าเรือ" },
       { ...pt(1090, 335), text: "อู่จอดเรือ", kind: "small" },
-      { x: GATE_N[0] + 150, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
-      { x: GATE_S[0] - 150, y: GATE_S[1], text: "ประตูใต้ (ปิด)", kind: "gate" },
+      { x: GATE_N[0] + 150, y: GATE_N[1], text: "ประตูเหนือ · ถนนหลวง", kind: "gate" },
+      { x: GATE_S[0] - 150, y: GATE_S[1], text: "ประตูใต้ · ทุ่งสะวันนา", kind: "gate" },
     ],
   });
 }
@@ -369,7 +366,7 @@ function edenNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
   const guard = (top: string) => ({ gender: "male", hair: "", hairColor: "ink", eyes: "blue", top, bottom: "bottom_warrior_black" });
   return [
     { id: "guard_n1", ...at(600, 125), face: 180, name: "ทหารยามโรแลนด์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
-      lines: ["ประตูเหนือปิดซ่อมอยู่ ทางไปปราสาทยังไม่เปิดนะ", "ถ้าจะออกไปล่ามอนสเตอร์ ใช้ประตูตะวันตกสิ"] },
+      lines: ["ออกประตูเหนือไปคือถนนหลวงสู่ปราสาท แต่ปราสาทยังปิดซ่อมอยู่นะ", "ถนนหลวงแยกไปเชิงเขาหิมะทางเหนือ กับป่าสนริมแม่น้ำทางตะวันออก", "มือใหม่ล่าสไลม์ที่ทุ่งหญ้าตะวันตกก่อนดีกว่า"] },
     { id: "guard_n2", ...at(641, 125), face: 180, name: "ทหารยามเกรเกอร์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
       lines: ["อีเดนเป็นเมืองหลวงของอาณาจักร ยินดีต้อนรับ", "เดินตรงลงไปจะเจอสี่แยกกลางเมือง"] },
     { id: "guard_w1", ...at(140, 530), face: -90, name: "ทหารยามเฮนริก", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
@@ -378,22 +375,23 @@ function edenNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
       lines: ["สไลม์สีม่วงแรงกว่าสีอื่นนะ ระวังด้วย", "ถ้าบาดเจ็บ กลับมาหานักบวชที่สี่แยกได้"] },
     { id: "guide", ...at(560, 545), face: -135, name: "ลีน่า", title: "ผู้นำทาง", role: "talk",
       look: { gender: "female", hair: "hime", hairColor: "gold", eyes: "blue", top: "top_adventurer_teal", bottom: "bottom_adventurer_sand" },
-      lines: ["ที่นี่คือสี่แยกกลางเมืองอีเดน", "มหาวิหารอยู่ทางตะวันตกเฉียงเหนือ ตลาดอยู่ตะวันออกเฉียงเหนือ", "ลานน้ำพุกับร้านเครื่องมืออยู่ทางตะวันออกเฉียงใต้ ท่าเรืออยู่ริมทะเลฝั่งตะวันออก", "ทุ่งล่าสไลม์ออกทางประตูตะวันตก"] },
+      lines: ["ที่นี่คือสี่แยกกลางเมืองอีเดน", "มหาวิหารอยู่ทางตะวันตกเฉียงเหนือ ตลาดอยู่ตะวันออกเฉียงเหนือ", "ลานน้ำพุกับร้านเครื่องมืออยู่ทางตะวันออกเฉียงใต้ ท่าเรืออยู่ริมทะเลฝั่งตะวันออก",
+        "ทุ่งล่าสไลม์ออกทางประตูตะวันตก ประตูเหนือไปถนนหลวง ประตูใต้ไปทุ่งสะวันนาและทะเลทราย", "ที่ท่าเรือมีเรือไปโยเดียกับเกาะโอซากิ"] },
     { id: "healer", ...at(548, 590), face: -45, name: "ซิสเตอร์มาเรีย", title: "นักบวช · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal", top: "top_priestess_white", bottom: "bottom_priestess_white" },
       lines: ["ขอพรแห่งแสงจงคุ้มครองท่าน", "หายเหนื่อยแล้วนะ ไปผจญภัยต่อได้"] },
     { id: "adventurer", ...at(645, 512), face: 135, name: "คาร่า", title: "นักผจญภัย", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "rose", eyes: "amber", top: "top_adventurer", bottom: "bottom_adventurer" },
-      lines: ["ได้ยินว่าโยเดียทางใต้มีเรือสินค้าลำใหญ่มาก", "ฉันกำลังรอเรือไปเกาะโอซากิ แต่ยังไม่ออกสักที"] },
+      lines: ["ได้ยินว่าโยเดียทางใต้มีเรือสินค้าลำใหญ่มาก", "เรือไปเกาะโอซากิออกจากท่าเรือนี่แหละ ไปหากัปตันมาร์โกสิ"] },
     { id: "merchant_boy", ...at(672, 560), face: 90, name: "ทอม", title: "เด็กส่งของ", role: "talk", look: guard("top_warrior_forest"),
       lines: ["ร้านอาวุธอยู่ถนนใต้ ร้านเครื่องมืออยู่ลานน้ำพุ", "ตลาดทางเหนือมีผ้ากับผลไม้ขายเยอะเลย"] },
     { id: "guard_s", ...at(630, 700), face: -90, name: "ทหารยามบรูโน", title: "ทหารยามลาดตระเวน", role: "talk", look: guard("top_warrior_navy"),
-      lines: ["ประตูใต้ยังไม่เปิด ทางไปทะเลทรายกำลังสำรวจอยู่", "ระวังของหายนะ ตลาดคนเยอะ"] },
+      lines: ["ออกประตูใต้ไปเป็นทุ่งสะวันนา เดินต่อลงไปถึงขอบทะเลทรายกับเมืองบาฮามัส", "ระวังของหายนะ ตลาดคนเยอะ"] },
     travelGuide("eden", P(748, 728), -150),
     { id: "shop", x: shopAt[0], y: shopAt[1], face: 180, name: "ลิเลีย", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ยา เสื้อผ้า คัมภีร์ มีครบ เข้ามาดูก่อนได้"] },
-    { id: "sailor", ...at(1112, 470), face: 90, name: "กัปตันมาร์โก", title: "กะลาสี", role: "talk",
+    { id: "sailor", ...at(1112, 470), face: 90, name: "กัปตันมาร์โก", title: "เรือโดยสาร · โยเดีย โอซากิ", role: "travel", ports: ["yodia", "osaki"],
       look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior" },
-      lines: ["ท่าเรืออีเดนรับเรือจากทุกทิศ", "เรือไปโยเดีย ไอซ์เบิร์ก และโอซากิ ยังไม่เปิดให้บริการนะ รออีกหน่อย"] },
+      lines: ["ขึ้นเรือไหม ลงใต้ไปโยเดีย หรือข้ามทะเลไปเกาะโอซากิ", "เรือไปไอซ์เบิร์กยังไม่เปิด ทะเลเหนือน้ำแข็งเยอะเกินไป"] },
   ];
 }

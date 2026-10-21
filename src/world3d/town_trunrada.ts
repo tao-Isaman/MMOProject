@@ -14,7 +14,7 @@ import { KIT } from "./kits/trunrada";
 import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { defineMaterial } from "./textures";
-import { Plan, TownBuilder, useKits, colourways, facing, FACE, travelGuide, protoOf } from "./town";
+import { Plan, TownBuilder, useKits, colourways, facing, FACE, travelGuide, protoOf, gateWay, waysOut } from "./town";
 import type { Placement, Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -405,21 +405,16 @@ export function buildTrunrada(quality: { flowers: number }): Town {
       },
       density: 0.22 * quality.flowers,
     },
-    // every gate is shut for now: a bar across the outer end of each passage
-    late: [
-      { kind: "closed", x: GATE_N[0] + 140, y: GATE_N[1], w: 100, d: 460, rot: 0 },
-      { kind: "closed", x: GATE_W[0], y: GATE_W[1] + 140, w: 460, d: 100, rot: 0 },
-      { kind: "closed", x: GATE_E[0], y: GATE_E[1] - 140, w: 460, d: 100, rot: 0 },
-    ],
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(412, 440),
     npcs: trunradaNpcs(),
-    warps: [],
-    closed: [
-      { x: GATE_N[0] + 20, y: GATE_N[1], r: 220, text: "ประตูเหนือยังไม่เปิด ทางลงไปชายฝั่งทะเลเหนือกำลังสำรวจ" },
-      { x: GATE_W[0], y: GATE_W[1] + 20, r: 220, text: "ประตูตะวันตกยังไม่เปิด ทางข้ามเขาไปไอซ์เบิร์กกำลังสำรวจ" },
-      { x: GATE_E[0], y: GATE_E[1] - 20, r: 220, text: "ประตูตะวันออกยังไม่เปิด ทุ่งสเตปป์ตะวันออกกับทางลงไปคราเดียกำลังสำรวจ" },
-    ],
+    // north to the horse meadows by the sea, west across the steppe, east to the old stone plain
+    ...waysOut([
+      gateWay(GATE_N, "n", "horse_meadow", 420, 420),
+      gateWay(GATE_W, "w", "west_steppe", 420, 420),
+      gateWay(GATE_E, "e", "stone_plain", 420, 420),
+    ]),
+    closed: [],
     labels: [
       { ...pt(452, 300), text: "กระโจมหัวหน้าเผ่า" },
       { ...pt(424, 236), text: "โถงบ้านยาว" },
@@ -430,9 +425,9 @@ export function buildTrunrada(quality: { flowers: number }): Town {
       { ...pt(225, 575), text: "ย่านคอกม้า" },
       { ...pt(470, 555), text: "ย่านช่างหนัง" },
       { ...pt(432, 470), text: "โอโบกลางเมือง", kind: "small" },
-      { x: GATE_N[0] - 60, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
-      { x: GATE_W[0], y: GATE_W[1] - 60, text: "ประตูตะวันตก (ปิด)", kind: "gate" },
-      { x: GATE_E[0], y: GATE_E[1] + 60, text: "ประตูตะวันออก (ปิด)", kind: "gate" },
+      { x: GATE_N[0] - 60, y: GATE_N[1], text: "ประตูเหนือ · ทุ่งเลี้ยงม้า", kind: "gate" },
+      { x: GATE_W[0], y: GATE_W[1] - 60, text: "ประตูตะวันตก · สเตปป์ตะวันตก", kind: "gate" },
+      { x: GATE_E[0], y: GATE_E[1] + 60, text: "ประตูตะวันออก · ที่ราบหินโบราณ", kind: "gate" },
     ],
   });
 }
@@ -447,11 +442,11 @@ function trunradaNpcs(): NpcSpec[] {
   const guard = (top: string, hairColor = "ink") => ({ gender: "male", hair: "", hairColor, eyes: "amber", top, bottom: "bottom_warrior_cocoa" });
   return [
     { id: "trunrada_guard_n", ...at(454, 180), face: 180, name: "บาตาร์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
-      lines: ["ประตูเหนือยังไม่เปิด ทางลงไปชายฝั่งทะเลเหนือยังมีหมาป่าชุม", "เดินตรงลงไปตามถนนนี้ กระโจมแดงทางซ้ายมือคือกระโจมหัวหน้าเผ่า"] },
+      lines: ["ออกประตูเหนือไปคือทุ่งเลี้ยงม้าริมทะเลเหนือ คอกม้าเก่าที่นั่นร้างไปนานแล้ว", "เดินตรงลงไปตามถนนนี้ กระโจมแดงทางซ้ายมือคือกระโจมหัวหน้าเผ่า"] },
     { id: "trunrada_guard_w", ...at(143, 458), face: -90, name: "กันบาตาร์", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
-      lines: ["ประตูตะวันตกปิดอยู่ ทางข้ามเขาไปไอซ์เบิร์กหิมะยังถล่มไม่หยุด", "ถ้าจะไปเมืองอื่น ไปหาผู้นำทางที่ทางแยกกลางเมืองสิ"] },
+      lines: ["ออกประตูตะวันตกไปคือสเตปป์ตะวันตก เดินต่อไปจนถึงป่าสนริมแม่น้ำ แล้วก็ถนนหลวงของอีเดน", "ถ้าจะไปเมืองอื่น ไปหาผู้นำทางที่ทางแยกกลางเมืองสิ"] },
     { id: "trunrada_guard_e", ...at(684, 432), face: 90, name: "โบลด์", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_forest", "auburn"),
-      lines: ["นอกประตูนี้คือทุ่งสเตปป์สุดลูกหูลูกตา ฝูงม้าป่าวิ่งอยู่ทั้งปี", "ลงใต้ไปตามชายแดนจะถึงคราเดีย ป้อมที่กันอสูรไว้ แต่ทางนั้นยังไม่เปิด"] },
+      lines: ["นอกประตูนี้คือทุ่งสเตปป์สุดลูกหูลูกตา ฝูงม้าป่าวิ่งอยู่ทั้งปี", "ออกประตูนี้ไปคือที่ราบหินโบราณ ข้ามไปทางใต้จะถึงประตูเหนือของคราเดีย ป้อมที่กันอสูรไว้"] },
     travelGuide("trunrada", P(399, 418), -150),
     { id: "trunrada_healer", ...at(382, 421), face: -60, name: "แม่หมอโอยุน", title: "หมอสมุนไพร · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "hime", hairColor: "silver", eyes: "teal", top: "top_priestess_forest", bottom: "bottom_priestess_forest" },

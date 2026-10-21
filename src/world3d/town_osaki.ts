@@ -28,7 +28,7 @@ import { material, defineMaterial } from "./textures";
 import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { KIT } from "./kits/osaki";
-import { Plan, TownBuilder, useKits, colourways, facing, FACE, travelGuide } from "./town";
+import { Plan, TownBuilder, useKits, colourways, facing, FACE, travelGuide, gateWay, waysOut } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -474,13 +474,12 @@ export function buildOsaki(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0 && onLand(x, y) && onLand(x + 200, y) && onLand(x - 200, y) && onLand(x, y + 200) && onLand(x, y - 200) && y > gy + 200,
       density: 0.3 * quality.flowers,
     },
-    // the mountain gate is shut for now: a bar across the far end of its passage
-    late: [{ kind: "closed", x: gx, y: gy - 260, w: 520, d: 200, rot: 0 }],
     bounds: { minX: P(0, 880)[0], maxX: P(0, 45)[0], minY: P(EAST + 32, 0)[1], maxY: P(0, 0)[1] },
     spawn: pt(240, 452),
     npcs: osakiNpcs(shopFront),
-    warps: [],
-    closed: [{ x: gx, y: gy - 120, r: 260, text: "ประตูภูเขายังไม่เปิด ทางขึ้นภูเขาไฟกลางเกาะกำลังสำรวจอยู่" }],
+    // the mountain gate: up into the bamboo and the sakura hills, and on to the volcano
+    ...waysOut([gateWay([gx, gy], "e", "sakura_hills", 450, 420)]),
+    closed: [],
     labels: [
       { ...pt(150, 560), text: "ท่าเรือโอซากิ" },
       { ...pt(270, 470), text: "ลานท่าเรือ", kind: "small" },
@@ -497,7 +496,7 @@ export function buildOsaki(quality: { flowers: number }): Town {
       { ...pt(380, 140), text: "สวนซากุระริมทะเล" },
       { ...pt(340, 790), text: "หาดชาวประมง", kind: "small" },
       { ...pt(515, 820), text: "ท่าเรือประมง", kind: "small" },
-      { x: gx, y: gy + 250, text: "ประตูภูเขา (ปิด)", kind: "gate" },
+      { x: gx, y: gy + 250, text: "ประตูภูเขา · เนินซากุระ", kind: "gate" },
     ],
   });
 }
@@ -513,8 +512,8 @@ function osakiNpcs(shop: [number, number]): NpcSpec[] {
     travelGuide("osaki", P(226, 428), facing(1, 1), "ฮารุกะ"),
     { id: "osaki_harbourmaster", ...at(172, 470), face: 90, name: "โยชิดะ", title: "นายท่าเรือ", role: "talk", look: samurai("top_warrior_navy", "silver"),
       lines: ["ยินดีต้อนรับสู่เกาะโอซากิ ทุกคนมาถึงทางเรือที่ท่านี้แหละ", "เรือสำเภาจากแผ่นดินใหญ่เข้าออกทุกน้ำขึ้น ส่วนเรือแจวเป็นของชาวประมงบนเกาะ", "เห็นโทริอิแดงกลางทะเลไหม เรือทุกลำแล่นลอดมันก่อนเข้าท่า เป็นการขอพรเทพแห่งท้องทะเล"] },
-    { id: "osaki_captain", ...at(92, 446), face: -90, name: "กัปตันมัตสึ", title: "นายเรือสำเภา", role: "talk", look: samurai("top_warrior", "auburn"),
-      lines: ["ข้าล่องเรือระหว่างโอซากิกับท่าเรืออีเดนทางตะวันตก", "บางเที่ยวก็แล่นไปโยเดียทางตะวันตกเฉียงใต้ ขนผ้าไหมกับสาเกไปขาย", "ถ้าอยากเดินทางเร็ว ไปหาผู้นำทางที่ลานท่าเรือสิ"] },
+    { id: "osaki_captain", ...at(92, 446), face: -90, name: "กัปตันมัตสึ", title: "เรือโดยสาร · อีเดน", role: "travel", ports: ["eden"], look: samurai("top_warrior", "auburn"),
+      lines: ["ข้าล่องเรือระหว่างโอซากิกับท่าเรืออีเดนทางตะวันตก ขึ้นเรือไหม", "บางเที่ยวก็แล่นไปโยเดียทางตะวันตกเฉียงใต้ ขนผ้าไหมกับสาเกไปขาย"] },
     { id: "osaki_shop", x: shop[0], y: shop[1], face: 0, name: "โอฮานะ", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ยา เสบียง เครื่องมือ มีครบในร้านม่านโนเรนนี้"] },
     { id: "osaki_brewer", ...at(404, 462), face: 180, name: "โทคุเบ", title: "โรงเหล้าสาเก", role: "talk", look: samurai("top_warrior_forest"),
@@ -534,9 +533,9 @@ function osakiNpcs(shop: [number, number]): NpcSpec[] {
       look: { gender: "female", hair: "twintail", hairColor: "amber", eyes: "blue", top: "top_sky", bottom: "bottom_navy" },
       lines: ["ปลาคาร์ปตัวสีส้มชื่อทาโร่ ตัวขาวชื่อยูกิ!", "ข้ามสะพานโค้งแดงแล้วอย่าวิ่งนะ เดี๋ยวลื่น"] },
     { id: "osaki_farmer", ...at(860, 718), face: 180, name: "ลุงเก็นโซ", title: "ชาวนา", role: "talk", look: samurai("top_warrior_forest", "silver"),
-      lines: ["นาข้าวบนเกาะเล็กก็จริง แต่น้ำจากภูเขาไฟใสสะอาดนัก", "ประตูภูเขาปิดมาหลายเดือนแล้ว ได้ยินเสียงแปลกๆ จากป่าไผ่บนเขา"] },
+      lines: ["นาข้าวบนเกาะเล็กก็จริง แต่น้ำจากภูเขาไฟใสสะอาดนัก", "ประตูภูเขาเพิ่งเปิดได้ไม่นาน แต่ได้ยินเสียงแปลกๆ จากป่าไผ่บนเขาทุกคืน"] },
     { id: "osaki_guard1", ...at(938, 592), face: 90, name: "ซามูไรเคนจิ", title: "ยามประตูภูเขา", role: "talk", look: samurai("top_warrior_navy"),
-      lines: ["ประตูภูเขาปิดอยู่ ทางขึ้นภูเขาไฟกลางเกาะยังไม่ปลอดภัย", "รอให้หน่วยสำรวจกลับมาก่อนเถิด"] },
+      lines: ["ออกประตูภูเขาไปคือเนินซากุระกับป่าไผ่ ขึ้นไปอีกคือยอดภูเขาไฟ", "บนเขามีศาลเจ้าร้าง อย่าขึ้นไปถ้ายังไม่แกร่งพอ"] },
     { id: "osaki_guard2", ...at(938, 628), face: 90, name: "ซามูไรโทชิโร่", title: "ยามประตูภูเขา", role: "talk", look: samurai("top_warrior"),
       lines: ["หลังกำแพงนี้คือป่าสนกับป่าไผ่ ขึ้นไปถึงปล่องภูเขาไฟ", "ถ้าบาดเจ็บ ไปหามิโกะที่ศาลเจ้าได้"] },
     { id: "osaki_fisher", ...at(515, 812), face: 0, name: "ทาโร่", title: "ชาวประมง", role: "talk", look: samurai("top_warrior", "auburn"),

@@ -23,6 +23,7 @@ export interface NpcSpec {
   role: NpcRole;
   lines: string[];     // what they say, in turn
   sprite?: "merchant"; // her own sheet, else dressed from `look`
+  ports?: string[];    // a ship's captain (role travel): the only towns the ship sails to
   look?: { gender: string; hair: string; hairColor: string; eyes: string; top: string; bottom: string };
 }
 

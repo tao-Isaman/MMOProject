@@ -12,7 +12,6 @@ import { setMap } from "./world";
 import { setHeights } from "./projection";
 import type { SolidSpec } from "./world";
 import { buildEden } from "./world3d/town_eden";
-import { TOWN_SCALE } from "./world3d/town";
 import type { Town } from "./world3d/town";
 import { fieldLevel } from "./world3d/levels";
 import { MERCHANT } from "./shop";
@@ -133,7 +132,7 @@ const FIELD_SOLIDS: SolidSpec[] = [
 ];
 const FIELD_BOUNDS = { minX: 60, maxX: 2650, minY: -760, maxY: 2050 };
 // where Eden's west gate leads out, and where the way back in stands
-const FIELD_WARP = { x: 400, y: -680, r: 150, to: "eden", arrive: { x: 54 * TOWN_SCALE, y: 8550 * TOWN_SCALE } };
+const FIELD_WARP = { x: 400, y: -680, r: 150, to: "eden" };
 // and the way on west into the great forest
 const FIELD_WOODS = { x: 760, y: 1990, r: 150, to: "west_woods" };
 

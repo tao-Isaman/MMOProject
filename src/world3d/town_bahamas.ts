@@ -20,7 +20,7 @@ import { KIT } from "./kits/bahamas";
 import { defineMaterial } from "./textures";
 import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
-import { Plan, TownBuilder, useKits, colourways, protoOf, facing, FACE, travelGuide } from "./town";
+import { Plan, TownBuilder, useKits, colourways, protoOf, facing, FACE, travelGuide, gateWay, waysOut } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -392,21 +392,16 @@ export function buildBahamas(quality: { flowers: number }): Town {
   return town.finish({
     ground,
     sky: "#e3c48e",
-    // every gate is shut for now: a bar across the far end of each passage
-    late: [
-      { kind: "closed", x: GATE_N[0] + 300, y: GATE_N[1], w: 200, d: 1200, rot: 0 },
-      { kind: "closed", x: GATE_E[0], y: GATE_E[1] - 300, w: 1200, d: 200, rot: 0 },
-      { kind: "closed", x: GATE_S[0] - 300, y: GATE_S[1], w: 200, d: 1200, rot: 0 },
-    ],
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(420, 352),
     npcs: bahamasNpcs(),
-    warps: [],
-    closed: [
-      { x: GATE_N[0] + 130, y: GATE_N[1], r: 230, text: "ประตูเหนือยังไม่เปิด ทางข้ามทะเลทรายไปอีเดนกำลังสำรวจ" },
-      { x: GATE_E[0], y: GATE_E[1] - 130, r: 230, text: "ประตูตะวันออกยังไม่เปิด ทางไปชายแดนตะวันออกกำลังสำรวจ" },
-      { x: GATE_S[0] - 130, y: GATE_S[1], r: 230, text: "ประตูใต้ยังไม่เปิด ทางลงใต้ไปโยเดียกำลังสำรวจ" },
-    ],
+    // north to the desert's edge (and on to Eden), east into the great desert, south into the jungle
+    ...waysOut([
+      gateWay(GATE_N, "n", "desert_edge", 480, 420),
+      gateWay(GATE_E, "e", "great_desert", 480, 420),
+      gateWay(GATE_S, "s", "south_jungle", 480, 420),
+    ]),
+    closed: [],
     // names on the map window
     labels: [
       { ...pt(420, 230), text: "ตลาดบาซาร์" },
@@ -421,9 +416,9 @@ export function buildBahamas(quality: { flowers: number }): Town {
       { ...pt(630, 318), text: "สวนปาล์ม", kind: "small" },
       { ...pt(640, 430), text: "ถนนตะวันออก", kind: "small" },
       { ...pt(470, 650), text: "ถนนใต้", kind: "small" },
-      { x: GATE_N[0], y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
-      { x: GATE_E[0], y: GATE_E[1], text: "ประตูตะวันออก (ปิด)", kind: "gate" },
-      { x: GATE_S[0], y: GATE_S[1], text: "ประตูใต้ (ปิด)", kind: "gate" },
+      { x: GATE_N[0], y: GATE_N[1], text: "ประตูเหนือ · ขอบทะเลทราย", kind: "gate" },
+      { x: GATE_E[0], y: GATE_E[1], text: "ประตูตะวันออก · ทะเลทรายใหญ่", kind: "gate" },
+      { x: GATE_S[0], y: GATE_S[1], text: "ประตูใต้ · ป่าดิบแดนใต้", kind: "gate" },
     ],
   });
 
@@ -442,17 +437,17 @@ export function buildBahamas(quality: { flowers: number }): Town {
     return [
       // the north gate
       { id: "bh_guard_n1", ...spot(408, 134), face: 180, name: "ทหารยามฮาคิม", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
-        lines: ["ประตูเหนือยังไม่เปิด ทางข้ามทะเลทรายไปอีเดนกำลังสำรวจอยู่", "พายุทรายกลบเส้นทางเก่าไปหมด ต้องรอกองสำรวจกลับมาก่อน"] },
+        lines: ["ออกประตูเหนือไปคือขอบทะเลทราย เดินต่อขึ้นไปผ่านทุ่งสะวันนาจะถึงอีเดน", "พายุทรายกลบเส้นทางบ่อยๆ เดินตามป้ายบอกทางไว้ อย่าหลงออกนอกทาง"] },
       { id: "bh_guard_n2", ...spot(432, 134), face: 180, name: "ทหารยามซาอิด", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy", "auburn"),
         lines: ["ยินดีต้อนรับสู่บาฮามัส เมืองคาราวานกลางผืนทราย", "เดินตามถนนตลาดบาซาร์ลงไป จะเจอลานเสาโอเบลิสก์กลางเมือง"] },
       // the east gate
       { id: "bh_guard_e1", ...spot(716, 420), face: 90, name: "ทหารยามคาริม", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior"),
-        lines: ["ประตูตะวันออกยังไม่เปิด ทางไปชายแดนตะวันออกกำลังสำรวจ", "ได้ยินว่าคราเดียทางตะวันออกมีจอมเวทคอยเฝ้าชายแดนอสูรอยู่"] },
+        lines: ["ออกประตูตะวันออกไปคือทะเลทรายใหญ่ ซากวิหารโบราณจมทรายอยู่กลางเนินทราย", "ได้ยินว่าคราเดียทางตะวันออกมีจอมเวทคอยเฝ้าชายแดนอสูรอยู่"] },
       { id: "bh_guard_e2", ...spot(716, 440), face: 90, name: "ทหารยามนาบิล", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior", "amber"),
         lines: ["กลางวันแดดแผดเผา กลางคืนหนาวจับใจ ทะเลทรายก็เป็นอย่างนี้แหละ", "ถ้าหลงในเมือง มองหาโดมสีฟ้าของวังไว้ แล้วเดินตามถนนใหญ่"] },
       // the south gate
       { id: "bh_guard_s1", ...spot(460, 704), face: 0, name: "ทหารยามยูซุฟ", title: "ทหารยามประตูใต้", role: "talk", look: guard("top_warrior_forest"),
-        lines: ["ประตูใต้ยังไม่เปิด ทางลงใต้ไปโยเดียกำลังสำรวจ", "บาฮามัสคือทางแยก ใครจะลงไปเมืองท่าแดนใต้ก็ต้องผ่านที่นี่"] },
+        lines: ["ออกประตูใต้ไปคือป่าดิบแดนใต้ ฝ่าป่าลงไปจะถึงเมืองท่าโยเดีย", "บาฮามัสคือทางแยก ใครจะลงไปเมืองท่าแดนใต้ก็ต้องผ่านที่นี่"] },
       { id: "bh_guard_s2", ...spot(480, 704), face: 0, name: "ทหารยามทาริก", title: "ทหารยามประตูใต้", role: "talk", look: guard("top_warrior_forest", "ink"),
         lines: ["กองคาราวานพักอยู่ลานข้างประตูนี้ อูฐกินน้ำที่รางหิน", "ถ้าเห็นฟ้าเป็นสีส้มทางใต้ รีบเข้าเมืองเลย พายุทรายกำลังมา"] },
       // the palace steps

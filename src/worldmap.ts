@@ -2,8 +2,9 @@
 // of the town kits (src/world3d/kits) where their regions say they lie. Eden sits in the
 // central plains on the inner sea, Iceberg in the snowy north, Trunrada on the cold north-east
 // steppe, Kradia on the eastern frontier facing the demon lands, Bahamas in the desert south of
-// the capital, Yodia on the southern coast by the jungle and Osaki on its island out east. Only
-// the places that have a map in the game are open.
+// the capital, Yodia on the southern coast by the jungle and Osaki on its island out east; the
+// fields lie along the roads between them (src/maps.ts). Only the places that have a map in the
+// game are open.
 //
 // Coordinates are the map's own: 1000 x 640, north up. paintWorld() makes the land, sea and
 // scenery once; the window draws the places, names and "you are here" over it every frame.
@@ -40,8 +41,47 @@ export const PLACES: Place[] = [
     desc: "เมืองคาราวานกลางผืนทราย บ้านดินโดมสีฟ้าคราม ตลาดบาซาร์ และโอเอซิสร่มรื่นด้วยต้นปาล์ม" },
   { id: "yodia", name: "โยเดีย", region: "เมืองท่าแดนใต้ ชายป่า", kind: "town", open: true, x: 505, y: 584,
     desc: "เมืองท่าค้าขายใหญ่อันดับสอง โกดังไม้และด่านศุลกากรเรียงริมท่า บ้านใต้ถุนสูงหลังคามุงจากชิดชายป่า" },
-  { id: "osaki", name: "โอซากิ", region: "เกาะทางตะวันออก ไปได้ทางเรือเท่านั้น", kind: "town", open: true, x: 872, y: 549,
+  { id: "osaki", name: "โอซากิ", region: "เกาะทางตะวันออก ไปได้ทางเรือเท่านั้น", kind: "town", open: true, x: 856, y: 558, side: "left",
     desc: "เมืองเกาะแบบญี่ปุ่น หลังคากระเบื้องปลายงอน เสาแดงชาด ซากุระ เจดีย์ห้าชั้น" },
+  // ---- the fields along the roads ----
+  { id: "west_woods", name: "ป่าใหญ่ตะวันตก", region: "ตะวันตกของทุ่งหญ้าตะวันตก · Lv 8-15", kind: "field", open: true, x: 418, y: 352, side: "left",
+    desc: "ป่าโอ๊กทึบ ลำธารกับสะพานไม้ ลึกเข้าไปมีของดีซ่อนอยู่" },
+  { id: "royal_road", name: "ถนนหลวง", region: "จากประตูเหนืออีเดนถึงปราสาท · Lv 10-18", kind: "field", open: true, x: 524, y: 286,
+    desc: "ถนนหินตัดทุ่งข้าวสาลี ด่านทหาร กังหันน้ำริมแม่น้ำ ปลายทางคือประตูปราสาทหลวง" },
+  { id: "snow_foothills", name: "เชิงเขาหิมะ", region: "เหนือปราสาท ทางขึ้นเขา · Lv 35-45", kind: "field", open: true, x: 466, y: 182, side: "left",
+    desc: "เนินสนที่หิมะเริ่มปกคลุม ไต่ระดับขึ้นสู่เทือกเขา" },
+  { id: "ice_pass", name: "ช่องเขาน้ำแข็ง", region: "ทางลงใต้ของไอซ์เบิร์ก · Lv 45-55", kind: "field", open: true, x: 446, y: 126, side: "left",
+    desc: "ทางแคบระหว่างหน้าผาน้ำแข็ง สะพานเชือกข้ามหุบเหว" },
+  { id: "north_icefield", name: "ทุ่งน้ำแข็งเหนือ", region: "เหนือไอซ์เบิร์ก ริมทะเลเหนือ · Lv 55-70", kind: "field", open: true, x: 470, y: 66,
+    desc: "ทุ่งหิมะกว้าง ทะเลสาบน้ำแข็ง และชายฝั่งทะเลเหนือ" },
+  { id: "pine_river", name: "ป่าสนริมแม่น้ำ", region: "ตะวันออกของปราสาท · Lv 20-30", kind: "field", open: true, x: 568, y: 214,
+    desc: "ป่าสน แม่น้ำไหลลงจากเขา และค่ายคนตัดไม้" },
+  { id: "west_steppe", name: "สเตปป์ตะวันตก", region: "ตะวันตกของทรุนราดา · Lv 30-40", kind: "field", open: true, x: 640, y: 186,
+    desc: "ทุ่งหญ้าแห้งสุดสายตา หินตั้ง กองฟาง และค่ายคนเลี้ยงสัตว์" },
+  { id: "horse_meadow", name: "ทุ่งเลี้ยงม้า", region: "เหนือทรุนราดา ริมทะเลเหนือ · Lv 40-50", kind: "field", open: true, x: 716, y: 100,
+    desc: "เนินหญ้าริมทะเล คอกม้าร้างของชนเผ่า" },
+  { id: "stone_plain", name: "ที่ราบหินโบราณ", region: "ระหว่างทรุนราดากับคราเดีย · Lv 50-60", kind: "field", open: true, x: 764, y: 234,
+    desc: "วงหินโบราณบนที่ราบสูง หุบผา และแม่น้ำ" },
+  { id: "border_woods", name: "ป่าชายแดน", region: "ใต้คราเดีย · Lv 60-70", kind: "field", open: true, x: 792, y: 392,
+    desc: "ป่าใบแดงกับฐานลาดตระเวนของทหารคราเดีย" },
+  { id: "border_line", name: "แนวป้องกันชายแดน", region: "ตะวันออกของคราเดีย · Lv 70-85", kind: "field", open: true, x: 846, y: 318,
+    desc: "สนามรบเก่า เครื่องยิงหินพัง สิ่งกีดขวาง และสนามเพลาะ" },
+  { id: "demon_land", name: "ดินแดนอสูร", region: "สุดชายแดนตะวันออก · Lv 85-100", kind: "field", open: true, x: 902, y: 300,
+    desc: "แผ่นดินสีม่วงดำ ผลึกมืด และรอยแยกของพื้นดิน" },
+  { id: "south_savanna", name: "ทุ่งสะวันนาใต้", region: "ใต้ประตูใต้ของอีเดน · Lv 12-20", kind: "field", open: true, x: 494, y: 376,
+    desc: "หญ้าสูงสีทอง ต้นไม้ยืนต้นเดี่ยว และทางเกวียน" },
+  { id: "desert_edge", name: "ขอบทะเลทราย", region: "เหนือบาฮามัส · Lv 20-30", kind: "field", open: true, x: 464, y: 418, side: "left",
+    desc: "ทรายปนหิน กระบองเพชร และซุ้มหินโค้งธรรมชาติ" },
+  { id: "great_desert", name: "ทะเลทรายใหญ่", region: "ตะวันออกของบาฮามัส · Lv 30-45", kind: "field", open: true, x: 512, y: 462,
+    desc: "เนินทรายสุดตา ซากวิหารโบราณครึ่งจมทราย และโอเอซิสเล็ก" },
+  { id: "south_jungle", name: "ป่าดิบแดนใต้", region: "ระหว่างบาฮามัสกับโยเดีย · Lv 25-35", kind: "field", open: true, x: 470, y: 524, side: "left",
+    desc: "ป่าทึบ เถาวัลย์ บ่อโคลน และซากโบราณที่ถูกป่ากลืน" },
+  { id: "mangrove_coast", name: "ชายฝั่งป่าชายเลน", region: "ตะวันออกของโยเดีย · Lv 35-45", kind: "field", open: true, x: 566, y: 584,
+    desc: "ป่าชายเลน หาดทราย และซากเรือเกยฝั่ง" },
+  { id: "sakura_hills", name: "เนินซากุระ", region: "ประตูภูเขาของโอซากิ · Lv 45-60", kind: "field", open: true, x: 884, y: 546,
+    desc: "ป่าไผ่ ทุ่งซากุระ และศาลเจ้าร้างบนเนิน" },
+  { id: "volcano", name: "ยอดภูเขาไฟ", region: "กลางเกาะโอซากิ · Lv 60-75", kind: "field", open: true, x: 898, y: 528,
+    desc: "หินลาวาดำ บ่อน้ำร้อน ควันกำมะถัน และปล่องภูเขาไฟเรืองแดง" },
 ];
 
 // names over the land and sea
@@ -71,7 +111,7 @@ const MAIN: Pt[] = [
   [282, 530], [262, 528], [252, 548], [240, 532], [186, 488], [146, 432], [112, 392], [72, 388], [48, 362], [66, 336], [96, 328], [90, 300], [84, 240],
 ];
 const ISLANDS: Pt[][] = [
-  [[842, 545], [858, 530], [884, 527], [903, 538], [899, 560], [877, 573], [852, 568]], // Osaki
+  [[834, 552], [848, 530], [878, 514], [906, 516], [920, 536], [908, 566], [878, 580], [848, 576]], // Osaki
   [[56, 470], [72, 461], [84, 474], [70, 485]],
   [[930, 598], [946, 590], [956, 604], [940, 613]],
   [[968, 470], [980, 462], [990, 478], [975, 486]],
@@ -365,10 +405,18 @@ export function paintWorld(k: number): HTMLCanvasElement {
   road([[715, 152], [760, 220], [790, 318]]);
   road([[515, 332], [505, 290], [503, 236]]);
   road([[515, 332], [480, 395], [445, 458], [470, 520], [505, 584]]);
-  sail([[540, 340], [600, 420], [690, 495], [790, 525], [842, 545]]);
+  // the ways out of the towns to the fields off the main roads
+  road([[515, 332], [490, 334], [462, 340], [418, 352]]);
+  road([[425, 80], [470, 66]]);
+  road([[715, 152], [716, 100]]);
+  road([[790, 318], [846, 318], [902, 300]]);
+  road([[790, 318], [792, 392]]);
+  road([[445, 458], [512, 462]]);
+  road([[505, 584], [566, 584]]);
+  road([[856, 558], [884, 546], [898, 528]]);
+  // the ships out of Eden's harbour
+  sail([[540, 340], [600, 420], [690, 495], [790, 525], [836, 552]]);
   sail([[540, 340], [610, 430], [680, 510], [665, 600], [570, 622], [510, 610]]);
-  // the open way: Eden to its western field
-  path([[515, 332], [490, 334], [462, 340]], [3, 3], "rgba(80, 60, 30, 0.7)", "#ffe28a", 2.2);
 
   // ---- a compass rose and the frame ----
   const cx = 80, cy = 560;

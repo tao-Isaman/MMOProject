@@ -56,6 +56,7 @@ export class MapUI {
   onWalk: (to: Vec2, npc?: Npc) => string | null;
   onTravel: (id: string) => void;
   guide = false; // opened by a travel guide: a click on a town goes there
+  ports: string[] | null = null; // opened by a ship's captain: the towns the ship sails to
 
   // names: map id -> its name (for the warps' "to ..."); onWalk(to, npc): walk there, or up to
   // npc to talk; returns why not, or null; onTravel(id): a travel guide's trip to that town
@@ -125,10 +126,11 @@ export class MapUI {
     }
   }
 
-  // A travel guide's world map: pick a town to go to.
-  travel(): void {
+  // A travel guide's world map (or a ship's: only its ports): pick a town to go to.
+  travel(ports?: string[]): void {
     this.show("world");
     this.guide = true;
+    this.ports = ports ?? null;
     this.fit();
   }
 
@@ -144,7 +146,7 @@ export class MapUI {
   fit(): void {
     for (const v of ["local", "world"] as View[]) this.tabs[v].classList.toggle("on", v === this.view);
     this.tabs.local.textContent = this.map ? this.map.name : "แผนที่นี้";
-    this.title.textContent = this.guide ? "เดินทาง · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
+    this.title.textContent = this.guide && this.ports ? "ขึ้นเรือ · เลือกท่าเรือ" : this.guide ? "เดินทาง · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
     const [w, h] = this.view === "world" || !this.pic ? [WORLD_W, WORLD_H] : [this.pic.width, this.pic.height];
     const touch = isTouch();
     const maxW = Math.min(touch ? 2000 : 900, innerWidth - (touch ? 28 : 56));
@@ -182,6 +184,7 @@ export class MapUI {
       // a travel guide sends you to any open town
       if (!p || !map) return;
       if (p.id === map.id) return this.say(`ตอนนี้อยู่ที่${p.name}แล้ว`);
+      if (this.ports && !this.ports.includes(p.id)) return this.say(`เรือลำนี้ไม่ได้แล่นไป${p.name}`);
       if (!p.open || p.kind === "field" || p.kind === "castle") return this.say(`ผู้นำทางยังพาไป${p.name}ไม่ได้`);
       this.toggle(false);
       this.onTravel(p.id);
@@ -334,6 +337,7 @@ export class MapUI {
     }
     const p = hovered ?? this.picked;
     let info = p ? `${p.name} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}`
+      : this.guide && this.ports ? `${isTouch() ? "แตะ" : "คลิก"}ท่าเรือที่จะไป: ${this.ports.map((id) => PLACES.find((q) => q.id === id)?.name ?? id).join(" หรือ ")}`
       : this.guide ? `${isTouch() ? "แตะ" : "คลิก"}เมืองที่จะไป ผู้นำทางพาไปถึงในพริบตา`
       : isTouch() ? "" : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · คลิกที่ที่เปิดแล้วเพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
     if (this.note) info = this.note.text;

@@ -384,6 +384,19 @@ export class TownBuilder {
   }
 }
 
+// ---- the ways out ----
+// A gate that leads out to map `to` (a field): the warp `reach` past the gate on its outside
+// (`out`), and where whoever comes back from `to` arrives, `back` inside it.
+const OUTWARD: Record<Side, XY> = { n: [1, 0], s: [-1, 0], w: [0, 1], e: [0, -1] };
+export function gateWay(gate: XY, out: Side, to: string, reach = 450, back = 450): { warp: Town["warps"][number]; back: { x: number; y: number } } {
+  const [dx, dy] = OUTWARD[out];
+  return { warp: { x: gate[0] + dx * reach, y: gate[1] + dy * reach, r: 170, to }, back: { x: gate[0] - dx * back, y: gate[1] - dy * back } };
+}
+// The warps and gates of a town's ways out, for finish.
+export function waysOut(ways: ReturnType<typeof gateWay>[]): { warps: Town["warps"]; gates: Record<string, { x: number; y: number }> } {
+  return { warps: ways.map((w) => w.warp), gates: Object.fromEntries(ways.map((w) => [w.warp.to, w.back])) };
+}
+
 // ---- townsfolk every town has ----
 // The travel guide by the way in: talking to her opens the world map to pick a town to go to.
 export function travelGuide(town: string, at: XY, face: number, name = "เอลซ่า"): NpcSpec {

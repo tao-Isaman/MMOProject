@@ -19,7 +19,7 @@ import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { KIT as YODIA } from "./kits/yodia";
 import { KIT as EDEN } from "./kits/eden";
-import { Plan, TownBuilder, useKits, colourways, facing, FACE, travelGuide, protoOf, solidsOf } from "./town";
+import { Plan, TownBuilder, useKits, colourways, facing, FACE, travelGuide, protoOf, solidsOf, gateWay, waysOut } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -409,22 +409,15 @@ export function buildYodia(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0 && x < NORTH - 400 && x > SHORE + 400 && y < WEST - 400 && y > EAST + 400,
       density: 0.3 * quality.flowers,
     },
-    // all three gates are shut for now: a bar across the far end of each passage (the gate
-    // towers' solids reach 124 cm out from the palisade's line)
-    late: [
-      { kind: "closed", x: GATE_N[0] + 220, y: GATE_N[1], w: 200, d: 600, rot: 0 },
-      { kind: "closed", x: GATE_W[0], y: GATE_W[1] + 220, w: 600, d: 200, rot: 0 },
-      { kind: "closed", x: GATE_E[0], y: GATE_E[1] - 220, w: 600, d: 200, rot: 0 },
-    ],
+    // the forest gate is still shut: a bar across the far end of its passage (the gate towers'
+    // solids reach 124 cm out from the palisade's line)
+    late: [{ kind: "closed", x: GATE_W[0], y: GATE_W[1] + 220, w: 600, d: 200, rot: 0 }],
     bounds: { minX: P(0, 870)[0], maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(422, 660),
     npcs: yodiaNpcs(),
-    warps: [],
-    closed: [
-      { x: GATE_N[0] + 60, y: GATE_N[1], r: 260, text: "ประตูเหนือยังไม่เปิด ทางขึ้นไปทะเลทรายบาฮามัสกำลังสำรวจอยู่" },
-      { x: GATE_W[0], y: GATE_W[1] + 60, r: 260, text: "ประตูป่ายังไม่เปิด ป่าแดนใต้ข้างนอกรกและอันตราย กำลังถางทางอยู่" },
-      { x: GATE_E[0], y: GATE_E[1] - 60, r: 260, text: "ประตูตะวันออกยังไม่เปิด ทางเลียบชายฝั่งกำลังสำรวจ" },
-    ],
+    // north through the jungle to Bahamas, east along the mangrove coast
+    ...waysOut([gateWay(GATE_N, "n", "south_jungle", 450, 420), gateWay(GATE_E, "e", "mangrove_coast", 450, 420)]),
+    closed: [{ x: GATE_W[0], y: GATE_W[1] + 60, r: 260, text: "ประตูป่ายังไม่เปิด ป่าแดนใต้ข้างนอกรกและอันตราย กำลังถางทางอยู่" }],
     // names on the map window
     labels: [
       { ...pt(560, 660), text: "ท่าเรือโยเดีย" },
@@ -439,9 +432,9 @@ export function buildYodia(quality: { flowers: number }): Town {
       { ...pt(680, 465), text: "ถนนตลาด", kind: "small" },
       { ...pt(530, 588), text: "แนวโกดัง", kind: "small" },
       { ...pt(668, 664), text: "โรงเตี๊ยมชาวเรือ", kind: "small" },
-      { x: GATE_N[0] - 150, y: GATE_N[1], text: "ประตูเหนือ (ปิด)", kind: "gate" },
+      { x: GATE_N[0] - 150, y: GATE_N[1], text: "ประตูเหนือ · ป่าดิบแดนใต้", kind: "gate" },
       { x: GATE_W[0], y: GATE_W[1] - 150, text: "ประตูป่า (ปิด)", kind: "gate" },
-      { x: GATE_E[0], y: GATE_E[1] + 150, text: "ประตูตะวันออก (ปิด)", kind: "gate" },
+      { x: GATE_E[0], y: GATE_E[1] + 150, text: "ประตูตะวันออก · ชายฝั่งป่าชายเลน", kind: "gate" },
     ],
   });
 }
@@ -462,22 +455,22 @@ function yodiaNpcs(): NpcSpec[] {
     { id: "yodia_shop", ...at(403, 545), face: -90, name: "เจ๊กิมหงษ์", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ของจากเรือสินค้าทุกทิศ มีครบที่ร้านนี้", "ยา เชือก คัมภีร์ ราคาท่าเรือ ไม่โก่งนะ"] },
     { id: "yodia_guard_n1", ...at(413, 140), face: 180, name: "ทหารยามพยัคฆ์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_forest"),
-      lines: ["ประตูเหนือยังไม่เปิด ทางขึ้นไปทะเลทรายบาฮามัสกำลังสำรวจ", "ถนนท่าเรือตรงลงไปถึงท่าเรือเลย"] },
+      lines: ["ออกประตูเหนือไปคือป่าดิบแดนใต้ ฝ่าป่าขึ้นไปจะถึงบาฮามัสกลางทะเลทราย", "ถนนท่าเรือตรงลงไปถึงท่าเรือเลย"] },
     { id: "yodia_guard_n2", ...at(427, 140), face: 180, name: "ทหารยามเสือดาว", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_forest"),
       lines: ["พ้นทะเลทรายขึ้นไปอีกไกลถึงจะเป็นอีเดน เมืองหลวงของอาณาจักร", "กลางคืนอย่าออกไปนอกค่ายคนเดียว เสือในป่าดุนัก"] },
     { id: "yodia_guard_w", ...at(140, 330), face: -90, name: "ทหารยามเหยี่ยว", title: "ทหารยามประตูป่า", role: "talk", look: guard("top_warrior"),
       lines: ["นอกประตูนี้คือป่าแดนใต้ รกจนแสงแดดส่องไม่ถึงพื้น", "เสาเทพารักษ์สองต้นนี้คุ้มครองประตูมาตั้งแต่ตั้งเมือง"] },
     { id: "yodia_guard_e", ...at(710, 330), face: 90, name: "ทหารยามกระทิง", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior"),
-      lines: ["ทางเลียบชายฝั่งตะวันออกยังไม่เปิด", "ถ้าจะไปเกาะโอซากิ ต้องไปทางเรือเท่านั้น"] },
+      lines: ["ออกประตูตะวันออกไปคือชายฝั่งป่าชายเลน มีซากเรือเก่าเกยหาดอยู่", "ถ้าจะไปเกาะโอซากิ ต้องไปทางเรือ ไปหาเรือที่อีเดนนะ"] },
     { id: "yodia_fishwife", ...at(256, 580), face: 90, name: "ป้าจำปี", title: "แม่ค้าปลา", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "auburn", eyes: "amber", top: "top_adventurer_ochre", bottom: "bottom_adventurer_cocoa" },
       lines: ["ปลาสดเพิ่งขึ้นจากเรือเมื่อเช้า ปลากะพงตัวโตๆ ทั้งนั้น", "เรือประมงออกตอนตีสี่ กลับมาก็ขายกันตรงนี้เลย", "กุ้งกับปูจากป่าชายเลนก็มีนะ"] },
     { id: "yodia_fruit", ...at(500, 384), face: 180, name: "มะปราง", title: "แม่ค้าผลไม้", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "mint", eyes: "teal", top: "top_mint", bottom: "bottom_forest" },
       lines: ["มะม่วง สับปะรด มะพร้าว กล้วย ส่งตรงจากสวนชายป่า", "ลานตลาดนี้คึกคักที่สุดตอนเรือสินค้าเข้าเทียบท่า"] },
-    { id: "yodia_captain", ...at(505, 690), face: -45, name: "กัปตันสมุทร", title: "นายเรือสำเภา", role: "talk",
+    { id: "yodia_captain", ...at(505, 690), face: -45, name: "กัปตันสมุทร", title: "เรือโดยสาร · อีเดน", role: "travel", ports: ["eden"],
       look: { gender: "male", hair: "", hairColor: "silver", eyes: "blue", top: "top_warrior_navy", bottom: "bottom_warrior_black" },
-      lines: ["โยเดียเป็นเมืองท่าใหญ่อันดับสองของอาณาจักร รองจากอีเดนเท่านั้น", "เรือข้ามมหาสมุทรใต้ไปเกาะโอซากิยังไม่ออก รอลมมรสุมเปลี่ยนก่อน", "ไม้สักกับเครื่องเทศจากโยเดียขายดีทุกท่า"] },
+      lines: ["โยเดียเป็นเมืองท่าใหญ่อันดับสองของอาณาจักร รองจากอีเดนเท่านั้น", "ขึ้นเรือข้าไหม แล่นขึ้นเหนือไปท่าเรืออีเดน เมืองหลวงของอาณาจักร", "ไม้สักกับเครื่องเทศจากโยเดียขายดีทุกท่า"] },
     { id: "yodia_customs", ...at(470, 658), face: 180, name: "ขุนด่านเพชร", title: "นายด่านศุลกากร", role: "talk",
       look: { gender: "male", hair: "", hairColor: "ink", eyes: "teal", top: "top_warrior_navy", bottom: "bottom_warrior_cocoa" },
       lines: ["สินค้าทุกหีบที่ขึ้นท่าต้องผ่านด่านศุลกากรก่อน", "นาฬิกาบนด่านนี้ตีบอกเวลาให้ทั้งท่าเรือ"] },
