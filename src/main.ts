@@ -539,14 +539,15 @@ async function boot(): Promise<void> {
   const shopUI = new ShopUI(inv, iconFor);
   // the minimap and the map window (M); each map's picture from above is taken on the first
   // frame there (after the canvas has its size) and kept
-  const mapUI = new MapUI(MAP_NAMES);
+  const mapUI = new MapUI(MAP_NAMES, goTo);
   const pictures = new Map<MapId, HTMLCanvasElement>();
   mapUI.setMap(current, null);
-  // walking over to someone after a click on them (path around the solids), then talking
-  let toMerchant: { npc: Npc; path: { x: number; y: number }[] } | null = null;
+  // walking somewhere along a path round the solids: up to someone clicked on (then talking to
+  // them), or to a spot picked on the map window; `stuck` counts the seconds without moving
+  let walkTo: { path: { x: number; y: number }[]; npc?: Npc; stuck: number } | null = null;
   let shopKeeper: Npc | null = null;
   function act(npc: Npc): void {
-    toMerchant = null;
+    walkTo = null;
     if (npc.spec.role === "shop") {
       shopKeeper = npc;
       shopUI.keeper(npc.name, npc.spec.title);
@@ -564,7 +565,21 @@ async function boot(): Promise<void> {
     if (npc.distance(player) <= TALK_RANGE) return act(npc);
     const away = Math.hypot(player.x - npc.x, player.y - npc.y) || 1;
     const goal = { x: npc.x + ((player.x - npc.x) / away) * 90, y: npc.y + ((player.y - npc.y) / away) * 90 };
-    toMerchant = { npc, path: findPath(player, goal, RADIUS) ?? [] };
+    walkTo = { npc, path: findPath(player, goal, RADIUS) ?? [], stuck: 0 };
+  }
+  // A spot picked on the map: walk there (or up to someone there, and talk). Why not, or null.
+  function goTo(to: { x: number; y: number }, npc?: Npc): string | null {
+    if (!hero.alive) return "ล้มอยู่";
+    bot.noteManual();
+    player.target = null;
+    if (npc) {
+      talkTo(npc);
+      return null;
+    }
+    const path = findPath(player, to, RADIUS);
+    if (!path) return "ไปที่นั่นไม่ได้";
+    walkTo = { path, stuck: 0 };
+    return null;
   }
   const nearestNpc = (range: number): Npc | null =>
     npcs.reduce<Npc | null>((best, n) => (n.distance(player) <= range && (!best || n.distance(player) < best.distance(player)) ? n : best), null);
@@ -585,7 +600,7 @@ async function boot(): Promise<void> {
     player.y = at?.y ?? current.spawn.y;
     player.target = null;
     player.attack = null;
-    toMerchant = null;
+    walkTo = null;
     shopUI.toggle(false);
     if (bot.on) bot.anchor = { x: player.x, y: player.y };
     cam.x = mapX(player.x, player.y);
@@ -658,7 +673,7 @@ async function boot(): Promise<void> {
   function touchAttack() {
     if (!hero.alive) return;
     bot.noteManual();
-    toMerchant = null;
+    walkTo = null;
     if (player.target?.alive) return;
     const m = nearestMonster(700);
     if (m) player.target = m;
@@ -745,7 +760,7 @@ async function boot(): Promise<void> {
       talkTo(who);
       return;
     }
-    toMerchant = null;
+    walkTo = null;
     const m = monsters.find((mon) => mon.contains(mx, my));
     if (m) {
       player.target = m;
@@ -806,7 +821,7 @@ async function boot(): Promise<void> {
     if (!stick.active && e.clientX < innerWidth * 0.38) {
       stick.start(e);
       bot.noteManual();
-      toMerchant = null;
+      walkTo = null;
       return;
     }
     swipes.set(e.pointerId, { x: e.clientX, y: e.clientY, yaw, turning: false });
@@ -918,15 +933,17 @@ async function boot(): Promise<void> {
     // the bot walks when the keys don't
     if (fwd || left) {
       bot.noteManual();
-      toMerchant = null;
+      walkTo = null;
     }
     potionCd = Math.max(0, potionCd - dt);
     const auto = bot.update(dt);
     if (!fwd && !left && bot.on) move = auto;
-    if (toMerchant && !fwd && !left) {
-      while (toMerchant.path.length > 1 && Math.hypot(toMerchant.path[0].x - player.x, toMerchant.path[0].y - player.y) < 25) toMerchant.path.shift();
-      const next = toMerchant.path[0];
-      if (!next || toMerchant.npc.distance(player) <= TALK_RANGE - 20) act(toMerchant.npc);
+    if (walkTo && !fwd && !left) {
+      while (walkTo.path.length > 1 && Math.hypot(walkTo.path[0].x - player.x, walkTo.path[0].y - player.y) < 25) walkTo.path.shift();
+      const next = walkTo.path[0];
+      const there = !next || (walkTo.path.length === 1 && Math.hypot(next.x - player.x, next.y - player.y) < 20);
+      if (walkTo.npc && (there || walkTo.npc.distance(player) <= TALK_RANGE - 20)) act(walkTo.npc);
+      else if (there) walkTo = null;
       else move = { x: next.x - player.x, y: next.y - player.y };
     }
     for (const n of npcs) n.update(dt, player);
@@ -937,7 +954,13 @@ async function boot(): Promise<void> {
     const w = weaponStats(inv.equipped.weapon, hero.stats);
     const offW = offhandWeapon(inv.equipped.offhand);
     if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
+    const was = { x: player.x, y: player.y };
     if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon, offW);
+    // a walk that stops getting anywhere (held up by a fight, or by someone in the way) ends
+    if (walkTo && !fwd && !left) {
+      walkTo.stuck = Math.hypot(player.x - was.x, player.y - was.y) < 0.5 ? walkTo.stuck + dt : 0;
+      if (walkTo.stuck > 1.2) walkTo = null;
+    }
     for (const m of monsters) m.update(dt, monsterCtx);
     // warps to the next map; gates that are shut say so
     for (const w of current.warps) {
@@ -1003,7 +1026,9 @@ async function boot(): Promise<void> {
     w3d.sync(vw, yaw);
     // the bot's hunting area and the ring under the slime being attacked lie on the ground
     w3d.setArea((bot.on || botUI.open) && !bot.settings.wholeMap ? (bot.on ? bot.anchor : player) : null, bot.settings.radius);
-    w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target : null);
+    // (or, walking to a spot picked on the map, under that spot)
+    w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target
+      : walkTo && !walkTo.npc ? walkTo.path[walkTo.path.length - 1] ?? null : null);
     const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon as WeaponId] : null;
     const offItem = inv.equipped.offhand ? ITEMS[inv.equipped.offhand] : null;
     const inOff = offItem?.weapon ? weapons[offItem.weapon] : offItem?.art ? offhandArt[offItem.art] : null;
@@ -1047,7 +1072,7 @@ async function boot(): Promise<void> {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     floaters.draw(ctx, vw);
 
-    mapUI.frame(dt, { player, facing: player.facing(), yaw, npcs, monsters });
+    mapUI.frame(dt, { player, facing: player.facing(), yaw, npcs, monsters, route: walkTo?.path.length ? [player, ...walkTo.path] : null });
     if (showDebug) drawDebug(vw, player, fx, fps);
     requestAnimationFrame(frame);
   }

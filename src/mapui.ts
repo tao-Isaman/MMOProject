@@ -1,7 +1,8 @@
 // Maps: the minimap in the top right corner, and the map window (M): first the map you are on,
 // then the world. The picture of a game map is the 3D scenery seen from straight above
 // (World3D.snapshot), north up; the townsfolk, warps, monsters and the player are drawn over
-// it. Tapping the minimap opens the window too (phones have no M key).
+// it. Tapping the minimap opens the window too (phones have no M key). A click on the map walks
+// there (on someone: up to them, to talk); on the world map, to the way out to a place.
 
 import { el, makeWindow } from "./ui";
 import { isTouch } from "./touch";
@@ -18,6 +19,7 @@ export interface MapState {
   yaw: number;     // the camera's heading (0 = looking north)
   npcs: Npc[];
   monsters: Monster[];
+  route: Vec2[] | null; // a walk under way: from the player through the waypoints left
 }
 
 type View = "local" | "world";
@@ -29,7 +31,7 @@ export function mapArea(map: GameMap): Bounds {
   const b = map.bounds;
   return { minX: b.minX - 1000, maxX: b.maxX + 1000, minY: b.minY - 1000, maxY: b.maxY + 1000 };
 }
-type Hit = { x: number; y: number; text: string };
+type Hit = { x: number; y: number; text: string; npc?: Npc; to?: Vec2 };
 
 const NPC_COLORS: Record<string, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8" };
 
@@ -49,11 +51,15 @@ export class MapUI {
   hits: Hit[] = [];
   hover: { x: number; y: number } | null = null;
   picked: Place | null = null;
+  note: { text: string; t: number } | null = null; // a word after a click, over the usual text
   time = 0;
+  onWalk: (to: Vec2, npc?: Npc) => string | null;
 
-  // names: map id -> its name (for the warps' "to ...")
-  constructor(names: Record<string, string>) {
+  // names: map id -> its name (for the warps' "to ..."); onWalk(to, npc): walk there, or up to
+  // npc to talk; returns why not, or null
+  constructor(names: Record<string, string>, onWalk: (to: Vec2, npc?: Npc) => string | null) {
     this.names = names;
+    this.onWalk = onWalk;
     this.win = makeWindow("map", "แผนที่", "M");
     const bar = this.win.querySelector(".window-bar")!;
     this.title = bar.querySelector("h2")!;
@@ -73,8 +79,10 @@ export class MapUI {
     this.canvas.addEventListener("pointermove", (e) => (this.hover = { x: e.offsetX, y: e.offsetY }));
     this.canvas.addEventListener("pointerleave", () => (this.hover = null));
     this.canvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
       this.hover = { x: e.offsetX, y: e.offsetY };
-      if (this.view === "world") this.picked = this.placeAt(e.offsetX, e.offsetY);
+      if (this.view === "world") this.pickPlace(e.offsetX, e.offsetY);
+      else this.pickPoint(e.offsetX, e.offsetY);
     });
     new MutationObserver(() => this.open && this.fit()).observe(this.win, { attributes: true, attributeFilter: ["class"] });
     window.addEventListener("resize", () => this.open && this.fit());
@@ -136,8 +144,44 @@ export class MapUI {
     if (this.view === "world" && !this.world) this.world = paintWorld(2);
   }
 
+  // A word for a moment in place of the usual text.
+  say(text: string): void {
+    this.note = { text, t: 2.5 };
+  }
+
+  // A click at (x, y) css pixels on this map: walk there, into a warp, or up to someone.
+  pickPoint(x: number, y: number): void {
+    const map = this.map;
+    if (!map) return;
+    const b = mapArea(map), w = parseFloat(this.canvas.style.width), sc = w / (b.maxY - b.minY), dpr = this.canvas.width / w;
+    const hit = this.hitAt(x * dpr, y * dpr);
+    const why = this.onWalk(hit?.npc ?? hit?.to ?? { x: b.maxX - y / sc, y: b.maxY - x / sc }, hit?.npc);
+    if (why) this.say(why);
+    else if (isTouch()) this.toggle(false); // the map covers a phone: let her be seen walking
+    else this.say(hit?.npc ? `กำลังเดินไปหา${hit.npc.spec.name}` : "กำลังเดินไป");
+  }
+
+  // A click on the world map: an open place next door walks to the way out there.
+  pickPlace(x: number, y: number): void {
+    const p = (this.picked = this.placeAt(x, y)), map = this.map;
+    if (!p || !map || !p.open || p.id === map.id) return;
+    const warp = map.warps.find((w) => w.to === p.id);
+    if (!warp) return this.say(`ทางไป${p.name}ไม่ได้อยู่ในแผนที่นี้`);
+    const why = this.onWalk(warp);
+    if (why) this.say(why);
+    else if (isTouch()) this.toggle(false);
+    else this.say(`กำลังเดินไปทางออกสู่${p.name}`);
+  }
+
+  // The mark nearest a canvas point (device pixels), if one is close.
+  hitAt(x: number, y: number): Hit | null {
+    const r = 14 * (this.canvas.width / parseFloat(this.canvas.style.width));
+    return this.hits.reduce<Hit | null>((best, h) => (Math.hypot(h.x - x, h.y - y) < r && (!best || Math.hypot(h.x - x, h.y - y) < Math.hypot(best.x - x, best.y - y)) ? h : best), null);
+  }
+
   frame(dt: number, st: MapState): void {
     this.time += dt;
+    if (this.note && (this.note.t -= dt) <= 0) this.note = null;
     this.drawMini(st);
     if (!this.open) return;
     if (this.view === "world") this.drawWorld();
@@ -178,7 +222,7 @@ export class MapUI {
       warpMark(g, x, y, 7 * dpr, this.time);
       const text = `ไป${this.names[w.to] ?? w.to}`;
       label(x, y - 12 * dpr, text, 12, "#a9e4ff");
-      this.hits.push({ x, y, text: `วงแสงวาร์ป: เดินเข้าไปเพื่อ${text}` });
+      this.hits.push({ x, y, text: `วงแสงวาร์ป: เดินเข้าไปเพื่อ${text}`, to: w });
     }
     for (const cl of map.closed) {
       const [x, y] = at(cl);
@@ -195,18 +239,18 @@ export class MapUI {
       const [x, y] = at(n), role = n.spec.role;
       dot(g, x, y, (role === "talk" ? 3.4 : 4.6) * dpr, NPC_COLORS[role]);
       if (role !== "talk") label(x, y - 8 * dpr, n.spec.title.split(" · ")[0], 11.5, NPC_COLORS[role]);
-      this.hits.push({ x, y, text: `${n.spec.name} · ${n.spec.title}` });
+      this.hits.push({ x, y, text: `${n.spec.name} · ${n.spec.title}`, npc: n });
     }
+    if (st.route) route(g, st.route.map(at), dpr);
     const [px, py] = at(st.player);
     viewCone(g, px, py, st.yaw, 46 * dpr);
     arrow(g, px, py, st.facing, 8 * dpr);
     // what is under the pointer
-    let text = isTouch() ? "" : "กด M อีกครั้งเพื่อดูแผนที่โลก · จุดเหลือง ร้านค้า · จุดเขียว นักบวช · วงฟ้า ทางออก · ชี้ที่จุดเพื่อดูชื่อ";
-    if (this.hover) {
-      const hx = this.hover.x * dpr, hy = this.hover.y * dpr;
-      const near = this.hits.reduce<Hit | null>((best, h) => (Math.hypot(h.x - hx, h.y - hy) < 14 * dpr && (!best || Math.hypot(h.x - hx, h.y - hy) < Math.hypot(best.x - hx, best.y - hy)) ? h : best), null);
-      if (near) text = near.text;
-    }
+    let text = isTouch() ? "แตะที่ไหนก็ได้เพื่อเดินไป · แตะชาวเมืองเพื่อเดินไปคุย"
+      : "คลิกที่ไหนก็ได้เพื่อเดินไป · คลิกชาวเมืองเพื่อเดินไปคุย · จุดเหลือง ร้านค้า · จุดเขียว นักบวช · วงฟ้า ทางออก · กด M อีกครั้งเพื่อดูแผนที่โลก";
+    const near = this.hover && this.hitAt(this.hover.x * dpr, this.hover.y * dpr);
+    if (near) text = near.text;
+    if (this.note) text = this.note.text;
     if (this.info.textContent !== text) this.info.textContent = text;
   }
 
@@ -266,7 +310,9 @@ export class MapUI {
       else if (!p.open) text("ยังไม่เปิด", x, y + px(big ? 33 : 29), px(10.5), "#e8b7a4");
     }
     const p = hovered ?? this.picked;
-    const info = p ? `${p.name} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}` : isTouch() ? "" : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · กด M อีกครั้งเพื่อปิด";
+    let info = p ? `${p.name} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}` : isTouch() ? ""
+      : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · คลิกที่ที่เปิดแล้วเพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
+    if (this.note) info = this.note.text;
     if (this.info.textContent !== info) this.info.textContent = info;
   }
 
@@ -303,6 +349,7 @@ export class MapUI {
       const [x, y] = at(n);
       dot(g, x, y, (n.spec.role === "talk" ? 2.6 : 3.4) * dpr, NPC_COLORS[n.spec.role]);
     }
+    if (st.route) route(g, st.route.map(at), dpr * 0.8);
     viewCone(g, size / 2, size / 2, st.yaw, size * 0.32);
     arrow(g, size / 2, size / 2, st.facing, 6 * dpr);
     // north
@@ -351,6 +398,37 @@ function cross(g: CanvasRenderingContext2D, x: number, y: number, r: number): vo
     g.lineTo(x - r, y + r);
     g.stroke();
   }
+}
+
+// A walk under way: a dashed line along the waypoints and a flag where it ends (k: pixel scale).
+function route(g: CanvasRenderingContext2D, pts: [number, number][], k: number): void {
+  g.setLineDash([5 * k, 4 * k]);
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  for (const [w, col] of [[4 * k, "rgba(12, 16, 8, 0.75)"], [2 * k, "#ffe27a"]] as [number, string][]) {
+    g.strokeStyle = col;
+    g.lineWidth = w;
+    g.beginPath();
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.stroke();
+  }
+  g.setLineDash([]);
+  const [x, y] = pts[pts.length - 1];
+  g.strokeStyle = "rgba(12, 16, 8, 0.9)";
+  g.lineWidth = 2.4 * k;
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(x, y - 15 * k);
+  g.stroke();
+  g.fillStyle = "#ff6a5a";
+  g.lineWidth = k;
+  g.beginPath();
+  g.moveTo(x, y - 15 * k);
+  g.lineTo(x + 10 * k, y - 11.5 * k);
+  g.lineTo(x, y - 8 * k);
+  g.closePath();
+  g.fill();
+  g.stroke();
 }
 
 // The player: an arrow the way she faces (north up: world +X is up, -Y is right).
