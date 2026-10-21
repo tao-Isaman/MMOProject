@@ -7,7 +7,8 @@
 // Characters stay 2D sprites, Ragnarok style: each one is drawn by its own draw code into a
 // small canvas that becomes a camera-facing billboard standing on its feet, so props in front
 // hide it by depth. The player also gets a faint copy drawn over everything, so she shows
-// through a tree or the house (a ghost).
+// through a tree or the house (a ghost), and whatever stands between her and the camera opens
+// up around her (a dithered cutaway), so a street between tall houses stays in view.
 
 import * as THREE from "three";
 import { wind } from "./trees";
@@ -16,6 +17,7 @@ import type { View } from "../types";
 
 const DIST = 6000; // camera distance from what it looks at, cm
 const BIAS = 14;   // billboards sit this much toward the camera (their ground shadow clears the ground)
+const CUT_R = 260; // the cutaway's radius on screen, cm
 
 interface Billboard {
   canvas: HTMLCanvasElement;
@@ -57,6 +59,7 @@ export class World3D {
   portals: THREE.Object3D[] = [];
   target = new THREE.Vector3();
   shadowAt = new THREE.Vector3(1e9, 0, 0);
+  focus: { x: number; y: number } | null = null; // who the cutaway keeps in view
 
   constructor(canvas: HTMLCanvasElement, quality: { flowers: number; shadow: number }) {
     this.quality = quality;
@@ -110,6 +113,10 @@ export class World3D {
     if (this.level) this.scene.remove(this.level);
     this.level = level.root;
     this.scene.add(level.root);
+    level.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) cutaway(m);
+    });
     this.scene.background = new THREE.Color(level.sky);
     this.portals = (level.warps ?? []).map((w) => {
       const p = portal();
@@ -241,8 +248,47 @@ export class World3D {
       const beam = p.children[1] as THREE.Mesh;
       (beam.material as THREE.MeshBasicMaterial).opacity = 0.32 + 0.12 * Math.sin(this.time * 3);
     }
+    this.camera.updateMatrixWorld();
+    if (this.focus) {
+      const v = new THREE.Vector3(this.focus.x, 100, -this.focus.y).applyMatrix4(this.camera.matrixWorldInverse);
+      CUT.value.set(v.x, v.y, v.z, CUT_R);
+    } else CUT.value.w = 0;
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+// ---- the cutaway: lit surfaces more than 70 cm up and nearer the camera than the player are
+// dithered away in a circle round her on screen ----
+const CUT = { value: new THREE.Vector4(0, 0, 0, 0) }; // the player in view space, the radius
+const cutDone = new WeakSet<THREE.Material>();
+function cutaway(m: THREE.Material): void {
+  const lit = m as THREE.Material & { isMeshStandardMaterial?: boolean; isMeshLambertMaterial?: boolean; isMeshPhongMaterial?: boolean };
+  if (cutDone.has(m) || !(lit.isMeshStandardMaterial || lit.isMeshLambertMaterial || lit.isMeshPhongMaterial)) return;
+  cutDone.add(m);
+  // keep the material's own changes, and its own program apart from others'
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
+  m.onBeforeCompile = (shader, renderer) => {
+    prev.call(m, shader, renderer);
+    shader.uniforms.uCut = CUT;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying float vCutY;")
+      .replace("#include <project_vertex>", `#include <project_vertex>
+        vec4 cutW = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+        cutW = instanceMatrix * cutW;
+        #endif
+        vCutY = (modelMatrix * cutW).y;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vCutY;\nuniform vec4 uCut;")
+      .replace("#include <clipping_planes_fragment>", `#include <clipping_planes_fragment>
+        if (uCut.w > 0.0 && vCutY > 70.0 && -vViewPosition.z > uCut.z + 80.0) {
+          float r = length(-vViewPosition.xy - uCut.xy) / uCut.w;
+          float n = fract(52.9829189 * fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715))));
+          if (r < 1.0 && n > smoothstep(0.65, 1.0, r)) discard;
+        }`);
+  };
+  m.customProgramCacheKey = () => key + "|cut";
+  m.needsUpdate = true;
 }
 
 // A warp portal as Ragnarok draws one: a glowing ring on the ground and a soft column of light.

@@ -31,7 +31,7 @@ import { ShopUI } from "./shop";
 import { Npc, TALK_RANGE } from "./npcs";
 import { loadMap } from "./maps";
 import type { GameMap, MapId } from "./maps";
-import { findPath } from "./world";
+import { findPath, blocked, SOLIDS } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
 import { garmentIcon } from "./garments";
@@ -354,6 +354,7 @@ async function boot(): Promise<void> {
   w3d.load(current.level);
   const fx = new Particles();
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
+  w3d.focus = player;
   player.builtin = first.builtin;
   applyLook();
   // townsfolk, made once per map: the merchant's own sprite, or dressed through the wardrobe
@@ -1040,7 +1041,7 @@ async function boot(): Promise<void> {
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
     progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, drink, enterMap,
     get npcs() { return npcs; }, get map() { return current; },
-    zoomOut: (f: number) => (screen.far = 1 / f) };
+    zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS } };
 
   document.getElementById("loading")?.classList.add("done");
   requestAnimationFrame((t) => {

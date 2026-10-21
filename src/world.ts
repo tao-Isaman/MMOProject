@@ -181,7 +181,9 @@ export function findPath(from: Vec2, to: Vec2, r: number): Vec2[] | null {
   const goal = g[tj * GW + ti] ? nearestOpen(g, ti, tj) : tj * GW + ti;
   if (start < 0 || goal < 0) return null;
   const gi = goal % GW, gj = (goal / GW) | 0;
-  const cost = new Float32Array(GW * GH).fill(Infinity), came = new Int32Array(GW * GH).fill(-1);
+  // (float64: in float32 a long path's cost rounds when stored, and the same step keeps
+  // looking like an improvement for ever)
+  const cost = new Float64Array(GW * GH).fill(Infinity), came = new Int32Array(GW * GH).fill(-1);
   const h = (c: number) => {
     const dx = Math.abs((c % GW) - gi), dy = Math.abs(((c / GW) | 0) - gj);
     return Math.max(dx, dy) + 0.414 * Math.min(dx, dy);
@@ -211,13 +213,14 @@ export function findPath(from: Vec2, to: Vec2, r: number): Vec2[] | null {
         k = m;
       }
     }
-    return top[1];
+    return top;
   };
   cost[start] = 0;
   push(h(start), start);
   while (heap.length) {
-    const c = pop();
+    const [f, c] = pop();
     if (c === goal) break;
+    if (f > cost[c] + h(c) + 1e-6) continue; // a stale entry: this cell was reached cheaper since
     const ci = c % GW, cj = (c / GW) | 0;
     for (let dj = -1; dj <= 1; dj++)
       for (let di = -1; di <= 1; di++) {

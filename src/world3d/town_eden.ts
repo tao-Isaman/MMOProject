@@ -175,6 +175,9 @@ export function buildEden(quality: { flowers: number }): Town {
     rect(-200, 520, 70, 605),   // outside the gates
     rect(585, -200, 655, 75),
     rect(610, 1045, 680, 1300),
+    // the alleys between the houses into the plazas
+    rect(537, 280, 585, 305), rect(290, 470, 315, 520), rect(655, 230, 708, 255), rect(655, 400, 708, 425),
+    rect(760, 505, 800, 560), rect(290, 605, 315, 655), rect(560, 780, 610, 805),
   ];
   const P1 = quarter(175, 145, 310, 255);   // the cathedral plaza
   const P2 = rect(708, 150, 846, 508);      // the market
@@ -435,6 +438,43 @@ export function buildEden(quality: { flowers: number }): Town {
   {
     const [bx0, by0] = P(BASIN.u0, BASIN.v1), [bx1, by1] = P(BASIN.u1, BASIN.v0);
     extra.push({ kind: "sea", x: (bx0 + bx1) / 2, y: (by0 + by1) / 2, w: Math.abs(bx1 - bx0), d: Math.abs(by1 - by0), rot: 0 });
+  }
+
+  // ---- the garden's middle: a great oak ringed with flower beds, cherry trees, lamps ----
+  put("flora:BigOak", P(255, 815), 30, { s: 1.25 });
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    put("eden:flower_bed", P(255 + Math.cos(a) * 30, 815 + Math.sin(a) * 30), facing(Math.cos(a), Math.sin(a)) + 90);
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = 0.15 + (i / 5) * (Math.PI / 2 - 0.3);
+    put("flora:Cherry", P(150 + 220 * Math.cos(a), 900 - 150 * Math.sin(a)), rnd() * 360, { s: 0.6 + rnd() * 0.15 });
+    if (i < 5) put("eden:street_lamp", P(150 + 240 * Math.cos(a + 0.15), 900 - 165 * Math.sin(a + 0.15)), 0, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
+  }
+
+  // ---- the greens left between: trees and flower beds wherever there is room ----
+  {
+    const G = 100, x0 = SOUTH, y0 = EAST - 200, gw = Math.ceil((NORTH - SOUTH) / G), gh = Math.ceil((WEST - y0) / G);
+    const taken = new Uint8Array(gw * gh);
+    const mark = (x: number, y: number, r: number) => {
+      for (let j = Math.max(0, Math.floor((y - r - y0) / G)); j <= Math.min(gh - 1, Math.floor((y + r - y0) / G)); j++)
+        for (let i = Math.max(0, Math.floor((x - r - x0) / G)); i <= Math.min(gw - 1, Math.floor((x + r - x0) / G)); i++) taken[j * gw + i] = 1;
+    };
+    for (const pl of puts) for (const sp of solidsOf(pl, protoOf(pl.ref, pl.colours))) mark(sp.x, sp.y, ("r" in sp ? sp.r : Math.hypot(sp.w, sp.d) / 2) + 250);
+    const free = (x: number, y: number) => {
+      const i = Math.floor((x - x0) / G), j = Math.floor((y - y0) / G);
+      return i >= 0 && j >= 0 && i < gw && j < gh && !taken[j * gw + i];
+    };
+    const TREES = ["RoundTree", "SmallTree", "Cherry", "RoundTree", "BigOak"];
+    for (let x = SOUTH + 700; x < NORTH - 700; x += 520)
+      for (let y = EAST + 700; y < WEST - 700; y += 520) {
+        const px = x + (rnd() - 0.5) * 300, py = y + (rnd() - 0.5) * 300;
+        // grass all round (not a road, plaza or the basin)
+        if ([[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(px + dx, py + dy) !== 0) || !free(px, py)) continue;
+        if (rnd() < 0.62) put(`flora:${TREES[Math.floor(rnd() * TREES.length)]}`, [px, py], rnd() * 360, { s: 0.6 + rnd() * 0.25 });
+        else put("eden:flower_bed", [px, py], rnd() * 90);
+        mark(px, py, 300);
+      }
   }
 
   // ---- outside the walls: woods ----

@@ -48,7 +48,7 @@ const EDEN_MATS: Record<string, Recipe> = {
   // the city quarter
   Eden_PlasterYellow: { map: "plaster", tint: "#f6e2a2", bump: 0.6 },
   Eden_PlasterRose: { map: "plaster", tint: "#f2cbc2", bump: 0.6 },
-  Eden_Hedge: { map: "felt", tint: "#3d7a33", rough: 0.95 },
+  Eden_Hedge: { map: "felt", tint: "#4b8c3b", rough: 0.95 },
   Eden_ShopGlass: { tint: "#d8eef8", rough: 0.05, opacity: 0.22 },
   Eden_PotionRed: { tint: "#ff5a78", rough: 0.15, glow: "#ff2f55", glowI: 0.9 },
   Eden_PotionBlue: { tint: "#5ab4ff", rough: 0.15, glow: "#2f84ff", glowI: 0.9 },
@@ -1261,6 +1261,1124 @@ function lighthouse(): Geo {
   return merge(...out);
 }
 
+// ======== the city quarter ========
+// More of the capital for the starting city: corner and terraced houses, the shops, the
+// adventurers' guild, a harbour warehouse, garden pieces and street furniture. The buildings are
+// terrace houses: their side walls (±Y) are flat and nothing passes them (no eaves, cornices or
+// sills), so they stand wall to wall in a row along Y with no gap. Walls are Eden_Plaster /
+// StoneLight / StoneWhite and every roof is RoofBlue, so a street can swap the colours.
+
+const toY = (g: Geo): Geo => rotateZ(g, 90); // a piece built facing -X turned to face -Y
+
+// Roof texture coordinates for any slab: U along the eaves, V up the slope, in metres (as
+// gableRoof's slabs have them), so the tile courses lie level on hips and lean-tos too.
+function roofUv(g: Geo, s = 1): Geo {
+  const n = new THREE.Vector3(), e = new THREE.Vector3(), t = new THREE.Vector3(), p = new THREE.Vector3();
+  return g.map(({ geo, mat }) => {
+    const out = geo.clone();
+    const pos = out.getAttribute("position"), nor = out.getAttribute("normal");
+    const uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) {
+      n.set(nor.getX(i), nor.getY(i), nor.getZ(i));
+      p.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+      const h = Math.hypot(n.x, n.y);
+      if (h < 1e-3) {
+        e.set(1, 0, 0);
+        t.set(0, 1, 0);
+      } else {
+        e.set(-n.y / h, n.x / h, 0);
+        t.crossVectors(n, e).normalize();
+      }
+      uv[i * 2] = p.dot(e) / (100 * s);
+      uv[i * 2 + 1] = p.dot(t) / (100 * s);
+    }
+    out.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    return { geo: out, mat };
+  });
+}
+// A round rope or stem through some points.
+function tube(pts: V3[], r: number, mat: string, seg = 32, radial = 6): Geo {
+  const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))), seg, r, radial, false);
+  return wuv([{ geo: g.toNonIndexed(), mat }]);
+}
+// A rectangle in a wall's plane (world y0..y1, z0..z1).
+function rectAt(y0: number, y1: number, z0: number, z1: number): THREE.Shape {
+  const s = new THREE.Shape();
+  s.moveTo(y0, z0);
+  s.lineTo(y1, z0);
+  s.lineTo(y1, z1);
+  s.lineTo(y0, z1);
+  s.lineTo(y0, z0);
+  return s;
+}
+// Hang pieces on a box building: walls at ±HX / ±HY, the plaster above G set in by P.
+function placer(out: Geo[], HX: number, HY: number, G: number, P = 4) {
+  return (g: Geo, face: Face, u: number, z: number): void => {
+    out.push(onFace(g, face, (face.endsWith("x") ? HX : HY) - (z >= G ? P : 0), u, z));
+  };
+}
+
+// The body of a terrace house, HX deep either way and flush at ±HY: stone plinth, ashlar ground
+// storey to G, plaster to the eaves E (set in by P at the front and back), white string courses
+// and a cornice that run to the party walls, white pilaster strips at the four corners.
+function terrace(HX: number, HY: number, G: number, E: number, floors: number[], o: { wall?: string; P?: number; ground?: boolean; pilasters?: boolean } = {}): Geo {
+  const P = o.P ?? 4, wall = o.wall ?? "Eden_Plaster", out: Geo[] = [];
+  const mason = [boxBounds([-HX - 8, -HY, 0], [HX + 8, HY, 40], "StoneGrey")];
+  if (o.ground !== false) mason.push(boxBounds([-HX, -HY, 40], [HX, HY, G], "StoneLight"));
+  out.push(wuv(merge(...mason), 1.1));
+  out.push(
+    boxBounds([-HX + P, -HY, G], [HX - P, HY, E], wall),
+    boxBounds([-HX - 10, -HY, G - 6], [HX + 10, HY, G + 12], "StoneWhite", 3),
+    ...floors.map((f) => boxBounds([-HX - 1, -HY, f - 6], [HX + 1, HY, f + 6], "StoneWhite")),
+    boxBounds([-HX - 12, -HY, E - 24], [HX + 12, HY, E + 2], "StoneWhite", 3),
+  );
+  if (o.pilasters !== false)
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1]) {
+        const x0 = sx < 0 ? -HX - 4 : HX - P, y0 = sy < 0 ? -HY : HY - 30;
+        out.push(boxBounds([x0, y0, G + 12], [x0 + P + 4, y0 + 30, E - 24], "StoneWhite"));
+      }
+  return merge(...out);
+}
+
+// A tiled gable roof, ridge along X, over ±hx, ±hy with its eaves at E: `ovx` past the gables,
+// `ovy` past the eaves ("flush" keeps it inside ±hy and adds stone gutters), plaster gables at
+// ±gx (half-width gw), ridge tiles and white bargeboards. rotateZ(…, 90) puts the ridge along Y.
+interface RoofOpt { ovx?: number; ovy?: number | "flush"; gx?: number; gw?: number; wall?: string; th?: number; barge?: boolean }
+function roofX(hx: number, hy: number, E: number, RH: number, o: RoofOpt = {}): Geo {
+  const th = o.th ?? 22, ang = Math.atan2(RH, hy), ovx = o.ovx ?? 30, flush = o.ovy === "flush";
+  const ovy = o.ovy === "flush" ? -th * Math.sin(ang) - 0.5 : o.ovy ?? 30;
+  const slope = (hy + ovy) / Math.cos(ang), len = 2 * (hx + ovx), wall = o.wall ?? "Eden_Plaster";
+  const gx = o.gx ?? hx - 4, gw = o.gw ?? hy - 4, rz = E + RH + th / Math.cos(ang) - 3;
+  const slab = (s: number): Geo => rotateX(box([len, slope, th], [0, (s * slope) / 2, th / 2], "RoofBlue"), (-s * ang) / D);
+  const out: Geo[] = [
+    translate(merge(slab(1), slab(-1)), [0, 0, E + RH]),
+    ridge([-hx - ovx, 0, rz], [hx + ovx, 0, rz], 11),
+    wuv(merge(gableWall(-gx, gw, E, RH - 4, wall), gableWall(gx, gw, E, RH - 4, wall))),
+  ];
+  if (o.barge !== false)
+    for (const x of [-hx - ovx + 3, hx + ovx - 3])
+      for (const s of [-1, 1]) out.push(beamBetween([x, s * (hy + ovy), E - (RH * ovy) / hy - 8], [x, 0, E + RH - 4], 6, 20, "Eden_PaintWhite"));
+  if (flush)
+    for (const s of [-1, 1]) out.push(boxBounds([-hx - ovx, s < 0 ? -hy : hy - 20, E - 2], [hx + ovx, s < 0 ? -hy + 20 : hy, E + (RH * 22) / hy + 6], "StoneWhite"));
+  return merge(...out);
+}
+
+// A tiled hipped roof over ±hx, ±hy: eaves `ovx` / `ovy` past the walls at z (0 keeps it flush),
+// `th` thick, rising h to a ridge along the longer side (a point when square), ridge and hip tiles.
+function hipRoof(hx: number, hy: number, z: number, h: number, ovx: number, ovy: number, th = 22): Geo {
+  const ax = hx + ovx, ay = hy + ovy, zt = z + th, zr = zt + h;
+  const ends: V3[] = ax - ay > 2 ? [[ay - ax, 0, zr], [ax - ay, 0, zr]] : ay - ax > 2 ? [[0, ax - ay, zr], [0, ay - ax, zr]] : [[0, 0, zr]];
+  const pts = ends.map((e) => new THREE.Vector3(...e));
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) pts.push(new THREE.Vector3(sx * ax, sy * ay, z), new THREE.Vector3(sx * ax, sy * ay, zt));
+  const out: Geo[] = [roofUv([{ geo: new ConvexGeometry(pts), mat: "RoofBlue" }])];
+  if (ends.length === 2) out.push(ridge([ends[0][0], ends[0][1], zr + 3], [ends[1][0], ends[1][1], zr + 3], 10));
+  const alongX = ends.length === 2 && ends[0][0] !== 0;
+  for (const sx of [-1, 1])
+    for (const sy of [-1, 1]) {
+      const e = ends.length === 1 ? ends[0] : ends[(alongX ? sx : sy) < 0 ? 0 : 1], c: V3 = [sx * ax, sy * ay, zt + 2];
+      out.push(cylinderBetween([c[0] + (e[0] - c[0]) * 0.05, c[1] + (e[1] - c[1]) * 0.05, c[2] + (e[2] + 3 - c[2]) * 0.05], [e[0], e[1], zr + 3], 7, 6, "StoneBlueDark"));
+    }
+  return merge(...out);
+}
+
+// A hanging sign on a scrolled iron bracket out from a -X facing wall (bracket at z = 0): a framed
+// board across the bracket (faces to ±Y) with `front` (built facing -Y) on one face and its
+// mirror on the other; with board null the emblem hangs on its own and `core` is hung once.
+function hangingSign(front: Geo, o: { len?: number; bw?: number; bh?: number; board?: string | null; core?: Geo } = {}): Geo {
+  const len = o.len ?? 140, bw = o.bw ?? 96, bh = o.bh ?? 84, cx = -len * 0.56, zc = -16 - bh / 2;
+  const out: Geo[] = [
+    boxBounds([-3, -9, -len * 0.42], [1, 9, 10], "IronDark"),
+    beamBetween([0, 0, 0], [-len, 0, 0], 6, 6, "IronDark"),
+    beamBetween([0, 0, -len * 0.38], [-len * 0.6, 0, -2], 3.5, 3.5, "IronDark"),
+    translate(rotateX(torus(len * 0.12, 1.6, 10, 4, "IronDark"), 90), [-len * 0.2, 0, -len * 0.13]),
+    sphereCenter(5, [-len - 3, 0, 0], "GoldTrim", 6),
+    cylinderBetween([cx - bw / 2 + 10, 0, 0], [cx - bw / 2 + 10, 0, -16], 1.2, 4, "IronDark"),
+    cylinderBetween([cx + bw / 2 - 10, 0, 0], [cx + bw / 2 - 10, 0, -16], 1.2, 4, "IronDark"),
+  ];
+  const off = o.board === null ? 0 : 4.5;
+  if (o.board !== null) out.push(boxBounds([cx - bw / 2, -3.5, -16 - bh], [cx + bw / 2, 3.5, -16], "WoodDark", 1.5), boxBounds([cx - bw / 2 + 4, -4.5, -12 - bh], [cx + bw / 2 - 4, 4.5, -20], o.board ?? "Eden_PaintBlue"));
+  out.push(translate(front, [cx, -off, zc]), translate(rotateZ(front, 180), [cx, off, zc]));
+  if (o.core) out.push(translate(o.core, [cx, 0, zc]));
+  return merge(...out);
+}
+
+// A shop's projecting display window facing -X (its back on x = 0, the glass from z = 0 to h): a
+// painted frame, stone sill and cap, clear glass to the front and sides, a back board, and the
+// `goods` on show behind the glass (x between -depth and 0).
+function displayWindow(w: number, h: number, depth: number, frame: string, goods: Geo, bars = 3): Geo {
+  const hw = w / 2, out: Geo[] = [
+    boxBounds([-depth - 10, -hw - 12, -14], [2, hw + 12, 0], "StoneWhite", 2),
+    boxBounds([-depth - 4, -hw - 6, -60], [0, hw + 6, -14], frame),
+    boxBounds([-depth - 8, -hw - 10, h], [2, hw + 10, h + 16], frame),
+    boxBounds([-depth - 14, -hw - 16, h + 16], [2, hw + 16, h + 24], "StoneWhite", 1.5),
+    boxBounds([-2, -hw, 0], [0, hw, h], "WoodShade"),
+    boxBounds([-depth, -hw, 0], [-depth + 1, hw, h], "Eden_ShopGlass"),
+    boxBounds([-depth, -hw - 1, 0], [-2, -hw, h], "Eden_ShopGlass"),
+    boxBounds([-depth, hw, 0], [-2, hw + 1, h], "Eden_ShopGlass"),
+    boxBounds([-depth - 3, -hw, h * 0.8 - 2], [-depth, hw, h * 0.8 + 2], frame),
+    goods,
+  ];
+  for (const y of [-hw - 6, hw]) out.push(boxBounds([-depth - 4, y, 0], [-depth + 2, y + 6, h], frame));
+  for (let i = 1; i < bars; i++) out.push(boxBounds([-depth - 3, -hw + (w * i) / bars - 2, 0], [-depth, -hw + (w * i) / bars + 2, h], frame));
+  return merge(...out);
+}
+
+// A potion on z = 0 (kind 0 a round flask, 1 a tall bottle, 2 a square phial), glowing glass, a cork.
+const POTIONS = ["Eden_PotionRed", "Eden_PotionBlue", "Eden_PotionGreen", "Eden_PotionViolet", "Eden_PotionGold"];
+function bottle(kind: number, mat: string, s = 1): Geo {
+  if (kind === 0)
+    return merge(sphereCenter(8 * s, [0, 0, 8 * s], mat, 8), cylinderAt({ radius: 3 * s, height: 8 * s, segments: 6, bottom: [0, 0, 14 * s] }, mat), cylinderAt({ radius: 3.6 * s, height: 3.5 * s, segments: 6, bottom: [0, 0, 21 * s] }, "WoodWarm"));
+  if (kind === 1)
+    return merge(
+      cylinderAt({ radius: 5 * s, height: 15 * s, segments: 8, bottom: [0, 0, 0] }, mat),
+      cylinderAt({ rBot: 5 * s, rTop: 2.2 * s, height: 4 * s, segments: 8, bottom: [0, 0, 15 * s] }, mat),
+      cylinderAt({ radius: 2.2 * s, height: 5 * s, segments: 6, bottom: [0, 0, 19 * s] }, mat),
+      cylinderAt({ radius: 2.7 * s, height: 3 * s, segments: 6, bottom: [0, 0, 24 * s] }, "WoodWarm"),
+    );
+  return merge(boxAt([10 * s, 10 * s, 12 * s], [0, 0, 0], mat), cylinderAt({ radius: 2.6 * s, height: 5 * s, segments: 6, bottom: [0, 0, 12 * s] }, mat), sphereCenter(3.4 * s, [0, 0, 19 * s], "GoldTrim", 6));
+}
+// A round flask outline (the body centred on the origin, the neck up to 1.75 r).
+function flaskShape(r: number): THREE.Shape {
+  const s = new THREE.Shape(), a = Math.asin(0.34);
+  s.moveTo(-0.34 * r, 1.75 * r);
+  s.lineTo(-0.34 * r, r * Math.cos(a));
+  s.absarc(0, 0, r, Math.PI / 2 + a, Math.PI / 2 - a + 2 * Math.PI, false);
+  s.lineTo(0.34 * r, 1.75 * r);
+  s.lineTo(-0.34 * r, 1.75 * r);
+  return s;
+}
+// A sword standing on its pommel at the origin, the blade up +Z, flat to X (for -X facing emblems).
+function sword(len: number): Geo {
+  const b = len * 0.72;
+  return merge(
+    sphereCenter(4, [0, 0, 4], "GoldTrim", 6),
+    boxBounds([-2.5, -3, 7], [2.5, 3, 26], "WoodDark"),
+    boxBounds([-3, -17, 26], [3, 17, 32], "GoldTrim", 1),
+    boxBounds([-1.5, -4.5, 32], [1.5, 4.5, 32 + b], "IronLight"),
+    translate(scale(cylinderAt({ rBot: 4.5, rTop: 0.2, height: 14, segments: 4, bottom: [0, 0, 0] }, "IronLight"), [0.33, 1, 1]), [0, 0, 32 + b]),
+  );
+}
+function crossedSwords(len: number): Geo {
+  const s = translate(sword(len), [0, 0, -len * 0.55]);
+  return merge(rotateX(s, 38), rotateX(translate(s, [0.5, 0, 0]), -38));
+}
+// The adventurers' badge facing -X: a shield of `field` edged in gold with a gold crown, two
+// swords crossed behind it.
+function guildBadge(s: number, field = "LacquerRed"): Geo {
+  return merge(
+    translate(crossedSwords(s * 2.6), [1, 0, -s * 0.2]),
+    panel(shieldShape(s + 4), -8, 6, "GoldTrim"),
+    panel(shieldShape(s), -10, 2, field),
+    panel(crownShape(s * 0.42), -11, 1, "GoldTrim", { seg: 2 }),
+  );
+}
+// A wooden crate on z = 0 with dark battens on its edges and braces across two faces.
+function crate(sx: number, sy: number, sz: number, wood = "WoodWarm"): Geo {
+  const t = 5, hx = sx / 2, hy = sy / 2, out: Geo[] = [boxAt([sx - 2, sy - 2, sz - 2], [0, 0, 1], wood)];
+  for (const x of [-hx, hx - t]) for (const y of [-hy, hy - t]) out.push(boxBounds([x, y, 0], [x + t, y + t, sz], "WoodDark"));
+  for (const z of [0, sz - t]) {
+    for (const y of [-hy, hy - t]) out.push(boxBounds([-hx, y, z], [hx, y + t, z + t], "WoodDark"));
+    for (const x of [-hx, hx - t]) out.push(boxBounds([x, -hy, z], [x + t, hy, z + t], "WoodDark"));
+  }
+  for (const s of [-1, 1]) out.push(beamBetween([s * (hx - 0.5), -hy + t, t], [s * (hx - 0.5), hy - t, sz - t], 2, 7, "WoodDark"));
+  return merge(...out);
+}
+// A tied grain sack standing on z = 0.
+function sack(r: number, mat = "FabricSand"): Geo {
+  return translate(merge(
+    scale(sphereCenter(r, [0, 0, 0], mat, 8), [0.85, 1.15, 0.72], [0, 0, 0]),
+    cylinderAt({ rBot: r * 0.32, rTop: r * 0.18, height: r * 0.45, segments: 6, bottom: [0, 0, r * 0.6] }, mat),
+    translate(torus(r * 0.22, 1.6, 8, 4, "RopeTan"), [0, 0, r * 0.82]),
+  ), [0, 0, r * 0.66]);
+}
+// A bronze bell hanging from z = 0.
+function bell(r: number): Geo {
+  return merge(
+    cylinderBetween([0, 0, 0], [0, 0, -r * 0.3], r * 0.12, 6, "IronDark"),
+    sphereCenter(r * 0.55, [0, 0, -r * 0.6], "Bronze", 8),
+    cylinderAt({ rBot: r, rTop: r * 0.55, height: r, segments: 10, bottom: [0, 0, -r * 1.6] }, "Bronze"),
+    translate(torus(r, r * 0.09, 10, 4, "Bronze"), [0, 0, -r * 1.6]),
+    sphereCenter(r * 0.2, [0, 0, -r * 1.75], "IronDark", 6),
+  );
+}
+// A clock face facing -X centred on the origin: stone surround, white dial, hours, hands at ten past ten.
+function clockFace(r: number): Geo {
+  const out: Geo[] = [
+    panel(circleShape(r + 12), -6, 6, "StoneLight", { seg: 8 }),
+    panel(circleShape(r + 3), -8, 2, "GoldTrim", { seg: 8 }),
+    panel(circleShape(r), -9, 1, "Eden_PaintWhite", { seg: 8 }),
+    rotateX(boxBounds([-12, -2.5, -4], [-10, 2.5, r * 0.5], "IronDark"), -60),
+    rotateX(boxBounds([-13, -1.8, -4], [-11, 1.8, r * 0.76], "IronDark"), 62),
+    sphereCenter(3.5, [-13, 0, 0], "GoldTrim", 6),
+  ];
+  for (let i = 0; i < 12; i++) out.push(rotateX(boxBounds([-10.5, -1.8, r * 0.76], [-9, 1.8, r * 0.92], i % 3 ? "Eden_Dark" : "GoldTrim"), i * 30));
+  return merge(...out);
+}
+// A park bench facing -X, 180 cm along Y: cast-iron ends with scrolled arms, wooden slats, seat at 44.
+function parkBench(): Geo {
+  const out: Geo[] = [];
+  for (let i = 0; i < 5; i++) out.push(boxBounds([-24 + i * 9.6, -90, 40], [-24 + i * 9.6 + 8, 90, 44], "WoodWarm", 1));
+  for (let i = 0; i < 3; i++) {
+    const z = 58 + i * 12, x = 20 + (14 * (z - 38)) / 54 - 4;
+    out.push(translate(rotateY(box([3, 182, 9], [0, 0, 0], "WoodWarm", 1), 14), [x, 0, z]));
+  }
+  for (const y of [-80, 0, 80]) {
+    out.push(
+      beamBetween([-26, y, 0], [-20, y, 40], 4, 4, "IronDark"),
+      beamBetween([26, y, 0], [20, y, 40], 4, 4, "IronDark"),
+      beamBetween([-24, y, 38], [22, y, 38], 3, 4, "IronDark"),
+      beamBetween([20, y, 38], [34, y, 92], 4, 4, "IronDark"),
+    );
+    if (y !== 0)
+      out.push(
+        beamBetween([-22, y, 40], [-30, y, 62], 3.5, 3.5, "IronDark"),
+        beamBetween([-34, y, 65], [28, y, 67], 5, 3, "IronDark"),
+        translate(rotateX(torus(6, 1.6, 10, 4, "IronDark"), 90), [-33, y, 58]),
+        translate(rotateX(torus(5, 1.4, 10, 4, "IronDark"), 90), [-29, y, 6]),
+        translate(rotateX(torus(5, 1.4, 10, 4, "IronDark"), 90), [29, y, 6]),
+        sphereCenter(3, [-38, y, 66], "GoldTrim", 6),
+      );
+  }
+  return merge(...out);
+}
+
+// ---- city houses (terraces: flat, flush side walls at ±Y) ----
+// A three-storey corner house, 7.6 x 7.6 m (8.9 m deep with its turret): a round turret on the
+// front's -Y end with the door in its foot and a tall conical roof with a weathervane, a shop
+// window under an awning, shuttered windows and flower boxes, a hipped roof with a dormer.
+// Its -Y side carries shallow windows for a street corner; its +Y side is flat.
+function cornerHouse(): Geo {
+  const HX = 380, HY = 380, G = 340, F2 = 660, E = 980, P = 4, R = 150, out: Geo[] = [];
+  const C: V3 = [-HX + 40, -HY + R + 46, 0], fr = (R - 3) * Math.cos(Math.PI / 16), TT = E + 240;
+  const on = placer(out, HX, HY, G, P);
+  out.push(terrace(HX, HY, G, E, [F2]));
+  // the turret
+  const tur: Geo[] = [
+    ring(R + 10, 40, 0, "StoneGrey"),
+    ring(R, G - 40, 40, "StoneLight"),
+    ring(R + 10, 18, G - 6, "StoneWhite"),
+    ring(R - 3, TT - G, G, "Eden_Plaster"),
+    ring(R + 1, 12, F2 - 6, "StoneWhite"),
+    ring(R + 12, 26, E - 24, "StoneWhite"),
+    ring(R + 14, 24, TT - 24, "StoneWhite"),
+    ring(R + 46, 8, TT - 2, "StoneBlueDark"),
+    ring(R + 42, 560, TT, "RoofBlue", 16, 3),
+    sphereCenter(11, [0, 0, TT + 556], "GoldTrim", 8),
+    cylinderBetween([0, 0, TT + 540], [0, 0, TT + 700], 2.5, 6, "IronDark"),
+    sphereCenter(5, [0, 0, TT + 702], "GoldTrim", 6),
+    beamBetween([-30, 0, TT + 630], [30, 0, TT + 630], 2, 2, "IronDark"),
+    beamBetween([0, -30, TT + 630], [0, 30, TT + 630], 2, 2, "IronDark"),
+    beamBetween([-40, 0, TT + 666], [36, 0, TT + 666], 2.5, 2.5, "IronDark"),
+    sheet([-56, 0, TT + 666], [-38, 0, TT + 676], [-38, 0, TT + 656], 0, "GoldTrim", 1),
+    sheet([32, 0, TT + 666], [54, 0, TT + 684], [54, 0, TT + 650], 0, "GoldTrim", 1),
+  ];
+  for (let k = 0; k < 16; k++) tur.push(rotateZ(boxBounds([R - 6, -8, TT - 60], [R + 10, 8, TT - 24], "StoneLight"), k * 22.5 + 11.25));
+  tur.push(onRound(doorGeo(110, 240, { arch: true }), R * Math.cos(Math.PI / 16), 180, 0));
+  for (const a of [135, 225]) tur.push(onRound(windowGeo(56, 110, { arch: true }), R * Math.cos(Math.PI / 16), a, 110));
+  for (const a of [135, 180, 225]) {
+    tur.push(onRound(windowGeo(70, 150, { arch: true, flowers: a === 180 ? 2 : undefined }), fr, a, G + 56));
+    tur.push(onRound(windowGeo(64, 140, { arch: true }), fr, a, F2 + 44));
+    tur.push(onRound(windowGeo(40, 70, { arch: true, frame: "StoneLight" }), fr, a, E + 70));
+  }
+  out.push(translate(merge(...tur), C));
+  // the front: shop window, awning, a second door, windows
+  on(windowGeo(170, 170), "-x", 60, 70);
+  out.push(translate(awning(210, 100, 40, "FabricBlue", "FabricWhite"), [-HX, 60, 318]));
+  on(doorGeo(100, 240, { arch: true }), "-x", 270, 0);
+  on(wallLantern(), "-x", 180, 290);
+  for (const u of [40, 240]) {
+    on(windowGeo(86, 160, { shutters: true, flowers: u === 40 ? 0 : 3 }), "-x", u, G + 56);
+    on(windowGeo(86, 150, { shutters: true }), "-x", u, F2 + 44);
+  }
+  // the -Y street side (shallow windows) and the back
+  for (const u of [-60, 200]) {
+    on(windowGeo(90, 140), "-y", u, 100);
+    on(windowGeo(80, 150), "-y", u, G + 56);
+    on(windowGeo(80, 140), "-y", u, F2 + 44);
+  }
+  on(doorGeo(100, 230), "+x", -220, 0);
+  on(windowGeo(110, 150), "+x", 160, 90);
+  for (const z of [G + 56, F2 + 44]) for (const u of [-200, 180]) on(windowGeo(86, 150, { shutters: true }), "+x", u, z);
+  // the roof
+  out.push(hipRoof(HX, HY, E, 340, 30, 0));
+  out.push(dormer(-HX + 10, 60, E + 20, 140, 200));
+  out.push(chimney(160, 200, E + 150, E + 430));
+  return merge(...out);
+}
+
+// ตึกแถว: a terrace of three joined narrow houses, exactly 14.0 m along Y (y -700..700) and
+// 7.6 m deep: a cream three-storey shop house with its gable to the street, a pale yellow
+// two-storey shop with its eaves to the street and a dormer, a rose-pink house with a stepped
+// gable. Shop fronts on the first two, a door each; flat end walls.
+function rowHouses(): Geo {
+  const HX = 380, G = 330, P = 4, out: Geo[] = [];
+  const on = placer(out, HX, 700, G, P);
+  out.push(wuv(merge(boxBounds([-HX - 8, -700, 0], [HX + 8, 700, 40], "StoneGrey"), boxBounds([-HX, -700, 40], [HX, 700, G], "StoneLight")), 1.1));
+  out.push(boxBounds([-HX - 10, -700, G - 6], [HX + 10, 700, G + 12], "StoneWhite", 3));
+  const units = [
+    { y0: -700, y1: -240, E: 1000, wall: "PlasterCream", F: [660] },
+    { y0: -240, y1: 240, E: 660, wall: "Eden_PlasterYellow", F: [] as number[] },
+    { y0: 240, y1: 700, E: 1060, wall: "Eden_PlasterRose", F: [690] },
+  ];
+  for (const u of units) {
+    out.push(boxBounds([-HX + P, u.y0, G], [HX - P, u.y1, u.E], u.wall));
+    for (const f of u.F) out.push(boxBounds([-HX - 1, u.y0, f - 6], [HX + 1, u.y1, f + 6], "StoneWhite"));
+    out.push(boxBounds([-HX - 12, u.y0, u.E - 24], [HX + 12, u.y1, u.E + 2], "StoneWhite", 3));
+  }
+  // white strips on the party lines and the end corners
+  for (const [y0, y1, top] of [[-700, -672, 976], [-256, -224, 636], [224, 256, 636], [672, 700, 1036]] as const)
+    for (const x0 of [-HX - 4, HX - P]) out.push(boxBounds([x0, y0, G + 12], [x0 + P + 4, y1, top], "StoneWhite"));
+
+  // A: cream, gable to the street
+  out.push(translate(roofX(HX, 230, 1000, 420, { ovx: 24, ovy: "flush", gx: HX - P, gw: 230, wall: "PlasterCream" }), [0, -470, 0]));
+  on(windowGeo(180, 170), "-x", -545, 60);
+  out.push(translate(awning(220, 100, 36, "FabricGreen", "FabricWhite"), [-HX, -545, 312]));
+  on(doorGeo(96, 240, { arch: true }), "-x", -335, 0);
+  for (const u of [-560, -380]) {
+    on(windowGeo(80, 160, { shutters: true, flowers: 0 }), "-x", u, G + 56);
+    on(windowGeo(80, 150, { arch: true }), "-x", u, 660 + 44);
+  }
+  const oculus = merge(panel(circleShape(44), -6, 8, "StoneWhite"), panel(circleShape(32), -8, 2, "GlassBlue"), boxBounds([-10, -32, -2], [-8, 32, 2], "Eden_PaintWhite"), boxBounds([-10, -2, -32], [-8, 2, 32], "Eden_PaintWhite"));
+  out.push(onFace(oculus, "-x", HX - P, -470, 1000 + 150), onFace(oculus, "+x", HX - P, 470, 1000 + 150));
+  out.push(chimney(150, -600, 1150, 1480));
+
+  // B: pale yellow, eaves to the street, a dormer front and back, a tailor's sign
+  out.push(rotateZ(roofX(240, HX, 660, 250, { ovx: 0, ovy: 30, gx: 240, gw: HX - P, wall: "Eden_PlasterYellow", barge: false }), 90));
+  on(windowGeo(220, 170), "-x", -60, 60);
+  out.push(translate(awning(260, 100, 36, "FabricRed", "FabricWhite"), [-HX, -60, 312]));
+  on(doorGeo(100, 240), "-x", 140, 0);
+  const shears = merge(
+    translate(rotateX(torus(9, 2.4, 10, 4, "GoldTrim"), 90), [-12, -2, -22]),
+    translate(rotateX(torus(9, 2.4, 10, 4, "GoldTrim"), 90), [12, -2, -22]),
+    translate(rotateY(boxBounds([-3, -3, 0], [3, 0, 56], "IronLight"), -22), [-8, 0, -14]),
+    translate(rotateY(boxBounds([-3, -3, 0], [3, 0, 56], "IronLight"), 22), [8, 0, -14]),
+    sphereCenter(3, [0, -3, 7], "GoldTrim", 6),
+  );
+  on(hangingSign(shears, { len: 130, bw: 84, bh: 84 }), "-x", -205, 320);
+  for (const u of [-115, 115]) on(windowGeo(80, 150, { shutters: true, flowers: u < 0 ? 1 : 4 }), "-x", u, G + 56);
+  const dB = dormer(-HX + 6, 0, 670, 130, 240, 110);
+  out.push(dB, rotateZ(dB, 180));
+
+  // C: rose, a stepped gable front and back
+  const SN = 5, hw = 230, CE = 1060, CR = 440, sh = (CR + 70) / SN, sw = hw / SN, steps: Geo[] = [], cope: Geo[] = [];
+  for (let k = 0; k < SN; k++) {
+    const w = hw - k * sw, z0 = CE + k * sh, z1 = z0 + sh;
+    steps.push(boxBounds([-HX + P, -w, z0], [-HX + P + 34, w, z1], "Eden_PlasterRose"));
+    cope.push(boxBounds([-HX + P - 6, -w + (k ? 0 : 6), z1], [-HX + P + 40, w - (k ? 0 : 6), z1 + 9], "StoneWhite", 2));
+  }
+  const gableC = merge(wuv(merge(...steps)), ...cope, sphereCenter(12, [-HX + P + 17, 0, CE + SN * sh + 21], "StoneWhite", 8));
+  const roofC = merge(
+    gableC,
+    rotateZ(gableC, 180),
+    roofX(HX - P - 34, hw, CE, CR, { ovx: 18, ovy: "flush", gx: HX - P - 34, gw: hw, wall: "Eden_PlasterRose", barge: false }),
+    onFace(windowGeo(60, 90, { arch: true }), "-x", HX - P, 0, CE + 100),
+    onFace(windowGeo(60, 90, { arch: true }), "+x", HX - P, 0, CE + 100),
+  );
+  out.push(translate(roofC, [0, 470, 0]));
+  on(doorGeo(110, 250, { arch: true }), "-x", 570, 0);
+  on(windowGeo(110, 150, { flowers: 4 }), "-x", 370, 90);
+  on(wallLantern(), "-x", 468, 290);
+  for (const u of [360, 560]) {
+    on(windowGeo(80, 160, { shutters: true }), "-x", u, G + 56);
+    on(windowGeo(80, 160, { shutters: true, flowers: 1 }), "-x", u, 690 + 50);
+  }
+  out.push(chimney(200, 330, 1180, 1620));
+
+  // the back
+  on(doorGeo(96, 230), "+x", -560, 0);
+  on(windowGeo(110, 150), "+x", -370, 90);
+  on(doorGeo(100, 230), "+x", 120, 0);
+  on(windowGeo(110, 150), "+x", -100, 90);
+  on(doorGeo(100, 230), "+x", 380, 0);
+  on(windowGeo(110, 150), "+x", 575, 90);
+  for (const u of [-560, -380, 360, 560]) on(windowGeo(80, 150), "+x", u, G + 56);
+  for (const u of [-560, -380]) on(windowGeo(80, 140), "+x", u, 660 + 44);
+  for (const u of [360, 560]) on(windowGeo(80, 150), "+x", u, 690 + 50);
+  for (const u of [-115, 115]) on(windowGeo(80, 150), "+x", u, G + 56);
+  return merge(...out);
+}
+
+// ---- the shops ----
+// A smith's anvil on a stump with a hammer on its face (the horn to -Y).
+function anvil(): Geo {
+  return merge(
+    cylinderAt({ rBot: 32, rTop: 28, height: 48, segments: 10, bottom: [0, 0, 0] }, "WoodShade"),
+    cylinderAt({ radius: 28.5, height: 1, segments: 10, bottom: [0, 0, 48] }, "WoodPale"),
+    boxAt([34, 52, 8], [0, 0, 49], "IronDark", 1.5),
+    boxAt([20, 30, 16], [0, 0, 57], "IronDark"),
+    boxAt([28, 64, 14], [0, 4, 73], "IronDark", 2),
+    translate(rotateX(cylinderAt({ rBot: 7, rTop: 1, height: 34, segments: 8, bottom: [0, 0, 0] }, "IronDark"), 90), [0, -28, 80]),
+    beamBetween([4, 10, 89], [8, 46, 90], 3.5, 3.5, "WoodWarm"),
+    boxAt([10, 8, 9], [3, 8, 87], "IronLight", 1),
+  );
+}
+// A painted round shield facing +Z on z = 0.
+function roundShield(r: number, field = "LacquerRed"): Geo {
+  return merge(
+    cylinderAt({ radius: r, height: 4, segments: 12, bottom: [0, 0, 0] }, field),
+    translate(torus(r, 2.5, 14, 4, "IronDark"), [0, 0, 2]),
+    sphereCenter(r * 0.24, [0, 0, 4], "GoldTrim", 6),
+  );
+}
+// A timber weapon rack, 160 cm along Y: spears and swords in it, a round shield leaning in front.
+function weaponRack(): Geo {
+  const out: Geo[] = [];
+  for (const y of [-72, 72]) out.push(beamBetween([-22, y, 0], [0, y, 150], 7, 7, "WoodDark"), beamBetween([22, y, 0], [0, y, 150], 7, 7, "WoodDark"));
+  out.push(boxBounds([-4, -82, 144], [4, 82, 152], "WoodDark"), boxBounds([-18, -76, 50], [-10, 76, 58], "WoodWarm"), boxBounds([-24, -76, 6], [24, 76, 14], "WoodWarm"));
+  for (const [y, h] of [[-52, 205], [-30, 190], [52, 212]] as const)
+    out.push(cylinderBetween([-12, y, 14], [-4, y, h], 2.2, 6, "WoodWarm"), translate(scale(cylinderAt({ rBot: 5.5, rTop: 0.3, height: 24, segments: 4, bottom: [0, 0, 0] }, "IronLight"), [0.4, 1, 1]), [-4, y, h]));
+  for (const y of [-6, 20]) out.push(translate(rotateX(sword(80), 180), [-16, y, 156]));
+  out.push(translate(rotateY(roundShield(34), -72), [-44, -12, 42]));
+  return merge(...out);
+}
+
+// The weapon shop, 9 m along Y and 9.6 m deep with its smithy: an ashlar ground storey open to
+// the street over a stone counter (blades and a shield on the wall inside), a plank shutter
+// propped up as a canopy, an anvil and a weapon rack by the door, a shield-and-swords sign; a
+// smithy lean-to behind with a glowing hearth under the forge chimney, which glows at the top.
+function weaponShop(): Geo {
+  const HX = 340, HY = 450, G = 360, E = 680, RH = 330, P = 4, out: Geo[] = [];
+  const on = placer(out, HX, HY, G, P);
+  const Y0 = -390, Y1 = 10, ZB = 100, ZT = 280, D0 = -HX + 40, D1 = -HX + 170;
+  out.push(terrace(HX, HY, G, E, [], { ground: false }));
+  const front = rectAt(-HY, HY, 40, G);
+  front.holes.push(rectAt(Y0, Y1, ZB, ZT));
+  out.push(panel(front, -HX, 40, "StoneLight", { s: 1.1 }));
+  out.push(wuv(merge(
+    boxBounds([D0, -HY, 40], [D1, Y0, G], "StoneLight"),
+    boxBounds([D0, Y1, 40], [D1, HY, G], "StoneLight"),
+    boxBounds([D0, Y0, ZT], [D1, Y1, G], "StoneLight"),
+    boxBounds([D0, Y0, 40], [D1, Y1, ZB], "StoneLight"),
+    boxBounds([D1, -HY, 40], [HX, HY, G], "StoneLight"),
+  ), 1.1));
+  // the counter, the opening's timbers, the inside
+  out.push(
+    boxBounds([-HX - 16, Y0 - 4, ZB], [-HX + 60, Y1 + 4, ZB + 10], "WoodWarm", 2),
+    boxBounds([-HX - 6, Y0 - 16, ZT], [-HX + 30, Y1 + 16, ZT + 24], "WoodDark", 2),
+    boxBounds([-HX - 4, -202, ZB + 10], [-HX + 20, -178, ZT], "WoodDark", 1.5),
+    boxBounds([D1 - 4, Y0, ZB], [D1, Y1, ZT], "WoodShade"),
+    ...[-300, -100].map((y) => boxBounds([D0, y - 8, ZT - 12], [D1, y + 8, ZT], "WoodDark")),
+    translate(crossedSwords(90), [D1 - 6, -300, 200]),
+    translate(rotateY(roundShield(34), -90), [D1 - 4, -80, 196]),
+    translate(rotateY(sword(70), 0), [D1 - 6, -20, 130]),
+    translate(rotateZ(rotateY(sword(70), 90), 20), [-HX + 10, -300, ZB + 14]),
+    sphereCenter(16, [-HX + 24, -90, ZB + 10], "IronLight", 10),
+    boxBounds([-HX + 6, -92, ZB + 10], [-HX + 10, -88, ZB + 24], "IronLight"),
+  );
+  // the plank shutter propped up over the counter
+  out.push(
+    roofUv(beamBetween([-HX - 6, (Y0 + Y1) / 2, ZT + 26], [-HX - 112, (Y0 + Y1) / 2, ZT + 74], Y1 - Y0 + 40, 6, "WoodWarm")),
+    ...[Y0 + 10, (Y0 + Y1) / 2, Y1 - 10].map((y) => beamBetween([-HX - 8, y, ZT + 32], [-HX - 110, y, ZT + 79], 6, 4, "WoodDark")),
+    ...[Y0 + 30, Y1 - 30].map((y) => cylinderBetween([-HX - 4, y, ZT - 40], [-HX - 100, y, ZT + 70], 1.6, 5, "IronDark")),
+  );
+  on(doorGeo(110, 250, { arch: true }), "-x", 180, 0);
+  out.push(translate(anvil(), [-HX - 70, 60, 0]));
+  out.push(translate(weaponRack(), [-HX - 36, 360, 0]));
+  const shieldFace = toY(merge(panel(shieldShape(34), -9, 6, "GoldTrim"), panel(shieldShape(30), -11, 2, "Eden_PaintBlue"), panel(crownShape(14), -12, 1, "GoldTrim", { seg: 2 })));
+  on(hangingSign(shieldFace, { board: null, core: toY(crossedSwords(78)), len: 150, bw: 90, bh: 80 }), "-x", 300, 340);
+  // upper storey
+  for (const u of [-300, 0, 300]) on(windowGeo(86, 160, { shutters: true, flowers: u === 0 ? 2 : undefined }), "-x", u, G + 60);
+  for (const u of [-300, 300]) on(windowGeo(86, 150, { shutters: true }), "+x", u, G + 60);
+  on(windowGeo(86, 150, { shutters: true }), "+x", 0, G + 60);
+  // roof, eaves to the street, a dormer
+  out.push(rotateZ(roofX(HY, HX, E, RH, { ovx: 0, ovy: 30, gx: HY, gw: HX - P }), 90));
+  out.push(dormer(-HX + 10, 0, E + 20, 150, 220));
+  // the smithy behind: a lean-to on posts over the hearth, the forge chimney up the back wall
+  const CY0 = 120, CY1 = 240, CT = E + RH + 120, cy = (CY0 + CY1) / 2;
+  out.push(
+    roofUv(beamBetween([HX + 2, 80, 346], [HX + 184, 80, 262], 520, 8, "RoofBlue")),
+    boxBounds([HX, -182, 332], [HX + 12, 342, 346], "WoodDark"),
+    boxBounds([HX + 150, -176, 250], [HX + 166, 336, 268], "WoodDark"),
+    ...[-160, 320].map((y) => boxAt([16, 16, 250], [HX + 158, y, 0], "WoodDark")),
+    wuv(merge(boxBounds([HX, CY0 - 14, 0], [HX + 110, CY1 + 14, 80], "StoneLight"), boxBounds([HX, CY0, 200], [HX + 90, CY1, CT], "StoneLight")), 1.1),
+    boxBounds([HX + 10, CY0 - 4, 80], [HX + 100, CY1 + 4, 86], "FireGlow"),
+    ...[[HX + 40, cy - 25], [HX + 62, cy + 18], [HX + 30, cy + 30], [HX + 80, cy - 10]].map(([x, y]) => sphereCenter(9, [x, y, 86], "FireGlow", 5)),
+    ...[CY0 - 14, CY1 + 2].map((y) => boxBounds([HX + 70, y, 80], [HX + 110, y + 12, 160], "StoneLight")),
+    translate(rotateZ(cylinderAt({ rBot: 100, rTop: 64, height: 54, segments: 4, bottom: [0, 0, 0] }, "StoneLight"), 45), [HX + 45, cy, 156]),
+    boxBounds([HX - 8, CY0 - 8, CT], [HX + 98, CY1 + 8, CT + 16], "StoneGrey", 2),
+    boxBounds([HX + 16, CY0 + 16, CT + 4], [HX + 74, CY1 - 16, CT + 17], "FireGlow"),
+    sphereCenter(5, [HX + 40, cy, CT + 40], "FireGlow", 5),
+    sphereCenter(4, [HX + 56, cy - 14, CT + 66], "FireGlow", 5),
+    sphereCenter(3, [HX + 34, cy + 10, CT + 92], "FireGlow", 5),
+    translate(barrel(), [HX + 110, -40, 0]),
+    cylinderAt({ radius: 26, height: 1, segments: 12, bottom: [HX + 110, -40, 78] }, "Eden_Water"),
+    // bellows on a stand by the hearth
+    boxAt([60, 44, 56], [HX + 60, CY1 + 60, 0], "WoodShade", 2),
+    hullGeo([[HX + 30, CY1 + 44, 58], [HX + 30, CY1 + 76, 58], [HX + 90, CY1 + 50, 58], [HX + 90, CY1 + 70, 58], [HX + 30, CY1 + 44, 76], [HX + 30, CY1 + 76, 76], [HX + 90, CY1 + 56, 62], [HX + 90, CY1 + 64, 62]], "FeltRed"),
+    cylinderBetween([HX + 30, CY1 + 60, 64], [HX + 14, CY1 + 20, 74], 3, 6, "IronDark"),
+  );
+  on(doorGeo(100, 230), "+x", -60, 0);
+  on(windowGeo(90, 120), "+x", -300, 110);
+  return merge(...out);
+}
+
+// The tool shop (potions and sundries), 7.2 m deep and 7 m along Y: a projecting shop window
+// crammed with glowing bottles under a purple-and-white awning, a sign with a red flask, a
+// shuttered plaster storey, a hipped blue roof with a dormer and a chimney.
+function toolShop(): Geo {
+  const HX = 360, HY = 350, G = 340, E = 680, P = 4, out: Geo[] = [];
+  const on = placer(out, HX, HY, G, P);
+  out.push(terrace(HX, HY, G, E, []));
+  const goods: Geo[] = [];
+  for (let k = 0; k < 4; k++) {
+    const z = k * 52;
+    if (k) goods.push(boxBounds([-46, -140, z - 4], [-2, 140, z], "WoodPale"));
+    for (let i = 0; i < 8; i++) {
+      const kind = (i + k) % 3;
+      goods.push(translate(bottle(kind, POTIONS[(i * 3 + k) % 5], kind === 1 ? 1.3 : 1.15), [-26 + ((i + k) % 2) * 10, -122 + i * 34 + (k % 2) * 8, z]));
+    }
+  }
+  on(displayWindow(290, 200, 52, "Eden_PaintBlue", merge(...goods)), "-x", -70, 76);
+  out.push(translate(awning(320, 100, 32, "FabricPurple", "FabricWhite"), [-HX - 10, -70, G + 26]));
+  on(doorGeo(100, 240, { arch: true }), "-x", 240, 0);
+  const flask = toY(merge(
+    panel(flaskShape(30), -2, 2, "GoldTrim"),
+    panel(flaskShape(26), -4, 2, "Eden_PotionRed"),
+    panel(rectAt(-11, 11, 44, 58), -5, 3, "WoodWarm"),
+    panel(circleShape(6, -10, 8), -5, 1, "Eden_PaintWhite"),
+  ));
+  on(hangingSign(translate(flask, [0, 0, -12]), { len: 130, bw: 90, bh: 100 }), "-x", -300, 330);
+  out.push(translate(barrel(), [-HX - 46, -300, 0]));
+  for (const [y, r] of [[-312, 16], [-286, 14], [-300, 12]] as const) out.push(sphereCenter(r, [-HX - 46 + (y + 300) * 0.5, y, 84 + r * 0.5], "LeafGreen", 6));
+  // upper storey and the back
+  for (const u of [-210, 210]) on(windowGeo(80, 160, { shutters: true, flowers: u < 0 ? 0 : 3 }), "-x", u, G + 56);
+  on(windowGeo(90, 180, { arch: true, flowers: 4 }), "-x", 0, G + 50);
+  on(doorGeo(100, 230), "+x", -180, 0);
+  on(windowGeo(110, 140), "+x", 150, 100);
+  for (const u of [-180, 160]) on(windowGeo(80, 150, { shutters: true }), "+x", u, G + 56);
+  // the roof
+  out.push(hipRoof(HX, HY, E, 320, 30, 0));
+  out.push(dormer(-HX + 10, 0, E + 20, 140, 200));
+  out.push(chimney(150, 200, E + 150, E + 410));
+  return merge(...out);
+}
+
+// A small two-storey cafe and bakery, 7.2 m deep and 6.6 m along Y, its gable to the street: a
+// painted blue shop front with a window of loaves and cakes under a red-and-white awning, a
+// golden pretzel on a scrolled bracket, a chalk menu board and pots of flowers by the door.
+function pretzel(s: number): Geo {
+  const P: V3[] = [[-16, -4, -18], [-7, -4, -5], [0, -5, 6], [8, -3, 16], [18, 0, 24], [30, 0, 20], [35, 0, 6], [30, 0, -12], [17, 0, -24], [0, 0, -28], [-17, 0, -24], [-30, 0, -12], [-35, 0, 6], [-30, 0, 20], [-18, 0, 24], [-8, 3, 16], [0, 5, 6], [7, 4, -5], [16, 4, -18]];
+  return tube(P.map(([x, y, z]): V3 => [x * s, y * s, z * s]), 5.5 * s, "GoldTrim", 64, 6);
+}
+function cafe(): Geo {
+  const HX = 360, HY = 330, G = 360, E = 680, RH = 380, P = 4, out: Geo[] = [];
+  const on = placer(out, HX, HY, G, P);
+  out.push(terrace(HX, HY, G, E, []));
+  // the painted shop front
+  out.push(
+    boxBounds([-HX - 12, -HY + 2, 292], [-HX, HY - 2, 346], "Eden_PaintBlue", 2),
+    boxBounds([-HX - 15, -HY + 2, 346], [-HX, HY - 2, 352], "GoldTrim"),
+    boxBounds([-HX - 15, -HY + 2, 288], [-HX, HY - 2, 292], "GoldTrim"),
+  );
+  for (const [y, w] of [[-120, 22], [-92, 16], [-70, 26], [-36, 14], [-14, 22], [20, 18], [44, 26], [78, 16], [100, 22]] as const) out.push(boxBounds([-HX - 13.5, y, 306], [-HX - 12, y + w, 332], "GoldTrim"));
+  for (const y of [-HY + 2, -46, HY - 30]) out.push(boxBounds([-HX - 14, y, 0], [-HX, y + 28, 292], "Eden_PaintBlue", 1.5), boxBounds([-HX - 18, Math.max(-HY, y - 3), 0], [-HX, Math.min(HY, y + 31), 26], "Eden_PaintBlue", 1.5));
+  // the window of bread and cakes
+  const goods: Geo[] = [boxBounds([-38, -112, 52], [-2, 112, 56], "WoodPale"), boxBounds([-38, -112, 104], [-2, 112, 108], "WoodPale")];
+  for (let i = 0; i < 5; i++) goods.push(translate(scale(sphereCenter(14, [0, 0, 0], "Eden_Bread", 8), [0.8, 1.3, 0.62]), [-20, -88 + i * 44, 3]));
+  for (let i = 0; i < 4; i++) {
+    const y = -78 + i * 52;
+    goods.push(
+      cylinderAt({ radius: 15, height: 13, segments: 10, bottom: [-20, y, 56] }, i % 2 ? "Eden_Bread" : "FeltCream"),
+      cylinderAt({ radius: 15.6, height: 3, segments: 10, bottom: [-20, y, 69] }, i % 2 ? "FeltCream" : "Eden_FlowerPink"),
+      sphereCenter(3, [-20, y, 74], "Eden_Apple", 5),
+    );
+  }
+  for (let i = 0; i < 6; i++) goods.push(translate(scale(sphereCenter(8, [0, 0, 0], "Eden_Bread", 6), [1, 1.4, 0.7]), [-20 + (i % 2) * 6, -95 + i * 38, 113]));
+  on(displayWindow(230, 160, 40, "Eden_PaintBlue", merge(...goods)), "-x", -168, 70);
+  out.push(translate(awning(250, 110, 34, "FabricRed", "FabricWhite"), [-HX - 12, -168, 286]));
+  on(doorGeo(110, 240, { frame: "Eden_PaintBlue" }), "-x", 130, 0);
+  for (const y of [30, 230]) out.push(cylinderAt({ rBot: 13, rTop: 17, height: 30, segments: 8, bottom: [-HX - 30, y, 0] }, "Eden_Terracotta"), translate(blooms(26, 2, y === 30 ? 0 : 1, 8), [-HX - 30, y, 26]));
+  // the menu board
+  const leaf = rotateY(merge(boxBounds([-2, -30, 0], [2, 30, 92], "WoodPale"), boxBounds([-3, -25, 8], [-2, 25, 84], "Eden_Chalk"), ...[70, 56, 42, 28].map((z, i) => boxBounds([-3.5, -18, z], [-3, 18 - i * 6, z + 2.5], "Eden_PaintWhite"))), 12, [0, 0, 92]);
+  out.push(translate(rotateZ(merge(leaf, rotateZ(leaf, 180)), -15), [-HX - 90, -250, -2]));
+  // the pretzel and the upper storey
+  on(hangingSign([], { board: null, core: pretzel(1.25), len: 130, bw: 70, bh: 70 }), "-x", 300, 420);
+  for (const u of [-150, 150]) on(windowGeo(86, 160, { shutters: true, flowers: u < 0 ? 0 : 3 }), "-x", u, G + 50);
+  on(windowGeo(70, 110, { arch: true }), "-x", 0, E + 40);
+  // the back
+  on(doorGeo(100, 230), "+x", -150, 0);
+  on(windowGeo(110, 140), "+x", 120, 100);
+  for (const u of [-150, 150]) on(windowGeo(86, 150, { shutters: true }), "+x", u, G + 50);
+  on(windowGeo(70, 110, { arch: true }), "+x", 0, E + 40);
+  // the roof, gable to the street, and the oven chimney
+  out.push(roofX(HX, HY, E, RH, { ovx: 30, ovy: "flush", gx: HX - P, gw: HY }));
+  out.push(chimney(200, -170, E + 150, E + 450));
+  return merge(...out);
+}
+
+// ---- the guild ----
+// The adventurers' guild, 13 m along Y and 9.8 m deep: three storeys behind a two-storey porch
+// of four marble columns under a pediment with the guild's badge, blue banners, red guild flags
+// on the corners, a hipped roof with dormers and a clock and bell turret on the ridge.
+function guildHall(): Geo {
+  const HX = 360, HY = 650, G = 380, F2 = 720, E = 1080, RH = 380, P = 4, out: Geo[] = [];
+  const on = placer(out, HX, HY, G, P);
+  out.push(terrace(HX, HY, G, E, [F2]));
+  // the porch: podium and steps, columns, entablature, pediment
+  const PX = -HX - 180, PY = 300, TOP = 600;
+  out.push(
+    wuv(boxBounds([PX - 10, -PY - 20, 0], [-HX, PY + 20, 50], "StoneLight", 3), 1.1),
+    boxBounds([PX - 70, -PY, 0], [PX - 10, PY, 17], "StoneGrey", 2),
+    boxBounds([PX - 40, -PY, 17], [PX - 10, PY, 34], "StoneGrey", 2),
+    boxBounds([PX - 6, -PY + 8, TOP], [-HX, PY - 8, TOP + 32], "StoneLight"),
+    boxBounds([PX - 2, -PY + 4, TOP + 32], [-HX, PY - 4, TOP + 68], "StoneWhite"),
+    boxBounds([PX - 3, -200, TOP + 40], [PX - 2, 200, TOP + 60], "Eden_PaintBlue"),
+    boxBounds([PX - 14, -PY - 8, TOP + 68], [-HX, PY + 8, TOP + 84], "StoneLight", 3),
+    gableRoof([200, 2 * PY + 16, 16], [PX + 90, 0, TOP + 84], 150, 14, "RoofBlue"),
+    ridge([PX - 24, 0, TOP + 84 + 150 + 20], [-HX, 0, TOP + 84 + 150 + 20], 9),
+    gableWall(PX - 2, PY + 4, TOP + 84, 146, "StoneWhite"),
+    translate(guildBadge(40), [PX - 2, 0, TOP + 150]),
+  );
+  for (let i = -6; i <= 6; i += 2) out.push(boxBounds([PX - 3.5, i * 26 - 9, TOP + 44], [PX - 2, i * 26 + 9 + (i % 4 ? 6 : 0), TOP + 56], "GoldTrim"));
+  for (const s of [-1, 1]) out.push(beamBetween([PX - 8, s * (PY + 16), TOP + 86], [PX - 8, 0, TOP + 84 + 156], 12, 14, "StoneLight"));
+  for (const y of [-255, -85, 85, 255]) {
+    const x = PX + 40;
+    out.push(
+      boxAt([58, 58, 14], [x, y, 50], "StoneLight", 2),
+      cylinderAt({ rBot: 27, rTop: 25, height: 8, segments: 12, bottom: [x, y, 64] }, "StoneLight"),
+      cylinderAt({ rBot: 24, rTop: 21, height: 506, segments: 12, bottom: [x, y, 72] }, "MarbleWhite"),
+      cylinderAt({ rBot: 21, rTop: 29, height: 10, segments: 12, bottom: [x, y, 578] }, "StoneLight"),
+      boxAt([64, 64, 12], [x, y, 588], "StoneLight", 2),
+    );
+  }
+  // hanging lanterns in the porch
+  for (const y of [-170, 170]) out.push(cylinderBetween([PX + 90, y, TOP], [PX + 90, y, TOP - 60], 1.2, 4, "IronDark"), translate(lantern(), [PX + 90, y, TOP - 104]));
+  // the front
+  on(doorGeo(160, 300, { arch: true, double: true, step: false }), "-x", 0, 50);
+  for (const s of [-1, 1]) {
+    on(windowGeo(100, 200, { arch: true }), "-x", s * 170, 120);
+    on(windowGeo(90, 210, { arch: true }), "-x", s * 170, G + 60);
+    on(windowGeo(80, 150, { shutters: false }), "-x", s * 170, 830);
+    for (const u of [400, 540]) {
+      on(windowGeo(90, 170, { flowers: u === 400 ? (s < 0 ? 0 : 3) : undefined }), "-x", s * u, 110);
+      on(windowGeo(90, 200, { arch: true, flowers: u === 400 ? 1 : undefined }), "-x", s * u, G + 60);
+      on(windowGeo(90, 160), "-x", s * u, 800);
+    }
+    out.push(translate(bannerGeo(90, 260), [-HX - 8, s * 285, 1040]));
+    out.push(onFace(wallLantern(), "-x", HX, s * 470, 330));
+    // the guild flags on the corners
+    const pole = merge(cylinderBetween([0, 0, 0], [-190, 0, 170], 3, 6, "WoodDark"), sphereCenter(6, [-192, 0, 172], "GoldTrim", 6), boxBounds([-2, -8, -20], [4, 8, 20], "IronDark"));
+    out.push(translate(merge(pole, sheet([-60, 0, 54], [-176, 0, 158], [-136, 0, -10], 8, "FabricRed", 4), sheet([-176, 0, 158], [-136, 0, -10], [-176, 0, 30], 6, "FabricRed", 3)), [-HX + P, s * 605, 880]));
+  }
+  out.push(onFace(guildBadge(70), "-x", HX - P, 0, 960));
+  // the back
+  on(doorGeo(140, 270, { arch: true, double: true }), "+x", 0, 0);
+  for (const u of [-470, -220, 220, 470]) {
+    on(windowGeo(90, 170), "+x", u, 110);
+    on(windowGeo(90, 190, { arch: true }), "+x", u, G + 60);
+    on(windowGeo(90, 160), "+x", u, 800);
+  }
+  on(windowGeo(90, 190, { arch: true }), "+x", 0, G + 60);
+  on(windowGeo(90, 160), "+x", 0, 800);
+  // the roof, dormers, chimneys
+  out.push(hipRoof(HX, HY, E, RH, 30, 0));
+  for (const s of [-1, 1]) {
+    const d = dormer(-HX + 10, s * 330, E + 30, 140, 200);
+    out.push(d, rotateZ(d, 180));
+    out.push(chimney(150, s * 420, E + 150, E + 470));
+  }
+  // the clock and bell turret on the ridge
+  const TZ = E + 22 + RH, tw: Geo[] = [
+    boxBounds([-110, -110, E + 200], [110, 110, TZ + 220], "Eden_Plaster"),
+    boxBounds([-118, -118, TZ + 10], [118, 118, TZ + 24], "StoneWhite", 2),
+    boxBounds([-122, -122, TZ + 210], [122, 122, TZ + 236], "StoneWhite", 3),
+    boxBounds([-104, -104, TZ + 236], [104, 104, TZ + 244], "StoneLight"),
+    boxBounds([-124, -124, TZ + 420], [124, 124, TZ + 444], "StoneWhite", 3),
+    boxBounds([-108, -108, TZ + 396], [108, 108, TZ + 420], "StoneLight"),
+    rotateZ(cylinderAt({ rBot: 170, rTop: 3, height: 340, segments: 8, bottom: [0, 0, TZ + 444] }, "RoofBlue"), 22.5),
+    sphereCenter(12, [0, 0, TZ + 786], "GoldTrim", 8),
+    cylinderBetween([0, 0, TZ + 780], [0, 0, TZ + 900], 2.5, 6, "IronDark"),
+    sheet([0, 0, TZ + 896], [0, 0, TZ + 850], [-110, 0, TZ + 874], 6, "FabricRed", 3),
+    beamBetween([0, -70, TZ + 390], [0, 70, TZ + 390], 8, 8, "WoodDark"),
+    translate(bell(34), [0, 0, TZ + 386]),
+  ];
+  for (const [x, y] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    tw.push(boxBounds([x * 104 - 22, y * 104 - 22, TZ + 244], [x * 104 + 22, y * 104 + 22, TZ + 396], "StoneWhite", 2));
+    tw.push(boxBounds([x * 110 - 16, y * 110 - 16, E + 220], [x * 110 + 16, y * 110 + 16, TZ + 210], "StoneWhite"));
+  }
+  for (const f of ["-x", "+x", "-y", "+y"] as const) {
+    tw.push(onFace(clockFace(62), f, 110, 0, TZ + 120));
+    tw.push(onFace(merge(panel(rectAt(-60, 60, TZ + 370, TZ + 396), -6, 6, "StoneLight"), boxBounds([-12, -64, TZ + 244], [0, 64, TZ + 256], "StoneLight")), f, 104, 0, 0));
+  }
+  out.push(...tw);
+  return merge(...out);
+}
+
+// ---- the harbour ----
+// The harbour warehouse, exactly 12 m along Y and 7.7 m deep: an ashlar ground storey with two
+// great arched double doors onto a timber loading platform, a half-timbered upper storey, a
+// hoist gable with loft doors, a hoist beam with a pulley and a crate on the rope, crates,
+// barrels and sacks, an anchor sign, lanterns; gable ends flat at ±Y.
+function warehouse(): Geo {
+  const HX = 290, HY = 600, G = 360, E = 640, RH = 300, P = 4, out: Geo[] = [];
+  const on = placer(out, HX, HY, G, P);
+  out.push(terrace(HX, HY, G, E, [], { pilasters: false }));
+  // half-timbering on the upper storey, front and back
+  const tim: Geo[] = [];
+  const posts = [-593, -450, -300, -150, 150, 300, 450, 593];
+  for (const y of posts) tim.push(boxBounds([-HX - 1, y - 7, G + 12], [-HX + P, y + 7, E - 24], "WoodDark"));
+  for (const [a, b] of [[-593, -450], [450, 593]]) tim.push(beamBetween([-HX - 0.5, a + 7, G + 14], [-HX - 0.5, b - 7, E - 26], 5, 12, "WoodDark"));
+  for (const [a, b] of [[-450, -300], [300, 450]]) tim.push(beamBetween([-HX - 0.5, a + 7, E - 26], [-HX - 0.5, b - 7, G + 14], 5, 12, "WoodDark"));
+  const timber = merge(...tim);
+  out.push(timber, rotateZ(timber, 180));
+  for (const s of [-1, 1]) for (const u of [225, 375]) {
+    on(windowGeo(66, 100, { frame: "WoodDark" }), "-x", s * u, G + 90);
+    on(windowGeo(66, 100, { frame: "WoodDark" }), "+x", s * u, G + 90);
+  }
+  // the great doors on the platform, lanterns, the anchor sign
+  for (const s of [-1, 1]) {
+    on(doorGeo(230, 270, { arch: true, double: true, step: false }), "-x", s * 300, 60);
+    on(wallLantern(), "-x", s * 140, 300);
+  }
+  const anchor = merge(
+    translate(rotateY(torus(9, 2.4, 10, 4, "GoldTrim"), 90), [-8, 0, 36]),
+    boxBounds([-9, -3, -28], [-6, 3, 28], "GoldTrim"),
+    boxBounds([-9, -18, 14], [-6, 18, 19], "GoldTrim"),
+    translate(rotateY(torus(24, 3, 14, 4, "GoldTrim"), 90), [-8, 0, -6]),
+  );
+  on(merge(boxBounds([-6, -66, -44], [0, 66, 44], "WoodDark", 1.5), boxBounds([-7, -60, -38], [-6, 60, 38], "Eden_PaintBlue"), boxBounds([-12, -60, 20], [-6, 60, 30], "Eden_PaintBlue"), translate(scale(anchor, [1, 0.9, 0.62]), [-2, 0, 4])), "-x", 0, 250);
+  // the loading platform and its steps
+  const PX0 = -HX - 180;
+  for (let i = 0; i < 8; i++) out.push(boxBounds([PX0 + i * 22.5 + 1, -560, 50], [PX0 + (i + 1) * 22.5 - 0.5, 560, 60], "WoodGrey"));
+  out.push(boxBounds([PX0 - 4, -560, 26], [PX0 + 10, 560, 50], "WoodDark"));
+  for (let y = -540; y <= 540; y += 154) out.push(boxAt([16, 16, 50], [PX0 + 6, y, 0], "WoodDark"));
+  out.push(boxBounds([PX0, -600, 0], [-HX, -580, 20], "StoneGrey", 2), boxBounds([PX0, -580, 0], [-HX, -560, 40], "StoneGrey", 2));
+  for (const y of [-560, 560]) out.push(boxBounds([PX0, y - (y < 0 ? 0 : 6), 26], [-HX, y + (y < 0 ? 6 : 0), 60], "WoodDark"));
+  // goods on the platform
+  out.push(
+    translate(crate(80, 80, 72), [-HX - 90, -500, 60]),
+    translate(rotateZ(crate(60, 60, 54), 14), [-HX - 92, -496, 132]),
+    translate(barrel(), [-HX - 50, -80, 60]),
+    translate(barrel(), [-HX - 50, 80, 60]),
+    translate(rotateZ(sack(30), 80), [-HX - 70, 500, 60]),
+    translate(rotateZ(sack(28), 100), [-HX - 130, 490, 60]),
+    translate(rotateZ(sack(26), 90), [-HX - 100, 500, 100]),
+  );
+  // the hoist gable: loft doors, the beam, pulley, rope and a crate in the air
+  const HG = 150, HZ = E + 180;
+  out.push(
+    boxBounds([-HX + P, -HG, E - 24], [-HX + 220, HG, HZ], "Eden_Plaster"),
+    boxBounds([-HX + P - 2, -HG, E - 24], [-HX + 220, -HG + 14, HZ], "WoodDark"),
+    boxBounds([-HX + P - 2, HG - 14, E - 24], [-HX + 220, HG, HZ], "WoodDark"),
+    boxBounds([-HX + P - 2, -HG, HZ - 14], [-HX + 8, HG, HZ], "WoodDark"),
+    gableRoof([250, 2 * HG, 16], [-HX + 95, 0, HZ], 120, 18, "RoofBlue"),
+    ridge([-HX - 30, 0, HZ + 140], [-HX + 220, 0, HZ + 140], 9),
+    gableWall(-HX + P, HG, HZ, 116, "Eden_Plaster"),
+    boxBounds([-HX + P - 4, -56, E + 40], [-HX + P, 56, HZ - 20], "DoorWood"),
+    boxBounds([-HX + P - 5, -1.5, E + 40], [-HX + P - 4, 1.5, HZ - 20], "WoodDark"),
+    ...[E + 64, HZ - 50].map((z) => boxBounds([-HX + P - 6, -50, z], [-HX + P - 4, 50, z + 7], "IronDark")),
+    boxBounds([-HX + P - 8, -64, E + 30], [-HX + P, 64, E + 40], "WoodDark"),
+  );
+  for (const s of [-1, 1]) out.push(beamBetween([-HX - 18, s * (HG + 18), HZ - 14], [-HX - 18, 0, HZ + 116], 6, 18, "Eden_PaintWhite"));
+  const BZ = HZ + 70, PXh = -HX - 150;
+  out.push(
+    boxBounds([PXh - 20, -9, BZ], [-HX + 40, 9, BZ + 18], "WoodDark", 1.5),
+    beamBetween([-HX + 2, 0, HZ - 10], [-HX - 70, 0, BZ + 2], 9, 9, "WoodDark"),
+    boxBounds([PXh - 9, -8, BZ - 30], [PXh + 9, -5, BZ], "IronDark"),
+    boxBounds([PXh - 9, 5, BZ - 30], [PXh + 9, 8, BZ], "IronDark"),
+    translate(rotateX(torus(12, 3, 12, 5, "WoodWarm"), 90), [PXh, 0, BZ - 18]),
+    cylinderBetween([PXh, -8, BZ - 18], [PXh, 8, BZ - 18], 3, 6, "IronDark"),
+    cylinderBetween([PXh - 14, 0, BZ - 18], [PXh - 14, 0, 290], 1.5, 5, "RopeTan"),
+    cylinderBetween([PXh + 4, 0, BZ - 6], [-HX + P, 0, E + 120], 1.5, 5, "RopeTan"),
+    translate(rotateY(torus(6, 1.6, 8, 4, "IronDark"), 90), [PXh - 14, 0, 284]),
+    translate(crate(70, 70, 64), [PXh - 14, 0, 196]),
+  );
+  for (const [dx, dy] of [[-30, -30], [-30, 30], [30, -30], [30, 30]]) out.push(cylinderBetween([PXh - 14, 0, 280], [PXh - 14 + dx, dy, 260], 1.2, 4, "RopeTan"));
+  // the back: a door and barred windows below
+  on(doorGeo(110, 240), "+x", -300, 0);
+  for (const u of [0, 300]) on(windowGeo(80, 80), "+x", u, 180);
+  // the main roof, eaves front and back
+  out.push(rotateZ(roofX(HY, HX, E, RH, { ovx: 0, ovy: 30, gx: HY, gw: HX - P }), 90));
+  return merge(...out);
+}
+
+// ---- garden pieces and street furniture ----
+// A cafe table for the street: a round marble top on an iron stem, two bistro chairs, a striped parasol.
+function cafeTable(): Geo {
+  const out: Geo[] = [
+    cylinderAt({ rBot: 26, rTop: 22, height: 4, segments: 10, bottom: [0, 0, 0] }, "IronDark"),
+    cylinderAt({ rBot: 6, rTop: 3.5, height: 68, segments: 8, bottom: [0, 0, 4] }, "IronDark"),
+    cylinderAt({ radius: 40, height: 4, segments: 14, bottom: [0, 0, 72] }, "MarbleWhite"),
+    translate(torus(40, 1.6, 16, 4, "GoldTrim"), [0, 0, 74]),
+    cylinderAt({ radius: 2.6, height: 240, segments: 6, bottom: [0, 0, 4] }, "WoodPale"),
+    sphereCenter(4.5, [0, 0, 246], "GoldTrim", 6),
+    cylinderAt({ radius: 7, height: 1, segments: 8, bottom: [14, -14, 76] }, "Eden_PaintWhite"),
+    cylinderAt({ rBot: 3.5, rTop: 4.5, height: 7, segments: 8, bottom: [14, -14, 77] }, "Eden_PaintWhite"),
+    cylinderAt({ radius: 7, height: 1, segments: 8, bottom: [-12, 16, 76] }, "Eden_PaintWhite"),
+    cylinderAt({ rBot: 3.5, rTop: 4.5, height: 7, segments: 8, bottom: [-12, 16, 77] }, "Eden_PaintWhite"),
+    cylinderAt({ rBot: 3, rTop: 2, height: 10, segments: 6, bottom: [-16, -16, 76] }, "GlassBlue"),
+    sphereCenter(4, [-16, -16, 89], "Eden_FlowerRed", 5),
+  ];
+  const n = 8, R = 125, zr = 214, zt = 250;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2, b = ((i + 1) / n) * Math.PI * 2, m = (a + b) / 2;
+    out.push(sheet([0, 0, zt], [R * Math.cos(a), R * Math.sin(a), zr], [R * Math.cos(b), R * Math.sin(b), zr], -3, i % 2 ? "FabricWhite" : "FabricRed", 2));
+    out.push(translate(rotateZ(box([3, 2 * R * Math.sin(Math.PI / n) * 0.96, 14], [0, 0, 0], i % 2 ? "FabricWhite" : "FabricRed"), (m * 180) / Math.PI), [R * 0.93 * Math.cos(m), R * 0.93 * Math.sin(m), zr - 6]));
+    out.push(cylinderBetween([0, 0, zt - 6], [R * 0.98 * Math.cos(a), R * 0.98 * Math.sin(a), zr - 2], 1, 4, "WoodPale"));
+  }
+  const chair = merge(
+    cylinderAt({ radius: 20, height: 4, segments: 10, bottom: [0, 0, 42] }, "WoodPale"),
+    translate(torus(20, 1.4, 12, 4, "IronDark"), [0, 0, 43]),
+    ...[[-14, -14], [-14, 14], [14, -14], [14, 14]].map(([x, y]) => cylinderBetween([x * 1.2, y * 1.2, 0], [x * 0.8, y * 0.8, 42], 1.4, 4, "IronDark")),
+    translate(rotateY(torus(15, 1.6, 12, 4, "IronDark"), 90), [19, 0, 76]),
+    ...[-12, 12].map((y) => cylinderBetween([17, y, 44], [19, y, 66], 1.4, 4, "IronDark")),
+    boxBounds([16, -10, 64], [20, 10, 82], "WoodPale"),
+  );
+  out.push(translate(rotateZ(chair, -90), [0, -72, 0]), translate(rotateZ(chair, 95), [6, 72, 0]));
+  return merge(...out);
+}
+
+// A 400 cm length of clipped box hedge along Y on a low stone kerb; tiles end to end.
+function hedge(): Geo {
+  const L = 200;
+  const prism = (pts: [number, number][], mat: string): Geo => hullGeo(pts.flatMap(([x, z]): V3[] => [[x, -L, z], [x, L, z]]), mat);
+  const out: Geo[] = [
+    prism([[-50, 0], [50, 0], [50, 14], [45, 20], [-45, 20], [-50, 14]], "StoneLight"),
+    prism([[-40, 20], [40, 20], [42, 96], [36, 122], [26, 130], [-26, 130], [-36, 122], [-42, 96]], "Eden_Hedge"),
+  ];
+  for (let i = 0; i < 10; i++) {
+    const y = -170 + i * 36 + ((i * 13) % 7) * 2, x = ((i * 29) % 5) * 9 - 18;
+    out.push(scale(sphereCenter(13, [x, y, 128], i % 3 ? "LeafGreen" : "Eden_Hedge", 6), [1.5, 1.7, 0.3], [x, y, 128]));
+    out.push(scale(sphereCenter(10, [i % 2 ? 40 : -40, y + 12, 70 + ((i * 17) % 30)], "Eden_Hedge", 6), [0.35, 1.6, 1.3], [i % 2 ? 40 : -40, y + 12, 70 + ((i * 17) % 30)]));
+  }
+  return merge(...out);
+}
+
+// A clipped ball of box on a stem in a white stone urn, 1.25 m.
+function topiary(): Geo {
+  return merge(
+    boxAt([54, 54, 10], [0, 0, 0], "StoneGrey", 2),
+    cylinderAt({ rBot: 16, rTop: 11, height: 14, segments: 10, bottom: [0, 0, 10] }, "StoneWhite"),
+    cylinderAt({ rBot: 12, rTop: 29, height: 28, segments: 12, bottom: [0, 0, 24] }, "StoneWhite"),
+    translate(torus(21, 2.2, 12, 4, "StoneLight"), [0, 0, 36]),
+    translate(torus(29, 3.5, 14, 5, "StoneWhite"), [0, 0, 52]),
+    cylinderAt({ radius: 27, height: 2, segments: 12, bottom: [0, 0, 50] }, "Eden_Soil"),
+    cylinderAt({ rBot: 4, rTop: 3, height: 26, segments: 6, bottom: [0, 0, 52] }, "BarkWarm"),
+    sphereCenter(26, [0, 0, 98], "Eden_Hedge", 12),
+  );
+}
+
+// A round flower bed, 3 m across: a stone kerb, soil, rings of mixed flowers round a clipped ball.
+function flowerBed(): Geo {
+  const out: Geo[] = [
+    ring(150, 22, 0, "StoneLight", 16),
+    translate(torus(145, 8, 24, 5, "StoneWhite"), [0, 0, 24]),
+    cylinderAt({ radius: 140, height: 5, segments: 16, bottom: [0, 0, 22] }, "Eden_Soil"),
+    scale(sphereCenter(70, [0, 0, 22], "Eden_Soil", 10), [1, 1, 0.3], [0, 0, 22]),
+    sphereCenter(30, [0, 0, 62], "Eden_Hedge", 10),
+  ];
+  for (const [r, n, per, z] of [[118, 14, 2, 27], [84, 10, 1, 30], [56, 7, 1, 36]] as const)
+    for (let i = 0; i < n; i++) out.push(rotateZ(translate(blooms(((2 * Math.PI * r) / n) * 0.8, per, i + r, 8), [r, 0, z]), (i * 360) / n + r));
+  return merge(...out);
+}
+
+// A white stone pergola, 4 m along Y and 3 m deep, wisteria and vines over it, a bench under it.
+function pergola(): Geo {
+  const out: Geo[] = [boxBounds([-150, -205, 0], [150, 205, 4], "Cobble")];
+  for (const x of [-115, 115])
+    for (const y of [-165, 165]) out.push(boxAt([44, 44, 16], [x, y, 4], "StoneLight", 2), wuv(boxAt([30, 30, 226], [x, y, 20], "StoneWhite")), boxAt([42, 42, 12], [x, y, 246], "StoneLight", 2));
+  for (const x of [-115, 115]) out.push(boxBounds([x - 13, -215, 258], [x + 13, 215, 284], "StoneWhite", 2));
+  for (let i = 0; i < 9; i++) {
+    const y = -184 + i * 46;
+    out.push(boxBounds([-160, y - 5, 284], [160, y + 5, 300], "StoneWhite", 1));
+  }
+  // vines up two columns
+  for (const [cx, cy, ph] of [[-115, -165, 0], [115, 165, 2]] as const) {
+    const pts: V3[] = [];
+    for (let k = 0; k <= 16; k++) pts.push([cx + 20 * Math.cos(ph + k * 0.8), cy + 20 * Math.sin(ph + k * 0.8), 6 + k * 17]);
+    out.push(tube(pts, 2.4, "BarkWarm", 40, 4));
+    for (let k = 1; k <= 16; k += 1.5) {
+      const kk = Math.floor(k);
+      out.push(sphereCenter(9 + (kk % 3) * 2, [cx + 22 * Math.cos(ph + kk * 0.8), cy + 22 * Math.sin(ph + kk * 0.8), 6 + kk * 17], kk % 4 === 1 ? "Eden_FlowerPink" : "LeafGreen", 5));
+    }
+  }
+  // leaves over the top and wisteria hanging down
+  for (let i = 0; i < 9; i++)
+    for (let j = 0; j < 7; j++) {
+      const y = -184 + i * 46 + ((j * 7) % 3) * 8 - 8, x = -138 + j * 46 + ((i * 11) % 5) * 5 - 10;
+      if ((i * 2 + j) % 5 !== 0) {
+        const r = 15 + ((i + j) % 3) * 3, m = (i * 5 + j) % 9 === 0 ? "Eden_FlowerPink" : (i + j * 3) % 4 === 0 ? "Eden_Hedge" : "LeafGreen";
+        out.push(scale(sphereCenter(r, [x, y, 302], m, 6), [1.25, 1.1, 0.6], [x, y, 296]));
+      }
+      if ((i * 3 + j) % 3 === 1) out.push(cylinderAt({ rBot: 1, rTop: 8, height: 46 + ((i + j) % 3) * 8, segments: 6, bottom: [x, y + 23, 284 - 46 - ((i + j) % 3) * 8] }, (i + j) % 5 ? "Eden_FlowerViolet" : "Eden_FlowerWhite"));
+    }
+  out.push(translate(parkBench(), [40, 0, 4]));
+  return merge(...out);
+}
+
+// A small service booth, 3 x 3 m, for a town-service NPC standing behind its counter: a blue
+// counter, a peaked blue-and-white canopy on white posts, a sign board with the arms of Eden, a
+// bell on a bracket and one on the counter, a ledger and quill, a back cabinet of scrolls.
+function kiosk(): Geo {
+  const out: Geo[] = [];
+  for (const x of [-125, 125]) for (const y of [-125, 125]) out.push(boxAt([22, 22, 12], [x, y, 0], "StoneLight", 2), boxAt([10, 10, 250], [x, y, 12], "Eden_PaintWhite", 1));
+  out.push(
+    boxBounds([-132, -114, 0], [-98, 114, 96], "Eden_PaintBlue", 2),
+    boxBounds([-142, -128, 96], [-88, 128, 104], "WoodPale", 2),
+    boxBounds([-134, -114, 10], [-132, 114, 16], "GoldTrim"),
+    ...[-74, 0, 74].map((y) => boxBounds([-134, y - 28, 26], [-132, y + 28, 82], "Eden_PaintWhite")),
+  );
+  for (const s of [-1, 1]) out.push(boxBounds([-98, s < 0 ? -128 : 106, 0], [60, s < 0 ? -106 : 128, 92], "Eden_PaintBlue", 2), boxBounds([-98, s < 0 ? -132 : 102, 92], [64, s < 0 ? -102 : 132, 98], "WoodPale", 1.5));
+  // the canopy
+  const half = translate(awning(300, 150, 46, "FabricBlue", "FabricWhite", false), [0, 0, 300]);
+  out.push(half, rotateZ(half, 180), cylinderBetween([0, -154, 301], [0, 154, 301], 3.5, 6, "Eden_PaintWhite"), sphereCenter(5, [0, -156, 301], "GoldTrim", 6), sphereCenter(5, [0, 156, 301], "GoldTrim", 6));
+  for (const y of [-150, 150]) out.push(sheet([-150, y, 254], [150, y, 254], [0, y, 300], 0, "FabricWhite", 2));
+  // the sign board on the ridge
+  out.push(...[-80, 80].map((y) => boxAt([8, 8, 24], [0, y, 300], "Eden_PaintWhite")), boxBounds([-6, -112, 318], [6, 112, 380], "WoodDark", 2), boxBounds([-7.5, -104, 324], [7.5, 104, 374], "Eden_PaintBlue"), translate(crest(20), [-7.5, 0, 349]), translate(rotateZ(crest(20), 180), [7.5, 0, 349]));
+  for (const s of [-1, 1]) out.push(boxBounds([-8, s * 70 - 22, 343], [8, s * 70 + 22, 355], "GoldTrim"));
+  // bells, ledger and quill, the cabinet behind
+  out.push(beamBetween([-125, 118, 226], [-160, 118, 226], 3, 3, "IronDark"), translate(bell(9), [-154, 118, 226]), cylinderBetween([-154, 118, 208], [-154, 118, 170], 0.8, 4, "RopeTan"));
+  out.push(cylinderAt({ radius: 7, height: 2, segments: 8, bottom: [-118, -70, 104] }, "IronDark"), translate(scale(sphereCenter(6, [0, 0, 0], "GoldTrim", 8), [1, 1, 0.75]), [-118, -70, 106]), sphereCenter(1.8, [-118, -70, 111], "GoldTrim", 5));
+  out.push(
+    translate(rotateZ(merge(boxBounds([-14, -20, 0], [14, 0, 3], "WoodRed"), boxBounds([-14, 0, 0], [14, 20, 3], "WoodRed"), boxBounds([-13, -19, 3], [13, -1, 4.5], "FeltCream"), boxBounds([-13, 1, 3], [13, 19, 4.5], "FeltCream")), 8), [-112, 30, 104]),
+    cylinderBetween([-110, 50, 106], [-122, 66, 128], 0.8, 4, "Eden_PaintWhite"),
+    boxBounds([80, 40, 0], [125, 120, 130], "WoodWarm", 2),
+    boxBounds([78, 38, 128], [127, 122, 134], "WoodPale", 1.5),
+  );
+  for (let i = 0; i < 6; i++) out.push(cylinderBetween([82, 50 + i * 12, 136 + (i % 2) * 6], [122, 50 + i * 12, 136 + (i % 2) * 6], 5, 6, "Eden_Parchment"));
+  return merge(...out);
+}
+
+// A roofed notice board, 2 m along Y, with papers pinned to both faces.
+function noticeBoard(): Geo {
+  const out: Geo[] = [];
+  for (const y of [-100, 100]) out.push(boxAt([34, 34, 16], [0, y, 0], "StoneLight", 2), boxAt([14, 14, 236], [0, y, 16], "WoodDark", 1.5));
+  out.push(
+    boxBounds([-6, -94, 76], [6, 94, 204], "WoodDark", 1.5),
+    boxBounds([-8, -86, 84], [8, 86, 196], "WoodWarm"),
+    boxBounds([-12, -96, 70], [12, 96, 80], "WoodDark", 1.5),
+    boxBounds([-9, -114, 238], [9, 114, 252], "WoodDark", 1.5),
+    rotateZ(gableRoof([236, 44, 6], [0, 0, 252], 36, 14, "RoofBlue"), 90),
+    ridge([0, -132, 294], [0, 132, 294], 6),
+  );
+  for (const s of [-1, 1]) out.push(rotateZ(gableWall(s * 117, 22, 252, 34, "WoodPale"), 90));
+  const papers: [number, number, number, number, number, string][] = [
+    [-62, 160, 34, 44, -4, "Eden_Parchment"], [-20, 168, 30, 30, 3, "PaperShoji"], [20, 154, 38, 50, -2, "FeltCream"], [62, 162, 30, 40, 5, "Eden_Parchment"],
+    [-58, 112, 36, 40, 2, "PaperShoji"], [-14, 116, 28, 36, -6, "Eden_Parchment"], [28, 108, 40, 32, 1, "PaperShoji"], [66, 114, 26, 34, -3, "FeltCream"],
+  ];
+  for (const [y, z, w, h, r, m] of papers) {
+    out.push(translate(rotateX(boxBounds([-1, -w / 2, -h / 2], [0, w / 2, h / 2], m), r), [-8, y, z]));
+    out.push(sphereCenter(1.8, [-9.5, y, z + h / 2 - 5], (y + z) % 3 ? "LacquerRed" : "GoldTrim", 5));
+  }
+  // a wanted poster: a face and a red line
+  out.push(boxBounds([-9.6, 10, 156], [-9, 30, 176], "WoodShade"), boxBounds([-9.6, 8, 146], [-9, 32, 150], "LacquerRed"));
+  for (const [y, z, w, h] of [[-50, 140, 40, 50], [10, 150, 34, 40], [55, 120, 36, 44]]) out.push(translate(boxBounds([0, -w / 2, -h / 2], [1, w / 2, h / 2], "Eden_Parchment"), [8, y, z]), sphereCenter(1.8, [9.5, y, z + h / 2 - 5], "LacquerRed", 5));
+  return merge(...out);
+}
+
+// The public well, 2.4 m: a round stone well head with a coping, dark water, a blue roof on four
+// posts, a winch with a crank and rope, one bucket hanging and one on the step.
+function publicWell(): Geo {
+  const bucket = merge(
+    cylinderAt({ rBot: 11, rTop: 14, height: 22, segments: 10, bottom: [0, 0, 0] }, "WoodWarm"),
+    cylinderAt({ radius: 11.6, height: 2.5, segments: 10, bottom: [0, 0, 3] }, "IronDark"),
+    cylinderAt({ radius: 13.8, height: 2.5, segments: 10, bottom: [0, 0, 17] }, "IronDark"),
+    translate(rotateX(torus(14, 1, 10, 4, "IronDark"), 90), [0, 0, 22]),
+  );
+  const out: Geo[] = [
+    ring(118, 14, 0, "StoneGrey", 12),
+    ring(84, 66, 14, "StoneLight", 12),
+    translate(torus(80, 9, 16, 6, "StoneWhite"), [0, 0, 82]),
+    cylinderAt({ radius: 74, height: 1, segments: 12, bottom: [0, 0, 79] }, "WaterDark"),
+    rotateZ(gableRoof([220, 160, 8], [0, 0, 236], 66, 16, "RoofBlue"), 90),
+    ridge([0, -126, 322], [0, 126, 322], 7),
+    translate(bucket, [0, 0, 102]),
+    cylinderBetween([0, 0, 150], [0, 0, 124], 0.9, 4, "RopeTan"),
+    translate(bucket, [98, -30, 14]),
+  ];
+  for (const x of [-62, 62]) {
+    for (const y of [-92, 92]) out.push(boxAt([14, 14, 236], [x, y, 14], "WoodDark", 1.5));
+    out.push(boxBounds([x - 7, -112, 226], [x + 7, 112, 238], "WoodDark", 1.5));
+  }
+  for (const y of [-92, 92]) out.push(boxBounds([-70, y - 7, 160], [70, y + 7, 170], "WoodDark", 1.5));
+  out.push(
+    cylinderBetween([0, -100, 175], [0, 112, 175], 3, 6, "IronDark"),
+    cylinderBetween([0, -50, 175], [0, 50, 175], 10, 8, "WoodWarm"),
+    ...[-36, -24, -12, 0, 12, 24].map((y) => translate(rotateX(torus(11, 2, 10, 4, "RopeTan"), 90), [0, y, 175])),
+    cylinderBetween([0, -2, 165], [0, -2, 152], 1, 4, "RopeTan"),
+    beamBetween([0, 112, 175], [0, 112, 148], 4, 4, "IronDark"),
+    cylinderBetween([0, 112, 150], [0, 128, 150], 2.2, 6, "WoodPale"),
+  );
+  for (const s of [-1, 1]) out.push(rotateZ(gableWall(s * 108, 80, 238, 60, "WoodPale"), 90));
+  return merge(...out);
+}
+
+// A stack of harbour cargo, 3 m: crates, barrels and sacks on a pallet, a net over a crate, a coil of rope.
+function cargoStack(): Geo {
+  const out: Geo[] = [];
+  for (const x of [-105, 0, 105]) out.push(boxBounds([x - 9, -120, 0], [x + 9, 120, 9], "WoodShade"));
+  for (let i = 0; i < 9; i++) out.push(boxBounds([-120, -120 + i * 26.8 + 1, 9], [120, -120 + (i + 1) * 26.8 - 1, 14], "WoodPale"));
+  out.push(
+    translate(crate(100, 100, 90), [-55, -55, 14]),
+    translate(rotateZ(crate(70, 70, 60), 12), [-52, -50, 104]),
+    translate(crate(80, 80, 70), [58, -62, 14]),
+    translate(barrel(), [62, 62, 14]),
+    translate(scale(barrel(), [0.85, 0.85, 0.85]), [-32, 74, 14]),
+    translate(rotateZ(sack(28), 20), [-80, 60, 14]),
+    translate(rotateZ(sack(26), -70), [-98, 98, 14]),
+    translate(rotateZ(sack(24), 40), [30, -40, 84]),
+    translate(torus(22, 4.5, 14, 5, "RopeTan"), [-150, 110, 4]),
+    translate(torus(18, 4.5, 14, 5, "RopeTan"), [-150, 110, 12]),
+    translate(torus(13, 4, 12, 5, "RopeTan"), [-150, 110, 19]),
+    cylinderBetween([-128, 104, 6], [-110, 60, 14], 3.5, 5, "RopeTan"),
+  );
+  // the net over the crate and sack
+  const x0 = 16, x1 = 100, y0 = -104, y1 = -20, zt = 84, zb = 26;
+  for (let k = 0; k <= 6; k++) {
+    const y = y0 + ((y1 - y0) * k) / 6, x = x0 + ((x1 - x0) * k) / 6;
+    out.push(cylinderBetween([x0 - 1.5, y, zb], [x0 - 1.5, y, zt + 1.5], 0.9, 4, "RopeTan"), cylinderBetween([x0 - 1.5, y, zt + 1.5], [x1 + 1.5, y, zt + 1.5], 0.9, 4, "RopeTan"), cylinderBetween([x1 + 1.5, y, zt + 1.5], [x1 + 1.5, y, zb], 0.9, 4, "RopeTan"));
+    out.push(cylinderBetween([x, y0 - 1.5, zb], [x, y0 - 1.5, zt + 1.5], 0.9, 4, "RopeTan"), cylinderBetween([x, y0 - 1.5, zt + 1.5], [x, y1 + 1.5, zt + 1.5], 0.9, 4, "RopeTan"), cylinderBetween([x, y1 + 1.5, zt + 1.5], [x, y1 + 1.5, zb], 0.9, 4, "RopeTan"));
+  }
+  return merge(...out);
+}
+
+// A stone sentry box for the gate guards, 1.9 x 1.9 m: an arched opening to -X with the arms of
+// Eden over it, a bench inside, slits, a hipped blue roof with a gold finial, a lantern and a spear.
+function guardPost(): Geo {
+  const H = 85, T = 18, SP = 150, hw = 46, top = 270, out: Geo[] = [];
+  const front = new THREE.Shape();
+  front.moveTo(-H, 20);
+  front.lineTo(-hw, 20);
+  front.lineTo(-hw, SP);
+  front.absarc(0, SP, hw, Math.PI, 0, true);
+  front.lineTo(hw, 20);
+  front.lineTo(H, 20);
+  front.lineTo(H, top);
+  front.lineTo(-H, top);
+  front.lineTo(-H, 20);
+  const band = new THREE.Shape();
+  band.moveTo(-hw - 12, 20);
+  band.lineTo(-hw, 20);
+  band.lineTo(-hw, SP);
+  band.absarc(0, SP, hw, Math.PI, 0, true);
+  band.lineTo(hw, 20);
+  band.lineTo(hw + 12, 20);
+  band.lineTo(hw + 12, SP);
+  band.absarc(0, SP, hw + 12, 0, Math.PI, false);
+  band.lineTo(-hw - 12, 20);
+  out.push(
+    boxBounds([-H - 8, -H - 8, 0], [H + 8, H + 8, 20], "StoneGrey", 2),
+    panel(front, -H, T, "StoneWhite", { s: 1.1 }),
+    wuv(merge(boxBounds([-H + T, -H, 20], [H, -H + T, top], "StoneWhite"), boxBounds([-H + T, H - T, 20], [H, H, top], "StoneWhite"), boxBounds([H - T, -H + T, 20], [H, H - T, top], "StoneWhite")), 1.1),
+    panel(band, -H - 4, 4, "StoneLight"),
+    boxBounds([-H - 7, -9, SP + hw - 4], [-H + 2, 9, SP + hw + 16], "StoneLight"),
+    quoins(H, H, 30, top - 20),
+    boxBounds([-H - 10, -H - 10, top], [H + 10, H + 10, top + 16], "StoneLight", 3),
+    boxBounds([-H + T, -H + T, top - 8], [H - T, H - T, top], "WoodShade"),
+    hipRoof(H, H, top + 16, 120, 22, 22, 12),
+    sphereCenter(9, [0, 0, top + 16 + 12 + 120 + 6], "GoldTrim", 8),
+    cylinderAt({ rBot: 3, rTop: 0.5, height: 34, segments: 6, bottom: [0, 0, top + 160] }, "GoldTrim"),
+    translate(crest(16), [-H, 0, 240]),
+    boxBounds([H - T - 30, -H + T, 20], [H - T, H - T, 62], "WoodWarm", 1.5),
+    onFace(wallLantern(), "-y", H, -36, 220),
+    cylinderBetween([-H - 22, 62, 0], [-H - 8, 66, 232], 2, 6, "WoodWarm"),
+    translate(scale(cylinderAt({ rBot: 6, rTop: 0.3, height: 26, segments: 4, bottom: [0, 0, 0] }, "IronLight"), [0.4, 1, 1]), [-H - 8, 66, 232]),
+  );
+  for (const f of ["+y", "+x"] as const) out.push(onFace(slitGeo(80), f, H, 0, 110));
+  return merge(...out);
+}
+
 // ---- the sample: a corner of Eden ----
 function sample(put: Put): void {
   // paving: the plaza, the street from the gate down to the harbour, the waterfront
@@ -1387,6 +2505,25 @@ export const KIT: Kit = {
     { id: "sailboat", name: "เรือใบ", make: sailboat, tags: ["boat"] },
     { id: "rowboat", name: "เรือพาย", make: rowboat, tags: ["boat"] },
     { id: "lighthouse", name: "ประภาคาร", make: lighthouse, tags: ["tower", "dock", "light", "landmark"] },
+    // the city quarter (buildings join wall to wall along Y)
+    { id: "corner_house", name: "บ้านมุมหอคอย", make: cornerHouse, tags: ["building"] },
+    { id: "row_houses", name: "ตึกแถวสามห้อง", make: rowHouses, tags: ["building", "market"] },
+    { id: "weapon_shop", name: "ร้านอาวุธ", make: weaponShop, tags: ["building", "market"] },
+    { id: "tool_shop", name: "ร้านเครื่องมือ", make: toolShop, tags: ["building", "market"] },
+    { id: "guild_hall", name: "กิลด์นักผจญภัย", make: guildHall, tags: ["building", "landmark"] },
+    { id: "warehouse", name: "โกดังท่าเรือ", make: warehouse, tags: ["building", "dock"] },
+    { id: "cafe", name: "ร้านกาแฟ", make: cafe, tags: ["building", "market"] },
+    { id: "cafe_table", name: "โต๊ะร้านกาแฟ", make: cafeTable, tags: ["decor", "market"] },
+    { id: "hedge", name: "แนวพุ่มไม้ (4 ม.)", make: hedge, tags: ["plant", "decor", "wall"] },
+    { id: "topiary", name: "ต้นไม้ตัดแต่ง", make: topiary, tags: ["plant", "decor"] },
+    { id: "flower_bed", name: "แปลงดอกไม้", make: flowerBed, tags: ["plant", "decor"] },
+    { id: "pergola", name: "ซุ้มไม้เลื้อย", make: pergola, tags: ["decor", "plant"] },
+    { id: "park_bench", name: "ม้านั่งสวน", make: parkBench, tags: ["decor"] },
+    { id: "kiosk", name: "ซุ้มบริการ", make: kiosk, tags: ["market", "decor"] },
+    { id: "notice_board", name: "ป้ายประกาศ", make: noticeBoard, tags: ["decor"] },
+    { id: "public_well", name: "บ่อน้ำสาธารณะ", make: publicWell, tags: ["decor"] },
+    { id: "cargo_stack", name: "กองสินค้าท่าเรือ", make: cargoStack, tags: ["dock", "decor"] },
+    { id: "guard_post", name: "ป้อมยาม", make: guardPost, tags: ["defence", "light"] },
   ],
   sample,
 };
