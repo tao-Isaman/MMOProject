@@ -8,7 +8,7 @@ import type { WeaponType } from "./items";
 import { rand } from "./particles";
 
 const ZERO = {
-  maxHp: 0, maxMp: 0, atk: 0, matk: 0, def: 0, mdef: 0, crit: 0, critDmg: 0, aspd: 0, move: 0,
+  maxHp: 0, maxMp: 0, atk: 0, matk: 0, def: 0, mdef: 0, hit: 0, flee: 0, crit: 0, critDmg: 0, aspd: 0, move: 0,
   hpRegen: 0, mpRegen: 0, cdr: 0, dmgRed: 0,
   // extras: weapon damage bonus, reach, stun chance on hit, exp and drop bonus, defence ignored
   dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0, potion: 0,
@@ -25,12 +25,14 @@ export type Stats = typeof ZERO;
 export interface Defender {
   def: number;
   mdef: number;
+  flee: number;
 }
 
 export interface Hit {
   dmg: number;
   crit: boolean;
   magic: boolean;
+  miss: boolean;
 }
 
 function add(into: Record<string, number>, from: StatBag, k = 1): void {
@@ -88,6 +90,30 @@ export function mitigate(amount: number, defence: number, pierce = 0): number {
   return amount * 100 / (100 + Math.max(0, defence) * (1 - pierce));
 }
 
+// The chance a physical blow lands: 80%, plus 1% for every point of accuracy over the target's
+// evasion (less for every point under), between 5% and 100%.
+export function hitChance(hit: number, flee: number): number {
+  return Math.min(1, Math.max(0.05, 0.8 + (hit - flee) / 100));
+}
+
+// A critical hit goes through this much of the armour, on top of any armour piercing.
+export const CRIT_PIERCE = 0.5;
+
+// Magic always lands and never crits.
+function spellHit(raw: number, stats: Stats, target: Defender): Hit {
+  return { dmg: Math.max(1, Math.round(mitigate(raw, target.mdef, stats.pierce))), crit: false, magic: true, miss: false };
+}
+
+// A physical blow can miss (accuracy against evasion); one that lands can crit: harder, and
+// through half the armour.
+function physicalHit(raw: number, stats: Stats, critChance: number, target: Defender): Hit {
+  if (Math.random() >= hitChance(stats.hit, target.flee)) return { dmg: 0, crit: false, magic: false, miss: true };
+  const crit = Math.random() < critChance;
+  const pierce = crit ? 1 - (1 - stats.pierce) * (1 - CRIT_PIERCE) : stats.pierce;
+  const dmg = mitigate(raw * (crit ? 1 + stats.critDmg : 1), target.def, pierce);
+  return { dmg: Math.max(1, Math.round(dmg)), crit, magic: false, miss: false };
+}
+
 // Staves cast magic; everything else hits physically.
 export function isMagic(w: WeaponType): boolean {
   return w.projectile?.kind === "bolt";
@@ -98,9 +124,7 @@ export function basicDamage(stats: Stats, w: WeaponType, target: Defender): Hit 
   const magic = isMagic(w);
   const [a, b] = w.damage;
   const raw = (rand(a, b) + (magic ? stats.matk : stats.atk)) * (1 + stats.dmg);
-  const crit = Math.random() < stats.crit + (w.crit ?? 0.05) - 0.05;
-  const hit = mitigate(raw * (crit ? 1 + stats.critDmg : 1), magic ? target.mdef : target.def, stats.pierce);
-  return { dmg: Math.max(1, Math.round(hit)), crit, magic };
+  return magic ? spellHit(raw, stats, target) : physicalHit(raw, stats, stats.crit + (w.crit ?? 0.05) - 0.05, target);
 }
 
 // Average damage of the weapon in hand when it matches the skill's kind (a staff for spells,
@@ -117,16 +141,18 @@ export function skillPower(stats: Stats, elements: Record<string, number>, skill
   return base * (skill.mult?.(rank) ?? 1) * (1 + stats.dmg) * (1 + 0.01 * fire) * (fire >= 50 ? 1.15 : 1);
 }
 
-// A skill hit: skillPower, then crits (lightning adds to the chance), the spread and defence.
+// A skill hit: skillPower and the spread, then a spell (lightning: +0.3% damage a level) or a
+// physical blow (lightning: +0.3% crit chance a level).
 export function skillDamage(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, target: Defender, weapon: WeaponType | null = null): Hit {
-  const magic = skill.stat === "matk";
-  const raw = skillPower(stats, elements, skill, rank, weapon);
-  const crit = Math.random() < stats.crit + 0.003 * (elements.lightning ?? 0);
-  const hit = mitigate(raw * (crit ? 1 + stats.critDmg : 1) * rand(0.92, 1.08), magic ? target.mdef : target.def, stats.pierce);
-  return { dmg: Math.max(1, Math.round(hit)), crit, magic };
+  const lightning = elements.lightning ?? 0;
+  const raw = skillPower(stats, elements, skill, rank, weapon) * rand(0.92, 1.08);
+  return skill.stat === "matk"
+    ? spellHit(raw * (1 + 0.003 * lightning), stats, target)
+    : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target);
 }
 
-// A monster hitting the player.
-export function monsterDamage(atk: number, stats: Stats): number {
+// A monster biting the player (a physical blow, it never crits): null when it misses.
+export function monsterDamage(atk: number, hit: number, stats: Stats): number | null {
+  if (Math.random() >= hitChance(hit, stats.flee)) return null;
   return Math.max(1, Math.round(mitigate(atk * rand(0.85, 1.15), stats.def) * (1 - stats.dmgRed)));
 }

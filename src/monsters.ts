@@ -23,6 +23,8 @@ export interface Variant {
   atk: number;
   def: number;
   mdef: number;
+  accuracy?: number; // against the player's evasion (default: from its level)
+  flee?: number;     // evasion against the player's accuracy (default: from its level)
   xp: number;
   aggro: number;
   weight: number;
@@ -122,6 +124,8 @@ export class Monster {
   atk = 0;
   def = 0;
   mdef = 0;
+  accuracy = 0;
+  flee = 0;
   angry = 0;   // s left chasing the player
   biteCd = 0;
   stun = 0;
@@ -164,6 +168,8 @@ export class Monster {
     this.atk = this.variant.atk;
     this.def = this.variant.def;
     this.mdef = this.variant.mdef;
+    this.accuracy = this.variant.accuracy ?? 10 + 1.4 * this.level;
+    this.flee = this.variant.flee ?? 2 + 1.5 * this.level;
     this.angry = 0;
     this.biteCd = 0;
     this.stun = 0;
@@ -203,6 +209,13 @@ export class Monster {
       this.t = 0;
     }
     return false;
+  }
+
+  // Attacked but missed: no harm, but it turns on the attacker all the same.
+  provoke(dir: Vec2): void {
+    if (!this.alive) return;
+    this.angry = ANGER;
+    this.row = row4(-dir.x, -dir.y);
   }
 
   get held(): boolean {

@@ -34,7 +34,7 @@ export function attackRange(w: WeaponType): number {
 }
 
 // Floating numbers and short labels that rise and fade over a world point.
-export type FloaterStyle = "damage" | "crit" | "loot" | "info" | "hurt" | "heal" | "level" | "shield" | "magic";
+export type FloaterStyle = "damage" | "crit" | "loot" | "info" | "hurt" | "heal" | "level" | "shield" | "magic" | "miss";
 
 interface Floater {
   x: number;
@@ -83,7 +83,7 @@ export class Floaters {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
-    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffe14a", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff" };
+    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffe14a", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff", miss: "#d6d6d6" };
     for (const f of this.list) {
       const u = f.t / f.life;
       const rise = f.style === "loot" || f.style === "level" ? 40 * u : 60 * Math.sqrt(u);
@@ -258,15 +258,21 @@ export class Combat {
   // A normal attack lands on a monster (scale < 1 for the off hand).
   damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1): void {
     const r = basicDamage(this.hero.stats, w, m);
+    if (r.miss) return void this.apply(m, r, dir);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
     if (this.hero.stats.stunHit && Math.random() < this.hero.stats.stunHit) m.stun = Math.max(m.stun, 1);
     if (this.hero.stats.poisonHit && Math.random() < this.hero.stats.poisonHit) m.burns.push({ dps: (r.dmg * 0.4) / 3, t: 3, poison: true });
     this.apply(m, r, dir, w.knock ?? 25);
   }
 
-  // Land a computed hit { dmg, crit, magic } on a monster.
+  // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it.
   apply(m: Monster, r: Hit, dir: Vec2, knock = 25): boolean {
     if (!m.alive) return false;
+    if (r.miss) {
+      m.provoke(dir);
+      this.floaters.add(m.x, m.y, m.height, "พลาด", "miss");
+      return false;
+    }
     // an exposed monster takes more; the hunter's instinct, more on any status
     const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + this.hero.stats.huntDmg : 1);
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));

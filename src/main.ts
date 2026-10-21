@@ -956,10 +956,14 @@ async function boot(): Promise<void> {
     bite(m: Monster) {
       // a blinded monster misses half its bites; a weakened one bites softer
       if (m.blind > 0 && Math.random() < 0.5) {
-        floaters.add(player.x, player.y, 120, "พลาด", "info");
+        floaters.add(player.x, player.y, 120, "พลาด", "miss");
         return;
       }
-      const dmg = monsterDamage(m.power, hero.stats);
+      const dmg = monsterDamage(m.power, m.accuracy, hero.stats);
+      if (dmg === null) {
+        floaters.add(player.x, player.y, 120, "พลาด", "miss");
+        return;
+      }
       const r = hero.takeDamage(dmg);
       if (r.absorbed) floaters.add(player.x, player.y, 120, `-${Math.round(r.absorbed)}`, "shield");
       if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");

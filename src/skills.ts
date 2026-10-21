@@ -7,7 +7,7 @@
 //              35: 15% chance a skill's cooldown is skipped]
 //   earth      shield of 0.4% max HP per level on every skill [35: twice that];
 //              [10: stuns, slows and freezes last 30% longer]
-//   lightning  +0.3% skill crit per level; [10: hits jump to one more monster for 30%;
+//   lightning  +0.3% physical skill crit (spells: +0.3% damage) per level; [10: hits jump to one more monster for 30%;
 //              35: to two; 50: for 60%]
 //
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point, `hits` times) · nova, storm
@@ -145,6 +145,8 @@ export class Skills {
   hit(m: Monster, s: SkillDef, rank: number, dir: Vec2, knock = 20, chained = false): void {
     if (!m.alive) return;
     const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon() as WeaponId]);
+    // a physical skill that misses does nothing but anger it: no status, no riders
+    if (r.miss) return void this.combat.apply(m, r, dir);
     if (chained) r.dmg = Math.max(1, Math.round(r.dmg * ((this.el.lightning ?? 0) >= 50 ? 0.6 : 0.3)));
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);

@@ -158,7 +158,7 @@ export function xpToNext(level: number): number {
 // and dmgRed are fractions.
 export const STAT_NAMES: Record<string, string> = {
   maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", atk: "พลังโจมตี", matk: "พลังเวท", def: "ป้องกัน", mdef: "ต้านเวท",
-  crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
+  hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", dmgRed: "ลดความเสียหาย",
 };
 export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "dmgRed"]);
@@ -168,32 +168,32 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     name: "จอมเวท",
     note: "พลังเวทสูง ตีจากระยะไกล HP น้อย",
     trees: ["arcane", "flora", "ward"],
-    base: { maxHp: 80, maxMp: 110, atk: 6, matk: 16, def: 3, mdef: 8, crit: 0.05, critDmg: 0.5, hpRegen: 1, mpRegen: 3 },
-    growth: { maxHp: 12, maxMp: 9, atk: 0.6, matk: 2.2, def: 0.5, mdef: 1, hpRegen: 0.05, mpRegen: 0.06 },
+    base: { maxHp: 80, maxMp: 110, atk: 6, matk: 16, def: 3, mdef: 8, hit: 10, flee: 8, crit: 0.05, critDmg: 0.5, hpRegen: 1, mpRegen: 3 },
+    growth: { maxHp: 12, maxMp: 9, atk: 0.6, matk: 2.2, def: 0.5, mdef: 1, hit: 1, flee: 0.8, hpRegen: 0.05, mpRegen: 0.06 },
     weapon: "staff",
   },
   warrior: {
     name: "นักรบ",
     note: "HP และป้องกันสูง ตีระยะประชิด",
     trees: ["berserker", "guardian", "duelist"],
-    base: { maxHp: 140, maxMp: 50, atk: 15, matk: 4, def: 8, mdef: 4, crit: 0.05, critDmg: 0.5, hpRegen: 2, mpRegen: 1.2 },
-    growth: { maxHp: 22, maxMp: 4, atk: 2.2, matk: 0.5, def: 1.1, mdef: 0.6, hpRegen: 0.1, mpRegen: 0.03 },
+    base: { maxHp: 140, maxMp: 50, atk: 15, matk: 4, def: 8, mdef: 4, hit: 15, flee: 6, crit: 0.05, critDmg: 0.5, hpRegen: 2, mpRegen: 1.2 },
+    growth: { maxHp: 22, maxMp: 4, atk: 2.2, matk: 0.5, def: 1.1, mdef: 0.6, hit: 1.5, flee: 0.8, hpRegen: 0.1, mpRegen: 0.03 },
     weapon: "sword_1h",
   },
   archer: {
     name: "นักธนู",
     note: "ยิงธนูจากระยะไกล ตีเร็ว คริติคอลสูง ยิงติดดีบัฟได้",
     trees: ["marksman", "rapid", "hunter"],
-    base: { maxHp: 100, maxMp: 70, atk: 13, matk: 5, def: 5, mdef: 5, crit: 0.08, critDmg: 0.5, hpRegen: 1.5, mpRegen: 1.6 },
-    growth: { maxHp: 16, maxMp: 5, atk: 2, matk: 0.6, def: 0.7, mdef: 0.7, hpRegen: 0.07, mpRegen: 0.04 },
+    base: { maxHp: 100, maxMp: 70, atk: 13, matk: 5, def: 5, mdef: 5, hit: 20, flee: 14, crit: 0.08, critDmg: 0.5, hpRegen: 1.5, mpRegen: 1.6 },
+    growth: { maxHp: 16, maxMp: 5, atk: 2, matk: 0.6, def: 0.7, mdef: 0.7, hit: 2, flee: 1.4, hpRegen: 0.07, mpRegen: 0.04 },
     weapon: "bow",
   },
   priest: {
     name: "นักบวช",
     note: "ฮีลและบัฟตัวเอง ต้านเวทสูง ต่อสู้ด้วยเวทศักดิ์สิทธิ์และกระบอง",
     trees: ["restore", "blessing", "crusade"],
-    base: { maxHp: 105, maxMp: 100, atk: 10, matk: 12, def: 6, mdef: 9, crit: 0.04, critDmg: 0.5, hpRegen: 1.6, mpRegen: 2.6 },
-    growth: { maxHp: 17, maxMp: 7, atk: 1.4, matk: 1.7, def: 0.8, mdef: 1.1, hpRegen: 0.08, mpRegen: 0.05 },
+    base: { maxHp: 105, maxMp: 100, atk: 10, matk: 12, def: 6, mdef: 9, hit: 12, flee: 9, crit: 0.04, critDmg: 0.5, hpRegen: 1.6, mpRegen: 2.6 },
+    growth: { maxHp: 17, maxMp: 7, atk: 1.4, matk: 1.7, def: 0.8, mdef: 1.1, hit: 1.5, flee: 1, hpRegen: 0.08, mpRegen: 0.05 },
     weapon: "mace",
   },
 };
@@ -420,7 +420,7 @@ export const TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(1.3, 0.15), hits: 3, mp: 16, cd: 5, motion: "swing", reach: 160, arc: 120, color: "#e0fbff" },
         desc: (r) => `ฟันด้านหน้า 3 ครั้ง ครั้งละ ${pct(lin(1.3, 0.15)(r))} ของพลังโจมตี` },
       { id: "evasion", name: "หลบหลีก", kind: "passive", max: 5, pos: [2, 1], req: [["light_feet", 3]], glyph: "dash",
-        stats: (r) => ({ dmgRed: 0.02 * r, move: 0.01 * r }), desc: (r) => `ลดความเสียหาย ${pct(0.02 * r)} ความเร็วเดิน +${pct(0.01 * r)}` },
+        stats: (r) => ({ flee: 4 * r, dmgRed: 0.02 * r, move: 0.01 * r }), desc: (r) => `หลบหลีก +${4 * r} ลดความเสียหาย ${pct(0.02 * r)} ความเร็วเดิน +${pct(0.01 * r)}` },
       { id: "phantom_step", name: "ร่างเงา", kind: "active", max: 5, pos: [0, 2], req: [["sonic_blade", 3]], glyph: "eye",
         skill: { type: "buff", mp: 20, cd: 25, motion: "thrust", duration: 8, buff: (r) => ({ aspd: 0.1 + 0.03 * r, move: 0.1 + 0.02 * r, crit: 0.05 }), color: "#a8e8ff" },
         desc: (r) => `8 วิ: ความเร็วโจมตี +${pct(0.1 + 0.03 * r)} ความเร็วเดิน +${pct(0.1 + 0.02 * r)} โอกาสคริติคอล +5%` },
@@ -438,7 +438,7 @@ export const TREES: Record<string, Tree> = {
     note: "สายโจมตีด้วยสกิล ยิงแรงจากระยะไกล ศรทะลวง ศรระเบิด ฝนธนู",
     nodes: [
       { id: "aim_focus", name: "สมาธินักแม่นธนู", kind: "passive", max: 10, pos: [0, 0], glyph: "up",
-        stats: (r) => ({ atkPct: 0.02 * r }), desc: (r) => `พลังโจมตี +${pct(0.02 * r)}` },
+        stats: (r) => ({ atkPct: 0.02 * r, hit: 3 * r }), desc: (r) => `พลังโจมตี +${pct(0.02 * r)} ความแม่นยำ +${3 * r}` },
       { id: "double_strafe", name: "ยิงสองดอก", kind: "active", max: 10, pos: [1, 0], glyph: "arrow",
         skill: { type: "bolt", stat: "atk", mult: lin(1, 0.1), hits: 2, every: 0.12, arrow: true, mp: 6, cd: 1.5, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#fff2c8" },
         desc: (r) => `ยิงลูกธนู 2 ดอกติดกันไปทางที่เล็ง ดอกละ ${pct(lin(1, 0.1)(r))} ของพลังโจมตี` },
@@ -602,8 +602,8 @@ export const TREES: Record<string, Tree> = {
         skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ atkPct: 0.02 * r, matkPct: 0.02 * r }), color: "#d8ecff" },
         desc: (r) => `40 วิ: พลังโจมตีและพลังเวท +${pct(0.02 * r)}` },
       { id: "agility_up", name: "เพิ่มความคล่อง", kind: "active", max: 10, pos: [1, 0], glyph: "wing",
-        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ aspd: 0.015 * r, move: 0.02 * r }), color: "#d8ffe8" },
-        desc: (r) => `40 วิ: ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.02 * r)}` },
+        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ aspd: 0.015 * r, move: 0.02 * r, flee: 2 * r }), color: "#d8ffe8" },
+        desc: (r) => `40 วิ: ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.02 * r)} หลบหลีก +${2 * r}` },
       { id: "angelus", name: "เกราะเทวา", kind: "active", max: 10, pos: [2, 0], glyph: "shield",
         skill: { type: "buff", mp: 18, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ defPct: 0.04 * r, mdefPct: 0.03 * r }), color: "#e8f0ff" },
         desc: (r) => `40 วิ: ป้องกัน +${pct(0.04 * r)} ต้านเวท +${pct(0.03 * r)}` },
@@ -790,7 +790,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
   wind: {
     name: "ลม", color: "#9ef0c0", glyph: "swirl", max: 50, side: "ความเร็ว",
-    per: { move: 0.006, aspd: 0.008, crit: 0.0015, cdr: 0.003, atk: 0.3 },
+    per: { move: 0.006, aspd: 0.008, crit: 0.0015, cdr: 0.003, atk: 0.3, flee: 0.6 },
     skill: "คูลดาวน์สกิลลดลง 0.3% ต่อระดับ (รวมในค่าลดคูลดาวน์)",
     marks: [
       { at: 10, name: "สายลม", desc: "หลังใช้สกิล เดินเร็วขึ้น 25% นาน 2 วิ" },
@@ -814,7 +814,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
   lightning: {
     name: "สายฟ้า", color: "#fff27a", glyph: "bolt", max: 50, side: "คริติคอล", book: "book_lightning",
     per: { crit: 0.004, critDmg: 0.012, aspd: 0.004, atk: 0.5, matk: 0.5 },
-    skill: "โอกาสคริติคอลของสกิล +0.3% ต่อระดับ",
+    skill: "สกิลกายภาพ: โอกาสคริติคอล +0.3% ต่อระดับ · สกิลเวท: ดาเมจ +0.3% ต่อระดับ",
     marks: [
       { at: 10, name: "ฟ้าผ่า", desc: "สกิลที่ตีโดนกระโดดไปโดนอีก 1 ตัวใกล้ๆ 30%" },
       { at: 20, name: "ประจุไฟฟ้า", desc: "แรงคริติคอล +15%", stats: { critDmg: 0.15 } },
