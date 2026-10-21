@@ -1,9 +1,9 @@
 // World <-> map projection.
 //
-// The scene is an orthographic view of the Oriverse courtyard, the camera pitched 45 degrees
-// down at 1 map pixel per world centimetre. The camera can face any heading: `yaw` (radians)
-// is 0 facing +X and turns towards +Y. World units are Oriverse sim centimetres (Z up). At
-// yaw 0, right on screen = -Y and up = +X.
+// The view is orthographic, the camera pitched 45 degrees down at 1 map pixel per world
+// centimetre (src/world3d/view.ts points the 3D camera the same way). The camera can face any
+// heading: `yaw` (radians) is 0 facing +X and turns towards +Y. World units are Oriverse sim
+// centimetres (Z up). At yaw 0, right on screen = -Y and up = +X.
 //
 // "Map" coordinates are this view's screen plane before the camera's zoom and scroll: the
 // courtyard centre (CX, CY) sits at (MAP_W / 2, MAP_H / 2) for every heading.
@@ -56,12 +56,4 @@ export function mapY(x: number, y: number, z = 0): number {
 export function groundFromMap(mx: number, my: number): Vec2 {
   const v = fromView((MAP_H / 2 - my) / S2, MAP_W / 2 - mx);
   return { x: CX + v.x, y: CY + v.y };
-}
-
-// The affine map from an image of the ground captured at yaw 0 (its top-left corner at map
-// offset (x0, y0) from the centre, 1 px per map px) to map coordinates at the current yaw,
-// as canvas transform terms [a, b, c, d, e, f].
-export function groundTransform(x0: number, y0: number): [number, number, number, number, number, number] {
-  const c = fx, s = fy;
-  return [c, S2 * s, -s / S2, c, MAP_W / 2 + c * x0 - (s * y0) / S2, MAP_H / 2 + c * y0 + S2 * s * x0];
 }

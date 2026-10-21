@@ -1,6 +1,6 @@
 import { mapX, mapY, groundFromMap, fromView, setYaw, yaw } from "./projection";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets";
-import { Scene } from "./scene";
+import { World3D } from "./world3d/view";
 import { SPAWN, debugShapes } from "./world";
 import { Particles, GROUND_GLOW, SORTED, AIR_GLOW } from "./particles";
 import { Player, directionIndex } from "./player";
@@ -32,9 +32,8 @@ import { findPath } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
 import { garmentIcon } from "./garments";
-import { detectTouch, onTouchMode, goLandscape, Joystick } from "./touch";
+import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touch";
 import type { FlowerSpell } from "./spell";
-import type { SceneData } from "./scene";
 import type { Atlas, Img, Textures, View } from "./types";
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -47,12 +46,15 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 const ICON = 40; // inventory icon size, css px
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
+const worldCanvas = document.getElementById("world") as HTMLCanvasElement;
+let world: World3D | null = null;
 const ctx = canvas.getContext("2d")!;
 let showDebug = new URLSearchParams(location.search).has("debug");
 
 const screen = { w: 0, h: 0, dpr: 1, zoom: 1 };
 function resize() {
-  screen.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // phones draw the 3D courtyard at up to 1.5 pixels per CSS pixel, to keep it smooth
+  screen.dpr = Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.round(w * screen.dpr);
   canvas.height = Math.round(h * screen.dpr);
@@ -60,6 +62,7 @@ function resize() {
   screen.h = h;
   // show about 15 x 9 m of the courtyard (map pixels are centimetres)
   screen.zoom = Math.max(0.5, Math.min(w / 1500, h / 900));
+  world?.resize(w, h, screen.dpr);
 }
 
 // Smallest mip level whose cells are still at least r device pixels wide.
@@ -229,15 +232,11 @@ async function boot(): Promise<void> {
   const weaponIds = Object.keys(WEAPON_TYPES) as WeaponId[];
   const weaponArt = new Set(weaponIds.map((t) => WEAPON_ART[t].art ?? t));
   for (const id of weaponArt) files[`weapon_${id}`] = `assets/weapons/${id}.png`;
-  const [images, bodies, hair, sceneData] = await Promise.all([
+  const [images, bodies, hair] = await Promise.all([
     loadAll(files, (f) => (bar.value = f)),
     fetch("assets/chars/bodies.json").then((r) => r.json() as Promise<Record<string, BodyDef>>),
     fetch("assets/chars/hair.json").then((r) => r.json() as Promise<HairData>),
-    fetch("assets/maps/scene.json").then((r) => (r.ok ? (r.json() as Promise<SceneData>) : null)).catch(() => null),
   ]);
-  // the courtyard: rotating ground plus standing props (src/scene.ts)
-  const scene = new Scene(sceneData);
-  await scene.load();
 
   // tinted glows and rings for skill effects, made on first use
   const tinted = new Map<string, Img>();
@@ -265,8 +264,12 @@ async function boot(): Promise<void> {
     },
   };
 
-  // ---- title screen: which character to play ----
+  // ---- the 3D courtyard (src/world3d), lighter on phones ----
   detectTouch();
+  world = new World3D(worldCanvas, isTouch() ? { grass: 9000, flowers: 0.6, shadow: 2048 } : { grass: 26000, flowers: 1, shadow: 4096 });
+  const w3d = world;
+
+  // ---- title screen: which character to play ----
   const looks = new Looks({ bodies, hair });
   document.getElementById("loading")?.classList.add("done");
   const charId = await new Title(looks).run();
@@ -691,10 +694,6 @@ async function boot(): Promise<void> {
     cam.y = mapY(player.x, player.y) - 50;
   }
   function rotateCamera(delta: number): void {
-    if (!scene.turns) {
-      floaters.add(player.x, player.y, 150, "มุมกล้องยังหมุนไม่ได้", "info");
-      return;
-    }
     const step = Math.PI / 4, base = turnTo ? turnTo.to : yaw;
     turnTo = { from: yaw, to: (Math.round(base / step) + delta) * step, t: 0 };
     // turn the short way round
@@ -704,7 +703,7 @@ async function boot(): Promise<void> {
   let dragTurn: { x: number; yaw: number } | null = null;
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   canvas.addEventListener("pointerdown", (e) => {
-    if (e.button !== 2 || !scene.turns) return;
+    if (e.button !== 2) return;
     turnTo = null;
     dragTurn = { x: e.clientX, yaw };
     canvas.setPointerCapture(e.pointerId);
@@ -735,7 +734,7 @@ async function boot(): Promise<void> {
     if (e.pointerType !== "touch") return;
     if (e.pointerId === stick.id) return stick.move(e);
     const s = swipes.get(e.pointerId);
-    if (!s || !scene.turns) return;
+    if (!s) return;
     if (!s.turning && Math.abs(e.clientX - s.x) > 14) {
       s.turning = true;
       turnTo = null;
@@ -901,71 +900,41 @@ async function boot(): Promise<void> {
     };
     view = vw;
 
-    // ---- draw ----
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = "#16210f";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "low"; // textures carry their own mip levels
-
-    scene.drawGround(ctx, vw);
-
-    ctx.globalCompositeOperation = "lighter";
-    fx.draw(ctx, vw, fx.layer(GROUND_GLOW));
-    ctx.globalCompositeOperation = "source-over";
-
-    // the bot's hunting area
-    if ((bot.on || botUI.open) && !bot.settings.wholeMap) {
-      const a = bot.on ? bot.anchor : player;
-      ctx.save();
-      ctx.setLineDash([10 * k, 8 * k]);
-      ctx.strokeStyle = "rgba(244, 210, 122, 0.45)";
-      ctx.lineWidth = 2 * k;
-      ctx.beginPath();
-      const r = bot.settings.radius;
-      ctx.ellipse(mapX(a.x, a.y) * k + vw.ox, mapY(a.x, a.y) * k + vw.oy, r * k, r * Math.SQRT1_2 * k, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // target ring under the slime being attacked (or the one the bot is heading for)
-    const ringed = player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target : null;
-    if (ringed) {
-      const t = ringed;
-      ctx.strokeStyle = "rgba(255, 214, 120, 0.9)";
-      ctx.lineWidth = 2.5 * k;
-      ctx.beginPath();
-      ctx.ellipse(mapX(t.x, t.y) * k + vw.ox, mapY(t.x, t.y) * k + vw.oy, 34 * k, 15 * k, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // characters, flowers and petals sorted by their ground point
-    const sorted = fx.layer(SORTED);
-    for (const p of sorted) p.depth = mapY(p.x, p.y);
-    sorted.sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
+    // ---- draw: the 3D courtyard with the characters standing in it ----
+    w3d.sync(vw, yaw);
+    // the bot's hunting area and the ring under the slime being attacked lie on the ground
+    w3d.setArea((bot.on || botUI.open) && !bot.settings.wholeMap ? (bot.on ? bot.anchor : player) : null, bot.settings.radius);
+    w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target : null);
     const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon as WeaponId] : null;
     const offItem = inv.equipped.offhand ? ITEMS[inv.equipped.offhand] : null;
     const inOff = offItem?.weapon ? weapons[offItem.weapon] : offItem?.art ? offhandArt[offItem.art] : null;
-    // the player's box on the map, to see which props hide them
-    const pb = { x: mapX(player.x, player.y) - 40, y: mapY(player.x, player.y) - 140, w: 80, h: 140 };
-    const actors = [...monsters.map((m) => ({ depth: m.depth, draw: () => m.draw(ctx, vw) })),
-      { depth: player.depth, draw: () => player.draw(ctx, vw, inHand, inOff) },
-      { depth: merchant.depth, draw: () => merchant.draw(ctx, vw, merchant.distance(player) <= TALK_RANGE * 1.6) },
-      ...scene.place().map((p) => {
-        const hides = player.depth < p.depth && scene.covers(p, pb);
-        return { depth: p.depth, draw: () => scene.draw(ctx, vw, p, hides) };
-      })];
-    actors.sort((a, b) => a.depth - b.depth);
-    let from = 0;
-    for (const a of actors) {
-      let to = from;
-      while (to < sorted.length && (sorted[to].depth ?? 0) <= a.depth) to++;
-      if (to > from) fx.draw(ctx, vw, sorted.slice(from, to));
-      from = to;
-      a.draw();
+    // each character a billboard drawn by its own 2D code (only those near the screen)
+    const onScreen = (x: number, y: number, pad: number) => {
+      const sx = mapX(x, y) * k + vw.ox, sy = mapY(x, y) * k + vw.oy;
+      return sx > -pad * k && sx < vw.w + pad * k && sy > -pad * k && sy < vw.h + pad * k * 2;
+    };
+    w3d.beginActors();
+    for (const m of monsters) {
+      if (m.state === "gone" || !onScreen(m.x, m.y, 200)) continue;
+      w3d.actor(m, { x: m.x, y: m.y, w: 210, h: 170, foot: 30 }, vw, (c, v) => m.draw(c, v));
     }
-    if (from < sorted.length) fx.draw(ctx, vw, sorted.slice(from));
+    w3d.actor(merchant, { x: merchant.x, y: merchant.y, w: 280, h: 240, foot: 30 }, vw, (c, v) => merchant.draw(c, v, merchant.distance(player) <= TALK_RANGE * 1.6));
+    w3d.actor(player, { x: player.x, y: player.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => player.draw(c, v, inHand, inOff), true);
+    w3d.endActors();
+    w3d.render(dt);
+
+    // ---- on top, in 2D: spell effects, projectiles, damage numbers ----
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "low"; // textures carry their own mip levels
+    ctx.globalCompositeOperation = "lighter";
+    fx.draw(ctx, vw, fx.layer(GROUND_GLOW));
+    ctx.globalCompositeOperation = "source-over";
+    const sorted = fx.layer(SORTED);
+    for (const p of sorted) p.depth = mapY(p.x, p.y);
+    sorted.sort((a, b) => (a.depth ?? 0) - (b.depth ?? 0));
+    fx.draw(ctx, vw, sorted);
 
     combat.draw(ctx, vw, images.arrow);
     ctx.globalCompositeOperation = "lighter";
@@ -980,7 +949,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, scene, bot, botUI, shopUI, merchant, drink };
+    progress, hero, skills, statusUI, skillUI, picker, rotateCamera, turnCamera, world: w3d, bot, botUI, shopUI, merchant, drink };
 
   document.getElementById("loading")?.classList.add("done");
   requestAnimationFrame((t) => {
