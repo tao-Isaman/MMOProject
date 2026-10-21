@@ -39,6 +39,10 @@ defineMaterial("Trunrada_PaintWhite", { map: "wood", tint: "#efe7d4", bump: 1 })
 defineMaterial("Trunrada_FeltBlue", { map: "felt", tint: "#3b5d8c", rough: 1 });
 defineMaterial("Trunrada_Shadow", { tint: "#2a2119", rough: 1 });
 defineMaterial("Trunrada_Meat", { map: "felt", tint: "#8e4426", rough: 0.6 });
+defineMaterial("Trunrada_HorseBay", { map: "felt", tint: "#7c4a2b", rough: 0.75 });
+defineMaterial("Trunrada_HorseMane", { map: "felt", tint: "#2a211c", rough: 0.9 });
+defineMaterial("Trunrada_Hoof", { map: "felt", tint: "#3a332d", rough: 0.6 });
+defineMaterial("Trunrada_ShadowEye", { tint: "#120d0a", rough: 0.3 });
 
 // ---- helpers ----
 function seeded(seed: number): () => number {
@@ -427,15 +431,17 @@ function yurt(chief: boolean): Geo {
 
 // ---- longhouse: timber staves on a stone plinth under a two-layer turf roof (ridge along X)
 // with a turf ridge roll, eave logs and grass tufts; the door in the -X gable end under crossed
-// dragon bargeboards and a horned skull, shields, shuttered windows down the sides, a woodpile ----
-function longhouse(): Geo {
-  const L = 690, W = 340, zb = 45, zt = 300, roofH = 330, ov = 50;
+// dragon bargeboards and a horned skull, shields, shuttered windows down the sides, a woodpile.
+// L and W are its half length and half width (the small one is a family's house) ----
+function longhouse(L = 690, W = 340): Geo {
+  const zb = 45, zt = 300, roofH = Math.round((330 * W) / 340), ov = 50;
+  const staves = Math.max(2, Math.round((2 * L) / 230)), sp = (2 * L) / staves;
   const parts: Geo[] = [
     boxBounds([-L - 24, -W - 24, 0], [L + 24, W + 24, zb], "StoneGrey", 5),
     boxBounds([-L, -W, zb], [L, W, zt], "WoodWarm", 2),
   ];
-  for (const x of [-575, -345, -115, 115, 345, 575]) for (const s of [-1, 1]) parts.push(boxAt([20, 12, zt - zb], [x, s * (W + 5), zb], "WoodDark", 2));
-  for (const y of [-130, 130]) for (const s of [-1, 1]) parts.push(boxAt([12, 20, zt - zb], [s * (L + 5), y, zb], "WoodDark", 2));
+  for (let i = 0; i < staves; i++) for (const s of [-1, 1]) parts.push(boxAt([20, 12, zt - zb], [-L + sp * (i + 0.5), s * (W + 5), zb], "WoodDark", 2));
+  for (const y of [-0.38 * W, 0.38 * W]) for (const s of [-1, 1]) parts.push(boxAt([12, 20, zt - zb], [s * (L + 5), y, zb], "WoodDark", 2));
   for (const s of [-1, 1]) {
     parts.push(boxAt([2 * L + 20, 16, 16], [0, s * (W + 7), zb], "WoodDark", 2), boxAt([2 * L + 20, 16, 18], [0, s * (W + 7), zt - 18], "WoodDark", 2));
     parts.push(boxAt([16, 2 * W + 20, 18], [s * (L + 7), 0, zt - 18], "WoodDark", 2));
@@ -485,13 +491,13 @@ function longhouse(): Geo {
   parts.push(translate(door(130, 215), [-L - 2, 0, zb]));
   parts.push(bb([-L - 22, -105, zb + 236], [-L - 12, 105, zb + 250], "WoodRed", 2));
   for (const y of [-80, -40, 0, 40, 80]) parts.push(rotateX(box([2, 7, 7], [-L - 23, y, zb + 243], "Trunrada_PaintYellow"), 45, [-L - 23, y, zb + 243]));
-  for (const s of [-1, 1]) parts.push(translate(shield(40, s > 0 ? "WoodRed" : "Trunrada_PaintBlue", s > 0 ? "Trunrada_PaintYellow" : "FabricWhite"), [-L - 6, s * 232, zb + 130]));
+  for (const s of [-1, 1]) parts.push(translate(shield(40, s > 0 ? "WoodRed" : "Trunrada_PaintBlue", s > 0 ? "Trunrada_PaintYellow" : "FabricWhite"), [-L - 6, s * 0.68 * W, zb + 130]));
   parts.push(translate(skull(), [-L - 16, 0, zt + 84]));
   // shuttered windows down both sides and one in the back
-  for (const s of [-1, 1]) for (const x of [-460, -230, 230, 460]) parts.push(translate(rotateZ(win(60, 60, "Trunrada_PaintBlue"), -s * 90), [x, s * (W + 1), zb + 105]));
+  for (const s of [-1, 1]) for (const x of [-0.667 * L, -0.333 * L, 0.333 * L, 0.667 * L]) parts.push(translate(rotateZ(win(60, 60, "Trunrada_PaintBlue"), -s * 90), [x, s * (W + 1), zb + 105]));
   parts.push(translate(rotateZ(win(60, 60, "Trunrada_PaintBlue"), 180), [L + 1, 0, zb + 105]));
   // woodpiles against the -Y side, their sawn ends to the front
-  for (const x0 of [-520, -400]) for (let i = 0; i < 3; i++) for (let j = 0; j < 3 - i; j++) {
+  for (const x0 of [-0.754 * L, -0.58 * L]) for (let i = 0; i < 3; i++) for (let j = 0; j < 3 - i; j++) {
     const y = -W - 32 - j * 22 - i * 11, z = 11 + i * 19;
     parts.push(log([x0 - 45, y, z], [x0 + 45, y, z], 10.5));
   }
@@ -1093,6 +1099,66 @@ function cart(): Geo {
   return merge(...parts);
 }
 
+// A steppe horse, stocky and short-legged, its head to -X: a bay (Trunrada_HorseBay, swapped
+// for other coats by a town's colourways) with a black mane, tail and hooves, white socks on the
+// hind legs. Saddled with a felt blanket, a high wooden saddle and stirrups, a bridle; or loose
+// and grazing, its head down in the grass.
+function horse(grazing: boolean): Geo {
+  const H = "Trunrada_HorseBay", M = "Trunrada_HorseMane";
+  const egg = (c: V3, r: V3, mat = H): Geo => scale(sphereCenter(1, [0, 0, 0], mat, 14), r).map((p) => ({ geo: p.geo.clone().translate(c[0], c[1], c[2]), mat: p.mat }));
+  const parts: Geo[] = [
+    egg([2, 0, 112], [74, 29, 31]),   // barrel
+    egg([-52, 0, 116], [30, 27, 33]), // chest and shoulders
+    egg([52, 0, 118], [34, 30, 32]),  // hindquarters
+  ];
+  // legs: forearm and cannon in front, gaskin, hock and cannon behind; hooves; white hind socks
+  for (const s of [-1, 1]) {
+    const y = s * 14;
+    parts.push(cylinderBetween([-54, y, 104], [-56, y, 52], 9, 8, H, 6.5), cylinderBetween([-56, y, 52], [-55, y, 8], 6, 8, H, 5.5));
+    parts.push(cylinderBetween([58, y, 108], [68, y, 58], 11, 8, H, 7), cylinderBetween([68, y, 58], [62, y, 8], 6.5, 8, s > 0 ? "FabricWhite" : H, 5.5));
+    for (const x of [-55, 62]) parts.push(cylinderAt({ rBot: 7.5, rTop: 6, height: 9, segments: 8, bottom: [x, y, 0] }, "Trunrada_Hoof"));
+  }
+  // neck, head, ears, eyes, mane and forelock
+  const withers: V3 = [-48, 0, 136], poll: V3 = grazing ? [-112, 0, 64] : [-98, 0, 186];
+  const muzzle: V3 = grazing ? [-120, 0, 16] : [-138, 0, 146];
+  parts.push(cylinderBetween(withers, poll, 21, 10, H, 13));
+  parts.push(egg(lerp3(withers, poll, 0.3), [24, 17, 22]));
+  const hd: V3 = [muzzle[0] - poll[0], 0, muzzle[2] - poll[2]], hl = Math.hypot(hd[0], hd[2]);
+  parts.push(beamBetween(poll, muzzle, 17, 22, H), beamBetween(lerp3(poll, muzzle, 0.15), lerp3(poll, muzzle, 0.55), 20, 26, H));
+  parts.push(beamBetween(lerp3(poll, muzzle, 0.82), lerp3(poll, muzzle, 1.04), 16.5, 21, M));
+  const n: V3 = [-hd[2] / hl, 0, hd[0] / hl]; // across the face, toward the top of the head
+  for (const s of [-1, 1]) {
+    const e = lerp3(poll, muzzle, 0.3);
+    parts.push(sphereCenter(3, [e[0] - n[0] * 6, s * 9.5, e[2] - n[2] * 6], "Trunrada_ShadowEye", 6));
+    parts.push(cylinderBetween([poll[0] + 4, s * 6, poll[2] + 2], [poll[0] + 8 + n[0] * 3, s * 7, poll[2] + 15], 4, 5, H, 0.8));
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = lerp3(poll, withers, i / 5), b = lerp3(poll, withers, (i + 1) / 5);
+    parts.push(beamBetween([a[0] + 4, 0, a[2] + 14], [b[0] + 4, 0, b[2] + 16], 6, 14 - i, M));
+  }
+  // tail
+  const tail: V3 = [84, 0, 126];
+  parts.push(cylinderBetween(tail, [100, 0, 92], 6, 6, M, 8), cylinderBetween([100, 0, 92], [104, 0, 46], 8, 6, M, 4));
+  if (!grazing) {
+    // the bridle and reins, the felt blanket, the saddle with its high pommel and stirrups
+    const nose = lerp3(poll, muzzle, 0.7);
+    parts.push(beamBetween([nose[0] + 2, -11, nose[2] + 3], [nose[0] + 2, 11, nose[2] + 3], 3, 3, "Trunrada_Leather"));
+    for (const s of [-1, 1]) {
+      parts.push(beamBetween([poll[0] + 2, s * 9.5, poll[2]], [nose[0] + 2, s * 10.5, nose[2] + 3], 2.5, 2.5, "Trunrada_Leather"));
+      parts.push(beamBetween([nose[0] + 2, s * 11, nose[2]], [-30, s * 18, 150], 1.5, 1.5, "Trunrada_Leather"));
+    }
+    parts.push(bb([-34, -32, 141], [30, 32, 146], "FeltRed", 1));
+    for (const s of [-1, 1]) parts.push(rotateX(bb([-34, s * 30, 104], [30, s * 33, 146], "FeltRed", 1), s * 8, [0, s * 31, 146]));
+    parts.push(bb([-35, -33, 104], [31, -31, 109], "FabricGold"), bb([-35, 31, 104], [31, 33, 109], "FabricGold"));
+    parts.push(box([44, 34, 10], [-2, 0, 151], "Trunrada_Leather", 4), box([10, 26, 22], [-22, 0, 158], "WoodRed", 3), box([9, 26, 16], [20, 0, 155], "WoodRed", 3));
+    for (const s of [-1, 1]) {
+      parts.push(beamBetween([-4, s * 31, 146], [-4, s * 35, 88], 2, 4, "Trunrada_Leather"));
+      parts.push(translate(rotateY(torus(6, 1.6, 8, 4, "IronDark"), 90), [-4, s * 35, 82]));
+    }
+  }
+  return merge(...parts);
+}
+
 // A clan standard: a stone base, a tall pole with a horsehair tassel and trident, and a red
 // banner with the clan sign on a crossbar. Centred on its footprint (the pole sits off-centre).
 function bannerPole(): Geo {
@@ -1217,6 +1283,10 @@ function sample(put: Put): void {
   put("stable", [100, -1750, 0], 0);
   put("hitching_post", [-330, -1980, 0], 0);
   put("hitching_post", [-1750, 720, 0], 90);
+  put("horse", [-560, -1900, 0], 180);
+  put("horse", [-560, -2080, 0], 170);
+  put("horse_grazing", [-950, 1700, 0], 30);
+  put("horse_grazing", [-1600, 1000, 0], -60);
   put("haystack", [-430, -1450, 0], 0);
   put("haystack", [520, -1060, 0], 30);
   // the market corner and the day's work
@@ -1252,7 +1322,8 @@ export const KIT: Kit = {
   items: [
     { id: "yurt_chief", name: "กระโจมหัวหน้าเผ่า", make: () => yurt(true), tags: ["building", "landmark"] },
     { id: "yurt_small", name: "กระโจมเล็ก", make: () => yurt(false), tags: ["building"] },
-    { id: "longhouse", name: "บ้านยาวหลังคาหญ้า", make: longhouse, tags: ["building"] },
+    { id: "longhouse", name: "บ้านยาวหลังคาหญ้า", make: () => longhouse(), tags: ["building"] },
+    { id: "longhouse_small", name: "บ้านยาวหลังเล็ก", make: () => longhouse(450, 270), tags: ["building"] },
     { id: "stone_house", name: "บ้านหินผนังซุง", make: stoneHouse, tags: ["building"] },
     { id: "windmill", name: "กังหันลมใหญ่", make: windmill, tags: ["landmark", "building"] },
     { id: "stone_circle", name: "วงหินตั้งและแท่นบูชา", make: stoneCircle, tags: ["landmark", "magic"] },
@@ -1268,6 +1339,8 @@ export const KIT: Kit = {
     { id: "drying_rack", name: "ราวตากหนังและปลา", make: dryingRack, tags: ["decor"] },
     { id: "haystack", name: "กองฟาง", make: haystack, tags: ["decor"] },
     { id: "cart", name: "เกวียนล้อใหญ่", make: cart, tags: ["decor", "market"] },
+    { id: "horse", name: "ม้าสเตปป์ติดอาน", make: () => horse(false), tags: ["decor", "animal"] },
+    { id: "horse_grazing", name: "ม้ากินหญ้า", make: () => horse(true), tags: ["decor", "animal"] },
     { id: "banner_pole", name: "เสาธงประจำเผ่า", make: bannerPole, tags: ["decor"] },
     { id: "fur_stall", name: "แผงขายขนสัตว์", make: furStall, tags: ["market"] },
     { id: "brazier_post", name: "เสาคบเพลิง", make: brazierPost, tags: ["light"] },

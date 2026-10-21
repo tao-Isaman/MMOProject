@@ -638,7 +638,17 @@ async function boot(): Promise<void> {
     if (travelling) return;
     travelling = true;
     await loading(`กำลังเดินทางไป${MAP_NAMES[id]}…`, 0.25);
-    current = await loadMap(id, quality);
+    try {
+      current = await loadMap(id, quality);
+    } catch (err) {
+      // a town that fails to build: stay where you are
+      console.error(err);
+      loadMap(current.id, quality).catch(console.error); // its solids current again
+      loaded();
+      travelling = false;
+      floaters.add(player.x, player.y, 140, `เดินทางไป${MAP_NAMES[id]}ไม่สำเร็จ`, "info");
+      return;
+    }
     w3d.load(current.level);
     monsters.length = 0;
     if (!current.town) monsters.push(...spawnMonsters(slimes));

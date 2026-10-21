@@ -1,8 +1,10 @@
 // โยเดีย: the second harbour of the realm, a tropical trading port where the southern plains
 // meet the sea and the jungle. Timber warehouses, a brick-and-plaster customs house with
 // terracotta roofs and a striped lighthouse along the quay; stilt houses with thatch roofs,
-// bamboo, carved guardian posts and a log palisade toward the jungle; wharves, piers, a crane,
-// cargo, fishing boats, outrigger canoes and a three-masted merchant ship on the water.
+// bamboo, carved guardian posts and a log palisade with watchtowers toward the jungle; wharves,
+// piers, a crane, cargo, fishing boats, outrigger canoes and a three-masted merchant ship on the
+// water; arcaded shophouses for the streets, and a temple: its hall, a bell chedi, a sala and a
+// spirit house.
 //
 // Centimetres, Z up; every item stands on z = 0, centred on its footprint, its front facing -X.
 // Boats float with their waterline at about z = 0 (their hulls go below it).
@@ -37,6 +39,9 @@ defineMaterial("Yodia_Net", { map: "fabric", tint: "#56715b", rough: 1 });
 defineMaterial("Yodia_Ice", { map: "snow", tint: "#e2f2f8", rough: 0.35 });
 defineMaterial("Yodia_ThatchOld", { map: "thatch", tint: "#ad8c4c", bump: 2 }); // weathered courses
 defineMaterial("Yodia_Leaf", { map: "felt", tint: "#3f8030", rough: 0.9 }); // banana leaves
+defineMaterial("Yodia_RoofOrange", { map: "tiles", tint: "#dd7a2e", bump: 2.5 }); // temple roofs
+defineMaterial("Yodia_RoofGreen", { map: "tiles", tint: "#3d7d55", bump: 2.5 }); // their borders
+defineMaterial("Yodia_LanternRed", { tint: "#e0453a", rough: 0.6, glow: "#ff3a20", glowI: 1.1 }); // paper lanterns
 
 // ---------- helpers ----------
 const D = 180 / Math.PI;
@@ -1192,6 +1197,382 @@ function quayPaving(): Geo {
   );
 }
 
+// ---------- the streets: shophouses ----------
+// A two-slope roof like roof(), with its own overhang at the gable ends (`ovEnd`: 0 for houses
+// that stand wall to wall, so neighbouring roofs meet without overlapping).
+function roofEnds(sx: number, sy: number, th: number, bottom: V3, h: number, ov: number, ovEnd: number, mat: string, bevel = 0): Geo {
+  const a = Math.atan2(h, sy / 2), slope = (sy / 2 + ov) / Math.cos(a), len = sx + ovEnd * 2;
+  const slab = (s: 1 | -1): Geo => rotateX(uvAlong(box([len, slope, th], [0, (s * slope) / 2, th / 2], mat, bevel), 0), -s * a * D);
+  return translate(merge(slab(1), slab(-1)), [bottom[0], bottom[1], bottom[2] + h]);
+}
+
+// A round red lantern with gold caps and a tassel, hanging `drop` below the point p.
+function redLantern(p: V3, drop: number, r = 17): Geo {
+  const z = p[2] - drop - r * 1.15;
+  return merge(
+    rope(p, [p[0], p[1], z + r * 1.15 + 6], 0.8, "IronDark"),
+    translate(scale(sphereCenter(1, [0, 0, 0], "Yodia_LanternRed", 10), [r, r, r * 1.15]), [p[0], p[1], z]),
+    cylinderAt({ radius: r * 0.45, height: 6, segments: 8, bottom: [p[0], p[1], z + r * 1.05] }, "GoldTrim"),
+    cylinderAt({ radius: r * 0.45, height: 6, segments: 8, bottom: [p[0], p[1], z - r * 1.15 - 3] }, "GoldTrim"),
+    cylinderAt({ rBot: 4, rTop: 1.5, height: 22, segments: 5, bottom: [p[0], p[1], z - r * 1.15 - 25] }, "FabricRed"),
+  );
+}
+
+// A Sino-Portuguese shophouse of `bays` bays (4 m each, along Y) and 2 or 3 storeys, 8.6 m deep:
+// an arcade (the five-foot way) under the upper floor at the front, its basket arches on square
+// white piers; shop fronts of folding teal boards behind it under red-and-gold sign boards and
+// red lanterns; plaster storeys above with tall shuttered windows under stucco hoods, white
+// pilasters, a cornice and a terracotta roof (ridge along Y) between white-coped party walls.
+// Nothing reaches past the party walls (+-Y), so the houses stand wall to wall in a row.
+function shophouse(bays: number, storeys: 2 | 3): Geo {
+  const BW = 400, HY = (bays * BW) / 2, HX = 430, A = 190, G = 360, FH = 340;
+  const top = G + FH * (storeys - 1), xs = -HX + A, RH = 230, g: Geo[] = [];
+  const centres = Array.from({ length: bays }, (_, i) => -HY + BW * (i + 0.5));
+  // floor of the arcade, the shop body, the upper storeys over the arcade
+  g.push(boxBounds([-HX - 34, -HY, 0], [HX, HY, 12], "StoneLight", 1.5), boxBounds([-HX - 40, -HY, 0], [-HX - 26, HY, 16], "StoneGrey", 1));
+  g.push(boxBounds([xs, -HY, 12], [HX, HY, G], "Yodia_Ochre"), boxBounds([-HX, -HY, G], [HX, HY, top], "Yodia_Ochre"));
+  g.push(boxBounds([xs - 4, -HY, 12], [xs + 2, HY, 40], "StoneGrey", 1)); // a skirting along the shop front
+  // piers and arches along the front: a pier at each bay edge, a basket arch between
+  const pier = (y: number, w: number): Geo => merge(
+    boxAt([40, w, 24], [-HX + 20, y, 12], "StoneWhite", 2),
+    boxAt([32, w - 8, G - 70], [-HX + 20, y, 36], "StoneWhite", 1.5),
+    boxAt([42, w + 2, 22], [-HX + 20, y, G - 34], "StoneWhite", 2),
+  );
+  for (let i = 0; i <= bays; i++) {
+    const y = -HY + BW * i, w = i === 0 || i === bays ? 34 : 40;
+    g.push(pier(i === 0 ? y + 17 : i === bays ? y - 17 : y, w));
+  }
+  const ry = BW / 2 - 20, rz = 92, zs = G - 40 - rz;
+  for (const yc of centres) {
+    const n = 12;
+    for (let k = 0; k < n; k++) {
+      const y0 = -ry + (2 * ry * k) / n, y1 = -ry + (2 * ry * (k + 1)) / n, edge = Math.max(Math.abs(y0), Math.abs(y1));
+      const z = zs + rz * Math.sqrt(Math.max(0, 1 - (edge / ry) ** 2));
+      g.push(boxBounds([-HX, yc + y0, z], [-HX + 22, yc + y1, G], "Yodia_Ochre"));
+    }
+    // the archivolt: white mouldings round the arch
+    for (let k = 0; k < 10; k++) {
+      const a0 = (Math.PI * k) / 10, a1 = (Math.PI * (k + 1)) / 10;
+      g.push(beamBetween([-HX - 3, yc - ry * Math.cos(a0), zs + rz * Math.sin(a0)], [-HX - 3, yc - ry * Math.cos(a1), zs + rz * Math.sin(a1)], 8, 12, "StoneWhite"));
+    }
+    g.push(boxAt([12, 22, 30], [-HX - 4, yc, zs + rz - 18], "StoneWhite", 1.5));
+    // the shop front: folding boards, a transom grille, the sign board, a lantern
+    g.push(boxAt([6, 270, 256], [xs - 3, yc, 40], "WoodDark", 1));
+    g.push(boxAt([5, 254, 244], [xs - 6, yc, 46], "Yodia_Teal", 1));
+    for (let j = 1; j < 8; j++) g.push(boxAt([3, 4, 242], [xs - 9, yc - 127 + (254 * j) / 8, 47], "WoodDark"));
+    g.push(boxAt([4, 254, 4], [xs - 9, yc, 160], "WoodDark"), sphereCenter(3, [xs - 11, yc - 8, 150], "Bronze", 6), sphereCenter(3, [xs - 11, yc + 8, 150], "Bronze", 6));
+    g.push(boxAt([7, 200, 46], [xs - 8, yc, 304], "LacquerRed", 1.5));
+    g.push(boxAt([8, 208, 4], [xs - 8.5, yc, 302], "GoldTrim"), boxAt([8, 208, 4], [xs - 8.5, yc, 348], "GoldTrim"));
+    for (let j = 0; j < 4; j++) g.push(boxAt([3, 22, 26], [xs - 12.5, yc - 57 + j * 38, 314], "GoldTrim"));
+    g.push(redLantern([-HX + 110, yc, G], 24));
+  }
+  // the string course over the arcade and the upper storeys' front: pilasters, windows, hoods
+  g.push(boxBounds([-HX - 10, -HY, G - 8], [-HX + 2, HY, G + 18], "StoneWhite", 2));
+  for (let i = 0; i <= bays; i++) {
+    const y = -HY + BW * i, y0 = i === 0 ? y : y - 15, y1 = i === bays ? y : y + 15;
+    g.push(boxBounds([-HX - 8, y0, G + 18], [-HX, y1, top], "StoneWhite", 1.5));
+  }
+  const upper = (): Geo => merge(
+    win(62, 170, { frame: "StoneWhite", shutter: "Yodia_Teal", key: true }),
+    boxAt([12, 112, 10], [-8, 0, 196], "StoneWhite", 2),
+    boxAt([8, 80, 14], [-6, 0, 206], "StoneWhite", 2),
+  );
+  for (let s = 1; s < storeys; s++) {
+    const z = G + FH * (s - 1) + 74;
+    for (const yc of centres) for (const dy of [-92, 92]) g.push(at(upper(), 0, HX, yc + dy, z));
+    if (s > 1) g.push(boxBounds([-HX - 6, -HY, z - 74 - 6], [-HX + 2, HY, z - 74 + 10], "StoneWhite", 1.5));
+  }
+  // a little iron balcony rail under each top-floor window of a three-storey house
+  if (storeys === 3)
+    for (const yc of centres)
+      for (const dy of [-92, 92]) {
+        const z = G + FH + 74, y = yc + dy;
+        g.push(boxBounds([-HX - 34, y - 52, z - 16], [-HX, y + 52, z - 8], "StoneWhite", 1.5));
+        g.push(boxBounds([-HX - 34, y - 52, z + 52], [-HX - 28, y + 52, z + 56], "IronDark"));
+        for (let j = 0; j <= 8; j++) g.push(boxAt([3, 3, 60], [-HX - 31, y - 50 + j * 12.5, z - 8], "IronDark"));
+      }
+  // the cornice and a frieze under it
+  g.push(boxBounds([-HX - 12, -HY, top - 40], [-HX, HY, top - 30], "StoneWhite", 1));
+  for (const yc of centres) for (let j = -3; j <= 3; j++) g.push(boxAt([4, 18, 18], [-HX - 4, yc + j * 50, top - 28], "StoneWhite", 1));
+  g.push(boxBounds([-HX - 18, -HY, top - 8], [-HX + 4, HY, top + 10], "StoneWhite", 2));
+  g.push(boxBounds([HX - 4, -HY, top - 8], [HX + 14, HY, top + 6], "StoneWhite", 2));
+  // the roof (ridge along Y), the party walls up through it with white copings
+  g.push(rotateZ(roofEnds(2 * HY - 2, 2 * HX, 16, [0, 0, top], RH, 34, 0, "RoofTerracotta", 2), 90));
+  g.push(cylinderBetween([0, -HY + 1, top + RH + 16], [0, HY - 1, top + RH + 16], 11, 6, "RoofTerracotta"));
+  for (const s of [-1, 1]) {
+    g.push(rotateZ(gableWall(s * (HY - 0.5), HX, top, RH + 4, "Yodia_Ochre"), 90));
+    for (const t of [-1, 1]) g.push(beamBetween([t * (HX + 22), s * (HY - 7), top + 10], [0, s * (HY - 7), top + RH + 50], 13, 22, "StoneWhite"));
+  }
+  // the back: a door and windows
+  g.push(at(door(90, 220), 180, HX, centres[0] + (bays > 1 ? 100 : 60), 12));
+  for (let s = 1; s < storeys; s++) for (const yc of centres) g.push(at(win(70, 140, { shutter: "Yodia_Teal" }), 180, HX, yc - (bays > 1 ? 60 : 0), G + FH * (s - 1) + 80));
+  if (bays > 1) g.push(at(win(70, 110, { bars: true }), 180, HX, centres[bays - 1], 120));
+  // life in the arcade: potted plants by the piers, a bench, a bird cage
+  for (const yc of centres) {
+    g.push(translate(merge(cylinderAt({ rBot: 13, rTop: 18, height: 34, segments: 8, bottom: [0, 0, 0] }, "Yodia_Clay"), sphereCenter(26, [0, 0, 52], "LeafGreen", 8)), [-HX + 70, yc - BW / 2 + 52, 12]));
+  }
+  g.push(boxAt([40, 150, 8], [xs - 34, centres[0] + (bays > 1 ? 60 : 0), 52], "WoodWarm", 1.5), boxAt([36, 8, 40], [xs - 34, centres[0] + (bays > 1 ? 60 : 0) - 64, 12], "WoodShade"), boxAt([36, 8, 40], [xs - 34, centres[0] + (bays > 1 ? 60 : 0) + 64, 12], "WoodShade"));
+  if (bays > 1) {
+    const c: V3 = [-HX + 120, centres[1] - 120, G - 110];
+    g.push(rope([c[0], c[1], G], [c[0], c[1], c[2] + 40], 0.8, "IronDark"), cylinderAt({ radius: 16, height: 34, segments: 10, bottom: [c[0], c[1], c[2]] }, "BambooDry"));
+    g.push(translate(scale(sphereCenter(1, [0, 0, 0], "BambooDry", 10), [16, 16, 10]), [c[0], c[1], c[2] + 34]), sphereCenter(5, [c[0], c[1], c[2] + 12], "Yodia_Mango", 6));
+  }
+  return merge(...g);
+}
+
+// ---------- the temple ----------
+// A Thai temple roof (ridge along X): orange tiles inside a green border, its underside on the
+// same planes as roof()'s.
+function thaiRoof(sx: number, sy: number, bottom: V3, h: number, ov: number, ovEnd: number, th = 14, border = 32): Geo {
+  return merge(
+    roofEnds(sx, sy, th, bottom, h, ov, ovEnd, "Yodia_RoofOrange", th / 7),
+    roofEnds(sx, sy, th - 2, [bottom[0], bottom[1], bottom[2] - th / 5], h, ov + border, ovEnd + border, "Yodia_RoofGreen"),
+  );
+}
+// The front of a Thai gable in the plane x (facing -X): a red panel with a gold sunburst, gold
+// barge boards set with a row of teeth (bai raka) up both edges, a chofa hook at the apex and
+// hang hong curls at the foot. `half` and `z0`: the eave line; `h`: up to the ridge; `ov`: how
+// far the roof runs past the eave line (the boards follow it down); the boards stand in the
+// plane `bx` (the roof's end), `lift` over the roof's underside; `k` scales the trim.
+function thaiGable(x: number, half: number, z0: number, h: number, ov: number, o: { bx?: number; k?: number; panel?: boolean; lift?: number } = {}): Geo {
+  const g: Geo[] = [], k = o.k ?? 1, panel = o.panel ?? true, bx = o.bx ?? x - 6, lift = o.lift ?? 30 * k;
+  if (panel) {
+    g.push(gableWall(x, half, z0, h, "LacquerRed"));
+    const cz = z0 + h * 0.36, r = h * 0.15;
+    g.push(translate(rotateY(cylinderAt({ radius: r, height: 4, segments: 12, bottom: [0, 0, 0] }, "GoldTrim"), -90), [x - 1, 0, cz]));
+    g.push(translate(rotateY(cylinderAt({ radius: r * 0.55, height: 4, segments: 10, bottom: [0, 0, 0] }, "LacquerRed"), -90), [x - 3, 0, cz]));
+    for (let i = 0; i < 12; i++) g.push(rotateX(boxAt([3, 6 * k, r * 0.9], [x - 2, 0, cz + r * 1.05], "GoldTrim"), i * 30, [x - 2, 0, cz]));
+    g.push(boxBounds([x - 6, -half, z0 - 4], [x + 2, half, z0 + 10 * k], "GoldTrim"));
+  }
+  const zt = z0 + h + lift, ze = z0 - (ov * h) / half + lift, ye = half + ov;
+  for (const s of [-1, 1]) {
+    g.push(beamBetween([bx, s * ye, ze], [bx, 0, zt], 10 * k, 22 * k, "GoldTrim"));
+    const L = Math.hypot(ye, zt - ze), n = Math.floor(L / (34 * k));
+    for (let i = 1; i < n; i++) {
+      const t = i / n, y = s * ye * (1 - t), z = ze + (zt - ze) * t;
+      g.push(rotateX(boxAt([4, 7 * k, 20 * k], [bx, y, z + 8 * k], "GoldTrim"), s * -30, [bx, y, z + 8 * k]));
+    }
+    // hang hong: a curl at the foot of each board
+    g.push(beamBetween([bx, s * ye, ze], [bx - 4 * k, s * (ye + 22 * k), ze + 30 * k], 8 * k, 8 * k, "GoldTrim"), beamBetween([bx - 4 * k, s * (ye + 22 * k), ze + 30 * k], [bx - 8 * k, s * (ye + 14 * k), ze + 52 * k], 6 * k, 6 * k, "GoldTrim"));
+  }
+  // the chofa: a slender hook rising from the apex, its beak to the front
+  const p0: V3 = [bx, 0, zt], p1: V3 = [bx + 4 * k, 0, zt + 60 * k], p2: V3 = [bx - 16 * k, 0, zt + 100 * k], p3: V3 = [bx - 44 * k, 0, zt + 96 * k];
+  g.push(beamBetween(p0, p1, 9 * k, 9 * k, "GoldTrim"), beamBetween(p1, p2, 8 * k, 8 * k, "GoldTrim"), beamBetween(p2, p3, 6 * k, 6 * k, "GoldTrim"));
+  return merge(...g);
+}
+// a white column with a gold lotus capital and foot
+function lotusColumn(x: number, y: number, z0: number, h: number, r = 19): Geo {
+  return merge(
+    cylinderAt({ rBot: r + 6, rTop: r + 2, height: 14, segments: 8, bottom: [x, y, z0] }, "GoldTrim"),
+    cylinderAt({ rBot: r, rTop: r * 0.88, height: h - 40, segments: 8, bottom: [x, y, z0 + 14] }, "StoneWhite"),
+    cylinderAt({ rBot: r * 0.88, rTop: r * 1.45, height: 26, segments: 8, bottom: [x, y, z0 + h - 26] }, "GoldTrim"),
+  );
+}
+
+// A Thai temple hall (wihan), 21 x 12 m: a white hall on a stepped plinth with stairs and naga
+// rails at the front (-X), a colonnade of white columns with gold lotus capitals round it,
+// red-and-gold doors and windows, and tiered orange roofs bordered in green: a front and a back
+// porch roof stepped down from the main one, a low skirt over the side galleries, red gables
+// with gold sunbursts, barge boards and chofa finials.
+function watHall(): Geo {
+  const P = 90, W = 560, HX = 700, HY = 380, VX = 960, VY = 500;
+  const g: Geo[] = [
+    boxBounds([-VX - 30, -VY - 50, 0], [VX + 30, VY + 50, 36], "StoneGrey", 3),
+    boxBounds([-VX, -VY - 20, 36], [VX, VY + 20, P], "StoneWhite", 3),
+    boxBounds([-VX - 8, -VY - 28, P - 14], [VX + 8, VY + 28, P], "StoneLight", 2),
+    boxBounds([-HX, -HY, P], [HX, HY, W], "PlasterCream"),
+    boxBounds([-HX - 6, -HY - 6, P], [HX + 6, HY + 6, P + 36], "StoneWhite", 2),
+    boxBounds([-HX - 8, -HY - 8, W - 46], [HX + 8, HY + 8, W - 10], "LacquerRed"),
+    boxBounds([-HX - 10, -HY - 10, W - 50], [HX + 10, HY + 10, W - 44], "GoldTrim"),
+    boxBounds([-HX - 10, -HY - 10, W - 12], [HX + 10, HY + 10, W], "GoldTrim"),
+  ];
+  // stairs and naga rails at the front, a lower flight at the back
+  for (let i = 0; i < 4; i++) g.push(boxBounds([-VX - 150 + i * 36, -180, 0], [-VX, 180, (P / 4) * (i + 1)], "StoneWhite", 1.5));
+  for (let i = 0; i < 3; i++) g.push(boxBounds([VX, -120, 0], [VX + 100 - i * 33, 120, (P / 3) * (i + 1)], "StoneWhite", 1.5));
+  for (const s of [-1, 1]) {
+    const y = s * 202, foot: V3 = [-VX - 160, y, 30], head: V3 = [-VX - 190, y, 150];
+    g.push(beamBetween([-VX + 10, y, P + 30], foot, 26, 30, "Yodia_RoofGreen"), boxAt([30, 30, 34], [-VX - 160, y, 0], "StoneWhite", 2));
+    g.push(beamBetween([-VX + 10, y, P + 50], [-VX - 160, y, 52], 10, 8, "GoldTrim"));
+    g.push(beamBetween(foot, head, 24, 24, "Yodia_RoofGreen"), boxAt([46, 26, 24], [head[0] - 16, y, head[2] - 8], "Yodia_RoofGreen", 3));
+    for (let i = -2; i <= 2; i++) g.push(rotateX(boxAt([6, 10, 46], [head[0] + 8, y, head[2]], "GoldTrim"), i * 22, [head[0] + 8, y, head[2]]));
+    g.push(sphereCenter(4, [head[0] - 34, y - 9, head[2] + 4], "LacquerBlack", 6), sphereCenter(4, [head[0] - 34, y + 9, head[2] + 4], "LacquerBlack", 6));
+  }
+  // doors and windows
+  g.push(at(door(170, 300, { double: true, leaf: "LacquerRed", frame: "GoldTrim" }), 0, HX, 0, P));
+  g.push(boxAt([10, 240, 70], [-HX - 8, 0, P + 330], "GoldTrim", 2), boxAt([12, 200, 50], [-HX - 10, 0, P + 340], "LacquerRed", 2));
+  for (const y of [-250, 250]) g.push(at(win(70, 150, { frame: "GoldTrim", shutter: "LacquerRed" }), 0, HX, y, P + 130));
+  g.push(at(door(130, 260, { double: true, leaf: "LacquerRed", frame: "GoldTrim" }), 180, HX, 0, P));
+  for (const hd of [90, 270]) for (const x of [-600, -360, -120, 120, 360, 600]) g.push(at(win(70, 150, { frame: "GoldTrim", shutter: "LacquerRed", key: true }), hd, HY, x, P + 130));
+  // columns: the side galleries and both porches
+  for (const x of [-720, -480, -240, 0, 240, 480, 720]) for (const s of [-1, 1]) g.push(lotusColumn(x, s * 470, P, 320 - P - 6, 16));
+  for (const s of [-1, 1]) g.push(boxBounds([-900, s * 470 - 12, 300], [900, s * 470 + 12, 322], "LacquerRed"));
+  for (const end of [-1, 1]) {
+    const x = end * 925;
+    for (const y of [-300, -100, 100, 300]) g.push(lotusColumn(x, y, P, 380 - P, 19));
+    g.push(boxBounds([x - 16, -400, 380], [x + 16, 400, 412], "LacquerRed"), boxBounds([x - 18, -400, 376], [x + 18, 400, 382], "GoldTrim"));
+  }
+  // the roofs: main, the porches stepped down, the low skirt over the galleries
+  g.push(thaiRoof(1520, 2 * HY, [0, 0, W], 560, 40, 30));
+  for (const end of [-1, 1]) g.push(thaiRoof(240, 2 * HY, [end * 820, 0, 410], 560, 40, 30));
+  g.push(thaiRoof(1800, 940, [0, 0, 320], 300, 90, 0));
+  g.push(cylinderBetween([-790, 0, W + 560 + 28], [790, 0, W + 560 + 28], 10, 6, "Yodia_RoofGreen"));
+  for (let i = -3; i <= 3; i++) g.push(boxAt([16, 16, 24], [i * 200, 0, W + 560 + 32], "GoldTrim", 2));
+  // gables: the porch ones in front, the main ones stepped up behind them (both ends)
+  const front = merge(thaiGable(-940, HY, 410, 560, 40, { bx: -966 }), thaiGable(-760, HY, W, 560, 40, { bx: -786 }));
+  g.push(front, rotateZ(front, 180));
+  // bells under the gallery eaves
+  for (const x of [-600, 0, 600]) for (const s of [-1, 1]) {
+    g.push(rope([x, s * 520, 300], [x, s * 520, 270], 0.8, "IronDark"), cylinderAt({ rBot: 10, rTop: 5, height: 18, segments: 8, bottom: [x, s * 520, 252] }, "GoldTrim"));
+  }
+  return translate(merge(...g), [65, 0, 0]);
+}
+
+// a bell (the chedi's body): mouldings, the bell, the harmika, gold rings and the spire, its
+// foot 250 across at z = 0, about 9.6 m tall
+function bell(): Geo {
+  const g: Geo[] = [
+    cylinderAt({ radius: 250, height: 34, segments: 16, bottom: [0, 0, 0] }, "StoneWhite"),
+    cylinderAt({ radius: 236, height: 32, segments: 16, bottom: [0, 0, 34] }, "StoneWhite"),
+    cylinderAt({ radius: 224, height: 30, segments: 16, bottom: [0, 0, 66] }, "StoneWhite"),
+    translate(torus(237, 4, 16, 4, "GoldTrim"), [0, 0, 34]), translate(torus(225, 4, 16, 4, "GoldTrim"), [0, 0, 66]),
+  ];
+  const prof: [number, number][] = [[0, 214], [50, 213], [100, 205], [150, 191], [200, 169], [250, 137], [290, 100], [320, 64], [334, 40]];
+  for (let i = 0; i < prof.length - 1; i++) g.push(cylinderAt({ rBot: prof[i][1], rTop: prof[i + 1][1], height: prof[i + 1][0] - prof[i][0], segments: 16, bottom: [0, 0, 96 + prof[i][0]] }, "StoneWhite"));
+  g.push(translate(torus(212, 5, 16, 4, "GoldTrim"), [0, 0, 120]));
+  g.push(boxAt([140, 140, 66], [0, 0, 424], "StoneWhite", 3), boxAt([154, 154, 12], [0, 0, 490], "GoldTrim", 2), boxAt([120, 120, 14], [0, 0, 502], "StoneWhite", 2));
+  g.push(cylinderAt({ rBot: 52, rTop: 22, height: 170, segments: 12, bottom: [0, 0, 516] }, "GoldTrim"));
+  for (let i = 0; i < 8; i++) g.push(translate(torus(50 - i * 3.7, 6, 14, 5, "GoldTrim"), [0, 0, 524 + i * 20]));
+  g.push(cylinderAt({ rBot: 22, rTop: 2, height: 250, segments: 8, bottom: [0, 0, 686] }, "GoldTrim"));
+  g.push(sphereCenter(11, [0, 0, 780], "GoldTrim", 8), sphereCenter(7, [0, 0, 850], "GoldTrim", 8));
+  return merge(...g);
+}
+// A bell-shaped chedi in the old style of the south, 9 m square and 11.5 m tall: three square
+// white terraces with gold edges and a stair up the front (-X), the bell, its harmika and a
+// ringed gold spire; a little chedi on each corner of the lowest terrace.
+function chedi(): Geo {
+  const g: Geo[] = [];
+  for (const [r, z0, z1] of [[450, 0, 70], [370, 70, 140], [300, 140, 210]] as const) {
+    g.push(boxBounds([-r, -r, z0], [r, r, z1], "StoneWhite", 3), boxBounds([-r - 3, -r - 3, z1 - 10], [r + 3, r + 3, z1 - 4], "GoldTrim"));
+  }
+  for (let i = 0; i < 7; i++) g.push(boxBounds([-560 + i * 30, -90, 0], [-300, 90, 30 * (i + 1)], "StoneWhite", 1.5));
+  for (const s of [-1, 1]) g.push(beamBetween([-570, s * 100, 30], [-300, s * 100, 240], 18, 24, "StoneWhite"));
+  g.push(translate(bell(), [0, 0, 210]));
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) g.push(translate(scale(bell(), [0.2, 0.2, 0.2]), [sx * 410, sy * 410, 70]));
+  return translate(merge(...g), [60, 0, 0]);
+}
+
+// A Thai sala: an open pavilion 6 x 4 m on a white plinth, red posts, benches along the sides,
+// an orange-and-green roof with gables and chofa at both ends.
+function sala(): Geo {
+  const P = 45, HX = 300, HY = 190, E = 300, g: Geo[] = [
+    boxBounds([-HX - 20, -HY - 30, 0], [HX + 20, HY + 30, P], "StoneWhite", 3),
+    boxBounds([-HX - 24, -HY - 34, P - 10], [HX + 24, HY + 34, P - 4], "GoldTrim"),
+  ];
+  for (let i = 0; i < 2; i++) g.push(boxBounds([-HX - 80 + i * 30, -90, 0], [-HX - 20, 90, (P / 2) * (i + 1)], "StoneWhite", 1.5));
+  for (const x of [-270, 0, 270]) for (const s of [-1, 1]) {
+    g.push(boxAt([22, 22, E - P], [x, s * 170, P], "WoodRed", 2), boxAt([30, 30, 14], [x, s * 170, P], "GoldTrim", 1.5), boxAt([28, 28, 16], [x, s * 170, E - 16], "GoldTrim", 1.5));
+  }
+  for (const s of [-1, 1]) {
+    g.push(boxBounds([-HX, s * 170 - 12, E - 30], [HX, s * 170 + 12, E], "WoodRed"));
+    g.push(boxBounds([-260, s * 150 - 20, P + 40], [260, s * 150 + 20, P + 48], "WoodWarm", 1.5), boxBounds([-260, s * 172 - 5, P + 48], [260, s * 172 + 5, P + 90], "WoodWarm", 1));
+    for (const x of [-200, 0, 200]) g.push(boxAt([30, 8, 40], [x, s * 150, P], "WoodShade"));
+  }
+  for (const s of [-1, 1]) g.push(boxBounds([s * 270 - 12, -170, E - 30], [s * 270 + 12, 170, E], "WoodRed"));
+  g.push(thaiRoof(2 * HX, 2 * HY, [0, 0, E], 260, 50, 46, 12, 24));
+  const end = thaiGable(-HX - 10, HY, E, 260, 50, { bx: -HX - 44, k: 0.6, lift: 24 });
+  g.push(end, rotateZ(end, 180));
+  g.push(hangLantern([0, 0, E + 120], 60, 12, 28));
+  return merge(...g);
+}
+
+// A carved spirit house (san phra phum) on a white pillar: a little red-and-gold shrine with an
+// orange roof and a gold spire, garlands, offerings and joss sticks.
+function spiritHouse(): Geo {
+  const g: Geo[] = [
+    boxAt([60, 60, 14], [0, 0, 0], "StoneWhite", 2),
+    cylinderAt({ rBot: 13, rTop: 11, height: 140, segments: 8, bottom: [0, 0, 14] }, "StoneWhite"),
+    boxAt([86, 86, 10], [0, 0, 150], "LacquerRed", 1.5), boxAt([90, 90, 3], [0, 0, 158], "GoldTrim"),
+    boxBounds([-24, -30, 160], [24, 30, 214], "LacquerRed"),
+    boxBounds([-26, -32, 208], [26, 32, 216], "GoldTrim"),
+  ];
+  for (const [x, y] of [[-32, -32], [-32, 32], [24, -32], [24, 32]]) g.push(cylinderAt({ radius: 3, height: 56, segments: 6, bottom: [x, y, 160] }, "GoldTrim"));
+  g.push(at(door(20, 34, { leaf: "GoldTrim", frame: "LacquerRed" }), 0, 24, 0, 162));
+  g.push(thaiRoof(70, 64, [0, 0, 216], 40, 10, 8, 4, 4));
+  const end = thaiGable(-35, 32, 216, 40, 10, { bx: -42, k: 0.18, panel: false });
+  g.push(end, rotateZ(end, 180));
+  g.push(cylinderAt({ rBot: 9, rTop: 1, height: 46, segments: 8, bottom: [0, 0, 254] }, "GoldTrim"), sphereCenter(4, [0, 0, 300], "GoldTrim", 6));
+  // garlands, little figures, a red drink, joss sticks in a pot of sand
+  g.push(translate(torus(14, 3.4, 10, 4, "Yodia_Mango"), [0, 0, 130]), translate(torus(13, 3, 10, 4, "FabricWhite"), [0, 0, 120]));
+  for (const y of [-22, 22]) g.push(boxAt([8, 6, 14], [-36, y, 160], "StoneWhite"), sphereCenter(4, [-36, y, 178], "StoneWhite", 6));
+  g.push(cylinderAt({ radius: 3.5, height: 14, segments: 6, bottom: [-36, 0, 160] }, "Yodia_LanternRed"));
+  g.push(cylinderAt({ rBot: 7, rTop: 9, height: 10, segments: 8, bottom: [36, 0, 160] }, "Yodia_Clay"));
+  for (const d of [-3, 0, 3]) g.push(cylinderBetween([36 + d, d, 170], [38 + d * 2, d * 1.5, 196], 0.7, 4, "WoodRed"));
+  return merge(...g);
+}
+
+// A log watchtower for the corners and long runs of the palisade, 2.4 m square: four corner
+// posts, a skirt of stakes as tall as the palisade, a railed lookout under a thatch pyramid,
+// a ladder up the back (+X) and a torch at the front.
+function watchtower(): Geo {
+  const g: Geo[] = [], half = 110;
+  for (const dx of [-90, 90]) for (const dy of [-90, 90]) g.push(cylinderAt({ radius: 14, height: 600, segments: 8, bottom: [dx, dy, 0] }, "BarkWarm"));
+  for (let k = -4; k <= 4; k++) {
+    g.push(stake(-104, k * 25, 300 + ((k * 7) & 3) * 10, 12));
+    g.push(stake(k * 25, -104, 300 + ((k * 5) & 3) * 10, 12), stake(k * 25, 104, 300 + ((k * 3) & 3) * 10, 12));
+    if (Math.abs(k) > 1) g.push(stake(104, k * 25, 290, 12));
+  }
+  g.push(boxBounds([-half, -half, 320], [half, half, 336], "WoodWarm", 2));
+  for (const s of [-1, 1]) {
+    g.push(boxBounds([-half - 6, s * half - 9, 296], [half + 6, s * half + 9, 320], "WoodDark"), boxBounds([s * half - 9, -half, 296], [s * half + 9, half, 320], "WoodDark"));
+    g.push(beamBetween([s * 90, -90, 60], [s * 90, 90, 300], 8, 10, "WoodShade"), beamBetween([-90, s * 90, 60], [90, s * 90, 300], 8, 10, "WoodShade"));
+  }
+  for (const z of [376, 414]) {
+    g.push(boxBounds([-half, -half, z], [-half + 8, half, z + 8], "WoodDark"), boxBounds([half - 8, -half, z], [half, half, z + 8], "WoodDark"));
+    g.push(boxBounds([-half, -half, z], [half, -half + 8, z + 8], "WoodDark"), boxBounds([-half, half - 8, z], [half, half, z + 8], "WoodDark"));
+  }
+  for (let k = -3; k <= 3; k++) for (const [x, y] of [[-half + 4, k * 30], [k * 30, -half + 4], [k * 30, half - 4]]) g.push(boxAt([5, 5, 42], [x, y, 336], "WoodShade"));
+  g.push(rotateZ(cylinderAt({ rBot: 180, rTop: 6, height: 170, segments: 4, bottom: [0, 0, 588] }, "Thatch"), 45));
+  g.push(rotateZ(cylinderAt({ rBot: 128, rTop: 120, height: 12, segments: 4, bottom: [0, 0, 580] }, "WoodDark"), 45), sphereCenter(10, [0, 0, 760], "WoodDark", 8));
+  // ladder at the back
+  for (const s of [-1, 1]) g.push(beamBetween([200, s * 30, 0], [116, s * 30, 336], 8, 10, "WoodDark"));
+  for (let i = 1; i < 10; i++) {
+    const t = i / 10;
+    g.push(cylinderBetween([200 - 84 * t, -32, 336 * t], [200 - 84 * t, 32, 336 * t], 3.5, 6, "BambooDry"));
+  }
+  // the torch and a hanging cloth in the town's three colours
+  g.push(beamBetween([-104, 0, 250], [-130, 0, 268], 5, 5, "IronDark"), cylinderAt({ rBot: 6, rTop: 10, height: 16, segments: 6, bottom: [-132, 0, 266] }, "IronDark"));
+  g.push(cylinderAt({ rBot: 8, rTop: 0.5, height: 26, segments: 6, bottom: [-132, 0, 280] }, "FireGlow"), sphereCenter(7, [-132, 0, 284], "FireGlow", 6));
+  ["FabricRed", "FabricGold", "FabricGreen"].forEach((m, i) => g.push(boxAt([3, 22, 90 - i * 16], [-half - 6, -60 + i * 22, 336 - 90 + i * 16], m)));
+  return merge(...g);
+}
+
+// ---------- the streets: lights and the shore ----------
+// a street lantern post: a red-lacquered post on a stone foot, a crossarm with a red paper
+// lantern hanging at each end (along Y)
+function lanternPost(): Geo {
+  const g: Geo[] = [
+    boxAt([40, 40, 24], [0, 0, 0], "StoneGrey", 3),
+    boxAt([16, 16, 300], [0, 0, 24], "WoodRed", 2),
+    boxAt([22, 22, 10], [0, 0, 300], "GoldTrim", 1.5),
+    cylinderAt({ rBot: 9, rTop: 2, height: 22, segments: 6, bottom: [0, 0, 324] }, "GoldTrim"),
+    boxBounds([-6, -92, 284], [6, 92, 296], "WoodDark", 1.5),
+  ];
+  for (const s of [-1, 1]) {
+    g.push(beamBetween([0, s * 8, 240], [0, s * 52, 284], 6, 6, "WoodDark"), boxAt([10, 10, 16], [0, s * 92, 280], "GoldTrim", 1.5));
+    g.push(redLantern([0, s * 74, 284], 10, 15));
+  }
+  return merge(...g);
+}
+// boulders along a natural shore, 4 m along Y (tiles end to end), the sea to -X: big rocks half
+// in the water, smaller ones up the bank
+function shoreRocks(): Geo {
+  const rs: [number, number, number, number, number][] = [
+    [-80, -150, 170, 140, 120], [-60, -20, 150, 160, 100], [-90, 110, 180, 150, 130], [-40, 190, 120, 100, 80],
+    [40, -90, 110, 100, 80], [50, 60, 120, 110, 70], [-150, 30, 120, 100, 80], [-140, -70, 100, 90, 70], [90, 170, 80, 70, 50],
+  ];
+  return merge(...rs.map(([x, y, sx, sy, sz], i) => translate(rock([sx, sy, sz], 0.45, 21 + i, i % 3 ? "StoneGrey" : "MossStone"), [x, y, -40])));
+}
+
 // ---------- the sample: the harbour front ----------
 function sample(put: Put): void {
   const here = (g: Geo): void => put(solid(g), [0, 0, 0]);
@@ -1300,6 +1681,16 @@ export const KIT: Kit = {
     { id: "harbour_lamp", name: "โคมไฟท่าเรือ", make: harbourLamp, tags: ["light", "dock"] },
     { id: "plank_path", name: "ทางเดินไม้กระดาน (4 ม.)", make: plankPath, tags: ["ground"] },
     { id: "quay_paving", name: "ลานหินท่าเรือ (4 ม.)", make: quayPaving, tags: ["ground"] },
+    { id: "shophouse", name: "ตึกแถวชิโน-โปรตุกีส (2 คูหา)", make: () => shophouse(2, 2), tags: ["building", "market"] },
+    { id: "shophouse_tall", name: "ตึกแถวสามชั้น", make: () => shophouse(2, 3), tags: ["building", "market"] },
+    { id: "shophouse_narrow", name: "ตึกแถวคูหาเดียว", make: () => shophouse(1, 2), tags: ["building", "market"] },
+    { id: "wat_hall", name: "วิหาร", make: watHall, tags: ["building", "landmark"] },
+    { id: "chedi", name: "เจดีย์ทรงระฆัง", make: chedi, tags: ["landmark", "tower"] },
+    { id: "sala", name: "ศาลาไทย", make: sala, tags: ["building", "decor"] },
+    { id: "spirit_house", name: "ศาลพระภูมิ", make: spiritHouse, tags: ["decor", "magic"] },
+    { id: "watchtower", name: "หอสังเกตการณ์ไม้ซุง", make: watchtower, tags: ["tower", "defence"] },
+    { id: "lantern_post", name: "เสาโคมแดง", make: lanternPost, tags: ["light"] },
+    { id: "shore_rocks", name: "โขดหินชายฝั่ง (4 ม.)", make: shoreRocks, tags: ["dock", "decor"] },
   ],
   sample,
 };

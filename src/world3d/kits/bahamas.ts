@@ -1240,6 +1240,118 @@ function rockArch(): Geo {
 }
 
 // ======================================================================================
+// the palace terrace and the dunes
+// ======================================================================================
+
+// ฐานยกสูงหน้าวัง: the raised terrace the palace stands on (put the palace at z = 140 over the
+// terrace's origin): retaining walls of dressed sandstone with blind pointed niches, a tiled band
+// and a coping, a low merlon parapet round the top, a broad stair down the front between sloping
+// cheek walls, round bastions at the front corners and lamp pedestals at the foot of the stair.
+function palaceTerrace(): Geo {
+  const H = 140, x0 = -1240, x1 = 1180, hw = 1180, sw = 420;
+  const n = 9, rise = H / n, run = 36, xs = x0 - n * run;
+  const parts: Geo[] = [
+    sboxB([x0, -hw, 0], [x1, hw, H - 22], "Bahamas_SandstoneDeep"),
+    sboxB([x0 - 10, -hw - 10, 0], [x1 + 10, hw + 10, 24], "Bahamas_SandstoneDeep", 2),
+    sboxB([x0 - 3, -hw - 3, H - 44], [x1 + 3, hw + 3, H - 28], "Bahamas_TileTeal"),
+    sboxB([x0 - 4, -hw - 4, H - 28], [x1 + 4, hw + 4, H - 22], "GoldTrim"),
+    sboxB([x0 - 8, -hw - 8, H - 22], [x1 + 8, hw + 8, H], "SandstonePale", 2),
+    sboxB([x0, -hw, H], [x1, hw, H + 1], "Bahamas_PaverA"),
+  ];
+  // blind pointed niches along the front and both sides
+  const niche = merge(
+    prism(archOutline("pointed", 50, 30), [], 2, "yz", -1.5, "Bahamas_Shadow"),
+    archRing("pointed", 50, 30, 8, 3, "SandstonePale"),
+  );
+  for (let y = -hw + 120; y <= hw - 120; y += 160) if (Math.abs(y) > sw + 90) parts.push(translate(niche, [x0, y, 28]));
+  for (let x = x0 + 140; x <= x1 - 100; x += 160) for (const s of [-1, 1]) parts.push(translate(rotateZ(niche, s * -90), [x, s * hw, 28]));
+  // a low parapet of merlons round the top, open where the stair comes up
+  const m = merlon(36, 20, "SandstonePale");
+  for (let y = -hw + 30; y <= hw - 30; y += 80) if (Math.abs(y) > sw + 30) parts.push(translate(m, [x0 + 12, y, H]));
+  for (let x = x0 + 90; x <= x1 - 20; x += 80) for (const s of [-1, 1]) parts.push(translate(rotateZ(m, 90), [x, s * (hw - 12), H]));
+  for (let y = -hw + 30; y <= hw - 30; y += 80) parts.push(translate(m, [x1 - 12, y, H]));
+  // the stair, its cheek walls sloping with it
+  const steps: P2[] = [[0, 0], [n * run, 0]];
+  for (let i = n - 1; i >= 0; i--) steps.push([(i + 1) * run, (i + 1) * rise], [i * run, (i + 1) * rise]);
+  parts.push(translate(prism(steps, [], 2 * sw, "xz", -sw, "SandstonePale"), [xs, 0, 0]));
+  for (const s of [-1, 1]) {
+    const y0 = s > 0 ? sw : -sw - 44;
+    parts.push(translate(prism([[-24, 0], [n * run, 0], [n * run, H + 46], [n * run - 30, H + 46], [0, 64], [-24, 64]], [], 44, "xz", y0, "SandstoneWarm"), [xs, 0, 0]));
+    parts.push(translate(prism([[-28, 64], [0, 64], [n * run - 30, H + 46], [n * run + 4, H + 46], [n * run + 4, H + 54], [n * run - 32, H + 54], [0, 72], [-28, 72]], [], 52, "xz", y0 - 4, "SandstonePale"), [xs, 0, 0]));
+    // a lamp pedestal at the foot
+    parts.push(sboxAt([64, 64, 96], [xs - 66, s * (sw + 22), 0], "SandstoneWarm", 3), sboxAt([76, 76, 12], [xs - 66, s * (sw + 22), 96], "SandstonePale", 2));
+    parts.push(sboxAt([66, 66, 10], [xs - 66, s * (sw + 22), 60], "Bahamas_TileTeal", 1));
+    parts.push(translate(scale(lantern(), [1.4, 1.4, 1.4]), [xs - 66, s * (sw + 22), 108]));
+  }
+  // round bastions at the front corners, a merlon ring on each
+  for (const s of [-1, 1]) {
+    const bx = x0 + 40, by = s * (hw - 40), R = 120;
+    parts.push(cyl(R + 10, 24, 12, [bx, by, 0], "Bahamas_SandstoneDeep"), cyl(R, H + 20, 12, [bx, by, 0], "Bahamas_SandstoneDeep"));
+    parts.push(cyl(R + 3, 16, 12, [bx, by, H - 44], "Bahamas_TileTeal"), cyl(R + 8, 20, 12, [bx, by, H], "SandstonePale"));
+    for (let k = 0; k < 10; k++) parts.push(translate(rotateZ(translate(merlon(40, 22, "SandstonePale"), [-(R - 4), 0, 0]), 18 + 36 * k), [bx, by, H + 20]));
+    parts.push(translate(scale(lantern(), [1.2, 1.2, 1.2]), [bx, by, H + 20]));
+  }
+  return merge(...parts);
+}
+
+// เนินทราย: a crescent dune of soft sand about 15 m long and 2.6 m high: a long gentle back
+// (+X, where the wind comes from), a steep slip face in the hollow at the front (-X) between two
+// horns reaching forward, ripples across the back. Its edge sinks a little below z = 0, so it
+// rises out of the ground.
+defineMaterial("Bahamas_DuneSand", { map: "plaster", tint: "#f6d79c", rough: 1, bump: 0.3 });
+function sandDune(): Geo {
+  const L = 1500, W = 1200, H = 260, nx = 60, ny = 48;
+  const height = (x: number, y: number): number => {
+    const u = x / (L / 2), v = y / (W / 2);
+    let z = Math.pow(Math.max(0, 1 - u * u * (u > 0 ? 1 : 2.4) - v * v), 0.75) * H;
+    const hu = (x + L * 0.4) / (L * 0.42), hv = y / (W * 0.3);
+    const hollow = 1 - hu * hu - hv * hv;
+    if (hollow > 0) z -= Math.pow(hollow, 0.7) * H * 1.1;
+    z = Math.max(0, z);
+    z += Math.sin(x / 48 + (y * y) / 90000) * 3.5 * Math.min(1, z / 60);
+    return z - 5;
+  };
+  const pos: number[] = [];
+  const at = (i: number, j: number): V3 => {
+    const x = -L / 2 + (L * i) / nx, y = -W / 2 + (W * j) / ny;
+    return [x, y, height(x, y)];
+  };
+  for (let i = 0; i < nx; i++)
+    for (let j = 0; j < ny; j++) {
+      const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
+      if (Math.max(a[2], b[2], c[2], d[2]) < -4) continue; // flat under the ground
+      pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+    }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const merged = mergeVertices(geo);
+  merged.computeVertexNormals();
+  const flat = merged.toNonIndexed();
+  worldUv(flat);
+  return [{ geo: flat, mat: "Bahamas_DuneSand" }];
+}
+
+// Welds the corners the grid's triangles share, so the dune shades smoothly.
+function mergeVertices(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+  const p = geo.getAttribute("position");
+  const map = new Map<string, number>(), verts: number[] = [], index: number[] = [];
+  for (let i = 0; i < p.count; i++) {
+    const key = `${Math.round(p.getX(i))},${Math.round(p.getY(i))}`;
+    let k = map.get(key);
+    if (k === undefined) {
+      k = verts.length / 3;
+      map.set(key, k);
+      verts.push(p.getX(i), p.getY(i), p.getZ(i));
+    }
+    index.push(k);
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  out.setIndex(index);
+  return out;
+}
+
+// ======================================================================================
 // the kit
 // ======================================================================================
 
@@ -1272,6 +1384,8 @@ export const KIT: Kit = {
     { id: "pottery_set", name: "ชุดโอ่งและไหดินเผา", make: potterySet, tags: ["decor"] },
     { id: "obelisk", name: "เสาหินโอเบลิสก์", make: obelisk, tags: ["decor", "landmark"] },
     { id: "rock_arch", name: "ซุ้มหินทะเลทราย", make: rockArch, tags: ["decor"] },
+    { id: "palace_terrace", name: "ฐานยกสูงหน้าวัง", make: palaceTerrace, tags: ["landmark", "building"] },
+    { id: "sand_dune", name: "เนินทราย", make: sandDune, tags: ["ground"] },
   ],
   sample,
 };

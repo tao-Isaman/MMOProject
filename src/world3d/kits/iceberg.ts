@@ -1291,6 +1291,161 @@ function snowPlaza(): Geo {
   return merge(...parts);
 }
 
+// A small log cabin of one room, its gable to the front: dark round logs on a low stone footing,
+// a plank door and a lit window with blue shutters, a window in each side and the back, a steep
+// snowy roof, a stone chimney, a wall lantern and firewood stacked along one side.
+function logCabin(): Geo {
+  const X = 200, Y = 175, z0 = 30, r = 12, d = 24, rows = 9, top = z0 + rows * d, trim = "Iceberg_TrimWhite";
+  const parts: Geo[] = [
+    boxBounds([-X - 18, -Y - 18, 0], [X + 18, Y + 18, z0], "StoneBlueDark", 3),
+    boxBounds([-X, -Y, z0], [X, Y, top], "WoodDark"),
+    boxBounds([-X - 12, -Y - 12, top - 12], [X + 12, Y + 12, top + 4], "WoodShade", 2),
+  ];
+  for (let i = 0; i < rows; i++) {
+    const zs = z0 + r + i * d, zg = z0 + d + i * d;
+    for (const s of [1, -1]) {
+      parts.push(log([-X - 22, s * Y, zs], [X + 22, s * Y, zs], r));
+      parts.push(log([s * X, -Y - 22, zg], [s * X, Y + 22, zg], r));
+    }
+  }
+  parts.push(snowRoof({ sx: 2 * X, sy: 2 * (Y + 12), h: 250, z: top + 4, over: 38, gableOver: 40, th: 18, mat: "Iceberg_Shingle", snow: 0.66, seed: 101 }));
+  parts.push(gableBoards(-X - 12, Y + 12, top + 4, 246, -1), gableBoards(X + 12, Y + 12, top + 4, 246, 1));
+  // the front: door, steps, a shuttered window, a gable window
+  parts.push(facing(plankDoor(86, 178), "-x", [-X - 11, -64, z0]));
+  parts.push(boxBounds([-X - 48, -112, 0], [-X - 18, -16, 16], "StoneGrey", 3));
+  parts.push(facing(litWindow(56, 66, trim, "Iceberg_PaintBlue"), "-x", [-X - 11, 94, z0 + 84]));
+  parts.push(facing(litWindow(44, 50, trim), "-x", [-X - 16, 0, top + 66]));
+  // the sides and back, a lantern by the front corner
+  for (const s of [1, -1]) parts.push(facing(litWindow(56, 66, trim, "Iceberg_PaintBlue"), s < 0 ? "-y" : "+y", [-30, s * (Y + 11), z0 + 84]));
+  parts.push(facing(litWindow(56, 66, trim), "+x", [X + 11, 30, z0 + 84]));
+  parts.push(facing(wallLantern(), "-y", [-X + 34, -Y - 11, z0 + 150]));
+  parts.push(translate(chimneyStack(50, top - 20, top + 290), [X - 70, -95, 0]));
+  // firewood along the -Y wall, under snow
+  for (let k = 0; k < 4; k++)
+    for (let j = 0; j < 6 - k; j++) {
+      const x = 60 + j * 21 + k * 10.5, z = 10 + k * 18;
+      parts.push(cylinderBetween([x, -Y - 54, z], [x, -Y - 14, z], 9.5, 6, (j + k) % 3 ? "Iceberg_LogEnd" : "Iceberg_Firewood"));
+    }
+  parts.push(drift([112, -Y - 34, 74], 92, 46, 10));
+  // snow drifted against the walls
+  parts.push(drift([0, Y + 40, 0], 420, 56, 24), drift([X + 40, 0, 0], 52, 380, 22), drift([-X - 34, 110, 0], 46, 120, 18));
+  return centre(merge(...parts));
+}
+
+// Barge boards crossing over a gable at x = gx and running on past the ridge into plain horns
+// (a gable of half-width `half` + `over` eaves rising h to `ridge`, slabs `th` thick).
+function gableHorns(gx: number, half: number, over: number, ridge: number, h: number, th: number, ext: number): Geo {
+  const a = Math.atan2(h, half), ca = Math.cos(a), sa = Math.sin(a);
+  const slope = (half + over) / ca, off = th + 8, parts: Geo[] = [];
+  for (const s of [1, -1] as const) {
+    const at = (t: number): V3 => [gx + s * 4, s * (t * ca + off * sa), ridge - t * sa + off * ca];
+    parts.push(beamBetween(at(slope - 8), at(-ext), 10, 30, "WoodShade"));
+    parts.push(beamBetween(at(-ext + 4), [at(-ext)[0], at(-ext)[1] + s * 14, at(-ext)[2] + 22], 9, 20, "WoodShade"));
+  }
+  return merge(...parts);
+}
+
+// A longhouse: a long log hall with its ridge along its length (Y) and its door in the long
+// front (-X) under a gabled porch on posts, rows of lit windows with red shutters, crossed horns
+// on both gables, a stone chimney and the snow heaped along its walls.
+function longhouse(): Geo {
+  const X = 300, Y = 600, z0 = 45, r = 13, d = 26, rows = 11, top = z0 + rows * d, trim = "Iceberg_TrimWhite";
+  const parts: Geo[] = [
+    boxBounds([-X - 24, -Y - 24, 0], [X + 24, Y + 24, z0], "StoneBlueDark", 4),
+    boxBounds([-X, -Y, z0], [X, Y, top], "WoodDark"),
+    boxBounds([-X - 14, -Y - 14, top - 14], [X + 14, Y + 14, top + 4], "WoodShade", 2),
+  ];
+  for (let i = 0; i < rows; i++) {
+    const zs = z0 + r + i * d, zg = z0 + d + i * d;
+    for (const s of [1, -1]) {
+      parts.push(log([s * X, -Y - 25, zs], [s * X, Y + 25, zs], r));
+      parts.push(log([-X - 25, s * Y, zg], [X + 25, s * Y, zg], r));
+    }
+  }
+  // the roof, its ridge along Y: built along X and turned
+  const rise = 390, half = X + 14;
+  parts.push(rotateZ(merge(
+    snowRoof({ sx: 2 * Y, sy: 2 * half, h: rise, z: top + 4, over: 44, gableOver: 40, th: 20, mat: "Iceberg_Shingle", snow: 0.66, seed: 111 }),
+    gableBoards(Y + 14, half, top + 4, rise - 4, 1), gableBoards(-Y - 14, half, top + 4, rise - 4, -1),
+    gableHorns(Y + 50, half, 44, top + 4 + rise, rise, 20, 70), gableHorns(-Y - 50, half, 44, top + 4 + rise, rise, 20, 70),
+  ), 90));
+  // the porch over the door
+  const cx = -X - 13 - 85, pz = z0 + 250;
+  parts.push(translate(merge(
+    snowRoof({ sx: 170, sy: 250, h: 104, z: 0, over: 14, gableOver: 10, th: 12, mat: "Iceberg_Shingle", snow: 0.66, snowTh: 10, seed: 113 }),
+    gableBoards(-85, 125, 0, 100, -1),
+  ), [cx, 0, pz]));
+  for (const s of [1, -1]) {
+    parts.push(cylinderAt({ radius: 13, height: pz - 4, segments: 8, bottom: [cx - 70, s * 112, 0] }, "WoodShade"));
+    parts.push(boxBounds([cx - 84, s * 112 - 9, pz - 12], [-X - 13, s * 112 + 9, pz], "WoodShade", 1.5));
+    parts.push(beamBetween([cx - 70, s * 112, pz - 70], [cx - 20, s * 112, pz - 8], 8, 8, "WoodShade"));
+  }
+  parts.push(boxBounds([cx - 90, -126, 0], [-X - 24, 126, 14], "StoneGrey", 3));
+  parts.push(facing(plankDoor(116, 214), "-x", [-X - 11, 0, z0]));
+  for (const s of [1, -1]) parts.push(facing(wallLantern(), "-x", [-X - 11, s * 98, z0 + 160]));
+  // windows along the front and back, in the gables
+  for (const y of [-450, -250, 250, 450]) parts.push(facing(litWindow(70, 84, trim, "WoodRed"), "-x", [-X - 11, y, z0 + 95]));
+  for (const y of [-400, -130, 130, 400]) parts.push(facing(litWindow(70, 84, trim, "WoodRed"), "+x", [X + 11, y, z0 + 95]));
+  for (const s of [1, -1]) {
+    parts.push(facing(litWindow(66, 80, trim, "WoodRed"), s > 0 ? "+y" : "-y", [0, s * (Y + 11), z0 + 95]));
+    parts.push(facing(litWindow(50, 60, trim), s > 0 ? "+y" : "-y", [0, s * (Y + 16), top + 110]));
+  }
+  parts.push(translate(chimneyStack(70, top - 20, top + 470), [80, 330, 0]));
+  // drifts
+  for (const s of [1, -1]) parts.push(drift([s * (X + 40), s > 0 ? 0 : 330, 0], 62, s > 0 ? 1150 : 480, 26));
+  parts.push(drift([0, Y + 40, 0], 560, 54, 24), drift([0, -Y - 40, 0], 560, 54, 24), drift([-X - 36, -400, 0], 50, 300, 20));
+  return centre(merge(...parts));
+}
+
+// A watchtower for the palisade: a square log blockhouse on a stone footing carrying a lookout
+// of grey lap boards jettied out on corbels, lit slits on every side, under a steep pyramid roof
+// of snowy shingles with icicles and a banner on its pole; a door and a lantern at the foot.
+function watchTower(): Geo {
+  const S = 160, z0 = 50, r = 13, d = 26, rows = 15, top = z0 + rows * d, parts: Geo[] = [];
+  parts.push(boxBounds([-S - 30, -S - 30, 0], [S + 30, S + 30, z0], "StoneBlueDark", 4));
+  parts.push(boxBounds([-S, -S, z0], [S, S, top], "WoodDark"));
+  for (let i = 0; i < rows; i++) {
+    const za = z0 + r + i * d, zb = z0 + d + i * d;
+    for (const s of [1, -1]) {
+      parts.push(log([-S - 22, s * S, za], [S + 22, s * S, za], r));
+      parts.push(log([s * S, -S - 22, zb], [s * S, S + 22, zb], r));
+    }
+  }
+  // the lookout on corbels
+  const L = S + 45, z1 = top + 12, z2 = z1 + 175;
+  parts.push(boxBounds([-L - 8, -L - 8, top - 4], [L + 8, L + 8, z1], "WoodShade", 2));
+  for (const k of [-100, 0, 100])
+    for (const s of [1, -1]) {
+      parts.push(beamBetween([s * (S + 4), k, top - 80], [s * (L + 2), k, top - 6], 14, 14, "WoodShade"));
+      parts.push(beamBetween([k, s * (S + 4), top - 80], [k, s * (L + 2), top - 6], 14, 14, "WoodShade"));
+    }
+  parts.push(boxBounds([-L, -L, z1], [L, L, z2], "WoodGrey"));
+  for (let z = z1 + 22; z < z2 - 6; z += 22) {
+    parts.push(boxBounds([-L - 2.5, -L, z], [-L, L, z + 3], "Iceberg_GreyShade"), boxBounds([L, -L, z], [L + 2.5, L, z + 3], "Iceberg_GreyShade"));
+    parts.push(boxBounds([-L, -L - 2.5, z], [L, -L, z + 3], "Iceberg_GreyShade"), boxBounds([-L, L, z], [L, L + 2.5, z + 3], "Iceberg_GreyShade"));
+  }
+  for (const a of [1, -1]) for (const b of [1, -1]) parts.push(boxBounds([a * L - 9, b * L - 9, z1], [a * L + 9, b * L + 9, z2 + 6], "WoodDark", 1.5));
+  for (const side of ["-x", "+x", "-y", "+y"] as Side[])
+    for (const k of [-75, 75]) {
+      const at: V3 = side === "-x" ? [-L - 2, k, z1 + 62] : side === "+x" ? [L + 2, k, z1 + 62] : side === "-y" ? [k, -L - 2, z1 + 62] : [k, L + 2, z1 + 62];
+      parts.push(facing(litWindow(24, 62, "WoodShade"), side, at));
+    }
+  // the pyramid roof with snow, icicles round its eaves, a banner pole
+  const rb = (L + 50) * Math.SQRT2, rh = 330, e = L + 50;
+  parts.push(rotateZ(cylinderAt({ rBot: rb, rTop: 4, height: rh, segments: 4, bottom: [0, 0, z2] }, "Iceberg_Shingle"), 45));
+  parts.push(rotateZ(cylinderAt({ rBot: rb * 0.74, rTop: 2, height: rh * 0.74, segments: 4, bottom: [0, 0, z2 + rh * 0.26 + 9] }, "Snow"), 45));
+  parts.push(icicles([-e, -e, z2], [-e, e, z2], 121, 26, 36), icicles([e, -e, z2], [e, e, z2], 122, 26, 36));
+  parts.push(icicles([-e, -e, z2], [e, -e, z2], 123, 26, 36), icicles([-e, e, z2], [e, e, z2], 124, 26, 36));
+  parts.push(cylinderAt({ radius: 3, height: 120, segments: 6, bottom: [0, 0, z2 + rh - 6] }, "IronDark"));
+  parts.push(boxAt([2, 56, 30], [0, 30, z2 + rh + 80], "Iceberg_PaintBlue"), boxAt([2.5, 56, 5], [0, 30, z2 + rh + 104], "FabricWhite"));
+  // the door at the foot, steps, a lantern, drifts
+  parts.push(facing(plankDoor(90, 180), "-x", [-S - 12, 0, z0]));
+  parts.push(boxBounds([-S - 66, -70, 0], [-S - 30, 70, 18], "StoneGrey", 3), boxBounds([-S - 46, -70, 18], [-S - 30, 70, 34], "StoneGrey", 3));
+  parts.push(facing(wallLantern(), "-x", [-S - 12, 92, z0 + 150]));
+  parts.push(drift([0, S + 48, 0], 380, 60, 26), drift([S + 48, 0, 0], 60, 380, 24), drift([0, -S - 48, 0], 380, 60, 24));
+  return merge(...parts);
+}
+
 // ---- the kit ----
 export const KIT: Kit = {
   id: "iceberg",
@@ -1322,6 +1477,9 @@ export const KIT: Kit = {
     { id: "snowman", name: "ตุ๊กตาหิมะ", make: snowman, tags: ["decor"] },
     { id: "snowy_barrels", name: "ถังและลังคลุมหิมะ", make: snowyBarrels, tags: ["decor"] },
     { id: "snow_plaza", name: "ลานหิมะปูหิน (4 ม.)", make: snowPlaza, tags: ["ground"] },
+    { id: "log_cabin", name: "กระท่อมไม้ซุงหลังเล็ก", make: logCabin, tags: ["building"] },
+    { id: "longhouse", name: "บ้านยาวไม้ซุง", make: longhouse, tags: ["building"] },
+    { id: "watch_tower", name: "หอสังเกตการณ์ไม้ซุง", make: watchTower, tags: ["tower", "defence"] },
   ],
   sample(put) {
     // the square: packed snow and flags, the frozen fountain in the middle, benches

@@ -35,6 +35,11 @@ defineMaterial("Osaki_DockLight", { map: "wood", tint: "#a59c8c", bump: 1.2 });
 defineMaterial("Osaki_StoneWarm", { map: "stone", tint: "#cfc6b4", bump: 2 });
 defineMaterial("Osaki_Kuro", { map: "plaster", tint: "#3b3d43", rough: 0.55, bump: 0.6 }); // black kura plaster
 defineMaterial("Osaki_Sail", { map: "fabric", tint: "#f3eee0", rough: 0.95 });
+defineMaterial("Osaki_Sand", { map: "plaster", tint: "#e9dab4", rough: 1, bump: 1.2 }); // beach sand
+defineMaterial("Osaki_SandWet", { map: "plaster", tint: "#b9a98a", rough: 0.5, bump: 0.8 });
+defineMaterial("Osaki_Earth", { map: "plaster", tint: "#8b7656", rough: 1, bump: 1.6 }); // paddy bunds
+defineMaterial("Osaki_Paddy", { tint: "#7f9c8a", rough: 0.08, opacity: 0.85 }); // flooded field
+defineMaterial("Osaki_Rice", { map: "felt", tint: "#86b24a", rough: 0.9 });
 
 // ---- small vector helpers ----
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -1463,6 +1468,147 @@ function plazaTile(): Geo {
   return merge(...P);
 }
 
+// ---- the island's edge ----
+// Rocky shore: boulders at the water's edge, 4 m along Y; the sea at -X, the land at +X. Set it
+// on the coastline at z = 0: the big rocks stand half in the water, pebbles run up the bank.
+function shoreRocks(): Geo {
+  const P: Geo[] = [];
+  const rnd = seeded(73);
+  for (let i = 0; i < 5; i++) {
+    const y = -168 + i * 84 + (rnd() - 0.5) * 30, s = 80 + rnd() * 75;
+    P.push(translate(rock([s, s * (0.75 + rnd() * 0.25), s * (0.5 + rnd() * 0.35)], 0.5, 300 + i * 7, rnd() < 0.35 ? "MossStone" : "StoneGrey"), [-30 + (rnd() - 0.5) * 50, y, -30]));
+  }
+  for (let i = 0; i < 5; i++) {
+    const y = -180 + i * 90 + rnd() * 20, s = 36 + rnd() * 30;
+    P.push(translate(rock([s, s * 0.8, s * 0.6], 0.45, 340 + i * 5, "StoneDark"), [-120 - rnd() * 50, y, -24]));
+  }
+  for (let i = 0; i < 7; i++) {
+    const y = -185 + i * 60 + rnd() * 15, s = 18 + rnd() * 18;
+    P.push(translate(rock([s, s * 0.8, s * 0.5], 0.4, 380 + i * 3, rnd() < 0.5 ? "MossStone" : "StoneGrey", true), [50 + rnd() * 50, y, -3]));
+  }
+  return merge(...P);
+}
+
+// Sandy beach: a strip of sand sloping into the sea, 6 m along Y; the sea at -X. Set it on the
+// coastline at z = 0: dry sand over the grass's edge, wet sand at the water line, the rest
+// under the shallows. The land-side edge waves, and matches end to end.
+function beach(): Geo {
+  const P: Geo[] = [];
+  const ny = 24;
+  const edge = (y: number) => 150 + 22 * Math.sin((2 * Math.PI * y) / 300) + 10 * Math.sin((2 * Math.PI * y) / 150 + 1);
+  const prof: [number, number][] = [[-170, -38], [-100, -11.5], [-40, 1.2]];
+  const ys = Array.from({ length: ny + 1 }, (_, j) => -300 + (600 * j) / ny);
+  const rows: V3[][] = prof.map(([x, z]) => ys.map((y): V3 => [x, y, z]));
+  rows.push(ys.map((y): V3 => [edge(y) * 0.45, y, 2.5]), ys.map((y): V3 => [edge(y), y, 2]));
+  const uv = (r: V3[][]) => r.map((row) => row.map((p): [number, number] => [p[1] / 100, p[0] / 100]));
+  P.push(surface(rows, uv(rows), "Osaki_Sand", UP));
+  // the wet band at the water's edge
+  const wet = [ys.map((y): V3 => [-98, y, -10.7]), ys.map((y): V3 => [-55, y, -1.6])];
+  P.push(surface(wet, uv(wet), "Osaki_SandWet", UP));
+  // pebbles, a shell or two and a piece of driftwood
+  const rnd = seeded(91);
+  for (let i = 0; i < 7; i++) P.push(translate(rock([14 + rnd() * 16, 12 + rnd() * 10, 8 + rnd() * 6], 0.4, 400 + i, rnd() < 0.5 ? "StoneGrey" : "StoneDark", true), [-40 + rnd() * 160, -280 + i * 85 + rnd() * 30, 0]));
+  P.push(cylinderBetween([40, -120, 6], [92, -40, 9], 6, 7, "WoodGrey", 4.5), cylinderBetween([70, -82, 7], [98, -96, 9], 2.5, 5, "WoodGrey"));
+  for (const [x, y] of [[20, 160], [-10, 60]] as const) P.push(ellipsoid([5, 4, 2], [x, y, 2], "FabricSand", 6));
+  return merge(...P);
+}
+
+// ---- a roofed gate (yakui-mon) for a stone wall: two great posts and two back posts under a
+// gable kawara roof, the doors swung back, plaster wings to meet the wall. 6 m across (Y), the
+// way through along X with 3.2 m clear between the posts ----
+function monGate(): Geo {
+  const P: Geo[] = [];
+  const D = "WoodDark", K = "LacquerBlack";
+  const py = 180, zt = 400, bx = 130;
+  P.push(bb([-60, -py - 20, 0], [bx + 40, py + 20, 5], "StoneGrey", 2));
+  for (const s of [-1, 1]) {
+    P.push(boxAt([58, 58, 18], [0, s * py, 0], "StoneGrey", 3), boxAt([38, 38, 16], [bx, s * py, 0], "StoneGrey", 3));
+    P.push(boxAt([34, 34, zt - 18], [0, s * py, 18], D, 2));
+    P.push(boxAt([24, 24, zt - 76], [bx, s * py, 16], D, 2));
+    P.push(bb([0, s * py - 9, zt - 120], [bx, s * py + 9, zt - 100], D));
+    P.push(bb([0, s * py - 9, 40], [bx, s * py + 9, 54], D));
+    // iron caps on the post feet
+    P.push(bb([-19, s * py - 19, 18], [19, s * py + 19, 34], "IronDark"));
+    // a door leaf swung back against the side, hinged at the great post
+    const dy = s * (py - 22);
+    P.push(bb([20, dy - 4, 24], [20 + 150, dy + 4, 318], "DoorWood", 1));
+    for (const z of [70, 170, 270]) P.push(bb([20, dy - s * 6, z], [170, dy - s * 4, z + 10], "IronDark"));
+    for (const z of [62, 162, 262]) for (let k = 0; k < 5; k++) P.push(sphereCenter(3, [34 + k * 30, dy - s * 7, z + 23], "IronDark", 5));
+    // a plaster wing on a stone base, capped with tiles, to meet the wall
+    const y0 = s * (py + 20), y1 = s * 300;
+    P.push(bb([-38, y0, 0], [38, y1, 64], "MossStone", 2), bb([-40, y0, 58], [40, y1, 66], "StoneGrey"));
+    P.push(bb([-24, y0, 66], [24, y1, 226], "Osaki_Shikkui"), bb([-27, y0, 196], [27, y1, 210], D), bb([-34, y0, 210], [34, y1, 234], D));
+    P.push(translate(rotateZ(roof({ kind: "gable", hx: Math.abs(y1 - y0) / 2, hy: 62, z: 232, h: 34, th: 10, curve: 1.05, ends: false, oni: false, nt: 3, ns: 3 }), 90), [0, (y0 + y1) / 2, 0]));
+  }
+  // the tie beam through the great posts, the head beam, the back lintel
+  P.push(bb([-14, -py - 34, zt - 160], [14, py + 34, zt - 128], D, 2));
+  P.push(bb([-20, -py - 26, zt - 28], [20, py + 26, zt], D, 2));
+  P.push(bb([bx - 16, -py - 16, zt - 96], [bx + 16, py + 16, zt - 76], D));
+  // beams from front to back carrying the roof, with pale ends
+  for (const s of [-1, 0, 1]) {
+    P.push(bb([-60, s * py - 11, zt], [bx + 60, s * py + 11, zt + 24], D, 2));
+    for (const x of [-60, bx + 60]) P.push(bb([x - 1, s * py - 11, zt], [x + 1, s * py + 11, zt + 24], "Osaki_Shikkui"));
+  }
+  // the name plaque under the head beam
+  P.push(boxAt([8, 96, 64], [-22, 0, zt - 120], K, 2), boxAt([3, 80, 52], [-27, 0, zt - 114], "GoldTrim"), boxAt([2, 70, 44], [-28, 0, zt - 110], K));
+  for (const [z, w] of [[zt - 80, 30], [zt - 92, 8], [zt - 104, 34]] as const) P.push(bb([-30, -w / 2, z], [-29, w / 2, z + 6], "GoldTrim"));
+  // the roof: gable, ridge along Y
+  P.push(translate(rotateZ(roof({ kind: "gable", hx: py + 150, hy: 170, z: zt + 34, h: 125, th: 18, curve: 1.15, gableInset: 26, gableBase: zt + 24, gableMat: "WoodDark", nt: 5, ns: 6, oni: "Osaki_Ridge" }), 90), [bx / 2, 0, 0]));
+  return translate(merge(...P), [-bx / 2, 0, 0]); // centre the footprint
+}
+
+// ---- yatai: a street stall on two wheels with a little roof, noren and red lanterns; the
+// counter faces -X, two stools before it ----
+function yatai(): Geo {
+  const P: Geo[] = [];
+  const D = "WoodDark", W = "WoodWarm";
+  P.push(bb([-48, -110, 34], [48, 110, 104], W, 2), bb([-50, -112, 30], [50, 112, 40], D));
+  P.push(bb([-66, -118, 104], [54, 118, 110], "WoodPale", 1));
+  for (let k = 0; k < 4; k++) P.push(bb([-50, -100 + k * 52, 44], [-48, -56 + k * 52, 96], "WoodPale"));
+  for (const s of [-1, 1]) {
+    P.push(translate(rotateX(torus(32, 4, 16, 5, D), 90), [10, s * 124, 34]));
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI;
+      P.push(cylinderBetween([10 + Math.cos(a) * 30, s * 124, 34 + Math.sin(a) * 30], [10 - Math.cos(a) * 30, s * 124, 34 - Math.sin(a) * 30], 1.8, 4, D));
+    }
+    P.push(cylinderBetween([10, s * 112, 34], [10, s * 132, 34], 6, 8, "IronDark"));
+    for (const x of [-44, 44]) P.push(boxAt([8, 8, 136], [x, s * 106, 110], D));
+    // the shafts to push it by
+    P.push(cylinderBetween([48, s * 90, 92], [150, s * 90, 70], 3.5, 6, W));
+  }
+  P.push(cylinderBetween([150, -96, 70], [150, 96, 70], 3.5, 6, W));
+  // roof: a little gable, ridge along Y
+  P.push(rotateZ(roof({ kind: "gable", hx: 150, hy: 92, z: 238, h: 44, th: 8, curve: 1.1, gableInset: 8, gableBase: 246, gableMat: "WoodWarm", nt: 3, ns: 4 }), 90));
+  P.push(bb([-50, -112, 236], [50, 112, 246], D));
+  P.push(noren(-56, -106, 106, 236, 44, "FabricNavy"));
+  P.push(chochin(14, [-62, -116, 236]), chochin(14, [-62, 116, 236]));
+  // on the counter: a pot on a burner, bowls, a sake bottle; a stool or two in front
+  P.push(cylinderAt({ radius: 22, height: 20, segments: 12, bottom: [10, 50, 110] }, "IronDark"), cylinderAt({ radius: 23, height: 3, segments: 12, bottom: [10, 50, 130] }, "WoodPale"));
+  for (const y of [-80, -46, -12]) P.push(cylinderAt({ rBot: 7, rTop: 11, height: 8, segments: 10, bottom: [-46, y, 110] }, y === -46 ? "LacquerRed" : "PlasterCream"));
+  P.push(lathe([[0, 0], [7, 1], [8, 14], [3, 22], [3, 28], [0, 28]], 8, "PlasterCream", [-20, 80, 110]));
+  for (const y of [-60, 50]) P.push(cylinderAt({ radius: 17, height: 44, segments: 10, bottom: [-120, y, 0] }, "WoodShade"), cylinderAt({ radius: 18, height: 4, segments: 10, bottom: [-120, y, 44] }, "FeltRed"));
+  return merge(...P);
+}
+
+// ---- a rice paddy, 6 x 6 m: an earth bund round a flooded field of young rice in rows ----
+function ricePaddy(): Geo {
+  const P: Geo[] = [];
+  const H = 300, b = 34;
+  for (const s of [-1, 1]) {
+    P.push(bb([-H, s * H, 0], [H, s * (H - b), 16], "Osaki_Earth", 3));
+    P.push(bb([s * H, -H + b, 0], [s * (H - b), H - b, 16], "Osaki_Earth", 3));
+  }
+  P.push(bb([-H + b, -H + b, 0], [H - b, H - b, 4], "Osaki_Earth"), bb([-H + b, -H + b, 4], [H - b, H - b, 8], "Osaki_Paddy"));
+  const tuft = (x: number, y: number, seed: number) => {
+    const r = seeded(seed), G: Geo[] = [];
+    for (let k = 0; k < 4; k++) G.push(rotateZ(rotateY(boxAt([2, 5, 34 + r() * 14], [0, 0, 0], "Osaki_Rice"), 10 + r() * 14), k * 90 + r() * 40));
+    return translate(merge(...G), [x, y, 4]);
+  };
+  const n = 9, step = (2 * (H - b) - 40) / (n - 1);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) P.push(tuft(-H + b + 20 + i * step, -H + b + 20 + j * step, i * 13 + j * 7 + 1));
+  return merge(...P);
+}
+
 // ---- the kit ----
 function sample(put: Put): void {
   // the harbour along the -Y edge: a stone quay, a pier, boats
@@ -1543,6 +1689,11 @@ export const KIT: Kit = {
     { id: "well", name: "บ่อน้ำมีหลังคา", make: well, tags: ["decor"] },
     { id: "stepping_stones", name: "ทางหินก้าว", make: steppingStones, tags: ["ground"] },
     { id: "plaza_tile", name: "ลานหินปู", make: plazaTile, tags: ["ground"] },
+    { id: "shore_rocks", name: "โขดหินริมฝั่ง (4 ม.)", make: shoreRocks, tags: ["ground", "shore"] },
+    { id: "beach", name: "หาดทราย (6 ม.)", make: beach, tags: ["ground", "shore"] },
+    { id: "mon_gate", name: "ประตูหลังคากระเบื้อง", make: monGate, tags: ["gate", "landmark"] },
+    { id: "yatai", name: "แผงลอยยาไต", make: yatai, tags: ["market"] },
+    { id: "rice_paddy", name: "นาข้าว (6 ม.)", make: ricePaddy, tags: ["ground", "farm"] },
   ],
   sample,
 };
