@@ -130,7 +130,7 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     plain_m: { name: "เสื้อยืดผ้าฝ้าย", body: "plainm", gender: "male", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
   },
   bottom: {
-    mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "ชายเสื้อคลุมยาว กางเกงรัดรูปสีเข้ม บูทหนัง" },
+    mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "กางเกงขายาว บูทหนัง ใส่กับเสื้อคลุมจอมเวทมีชายเสื้อคลุมยาวคลุมทับ" },
     priestess: { name: "กระโปรงยาวนักบวช", body: "priestess", gender: "female", note: "กระโปรงยาวถึงข้อเท้า ผ้าคาดหน้าตราอาทิตย์" },
     adventurer: { name: "กระโปรงจีบนักผจญภัย", body: "adventurer", gender: "female", note: "กระโปรงจีบสั้น เลกกิ้ง บูทผูกเชือกสูง" },
     warrior: { name: "กางเกงนักรบ", body: "warrior", gender: "male", note: "กางเกงขายาว บูทหนัง" },

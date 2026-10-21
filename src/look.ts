@@ -71,6 +71,7 @@ export interface BodyDef {
   tails?: string[];                // regions that, below the waist, belong to the top (a long coat)
   stretch?: [number, number, number]; // rows [neck, feet] drawn from neck row [2] down (see stretchRow)
   legs?: [number, number, number]; // what the legs are (raw rgb) where a removed coat hid them
+  under?: string;                  // the body whose trousers show when this one's coat isn't worn
 }
 
 export interface HairStyle {
@@ -110,6 +111,9 @@ const clamp01 = (v: number) => Math.max(0.02, Math.min(0.98, v));
 
 // Bare skin, in every body: below the waist it is the hands.
 const SKIN: Region = { h: [0, 35], s: [0.15, 0.8], l: [0.55, 0.92] };
+
+// Dark leather, for a belt.
+const BELT: Dye = { hue: 25, sat: 0.35, target: 0.2 };
 
 // One body's sheet as one piece of a mixed outfit, frame by frame at the body's waist. As the
 // top (asTop): everything above the waist, and below it only the top's own pixels: the hands (skin
@@ -196,12 +200,6 @@ function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.w
       const [, sat, l] = rgbToHsl(px[i], px[i + 1], px[i + 2]);
       if (l >= 0.8 && sat < 0.2) px[i + 3] = 0;
     }
-    if (def.tails?.length) {
-      for (let p = 0; p < W * H; p++) if (top[p]) px[p * 4 + 3] = 0; // the coat and the hands
-      trousers(px, W, H, def, (fx, fy) => waist(fx + CELL / 2, fy + CELL / 2));
-      g.putImageData(data, 0, 0);
-      return c;
-    }
     // and legs only grow above the feet: the columns with something solid in a frame's last rows
     const feet = new Uint8Array(W * (H / CELL)), grown = new Uint8Array(W * H);
     for (let y = 0; y < H; y++) {
@@ -229,113 +227,6 @@ function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.w
   }
   g.putImageData(data, 0, 0);
   return c;
-}
-
-// Under a long coat the legs were never drawn (the mage's coat hangs to her boots), so its
-// bottom piece, worn under another top, keeps only the boots and gets a pair of trouser legs in
-// the `legs` colour, frame by frame: each from its boot (as wide as the boot's top) up to its
-// half of the hips, outlined, lit down the left, with a seam between them only where they part.
-// A boot is what lies within BOOTS rows of the lowest pixel in its column (a lifted foot ends
-// higher), in a blob big enough to be one.
-const BOOTS = 10;
-function trousers(px: Uint8ClampedArray, W: number, H: number, def: BodyDef, waistAt: (fx: number, fy: number) => number): void {
-  const base = def.legs ?? [49, 49, 61];
-  const tone = (k: number) => base.map((v) => Math.min(255, Math.round(v * k)));
-  const fill = tone(1), dark = tone(0.42), light = tone(1.3);
-  for (let fy = 0; fy < H; fy += CELL)
-    for (let fx = 0; fx < W; fx += CELL) {
-      const w = Math.max(0, Math.min(CELL - 2, waistAt(fx, fy)));
-      const at = (x: number, y: number) => ((fy + y) * W + fx + x) * 4;
-      // the boots: a band above each column's lowest pixel; everything else below the waist goes
-      const boot = new Uint8Array(CELL * CELL);
-      for (let x = 0; x < CELL; x++) {
-        let low = -1;
-        for (let y = CELL - 1; y > w; y--) if (px[at(x, y) + 3]) { low = y; break; }
-        for (let y = Math.max(w + 1, low - BOOTS + 1); low >= 0 && y <= low; y++) if (px[at(x, y) + 3]) boot[y * CELL + x] = 1;
-      }
-      for (let y = w + 1; y < CELL; y++) for (let x = 0; x < CELL; x++) if (!boot[y * CELL + x]) px[at(x, y) + 3] = 0;
-      // blobs of boot (8-connected); scraps of hem and trim are too small to be one
-      const blob = new Int32Array(CELL * CELL).fill(-1), blobs: { n: number; cells: number[] }[] = [];
-      for (let q = 0; q < CELL * CELL; q++) {
-        if (!boot[q] || blob[q] >= 0) continue;
-        const id = blobs.length, cells = [q];
-        blob[q] = id;
-        for (let k = 0; k < cells.length; k++) {
-          const cx = cells[k] % CELL, cy = (cells[k] / CELL) | 0;
-          for (let dy = -1; dy <= 1; dy++)
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = cx + dx, ny = cy + dy, nq = ny * CELL + nx;
-              if (nx >= 0 && ny >= 0 && nx < CELL && ny < CELL && boot[nq] && blob[nq] < 0) {
-                blob[nq] = id;
-                cells.push(nq);
-              }
-            }
-        }
-        blobs.push({ n: cells.length, cells });
-      }
-      // a boot is dark leather on the ground (a lifted foot a little higher), not a pale slash
-      const low = (b: { cells: number[] }) => Math.max(...b.cells.map((q) => (q / CELL) | 0));
-      const pale = (b: { cells: number[] }) =>
-        b.cells.reduce((sum, q) => { const i = at(q % CELL, (q / CELL) | 0); return sum + rgbToHsl(px[i], px[i + 1], px[i + 2])[2]; }, 0) / b.cells.length > 0.55;
-      const sole = Math.max(-1, ...blobs.filter((b) => b.n >= 12 && !pale(b)).map(low));
-      const isBoot = (b: { n: number; cells: number[] }) => b.n >= 12 && !pale(b) && low(b) >= sole - 6;
-      for (const b of blobs) if (!isBoot(b)) for (const q of b.cells) px[at(q % CELL, (q / CELL) | 0) + 3] = 0;
-      const big = blobs.filter(isBoot).sort((a, b) => b.n - a.n).slice(0, 2);
-      if (!big.length) continue;
-      // each boot's top and how wide it is there; one wide blob is two boots side by side
-      let feet = big.map((b) => b.cells);
-      if (feet.length === 1) {
-        const xs = feet[0].map((q) => q % CELL), x0 = Math.min(...xs), x1 = Math.max(...xs);
-        if (x1 - x0 >= 12) {
-          const m = (x0 + x1) / 2;
-          feet = [feet[0].filter((q) => q % CELL < m), feet[0].filter((q) => q % CELL > m)];
-        }
-      }
-      // each boot's width across its shaft, a few rows above its sole, and its top: what of the
-      // blob is higher up (a scrap of trouser between the boots) goes
-      const legs = feet.filter((f) => f.length).map((f) => {
-        const ys = f.map((q) => (q / CELL) | 0), low = Math.max(...ys);
-        const shaft = f.filter((q) => { const y = (q / CELL) | 0; return y >= low - 6 && y <= low - 3; }).map((q) => q % CELL);
-        const xs = shaft.length ? shaft : f.map((q) => q % CELL);
-        const a = Math.min(...xs), b = Math.max(...xs);
-        const top = Math.max(low - BOOTS + 1, Math.min(...f.filter((q) => q % CELL >= a && q % CELL <= b).map((q) => (q / CELL) | 0)));
-        for (const q of f) if (((q / CELL) | 0) < top) {
-          boot[q] = 0;
-          px[at(q % CELL, (q / CELL) | 0) + 3] = 0;
-        }
-        return { top, a, b };
-      }).sort((p, q) => p.a - q.a);
-      // the hips: over the boots, a pixel wider each side (legs that stand straight), no wider
-      // than hips are when the feet are apart in a stride
-      const dir = (fy / CELL) % 8, side = dir === 2 || dir === 6;
-      const cx = (legs[0].a + legs[legs.length - 1].b) / 2;
-      const hw = Math.min((legs[legs.length - 1].b - legs[0].a) / 2 + 1, side ? 6 : dir % 2 ? 8 : 10);
-      const hips: [number, number][] = legs.length === 2 ? [[cx - hw, cx], [cx, cx + hw]] : [[cx - hw, cx + hw]];
-      // below the crotch the legs part: a seam where they still touch
-      const crotch = w + (Math.min(...legs.map((l) => l.top)) - w) * 0.35;
-      for (let y = w; y < CELL; y++) {
-        const on = new Uint8Array(CELL + 2); // shifted by one: on[x + 1] for column x
-        const spans = legs.map((l, i) => {
-          if (y > l.top + 1) return null;
-          const t = Math.min(1, (y - w) / Math.max(1, l.top - w));
-          const a = Math.round(hips[i][0] + (l.a - hips[i][0]) * t), b = Math.round(hips[i][1] + (l.b - hips[i][1]) * t);
-          for (let x = Math.max(0, a); x <= Math.min(CELL - 1, b); x++) on[x + 1] = 1;
-          return [a, b];
-        });
-        const [s0, s1] = spans;
-        const seam = s0 && s1 && y >= crotch && s0[1] >= s1[0] - 1 ? Math.round((s0[1] + s1[0]) / 2) : -1;
-        for (let x = 0; x < CELL; x++) {
-          if (!on[x + 1] || boot[y * CELL + x] && px[at(x, y) + 3]) continue; // the boots stay
-          const edge = !on[x] || !on[x + 2] || x === seam;
-          const c = edge ? dark : x < 1 || !on[x - 1] ? light : fill;
-          const i = at(x, y);
-          px[i] = c[0];
-          px[i + 1] = c[1];
-          px[i + 2] = c[2];
-          px[i + 3] = 255;
-        }
-      }
-    }
 }
 
 const pieces = (sheets: Sheets, def: BodyDef, asTop: boolean, cut?: number): Sheets =>
@@ -489,11 +380,20 @@ export class Looks {
   // Which bodies and hairstyle a look and its clothes end up using.
   resolve(look: Look, equipped: Equipped) {
     const top = this.shapeFor(look, equipped, "top"), bottom = this.shapeFor(look, equipped, "bottom");
-    const topBody = SHAPES.top[top.shape].body, bottomBody = SHAPES.bottom[bottom.shape].body;
+    const topBody = SHAPES.top[top.shape].body;
+    let bottomBody = SHAPES.bottom[bottom.shape].body;
+    // Under a long coat the legs were never drawn: worn under another top, the coat's bottom
+    // shows another body's drawn trousers and boots instead, in the coat's trouser colour.
+    const coat = this.bodies[bottomBody];
+    const under = !!coat.under && bottomBody !== topBody && this.ready(coat.under);
+    if (under) {
+      bottom.dye ??= coat.natural?.[coat.cloth.bottom] ?? null;
+      bottomBody = coat.under!;
+    }
     const def = this.bodies[topBody];
     // a hairless top body takes the hairstyle (the first ready one if the chosen one isn't)
     const hair = !def.hairless ? null : this.hair.styles[look.hair] ? look.hair : Object.keys(this.hair.styles)[0] ?? null;
-    return { top, bottom, topBody, bottomBody, def, hair };
+    return { top, bottom, topBody, bottomBody, def, hair, under };
   }
 
   note(look: Look, equipped: Equipped): string {
@@ -542,9 +442,12 @@ export class Looks {
   // Build the sheets for a look: { sheets, hands, builtin } (hands: weapon hand anchors per
   // clip; builtin: clips that already show the weapon).
   async build(look: Look, equipped: Equipped, clips = CLIPS): Promise<Built> {
-    const { top, bottom, topBody, bottomBody, def, hair } = this.resolve(look, equipped);
+    const { top, bottom, topBody, bottomBody, def, hair, under } = this.resolve(look, equipped);
     const bdef = this.bodies[bottomBody];
-    const [upper, lower] = await Promise.all([this.loadBody(topBody, clips), this.loadBody(bottomBody, clips)]);
+    const same = topBody === bottomBody;
+    // (a mixed outfit's legs may come from the bottom's swing or thrust: see lowClip)
+    const lowClips = same ? clips : [...new Set([...clips, "swing", "thrust"])];
+    const [upper, lower] = await Promise.all([this.loadBody(topBody, clips), this.loadBody(bottomBody, lowClips)]);
     const hairDye = HAIR_COLORS.find((c) => c.id === look.hairColor);
     const eyeDye = EYE_COLORS.find((c) => c.id === look.eyes);
     const cloth = (d: BodyDef, region: string, dyeId: string | null) => {
@@ -554,8 +457,9 @@ export class Looks {
     };
     // Both pieces of one body's outfit cross the waist (the mage's long coat runs down past it,
     // its dark vest up above it), so each half takes both dyes; mixed bodies dye their own piece.
-    const same = topBody === bottomBody;
-    const topCloth = cloth(def, def.cloth.top, top.dye), bottomCloth = cloth(bdef, bdef.cloth.bottom, bottom.dye);
+    const topCloth = cloth(def, def.cloth.top, top.dye);
+    // borrowed trousers: the hem of their own jacket at the waist becomes a leather belt
+    const bottomCloth: Record<string, Dye> = { ...cloth(bdef, bdef.cloth.bottom, bottom.dye), ...(under ? { [bdef.cloth.top]: BELT } : {}) };
     const topDyes: Record<string, Dye | undefined> = same ? { ...bottomCloth, ...topCloth } : topCloth;
     if (!def.hairless) Object.assign(topDyes, { hair: hairDye, eyes: eyeDye });
     const split = (d: BodyDef) => (d.split ? { neck: d.split, offsets: d.head?.offsets } : null);
@@ -566,8 +470,13 @@ export class Looks {
     // per frame, how far the top moves down to follow the bottom's bob (every body stands as
     // tall as the others, so the top is not moved to make the waists meet: the head stays put)
     const bob = (d: BodyDef, clip: string, dir: number, f: number) => d.head?.offsets[clip]?.[dir]?.[f]?.[1] ?? 0;
-    // a bottom without one of the top's clips (cast) moves its legs as in its swing
-    const lowClip = (clip: string) => (lower[clip] ? clip : "swing");
+    // a bottom without one of the top's clips (cast) moves its legs as in its swing; in a mixed
+    // outfit, where the bottom's clip has its own weapon drawn in (a blade and slash across the
+    // legs), as in its thrust
+    const lowClip = (clip: string) => {
+      const c = lower[clip] ? clip : "swing";
+      return !same && bdef.builtin?.[c] && lower.thrust ? "thrust" : c;
+    };
     const shift = (clip: string, dir: number, f: number, fb: number) => bob(bdef, lowClip(clip), dir, fb) - bob(def, clip, dir, f);
     let sheets = this.join(upperC, lowerC, bdef, shift, lowClip, !same);
     const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[lowClip(clip)], f));
