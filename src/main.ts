@@ -18,7 +18,7 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES } from "./progression";
+import { Progress, ACTIVES, CLASSES } from "./progression";
 import { Hero } from "./hero";
 import { Skills } from "./skills";
 import { monsterDamage } from "./stats";
@@ -519,12 +519,11 @@ async function boot(): Promise<void> {
     progress.changed();
     hero.refill();
     // a new character starts with the class's weapon in hand
-    if (first && inv.equipped.weapon !== CLASS_WEAPON[cls]) {
-      const i = inv.slots.findIndex((s) => s?.id === CLASS_WEAPON[cls]);
+    if (first && inv.equipped.weapon !== CLASSES[cls].weapon) {
+      const i = inv.slots.findIndex((s) => s?.id === CLASSES[cls].weapon);
       if (i >= 0) inv.equip(i);
     }
   });
-  const CLASS_WEAPON = { mage: "staff", warrior: "sword_1h" };
   const statusUI = new StatusUI(progress, hero, () => picker.show(), () => location.reload());
   const skillUI = new SkillUI(progress, hero, {
     weapon: () => inv.equipped.weapon,
@@ -891,7 +890,12 @@ async function boot(): Promise<void> {
     player,
     hero,
     bite(m: Monster) {
-      const dmg = monsterDamage(m.atk, hero.stats);
+      // a blinded monster misses half its bites; a weakened one bites softer
+      if (m.blind > 0 && Math.random() < 0.5) {
+        floaters.add(player.x, player.y, 120, "พลาด", "info");
+        return;
+      }
+      const dmg = monsterDamage(m.power, hero.stats);
       const r = hero.takeDamage(dmg);
       if (r.absorbed) floaters.add(player.x, player.y, 120, `-${Math.round(r.absorbed)}`, "shield");
       if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");

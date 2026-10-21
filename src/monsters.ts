@@ -6,6 +6,7 @@
 // clockwise seen from above: south, west, north, east), one 64 px column per frame. Colour
 // variants are hue-rotated copies.
 
+import { icon } from "./icons";
 import { mapX, mapY, yaw } from "./projection";
 import { resolve, SOLIDS, BOUNDS } from "./world";
 import { hueShift, silhouette } from "./recolor";
@@ -98,6 +99,15 @@ export function slimeSheets(images: Record<keyof SlimeSet, Img>): Record<string,
 
 type State = "idle" | "hop" | "hurt" | "die" | "gone" | "bite";
 
+// Status badges: when each shows, its glyph and colour.
+const STATUS: [(m: Monster) => boolean, string, string][] = [
+  [(m) => m.burns.some((b) => b.poison), "drop", "#6fcf5a"],
+  [(m) => m.slow > 0, "swirl", "#6fb4ff"],
+  [(m) => m.weak > 0, "down", "#b58aff"],
+  [(m) => m.expose > 0, "target", "#ff7a5a"],
+  [(m) => m.blind > 0, "eye", "#7d7690"],
+];
+
 export class Monster {
   variant: Variant;
   home: Vec2;
@@ -117,7 +127,12 @@ export class Monster {
   stun = 0;
   freeze = 0;
   slow = 0;
-  burns: { dps: number; t: number }[] = []; // ticked by combat.ts
+  burns: { dps: number; t: number; poison?: boolean }[] = []; // fire and poison, ticked by combat.ts
+  weak = 0;      // s left dealing weakPct less damage
+  weakPct = 0;
+  expose = 0;    // s left taking exposePct more damage
+  exposePct = 0;
+  blind = 0;     // s left missing half its bites
   alive = true;
   state: State = "idle";
   t = 0;
@@ -155,6 +170,7 @@ export class Monster {
     this.freeze = 0;
     this.slow = 0;
     this.burns = [];
+    this.weak = this.weakPct = this.expose = this.exposePct = this.blind = 0;
     this.alive = true;
     this.state = "idle";
     this.t = 0;
@@ -193,6 +209,27 @@ export class Monster {
     return this.stun > 0 || this.freeze > 0;
   }
 
+  // Its bite after weakening.
+  get power(): number {
+    return this.atk * (this.weak > 0 ? 1 - this.weakPct : 1);
+  }
+
+  // Under any status (for the hunter's bonus).
+  get afflicted(): boolean {
+    return this.held || this.slow > 0 || this.weak > 0 || this.expose > 0 || this.blind > 0 || this.burns.some((b) => b.poison);
+  }
+
+  // Weaken or expose for t s: the stronger one wins while one is on.
+  weaken(t: number, pct: number): void {
+    this.weakPct = this.weak > 0 ? Math.max(this.weakPct, pct) : pct;
+    this.weak = Math.max(this.weak, t);
+  }
+
+  exposeTo(t: number, pct: number): void {
+    this.exposePct = this.expose > 0 ? Math.max(this.exposePct, pct) : pct;
+    this.expose = Math.max(this.expose, t);
+  }
+
   // ctx: { player, hero, bite(monster) } — bite() is called when a bite lands.
   update(dt: number, ctx: MonsterCtx): void {
     this.t += dt;
@@ -200,6 +237,9 @@ export class Monster {
     this.stun = Math.max(0, this.stun - dt);
     this.freeze = Math.max(0, this.freeze - dt);
     this.slow = Math.max(0, this.slow - dt);
+    this.weak = Math.max(0, this.weak - dt);
+    this.expose = Math.max(0, this.expose - dt);
+    this.blind = Math.max(0, this.blind - dt);
     this.biteCd = Math.max(0, this.biteCd - dt);
     this.angry = Math.max(0, this.angry - dt);
     if (this.alive && this.held) {
@@ -371,6 +411,18 @@ export class Monster {
     const top = gy - (CELL * 0.82) * s - 8 * k;
     if (this.stun > 0 && this.alive) this.drawStars(ctx, gx, top - 6 * k, k);
     if (this.alive && (this.hp < this.maxHp || this.angry > 0)) this.drawHp(ctx, gx, top, k);
+    if (this.alive) this.drawStatus(ctx, gx, top - 18 * k, k);
+  }
+
+  // A row of small badges over the HP bar: poisoned, slowed, weakened, exposed, blinded.
+  drawStatus(ctx: CanvasRenderingContext2D, cx: number, y: number, k: number): void {
+    const on = STATUS.filter(([test]) => test(this));
+    const size = 15 * k, gap = 2 * k;
+    let x = cx - (on.length * (size + gap) - gap) / 2;
+    for (const [, glyph, color] of on) {
+      ctx.drawImage(icon(glyph, color), x, y - size, size, size);
+      x += size + gap;
+    }
   }
 
   drawStars(ctx: CanvasRenderingContext2D, cx: number, y: number, k: number): void {

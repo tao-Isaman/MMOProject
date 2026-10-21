@@ -12,6 +12,9 @@ const ZERO = {
   hpRegen: 0, mpRegen: 0, cdr: 0, dmgRed: 0,
   // extras: weapon damage bonus, reach, stun chance on hit, exp and drop bonus, defence ignored
   dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0, potion: 0,
+  // healing power, a second arrow on a bow shot, poison on a normal hit, damage to monsters
+  // under any status, longer buffs
+  healPct: 0, multiShot: 0, poisonHit: 0, huntDmg: 0, buffTime: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };
@@ -75,6 +78,8 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   s.dmgRed = Math.min(0.75, s.dmgRed);
   s.aspd = Math.min(1.5, s.aspd);
   s.pierce = Math.min(0.8, s.pierce);
+  s.multiShot = Math.min(0.8, s.multiShot);
+  s.poisonHit = Math.min(0.6, s.poisonHit);
   return s;
 }
 

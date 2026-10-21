@@ -195,10 +195,16 @@ export class Combat {
         const dx = player.target.x - origin.x, dy = player.target.y - origin.y, d = Math.hypot(dx, dy) || 1;
         aim = { x: dx / d, y: dy / d };
       }
-      this.shoot(origin, aim, { ...p, onHit: (m, d) => {
+      const onHit = (m: Monster, d: Vec2) => {
         this.damage(m, w, d);
         follow(m, d);
-      } });
+      };
+      this.shoot(origin, aim, { ...p, onHit });
+      // a second arrow beside the first, now and then (the archer's double shot)
+      if (p.kind === "arrow" && Math.random() < this.hero.stats.multiShot) {
+        const a = Math.atan2(aim.y, aim.x) + 0.07;
+        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit });
+      }
       return;
     }
     const hits = shapeTargets(origin, dir, w, this.monsters);
@@ -226,12 +232,16 @@ export class Combat {
     const r = basicDamage(this.hero.stats, w, m);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
     if (this.hero.stats.stunHit && Math.random() < this.hero.stats.stunHit) m.stun = Math.max(m.stun, 1);
+    if (this.hero.stats.poisonHit && Math.random() < this.hero.stats.poisonHit) m.burns.push({ dps: (r.dmg * 0.4) / 3, t: 3, poison: true });
     this.apply(m, r, dir, w.knock ?? 25);
   }
 
   // Land a computed hit { dmg, crit, magic } on a monster.
   apply(m: Monster, r: Hit, dir: Vec2, knock = 25): boolean {
     if (!m.alive) return false;
+    // an exposed monster takes more; the hunter's instinct, more on any status
+    const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + this.hero.stats.huntDmg : 1);
+    if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
@@ -306,7 +316,7 @@ export class Combat {
         this.projectiles.splice(i, 1);
       }
     }
-    // burning (fire element) ticks twice a second
+    // burning (fire element) and poison tick twice a second
     this.burnClock += dt;
     if (this.burnClock >= 0.5) {
       const tick = this.burnClock;
@@ -314,6 +324,7 @@ export class Combat {
       for (const m of this.monsters) {
         if (!m.alive || !m.burns.length) continue;
         let dmg = 0;
+        const poison = m.burns.some((b) => b.poison);
         m.burns = m.burns.filter((b) => {
           dmg += b.dps * Math.min(tick, b.t);
           return (b.t -= tick) > 0;
@@ -321,7 +332,7 @@ export class Combat {
         if (dmg >= 1) {
           const died = m.hit(Math.round(dmg), { x: 0, y: 0 }, 0);
           this.floaters.add(m.x, m.y, m.height, String(Math.round(dmg)), "info");
-          this.fx.add({ x: m.x + rand(-15, 15), y: m.y + rand(-15, 15), z: 30, layer: AIR_GLOW, tex: this.tex.ember, life: 0.5,
+          this.fx.add({ x: m.x + rand(-15, 15), y: m.y + rand(-15, 15), z: 30, layer: AIR_GLOW, tex: poison ? this.tex.glowFor("#7be06a") : this.tex.ember, life: 0.5,
             size: [[0, 30], [1, 8]], alpha: [[0, 0.8], [1, 0]], vz: 80 });
           if (died) this.onKill(m);
         }

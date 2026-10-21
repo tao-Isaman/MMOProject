@@ -18,9 +18,9 @@ import type { CharEntry, Roster } from "./save";
 import type { Looks } from "./look";
 import { isTouch, goLandscape } from "./touch";
 
-const CLASS_WEAPON: Record<ClassId, string> = { mage: "staff", warrior: "sword_1h" };
-// what each class starts with in the off hand (mages: a tome; staves are one-handed)
-const CLASS_OFFHAND: Record<ClassId, string> = { mage: "spell_tome", warrior: "buckler" };
+// what each class starts with in the off hand (mages and priests: a tome; archers' bows take
+// both hands)
+const CLASS_OFFHAND: Partial<Record<ClassId, string>> = { mage: "spell_tome", warrior: "buckler", priest: "spell_tome" };
 const CELL = 96;
 
 // The item id of a shape's own-colour piece.
@@ -292,8 +292,8 @@ export class Title {
     const progress = new Progress();
     progress.reset(cls);
     const inv = new Inventory();
-    for (const [want, slot] of [[CLASS_WEAPON[cls], "weapon"], [CLASS_OFFHAND[cls], "offhand"], [top, "top"], [bottom, "bottom"]] as const) {
-      const i = inv.slots.findIndex((s) => s?.id === want);
+    for (const [want, slot] of [[CLASSES[cls].weapon, "weapon"], [CLASS_OFFHAND[cls], "offhand"], [top, "top"], [bottom, "bottom"]] as const) {
+      const i = want ? inv.slots.findIndex((s) => s?.id === want) : -1;
       if (i >= 0) inv.equipTo(i, slot);
     }
     try {

@@ -190,8 +190,10 @@ const BAG_NAMES: Record<string, string> = {
   ...STAT_NAMES, atkPct: "พลังโจมตี", matkPct: "พลังเวท", defPct: "ป้องกัน", mdefPct: "ต้านเวท", maxHpPct: "HP สูงสุด",
   maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", pierce: "เจาะเกราะ", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ",
   dmg: "ดาเมจ", reach: "ระยะโจมตี", stunHit: "โอกาสตีให้มึน",
+  healPct: "พลังรักษา", multiShot: "โอกาสยิงซ้อน", poisonHit: "โอกาสตีติดพิษ", huntDmg: "ดาเมจใส่ศัตรูติดสถานะ", buffTime: "เวลาบัฟ",
 };
-const isPct = (k: string) => k.endsWith("Pct") || PERCENT_STATS.has(k) || ["pierce", "drop", "dmg", "reach", "stunHit"].includes(k);
+const isPct = (k: string) => k.endsWith("Pct") || PERCENT_STATS.has(k)
+  || ["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime"].includes(k);
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const num = (v: number) => `${+v.toFixed(1)}`;
 const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct(Math.abs(v)) : num(Math.abs(v))}`;
@@ -208,6 +210,10 @@ function rankParts(node: TreeNode, r: number): string[] {
   if (s.stun) out.push(`มึน ${num(s.stun(r))} วิ`);
   if (s.slow) out.push(`ช้า ${num(s.slow(r))} วิ`);
   if (s.freeze) out.push(`หยุด ${num(s.freeze(r))} วิ`);
+  if (s.poison) out.push(`พิษ ${pct(s.poison(r))} ของดาเมจ`);
+  if (s.weaken) out.push(`ศัตรูตีเบาลง ${pct(s.weaken(r))}`);
+  if (s.expose) out.push(`ศัตรูโดนแรงขึ้น ${pct(s.expose(r))}`);
+  if (s.blind) out.push(`ตาบอด ${num(s.blind(r))} วิ`);
   if (s.buff) out.push(bagText(s.buff(r)));
   return out;
 }

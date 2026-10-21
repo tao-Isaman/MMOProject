@@ -150,6 +150,10 @@ export class Skills {
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);
     if (s.freeze) m.freeze = Math.max(m.freeze, s.freeze(rank) * earth);
     if (s.slow) m.slow = Math.max(m.slow, s.slow(rank) * earth);
+    if (s.blind) m.blind = Math.max(m.blind, s.blind(rank) * earth);
+    if (s.weaken) m.weaken((s.debuff ?? 6) * earth, s.weaken(rank));
+    if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
+    if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock);
     const fire = this.el.fire ?? 0, water = this.el.water ?? 0, lightning = this.el.lightning ?? 0;
     if (fire >= 10) m.burns.push({ dps: (r.dmg * (fire >= 35 ? 0.4 : 0.2)) / 3, t: 3 });
@@ -166,7 +170,7 @@ export class Skills {
   }
 
   healAmount(raw: number): number {
-    return raw * (1 + 0.02 * (this.el.water ?? 0));
+    return raw * (1 + 0.02 * (this.el.water ?? 0)) * (1 + this.hero.stats.healPct);
   }
 
   effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null): void {
@@ -174,10 +178,13 @@ export class Skills {
     const hitAll = (list: Monster[], knock: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
     switch (s.type) {
       case "bolt":
-        this.later(LEAD, () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
-          kind: s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
-          onHit: (m, d) => this.hit(m, s, rank, d),
-        }));
+        // `hits` shots one after another (a volley of arrows)
+        for (let i = 0; i < (s.hits ?? 1); i++) {
+          this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
+            kind: s.arrow ? "arrow" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
+            onHit: (m, d) => this.hit(m, s, rank, d, s.knock ?? 20),
+          }));
+        }
         break;
       case "fan":
         this.later(LEAD, () => {
@@ -277,7 +284,7 @@ export class Skills {
         break;
       case "buff":
         this.later(LEAD, () => {
-          this.hero.addBuff(id, ACTIVES[id].name, s.buff?.(rank) ?? {}, s.duration ?? 8);
+          this.hero.addBuff(id, ACTIVES[id].name, s.buff?.(rank) ?? {}, (s.duration ?? 8) * (1 + this.hero.stats.buffTime));
           if (s.heal) {
             const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
             if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
