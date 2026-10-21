@@ -104,63 +104,94 @@ export const DYES: Record<string, NamedDye> = {
   sand: { name: "ทราย", hue: 38, sat: 0.4, target: 0.74 },
 };
 
-// Costumes pick the body shape (each one is its own Oriverse sprite) and its colours: top and
-// bottom are the body's two main cloth regions (bodies.json says which ones). An equipped
-// top or bottom item dyes over the costume.
-export interface Costume {
+// Tops and bottoms each come in a shape (the half of one Oriverse body sprite: tops from the
+// head down to the waist with the arms, bottoms from the waist to the feet) and a colour. Any
+// top goes with any bottom of the same build (src/look.ts joins the halves at the waist).
+// dye null keeps the shape's own colours; a dye recolours the shape's main cloth region
+// (bodies.json `cloth`).
+export type Gender = "female" | "male";
+export interface Shape {
   name: string;
   body: string;
-  top: string | null;    // dye id for the body's top region, null: its own colour
-  bottom: string | null;
-  note?: string;
+  gender: Gender;
+  note: string;
 }
 
-export const COSTUMES: Record<string, Costume> = {
-  mage: { name: "ชุดจอมเวท", body: "mage", top: null, bottom: null, note: "เสื้อคลุมขาวขลิบทอง มาพร้อมผมทวินเทล" },
-  priestess_navy: { name: "ชุดนักบวชกรมท่า", body: "priestess", top: null, bottom: null, note: "เสื้อคลุมยาวกับผ้าคาดหน้า" },
-  priestess_wine: { name: "ชุดนักบวชแดงไวน์", body: "priestess", top: "wine", bottom: null },
-  priestess_forest: { name: "ชุดนักบวชป่าลึก", body: "priestess", top: "forest", bottom: "sand" },
-  priestess_black: { name: "ชุดนักบวชรัตติกาล", body: "priestess", top: "black", bottom: "lilac" },
-  priestess_white: { name: "ชุดนักบวชหิมะ", body: "priestess", top: "white", bottom: "sky" },
-  adventurer_red: { name: "ชุดนักผจญภัย", body: "adventurer", top: null, bottom: null, note: "เสื้อกั๊กหนัง สายสะพาย ผ้าพันแขน" },
-  adventurer_navy: { name: "ชุดนักผจญภัยทะเล", body: "adventurer", top: "navy", bottom: "sand" },
-  adventurer_teal: { name: "ชุดพรานป่า", body: "adventurer", top: "teal", bottom: "cocoa" },
-  adventurer_plum: { name: "ชุดนักผจญภัยพลบค่ำ", body: "adventurer", top: "plum", bottom: "black" },
-  adventurer_ochre: { name: "ชุดนักผจญภัยทะเลทราย", body: "adventurer", top: "ochre", bottom: "wine" },
+export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
+  top: {
+    mage: { name: "เสื้อคลุมจอมเวท", body: "mage", gender: "female", note: "เสื้อคลุมยาวแขนระฆัง ขลิบทอง เสื้อลายทาง" },
+    priestess: { name: "เสื้อนักบวช", body: "priestess", gender: "female", note: "เสื้อแขนยาว ปกสูง ผ้าคลุมไหล่สีขาว" },
+    adventurer: { name: "เสื้อกั๊กนักผจญภัย", body: "adventurer", gender: "female", note: "เสื้อกั๊กหนัง เกราะไหล่ สายสะพาย ผ้าพันแขน" },
+    warrior: { name: "แจ็กเก็ตนักรบ", body: "warrior", gender: "male", note: "แจ็กเก็ตแขนพับ เสื้อด้านในสีดำ" },
+  },
+  bottom: {
+    mage: { name: "กระโปรงสั้นจอมเวท", body: "mage", gender: "female", note: "กระโปรงสั้น ถุงน่องสีเข้ม บูทหนัง" },
+    priestess: { name: "กระโปรงยาวนักบวช", body: "priestess", gender: "female", note: "กระโปรงยาวถึงข้อเท้า ผ้าคาดหน้าตราอาทิตย์" },
+    adventurer: { name: "กระโปรงจีบนักผจญภัย", body: "adventurer", gender: "female", note: "กระโปรงจีบสั้น เลกกิ้ง บูทผูกเชือกสูง" },
+    warrior: { name: "กางเกงนักรบ", body: "warrior", gender: "male", note: "กางเกงขายาว บูทหนัง" },
+  },
 };
 
-export type ItemKind = "weapon" | "costume" | "top" | "bottom" | "book" | "material";
-export type EquipSlot = "weapon" | "costume" | "top" | "bottom";
+// The shape worn when a slot is empty (or holds something for the other build).
+export const DEFAULT_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
+
+export type ItemKind = "weapon" | "top" | "bottom" | "book" | "material";
+export type EquipSlot = "weapon" | "top" | "bottom";
 
 export interface Item {
   kind: ItemKind;
   name: string;
   weapon?: WeaponId;
-  costume?: string;
-  dye?: string;
+  shape?: string;
+  dye?: string | null;
   stack?: number;
   note?: string;
-  icon: { weapon?: WeaponId; costume?: string; top?: string; bottom?: string; sheet?: string; glyph?: string; color?: string };
+  icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string };
 }
 
 const weapon = (type: WeaponId): Item => ({ kind: "weapon", weapon: type, name: WEAPON_TYPES[type].name, icon: { weapon: type } });
-const top = (dye: string): Item => ({ kind: "top", dye, name: `เสื้อสี${DYES[dye].name}`, icon: { top: dye } });
-const bottom = (dye: string): Item => ({ kind: "bottom", dye, name: `กางเกงสี${DYES[dye].name}`, icon: { bottom: dye } });
-const costume = (id: string): Item => ({ kind: "costume", costume: id, name: COSTUMES[id].name, icon: { costume: id } });
+const garment = (kind: "top" | "bottom", shape: string, dye: string | null = null): Item =>
+  ({ kind, shape, dye, name: `${SHAPES[kind][shape].name}${dye ? `สี${DYES[dye].name}` : ""}`, icon: {} });
 
 export const ITEMS: Record<string, Item> = {
   ...Object.fromEntries((Object.keys(WEAPON_TYPES) as WeaponId[]).map((t) => [t, weapon(t)])),
-  ...Object.fromEntries(Object.keys(COSTUMES).map((c) => [`costume_${c}`, costume(c)])),
-  top_white: top("white"),
-  top_sky: top("sky"),
-  top_rose: top("rose"),
-  top_mint: top("mint"),
-  top_lilac: top("lilac"),
-  bottom_black: bottom("black"),
-  bottom_navy: bottom("navy"),
-  bottom_wine: bottom("wine"),
-  bottom_forest: bottom("forest"),
-  bottom_cocoa: bottom("cocoa"),
+  // mage shape (the ids from before shapes: white and black are its own colours)
+  top_white: garment("top", "mage"),
+  top_sky: garment("top", "mage", "sky"),
+  top_rose: garment("top", "mage", "rose"),
+  top_mint: garment("top", "mage", "mint"),
+  top_lilac: garment("top", "mage", "lilac"),
+  bottom_black: garment("bottom", "mage"),
+  bottom_navy: garment("bottom", "mage", "navy"),
+  bottom_wine: garment("bottom", "mage", "wine"),
+  bottom_forest: garment("bottom", "mage", "forest"),
+  bottom_cocoa: garment("bottom", "mage", "cocoa"),
+  top_priestess: garment("top", "priestess"),
+  top_priestess_wine: garment("top", "priestess", "wine"),
+  top_priestess_forest: garment("top", "priestess", "forest"),
+  top_priestess_black: garment("top", "priestess", "black"),
+  top_priestess_white: garment("top", "priestess", "white"),
+  bottom_priestess: garment("bottom", "priestess"),
+  bottom_priestess_wine: garment("bottom", "priestess", "wine"),
+  bottom_priestess_forest: garment("bottom", "priestess", "forest"),
+  bottom_priestess_black: garment("bottom", "priestess", "black"),
+  bottom_priestess_white: garment("bottom", "priestess", "white"),
+  top_adventurer: garment("top", "adventurer"),
+  top_adventurer_navy: garment("top", "adventurer", "navy"),
+  top_adventurer_teal: garment("top", "adventurer", "teal"),
+  top_adventurer_plum: garment("top", "adventurer", "plum"),
+  top_adventurer_ochre: garment("top", "adventurer", "ochre"),
+  bottom_adventurer: garment("bottom", "adventurer"),
+  bottom_adventurer_sand: garment("bottom", "adventurer", "sand"),
+  bottom_adventurer_cocoa: garment("bottom", "adventurer", "cocoa"),
+  bottom_adventurer_black: garment("bottom", "adventurer", "black"),
+  bottom_adventurer_wine: garment("bottom", "adventurer", "wine"),
+  top_warrior: garment("top", "warrior"),
+  top_warrior_navy: garment("top", "warrior", "navy"),
+  top_warrior_forest: garment("top", "warrior", "forest"),
+  bottom_warrior: garment("bottom", "warrior"),
+  bottom_warrior_cocoa: garment("bottom", "warrior", "cocoa"),
+  bottom_warrior_black: garment("bottom", "warrior", "black"),
   book_survivor: { kind: "book", name: "คัมภีร์สกิล: ผู้รอดชีวิต", stack: 5, icon: { glyph: "heart", color: "#c9a86a" }, note: "อ่านเพื่อปลดล็อคต้นสกิลผู้รอดชีวิต (ใช้ได้ทุกคลาส)" },
   book_gathering: { kind: "book", name: "คัมภีร์ความเชี่ยวชาญ: เก็บเกี่ยว", stack: 5, icon: { glyph: "leaf", color: "#8fbf6a" }, note: "อ่านเพื่อปลดล็อคความเชี่ยวชาญเก็บเกี่ยว" },
   book_lightning: { kind: "book", name: "คัมภีร์ธาตุ: สายฟ้า", stack: 5, icon: { glyph: "bolt", color: "#d9c24a" }, note: "อ่านเพื่อปลดล็อคธาตุสายฟ้า" },
@@ -170,14 +201,13 @@ export const ITEMS: Record<string, Item> = {
 
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [
   { slot: "weapon", name: "อาวุธ" },
-  { slot: "costume", name: "ชุด" },
   { slot: "top", name: "เสื้อ" },
   { slot: "bottom", name: "กางเกง" },
 ];
 
 export function itemSlot(id: string | null | undefined): EquipSlot | null {
   const kind = id ? ITEMS[id]?.kind : undefined;
-  return kind === "weapon" || kind === "costume" || kind === "top" || kind === "bottom" ? kind : null;
+  return kind === "weapon" || kind === "top" || kind === "bottom" ? kind : null;
 }
 
 export function stackLimit(id: string): number {
@@ -194,12 +224,10 @@ export function describe(id: string): string {
     const hits = w.hits ? ` × ${w.hits}` : "";
     return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}`;
   }
-  if (item.kind === "costume") {
-    const c = COSTUMES[item.costume!];
-    return `${c.note ? `${c.note}<br>` : ""}ตัวละครชายใส่แล้วได้สีของชุด`;
-  }
   if (item.kind === "book") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
-  if (item.kind === "top") return "ย้อมท่อนบนของชุดที่ใส่อยู่<br>ถอดออกเพื่อกลับเป็นสีของชุด";
-  if (item.kind === "bottom") return "ย้อมท่อนล่างของชุดที่ใส่อยู่<br>ถอดออกเพื่อกลับเป็นสีของชุด";
+  if (item.kind === "top" || item.kind === "bottom") {
+    const sh = SHAPES[item.kind][item.shape!];
+    return `${sh.note}<br>${sh.gender === "male" ? "สำหรับตัวละครชาย" : "สำหรับตัวละครหญิง"} · ใส่คู่กับ${item.kind === "top" ? "กางเกงหรือกระโปรง" : "เสื้อ"}ทรงไหนก็ได้`;
+  }
   return item.note ?? "";
 }

@@ -89,12 +89,17 @@ def stitch(paths, rows, cols, caption_fill):
 
 
 def key(rgb):
-    """Alpha (1 on objects, 0 on the magenta plane, lit or shaded) and the plane's brightness."""
+    """Alpha (1 on objects, 0 on the magenta plane, lit or shaded) and the plane's brightness.
+
+    The lit plane renders as (255, 188, 255) with red and blue clipped, its shadows as darker
+    purples like (198, 80, 242): green well below the smaller of red and blue. Brightness is
+    read off green, the one channel that doesn't clip."""
     f = rgb.astype(np.float32) / 255
     r, g, b = f[..., 0], f[..., 1], f[..., 2]
-    lum = (r + b) / 2
-    magenta = np.clip(((np.minimum(r, b) - g) / np.maximum(lum, 0.05) - 0.35) / 0.35, 0, 1)
-    return 1 - magenta, lum
+    mn = np.minimum(r, b)
+    m = (mn - g) / np.maximum(mn, 0.05)
+    magenta = np.clip((m - 0.08) / 0.09, 0, 1)
+    return 1 - magenta, g
 
 
 def despill(rgb, alpha):
@@ -143,6 +148,9 @@ def main():
         plane = alpha == 0
         lit = np.percentile(lum[plane], 96)
         dark = np.where(plane, np.clip(1 - lum / lit, 0, 1), np.nan)
+        for r in range(v["rows"]):  # the captions say nothing about shadows
+            for c in range(v["cols"]):
+                dark[r * TH:r * TH + CAPTION[1], c * TW:c * TW + CAPTION[0]] = np.nan
         shadow_maps.append((theta, x0, y0, dark))
 
         # every object's screen box at this heading (canvas px)

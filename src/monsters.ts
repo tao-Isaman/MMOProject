@@ -53,13 +53,14 @@ const RESPAWN = 9;       // s
 const BOOK_DROPS: [string, number][] = [["book_survivor", 0.015], ["book_gathering", 0.015], ["book_lightning", 0.015]];
 export const VARIANTS: Variant[] = [
   { id: "green", name: "สไลม์เขียว", hue: 0, level: 1, hp: 60, atk: 8, def: 2, mdef: 2, xp: 8, aggro: 0, weight: 6,
-    drops: [["jelly", 0.9], ["sprout", 0.08], ["top_mint", 0.03], ["bottom_forest", 0.03], ...BOOK_DROPS] },
+    drops: [["jelly", 0.9], ["sprout", 0.08], ["top_mint", 0.03], ["bottom_forest", 0.03], ["top_priestess_forest", 0.02], ["bottom_priestess_forest", 0.02], ...BOOK_DROPS] },
   { id: "pink", name: "สไลม์ชมพู", hue: 185, level: 3, hp: 110, atk: 13, def: 5, mdef: 4, xp: 15, aggro: 0, weight: 4,
-    drops: [["jelly", 1], ["top_rose", 0.05], ["bottom_wine", 0.05], ...BOOK_DROPS] },
+    drops: [["jelly", 1], ["top_rose", 0.05], ["bottom_wine", 0.05], ["top_priestess_wine", 0.03], ["bottom_priestess_wine", 0.03], ["bottom_adventurer_wine", 0.03], ...BOOK_DROPS] },
   { id: "blue", name: "สไลม์ฟ้า", hue: 70, level: 5, hp: 170, atk: 18, def: 8, mdef: 10, xp: 24, aggro: 0, weight: 3,
-    drops: [["jelly", 1], ["jelly", 0.5], ["top_sky", 0.06], ["bottom_navy", 0.06], ...BOOK_DROPS] },
+    drops: [["jelly", 1], ["jelly", 0.5], ["top_sky", 0.06], ["bottom_navy", 0.06], ["top_adventurer_navy", 0.03], ["bottom_adventurer_sand", 0.03], ["top_warrior_navy", 0.03], ...BOOK_DROPS] },
   { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 320, atk: 28, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
-    drops: [["sprout", 0.6], ["top_lilac", 0.12], ["bottom_cocoa", 0.12], ["jelly", 1],
+    drops: [["sprout", 0.6], ["top_lilac", 0.12], ["bottom_cocoa", 0.12], ["jelly", 1], ["top_priestess_black", 0.06], ["bottom_priestess_black", 0.06],
+      ["top_adventurer_plum", 0.06], ["bottom_adventurer_black", 0.06], ["top_adventurer_ochre", 0.04], ["top_warrior_forest", 0.04], ["bottom_warrior_black", 0.04],
       ["book_survivor", 0.08], ["book_gathering", 0.08], ["book_lightning", 0.08]] },
 ];
 const BITE_REACH = 95;   // cm between centres

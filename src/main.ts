@@ -210,25 +210,27 @@ async function boot(): Promise<void> {
         g.drawImage(makeIcon(w.img, { diagonal: true }), 0, 0);
         g.restore();
       }
-    } else if (item.kind === "costume") {
-      // the costume's body in its own colours, filled in once its sheet has loaded
-      const cv = (c = document.createElement("canvas"));
-      cv.width = cv.height = ICON * 2;
-      looks.build(look, { weapon: null, costume: id, top: null, bottom: null }, ["idle"]).then(({ sheets }) => {
-        const art = trimmed(sheets.idle, 7);
-        const s = (cv.width * 0.94) / Math.max(art.width, art.height);
+    } else if (item.kind === "top" || item.kind === "bottom") {
+      // a plain shirt or trousers until the garment's own half of its body has loaded
+      const slot = item.kind;
+      c = slot === "top" ? makeIcon(images.coat, { dye: DYES[item.dye ?? "white"] })
+        : makeIcon(images.legs, { dye: item.dye === "black" || !item.dye ? { hue: 250, sat: 0.2, light: -0.55 } : { ...DYES[item.dye], light: -0.45 } });
+      const cv = c;
+      looks.garmentArt(slot, item.shape!, item.dye ?? null).then((art) => {
+        if (!art) return;
+        const t = trimmed(art, 0, Math.max(art.width, art.height));
         const g = cv.getContext("2d")!;
+        g.clearRect(0, 0, cv.width, cv.height);
         g.imageSmoothingEnabled = false;
-        g.drawImage(art, (cv.width - art.width * s) / 2, (cv.height - art.height * s) / 2, art.width * s, art.height * s);
+        const s = (cv.width * 0.92) / Math.max(t.width, t.height);
+        g.drawImage(t, (cv.width - t.width * s) / 2, (cv.height - t.height * s) / 2, t.width * s, t.height * s);
         invUI.render();
       });
     } else if (item.kind === "book") {
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
       c.getContext("2d")!.drawImage(icon(item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
-    } else if (item.kind === "top") c = makeIcon(images.coat, { dye: DYES[item.dye!] });
-    else if (item.kind === "bottom") c = makeIcon(images.legs, { dye: item.dye === "black" ? { hue: 250, sat: 0.2, light: -0.55 } : { ...DYES[item.dye!], light: -0.45 } });
-    else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
+    } else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
     icons.set(id, c);
     return c;
   };

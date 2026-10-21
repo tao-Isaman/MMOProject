@@ -133,7 +133,7 @@ export class InventoryUI {
       return;
     }
     const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", costume: "ชุด", top: "สีย้อมเสื้อ", bottom: "สีย้อมกางเกง", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
+    const kind = { weapon: "อาวุธ", top: "เสื้อ", bottom: "กางเกง/กระโปรง", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
     this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}`;
     this.tip.classList.remove("hidden");
     const r = this.tip.getBoundingClientRect();
@@ -154,7 +154,7 @@ export class InventoryUI {
     this.win.addEventListener("dblclick", (e) => {
       const c = cellFrom(e.target);
       if (!c) return;
-      if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip as EquipSlot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม หรือไม่มีชุดอื่นให้ใส่แทน");
+      if (c.dataset.equip) this.flash(this.inv.unequip(c.dataset.equip as EquipSlot) ? null : "ถอดไม่ได้: กระเป๋าเต็ม");
       else if (this.inv.slots[Number(c.dataset.index)]) {
         const i = Number(c.dataset.index);
         if (ITEMS[this.inv.slots[i]!.id].kind === "book") this.flash(this.use(i), true);
@@ -309,7 +309,7 @@ export class WardrobeUI {
   note: HTMLElement;
 
   // drawPreview(canvas, look) paints the character; onChange(look) applies it in game;
-  // available: hairstyle ids with head layers; note(look) explains what the costume overrides
+  // available: hairstyle ids with head layers; note(look) explains what the clothes override
   constructor(look: Look, drawPreview: (cv: HTMLCanvasElement, look: Look, turn: number) => void, onChange: (look: Look) => void,
     available: Set<string>, note: (look: Look) => string) {
     this.look = look;

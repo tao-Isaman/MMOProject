@@ -1,10 +1,13 @@
-// Character looks: body, hairstyle and colours.
+// Character looks: top, bottom, hairstyle and colours.
 //
 // Every body is its own Oriverse sprite (assets/chars/<body>_<clip>.png, described in
-// assets/chars/bodies.json). The mage and the warrior keep the hair they were generated with.
-// The costume bodies were generated with short hair, which tools/char_layers.py erased frame by
-// frame; a hairstyle head layer (assets/chars/hair_<id>.png: back layer in column 0, front
-// layer in column 1) is drawn back onto every frame at the head offset tracked for it.
+// assets/chars/bodies.json). A top is the upper half of one body (head to waist, with the
+// arms), a bottom the lower half of another; frame by frame the bottom is drawn from its waist
+// down and the top above it, moved so the two waists meet (bodies.json `waist`, following the
+// body's bob through the head offsets). Bodies marked hairless were generated with short hair,
+// which tools/char_layers.py erased frame by frame; a hairstyle head layer
+// (assets/chars/hair_<id>.png: back layer in column 0, front layer in column 1) is drawn back
+// onto every frame at the top body's head offset. Other bodies keep the hair they came with.
 //
 // Colours are moved region by region (hue, saturation and lightness thresholds per body in
 // bodies.json; hair and eyes for head layers in hair.json), so the hair dye never reaches a
@@ -12,8 +15,7 @@
 
 import { mapColors, rgbToHsl, hslToRgb } from "./recolor";
 import type { Dye, RGB } from "./recolor";
-import { COSTUMES, DYES, ITEMS } from "./items";
-import type { Costume } from "./items";
+import { DYES, ITEMS, SHAPES, DEFAULT_SHAPE } from "./items";
 import { HAIR_COLORS, EYE_COLORS } from "./ui";
 import type { Look } from "./ui";
 import type { Equipped } from "./inventory";
@@ -54,6 +56,8 @@ export interface BodyDef {
   natural?: Record<string, string>;
   mean: Record<string, number>;
   split?: number; // neck row for regions with a side
+  waist: number;  // row of the waist in the standing frame, where tops and bottoms meet
+  neck?: number;  // row of the neck in the standing frame (item icons start there)
   hands?: Hands;
   builtin?: Record<string, boolean>;
   head?: { anchor: [number, number][]; offsets: Offsets };
@@ -174,29 +178,66 @@ export class Looks {
     return new Set(Object.keys(this.hair.styles));
   }
 
-  // Which body and hairstyle a look and costume end up using.
-  resolve(look: Look, equipped: Equipped): { body: string; def: BodyDef; hair: string | null; costume: Costume } {
-    const costume = COSTUMES[ITEMS[equipped.costume ?? ""]?.costume ?? "mage"] ?? COSTUMES.mage;
-    // a body is used once all its clips are in (bodies.json lists them)
-    const want = look.gender === "male" ? "warrior" : costume.body;
-    const body = this.bodies[want]?.clips?.length === CLIPS.length ? want : "mage";
-    const def = this.bodies[body];
-    // a costume body has no hair of its own: fall back to the first hairstyle that is ready
+  // A body is used once all its clips are in (bodies.json lists them).
+  ready(body: string): boolean {
+    return this.bodies[body]?.clips?.length === CLIPS.length;
+  }
+
+  // The shape a slot shows: the worn item's, or the build's default when it is empty, made
+  // for the other build, or its body isn't ready yet.
+  shapeFor(look: Look, equipped: Equipped, slot: "top" | "bottom"): { shape: string; dye: string | null; worn: boolean } {
+    const item = ITEMS[equipped[slot] ?? ""];
+    const sh = item?.shape ? SHAPES[slot][item.shape] : undefined;
+    if (sh && sh.gender === look.gender && this.ready(sh.body)) return { shape: item!.shape!, dye: item!.dye ?? null, worn: true };
+    const def = DEFAULT_SHAPE[look.gender as keyof typeof DEFAULT_SHAPE] ?? "mage";
+    return { shape: this.ready(SHAPES[slot][def]?.body) ? def : "mage", dye: null, worn: false };
+  }
+
+  // Which bodies and hairstyle a look and its clothes end up using.
+  resolve(look: Look, equipped: Equipped) {
+    const top = this.shapeFor(look, equipped, "top"), bottom = this.shapeFor(look, equipped, "bottom");
+    const topBody = SHAPES.top[top.shape].body, bottomBody = SHAPES.bottom[bottom.shape].body;
+    const def = this.bodies[topBody];
+    // a hairless top body takes the hairstyle (the first ready one if the chosen one isn't)
     const hair = !def.hairless ? null : this.hair.styles[look.hair] ? look.hair : Object.keys(this.hair.styles)[0] ?? null;
-    return { body, def, hair, costume };
+    return { top, bottom, topBody, bottomBody, def, hair };
   }
 
   note(look: Look, equipped: Equipped): string {
-    const { body, hair, costume } = this.resolve(look, equipped);
-    if (body === "warrior") return "ตัวละครชายใช้ทรงผมของตัวเอง ชุดเปลี่ยนแค่สี ส่วนเสื้อกับกางเกงย้อมสีได้";
-    if (body === "mage" && look.hair !== "twintail") return `${costume.name}มาพร้อมผมทวินเทล ทรงผมที่เลือกจะใช้กับชุดอื่น`;
-    if (hair && hair !== look.hair) return "ทรงผมนี้ยังใส่กับชุดนี้ไม่ได้";
-    return "ชุด เสื้อ และกางเกงเปลี่ยนได้จากไอเท็มในกระเป๋า (ปุ่ม I)";
+    const r = this.resolve(look, equipped);
+    for (const slot of ["top", "bottom"] as const) {
+      const item = ITEMS[equipped[slot] ?? ""];
+      if (!item?.shape || r[slot].worn) continue;
+      const sh = SHAPES[slot][item.shape];
+      if (sh.gender !== look.gender) return `${item.name}สำหรับตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"} จึงใช้ทรงตั้งต้นแทน`;
+      return `${sh.name}ยังรอท่าทางจาก Oriverse ให้ครบ ระหว่างนี้ใช้ทรงตั้งต้นแทน`;
+    }
+    if (!r.def.hairless && r.topBody === "warrior") return "ตัวละครชายใช้ทรงผมของตัวเอง ย้อมสีผมได้";
+    if (!r.def.hairless && look.hair !== "twintail") return "เสื้อตัวนี้มาพร้อมผมทวินเทล ทรงผมที่เลือกจะใช้กับเสื้อตัวอื่น";
+    if (r.hair && r.hair !== look.hair) return "ทรงผมนี้ยังใช้ไม่ได้";
+    return "เปลี่ยนเสื้อและกางเกงได้จากไอเท็มในกระเป๋า (ปุ่ม I) ทรงไหนใส่คู่กับทรงไหนก็ได้";
   }
 
   key(look: Look, equipped: Equipped): string {
     const r = this.resolve(look, equipped);
-    return [r.body, r.hair, look.hairColor, look.eyes, equipped.costume, equipped.top, equipped.bottom].join("|");
+    return [r.top.shape, r.top.dye, r.bottom.shape, r.bottom.dye, r.hair, look.hairColor, look.eyes].join("|");
+  }
+
+  // A garment's icon art: its half of the body's front standing frame, in its colour (null
+  // while the body has no standing sheet yet).
+  async garmentArt(slot: "top" | "bottom", shape: string, dyeId: string | null): Promise<HTMLCanvasElement | null> {
+    const body = SHAPES[slot][shape].body, def = this.bodies[body];
+    if (!def) return null;
+    const idle = await this.loadBody(body, ["idle"]).catch(() => null);
+    if (!idle) return null;
+    const region = def.cloth[slot], dye = dyeId ? DYES[dyeId] : undefined;
+    const img = recolor(idle, def.regions, dye && def.natural?.[region] !== dyeId ? { [region]: dye } : {}, def.mean).idle;
+    const y0 = slot === "top" ? (def.hairless ? 0 : def.neck ?? 0) : def.waist, y1 = slot === "top" ? def.waist + 2 : CELL;
+    const c = document.createElement("canvas");
+    c.width = CELL;
+    c.height = y1 - y0;
+    c.getContext("2d")!.drawImage(img, 0, y0, CELL, y1 - y0, 0, 0, CELL, y1 - y0);
+    return c;
   }
 
   loadBody(body: string, clips = CLIPS): Promise<Sheets> {
@@ -222,30 +263,71 @@ export class Looks {
   // Build the sheets for a look: { sheets, hands, builtin } (hands: weapon hand anchors per
   // clip; builtin: clips that already show the weapon).
   async build(look: Look, equipped: Equipped, clips = CLIPS): Promise<Built> {
-    const { body, def, hair, costume } = this.resolve(look, equipped);
-    const base = await this.loadBody(body, clips);
+    const { top, bottom, topBody, bottomBody, def, hair } = this.resolve(look, equipped);
+    const bdef = this.bodies[bottomBody];
+    const [upper, lower] = await Promise.all([this.loadBody(topBody, clips), this.loadBody(bottomBody, clips)]);
     const hairDye = HAIR_COLORS.find((c) => c.id === look.hairColor);
     const eyeDye = EYE_COLORS.find((c) => c.id === look.eyes);
-    const cloth = (slot: "top" | "bottom"): [string, Dye] | null => {
-      const wornId = ITEMS[equipped[slot] ?? ""]?.dye;
-      const dyeId = wornId ?? costume[slot];
+    const cloth = (d: BodyDef, region: string, dyeId: string | null) => {
       const dye = dyeId ? DYES[dyeId] : undefined;
-      const region = def.cloth[slot];
       // a body's own colour for this region needs no work
-      return dye && def.natural?.[region] !== dyeId ? [region, dye] : null;
+      return dye && d.natural?.[region] !== dyeId ? { [region]: dye } : {};
     };
-    const dyes: Record<string, Dye | undefined> = Object.fromEntries([cloth("top"), cloth("bottom")].filter((d) => d !== null));
-    if (!def.hairless) Object.assign(dyes, { hair: hairDye, eyes: eyeDye });
-    let sheets = recolor(base, def.regions, dyes, def.mean, def.split ? { neck: def.split, offsets: def.head?.offsets } : null);
+    const topDyes: Record<string, Dye | undefined> = cloth(def, def.cloth.top, top.dye);
+    if (!def.hairless) Object.assign(topDyes, { hair: hairDye, eyes: eyeDye });
+    const split = (d: BodyDef) => (d.split ? { neck: d.split, offsets: d.head?.offsets } : null);
+    const upperC = recolor(upper, def.regions, topDyes, def.mean, split(def));
+    const lowerC = recolor(lower, bdef.regions, cloth(bdef, bdef.cloth.bottom, bottom.dye), bdef.mean, split(bdef));
+    // per frame, how far the top moves down so its waist meets the bottom's
+    const bob = (d: BodyDef, clip: string, dir: number, f: number) => d.head?.offsets[clip]?.[dir]?.[f]?.[1] ?? 0;
+    const shift = (clip: string, dir: number, f: number, fb: number) =>
+      bdef.waist + bob(bdef, clip, dir, fb) - (def.waist + bob(def, clip, dir, f));
+    let sheets = this.join(upperC, lowerC, bdef, shift);
+    const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[clip], f));
     if (hair && def.head) {
       const head = recolor({ head: await this.loadHead(hair) }, this.hair.regions, { hair: hairDye, eyes: eyeDye }).head;
-      sheets = this.attachHead(sheets, def.head, head, this.hair.styles[hair]);
+      sheets = this.attachHead(sheets, def.head, head, this.hair.styles[hair], moved);
     }
-    return { sheets, hands: def.hands, builtin: def.builtin ?? {} };
+    return { sheets, hands: shiftHands(def.hands, moved), builtin: topBody === bottomBody ? def.builtin ?? {} : {} };
+  }
+
+  // Which frame of the bottom's clip goes with frame f of the top's (clips may differ in length).
+  bottomFrame(upper: Img | undefined, lower: Img | undefined, f: number): number {
+    if (!upper || !lower) return f;
+    const nu = upper.width / CELL, nl = lower.width / CELL;
+    return Math.min(nl - 1, Math.floor((f * nl) / nu));
+  }
+
+  // The bottom from its waist down, then the top above its waist moved by shift().
+  join(upper: Sheets, lower: Sheets, bdef: BodyDef, shift: (clip: string, dir: number, f: number, fb: number) => number): Sheets {
+    const out: Sheets = {};
+    for (const [clip, sheet] of Object.entries(upper)) {
+      const low = lower[clip];
+      const c = document.createElement("canvas");
+      c.width = sheet.width;
+      c.height = sheet.height;
+      const g = c.getContext("2d")!;
+      const frames = sheet.width / CELL;
+      for (let d = 0; d < 8; d++) {
+        for (let f = 0; f < frames; f++) {
+          const fb = this.bottomFrame(sheet, low, f);
+          const x = f * CELL, y = d * CELL;
+          const wl = Math.round(bdef.waist + (bdef.head?.offsets[clip]?.[d]?.[fb]?.[1] ?? 0));
+          const sh = Math.round(shift(clip, d, f, fb));
+          const wu = wl - sh; // the top's waist row in its own frame
+          g.drawImage(low, fb * CELL, y + wl, CELL, CELL - wl, x, y + wl, CELL, CELL - wl);
+          const top = Math.max(0, -sh);
+          if (wu > top) g.drawImage(sheet, x, y + top, CELL, wu - top, x, y + top + sh, CELL, wu - top);
+        }
+      }
+      out[clip] = c;
+    }
+    return out;
   }
 
   // Draw the head layer onto every frame: back column under the body, front column over it.
-  attachHead(sheets: Sheets, head: NonNullable<BodyDef["head"]>, layer: Img, style: HairStyle): Sheets {
+  // moved(clip, dir, frame): how far the top was moved down to meet the bottom.
+  attachHead(sheets: Sheets, head: NonNullable<BodyDef["head"]>, layer: Img, style: HairStyle, moved: (clip: string, dir: number, f: number) => number): Sheets {
     const out: Sheets = {};
     for (const [clip, sheet] of Object.entries(sheets)) {
       const c = document.createElement("canvas");
@@ -259,7 +341,7 @@ export class Looks {
         for (let f = 0; f < frames; f++) {
           const [dx, dy] = head.offsets[clip]?.[d]?.[f] ?? [0, 0];
           const x = f * CELL, y = d * CELL;
-          const px = x + ax + dx - hx, py = y + ay + dy - hy;
+          const px = x + ax + dx - hx, py = y + ay + dy - hy + Math.round(moved(clip, d, f));
           g.save();
           g.beginPath();
           g.rect(x, y, CELL, CELL);
@@ -274,4 +356,19 @@ export class Looks {
     }
     return out;
   }
+}
+
+// Weapon hand anchors moved with the top.
+function shiftHands(hands: Hands | undefined, moved: (clip: string, dir: number, f: number) => number): Hands | undefined {
+  if (!hands) return hands;
+  const out: Hands = {};
+  for (const [clip, dirs] of Object.entries(hands)) {
+    out[clip] = dirs.map((frames, d) => frames.map((a, f) => {
+      const dy = Math.round(moved(clip, d, f));
+      if (!dy) return a;
+      const mv = (p: [number, number] | null): [number, number] | null => (p ? [p[0], p[1] + dy] : null);
+      return { r: mv(a.r), l: mv(a.l), c: mv(a.c)! };
+    }));
+  }
+  return out;
 }
