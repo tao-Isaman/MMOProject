@@ -10,8 +10,9 @@
 //   lightning  +0.3% skill crit per level; [10: hits jump to one more monster for 30%;
 //              35: to two; 50: for 60%]
 //
-// Skill types: bolt, fan (projectiles) · blast (at the aimed point) · nova, storm (around the
-// caster) · cone (in front) · beam (a line) · dash · heal · shield · buff · flower.
+// Skill types: bolt, fan (projectiles) · blast (at the aimed point, `hits` times) · nova, storm
+// (around the caster) · cone (in front) · beam (a line) · dash (no `mult`: a teleport) · heal ·
+// shield · buff · flower.
 
 import { ACTIVES, MASTERIES } from "./progression";
 import type { Progress, SkillDef } from "./progression";
@@ -194,11 +195,14 @@ export class Skills {
         const range = s.range ?? 500, radius = s.radius ?? 150, delay = s.delay ?? 0.3;
         const dist = aim ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : range * 0.6;
         const spot = { x: p.x + dir.x * dist, y: p.y + dir.y * dist };
-        this.ring(spot.x, spot.y, s.color, radius * 2, delay + LEAD, true);
-        this.later(delay + LEAD, () => {
-          hitAll(shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters), 30);
-          this.burst(spot.x, spot.y, s.color, radius);
-        });
+        const strikes = s.hits ?? 1;
+        this.ring(spot.x, spot.y, s.color, radius * 2, delay + LEAD + (strikes - 1) * (s.every ?? 0.3), true);
+        for (let i = 0; i < strikes; i++) {
+          this.later(delay + LEAD + i * (s.every ?? 0.3), () => {
+            hitAll(shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters), 30);
+            this.burst(spot.x, spot.y, s.color, radius);
+          });
+        }
         break;
       }
       case "nova": {
@@ -245,7 +249,8 @@ export class Skills {
       case "dash": {
         const hit = new Set<Monster>();
         p.startDash(dir, s.distance ?? 200, 0.2, () => {
-          for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.width ?? 60 }, this.monsters)) {
+          // a dash without a multiplier is a teleport: it hits nothing
+          if (s.mult) for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.width ?? 60 }, this.monsters)) {
             if (hit.has(m)) continue;
             hit.add(m);
             this.hit(m, s, rank, dir, 30);

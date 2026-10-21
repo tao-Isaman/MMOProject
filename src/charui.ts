@@ -194,7 +194,8 @@ const BAG_NAMES: Record<string, string> = {
 const isPct = (k: string) => k.endsWith("Pct") || PERCENT_STATS.has(k) || ["pierce", "drop", "dmg", "reach", "stunHit"].includes(k);
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const num = (v: number) => `${+v.toFixed(1)}`;
-const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => `${BAG_NAMES[k] ?? k} +${isPct(k) ? pct(v) : num(v)}`).join(" · ");
+const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct(Math.abs(v)) : num(Math.abs(v))}`;
+const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => `${BAG_NAMES[k] ?? k} ${signed(k, v)}`).join(" · ");
 const statName = (s: SkillDef) => (s.stat === "matk" ? "พลังเวท" : "พลังโจมตี");
 
 // What one rank of a node gives, as short parts: the headline number first.
@@ -218,7 +219,7 @@ function rankGain(node: TreeNode, r: number): string {
     const a = node.stats(r), b = node.stats(r - 1);
     return Object.keys(a).map((k) => {
       const d = (a[k as keyof StatBag] ?? 0) - (b[k as keyof StatBag] ?? 0);
-      return `+${isPct(k) ? pct(d) : num(d)}`;
+      return signed(k, d);
     }).join(" ");
   }
   const s = node.skill!;
@@ -227,7 +228,7 @@ function rankGain(node: TreeNode, r: number): string {
     const a = s.buff(r), b = s.buff(r - 1);
     return Object.keys(a).map((k) => {
       const d = (a[k as keyof StatBag] ?? 0) - (b[k as keyof StatBag] ?? 0);
-      return d ? `+${isPct(k) ? pct(d) : num(d)}` : "";
+      return d ? signed(k, d) : "";
     }).filter(Boolean).join(" ");
   }
   if (s.heal) return `+${pct(s.heal(r) - s.heal(r - 1))}`;
@@ -240,8 +241,8 @@ interface SkillUIDeps {
   onDropSkill: (id: string, x: number, y: number) => void;
 }
 
-// Tree drawing: node centres by column (fraction of the width) and row (px).
-const COL_X = [0.18, 0.5, 0.82];
+// Tree drawing: node centres by column (a share of the width; 3 columns at least) and row (px).
+const colX = (c: number, cols: number) => (c + 0.5) / Math.max(3, cols);
 const rowY = (r: number) => 58 + r * 128;
 
 export class SkillUI {
@@ -388,6 +389,7 @@ export class SkillUI {
     el("strong", "", head).textContent = tree.name;
     el("span", "", head).textContent = tree.note;
     const rows = Math.max(...tree.nodes.map((n) => n.pos[1])) + 1;
+    const cols = Math.max(...tree.nodes.map((n) => n.pos[0])) + 1;
     const stage = el("div", "sk-stage", box);
     const height = rowY(rows - 1) + 70;
     stage.style.height = `${height}px`;
@@ -397,7 +399,7 @@ export class SkillUI {
     svg.setAttribute("viewBox", `0 0 100 ${height}`);
     svg.setAttribute("preserveAspectRatio", "none");
     stage.append(svg);
-    const at = (n: TreeNode) => ({ x: COL_X[n.pos[0]] * 100, y: rowY(n.pos[1]) });
+    const at = (n: TreeNode) => ({ x: colX(n.pos[0], cols) * 100, y: rowY(n.pos[1]) });
     for (const n of tree.nodes) {
       for (const [id, need] of n.req ?? []) {
         const from = at(NODES[id].node), to = at(n);
@@ -408,10 +410,12 @@ export class SkillUI {
         path.setAttribute("class", met ? "met" : "");
         path.setAttribute("vector-effect", "non-scaling-stroke");
         svg.append(path);
+        // the level it needs, halfway along; the whole sentence on hover and in the details
         const tag = el("span", `sk-req${met ? " met" : ""}`, stage);
         tag.style.left = `${(from.x + to.x) / 2}%`;
         tag.style.top = `${my}px`;
-        tag.textContent = `${met ? "✓ " : ""}${NODES[id].node.name} Lv ${need}`;
+        tag.textContent = `${met ? "✓ " : ""}Lv ${need}`;
+        tag.title = `${n.name} ต้องมี ${NODES[id].node.name} ระดับ ${need}`;
       }
     }
     for (const n of tree.nodes) {
@@ -419,7 +423,7 @@ export class SkillUI {
       const why = locked ? "ยังไม่ได้ปลดล็อคต้นสกิลนี้" : p.blockNode(treeId, n);
       const reqOk = !locked && !p.missing(n).length;
       const node = el("div", `sk-tnode${rank ? " learned" : ""}${rank >= n.max ? " max" : ""}${!why ? " can" : ""}${reqOk ? "" : " blocked"}${n.id === this.picked ? " picked" : ""}`, stage);
-      node.style.left = `${COL_X[n.pos[0]] * 100}%`;
+      node.style.left = `${colX(n.pos[0], cols) * 100}%`;
       node.style.top = `${rowY(n.pos[1])}px`;
       node.tabIndex = 0;
       node.setAttribute("role", "button");

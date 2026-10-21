@@ -243,7 +243,7 @@ kbd {
 .st-actions { display: flex; gap: 6px; margin-top: 10px; }
 
 /* ---- skill window ---- */
-#skills { left: 50%; right: auto; top: 60px; transform: translateX(-50%); width: min(1020px, calc(100vw - 24px)); }
+#skills { left: 50%; right: auto; top: 60px; transform: translateX(-50%); width: min(1060px, calc(100vw - 24px)); }
 .sk-top { display: flex; align-items: center; gap: 12px; padding: 10px 14px 0; flex-wrap: wrap; }
 .sk-points { font-size: 14px; color: var(--muted); }
 .sk-points b { color: #9df0b4; font-size: 16px; }
@@ -272,7 +272,7 @@ kbd {
 .sk-sub.now { color: #b8f5c8; }
 
 /* trees: list | drawing | details */
-.sk-treeview { display: grid; grid-template-columns: 172px minmax(300px, 1fr) 330px; gap: 12px; align-items: start; }
+.sk-treeview { display: grid; grid-template-columns: 160px minmax(420px, 1fr) 300px; gap: 12px; align-items: start; }
 .sk-treelist { display: flex; flex-direction: column; gap: 6px; }
 .sk-treetab {
   display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 8px; border-radius: 10px; cursor: pointer;
@@ -295,12 +295,12 @@ kbd {
 .sk-links path { fill: none; stroke: rgba(255, 255, 255, 0.4); stroke-width: 3.5; stroke-dasharray: 7 5; }
 .sk-links path.met { stroke: var(--tree); stroke-width: 4.5; stroke-dasharray: none; filter: drop-shadow(0 0 4px var(--tree)); }
 .sk-req {
-  position: absolute; transform: translate(-50%, -50%); padding: 1px 8px; border-radius: 999px; white-space: nowrap;
-  font-size: 11px; color: var(--muted); background: rgba(16, 22, 14, 0.96); border: 1px solid rgba(255, 255, 255, 0.22);
+  position: absolute; transform: translate(-50%, -50%); padding: 0 6px; border-radius: 999px; white-space: nowrap; cursor: help;
+  font-size: 10.5px; color: var(--muted); background: rgba(16, 22, 14, 0.96); border: 1px solid rgba(255, 255, 255, 0.22);
 }
 .sk-req.met { color: #b8f5c8; border-color: rgba(157, 240, 180, 0.55); }
 .sk-tnode {
-  position: absolute; transform: translate(-50%, -50%); width: 108px; display: flex; flex-direction: column; align-items: center;
+  position: absolute; transform: translate(-50%, -50%); width: 100px; display: flex; flex-direction: column; align-items: center;
   text-align: center; cursor: pointer; outline: none;
 }
 .sk-tnode .sk-icon { width: 62px; height: 62px; padding: 3px; border-radius: 15px; background: rgba(0, 0, 0, 0.4); border: 2px solid rgba(255, 255, 255, 0.18); box-sizing: border-box; }
