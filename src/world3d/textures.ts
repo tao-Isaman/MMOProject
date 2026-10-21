@@ -113,9 +113,157 @@ function bark(): HTMLCanvasElement {
   });
 }
 
+// Sandstone: big soft-edged blocks, two courses to a metre, sandy grain.
+function sandstone(): HTMLCanvasElement {
+  const n = fbm([[6, 1], [24, 0.5], [128, 0.35]], 41);
+  return paint((u, v) => {
+    const rows = 2, row = Math.floor(v * rows), rv = v * rows - row;
+    const cu = (u + (row % 2) * 0.27) * 2, col = Math.floor(cu), lu = cu - col;
+    const id = Math.sin((row * 5 + col) * 41.17) * 43758.5453;
+    const block = 0.84 + 0.1 * (id - Math.floor(id));
+    const joint = rv < 0.03 || lu < 0.02 ? 0.72 : rv < 0.06 || lu < 0.04 ? 0.9 : 1;
+    return grey((block + (n(u, v) - 0.5) * 0.18) * joint);
+  });
+}
+
+// Adobe / rough plaster: mottled patches and a few hairline cracks.
+function adobe(): HTMLCanvasElement {
+  const n = fbm([[4, 1], [16, 0.6], [64, 0.3]], 43), c = fbm([[10, 1], [40, 0.4]], 47);
+  return paint((u, v) => {
+    const crack = Math.abs(c(u, v) - 0.5) < 0.006 ? 0.7 : 1;
+    return grey((0.86 + (n(u, v) - 0.5) * 0.22) * crack);
+  });
+}
+
+// Cobbles: rounded stones on a jittered grid (six to a metre), dark gaps between them.
+function cobble(): HTMLCanvasElement {
+  const cells = 6, n = fbm([[16, 1], [64, 0.4]], 53);
+  let s = 59;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const pts = Array.from({ length: cells * cells }, (_, i) => [((i % cells) + 0.2 + rnd() * 0.6) / cells, (Math.floor(i / cells) + 0.2 + rnd() * 0.6) / cells, 0.78 + rnd() * 0.18]);
+  return paint((u, v) => {
+    let d1 = 9, d2 = 9, tone = 0.8;
+    for (const [px, py, t] of pts)
+      for (const ox of [-1, 0, 1])
+        for (const oy of [-1, 0, 1]) {
+          const d = Math.hypot(u - px - ox, v - py - oy);
+          if (d < d1) [d2, d1, tone] = [d1, d, t];
+          else if (d < d2) d2 = d;
+        }
+    const gap = d2 - d1, edge = Math.min(1, gap * cells * 3);
+    return grey((tone + (n(u, v) - 0.5) * 0.15) * (0.45 + 0.55 * edge) * (1 - d1 * cells * 0.25));
+  });
+}
+
+// Barrel roof tiles: six channels to a metre along U, courses every quarter metre along V.
+function tiles(): HTMLCanvasElement {
+  const n = fbm([[8, 1], [64, 0.4]], 61);
+  return paint((u, v) => {
+    const cu = u * 6, lu = cu - Math.floor(cu);
+    const rows = 4, rv = v * rows - Math.floor(v * rows);
+    const round = 0.62 + 0.38 * Math.sin(lu * Math.PI);
+    const lip = rv > 0.88 ? 0.7 : 1 - 0.12 * rv;
+    const id = Math.sin((Math.floor(cu) * 3 + Math.floor(v * rows) * 17) * 12.9898) * 43758.5453;
+    return grey((round * lip) * (0.9 + 0.1 * (id - Math.floor(id))) + (n(u, v) - 0.5) * 0.08);
+  });
+}
+
+// Thatch: straw strands down the slope (along V), in layered bundles.
+function thatch(): HTMLCanvasElement {
+  const n = fbm([[64, 1], [8, 0.5]], 67), m = noise(128, 71);
+  return paint((u, v) => {
+    const layer = v * 5 - Math.floor(v * 5);
+    const strand = 0.75 + 0.25 * Math.sin((u * 90 + n(u, v) * 6) * Math.PI);
+    return grey((0.62 + 0.3 * strand * (0.7 + 0.3 * m(u, v * 0.2))) * (layer > 0.9 ? 0.75 : 1));
+  });
+}
+
+// Snow: soft drifts and a little sparkle.
+function snow(): HTMLCanvasElement {
+  const n = fbm([[4, 1], [16, 0.5], [64, 0.25]], 73), sp = noise(96, 79);
+  return paint((u, v) => grey(0.9 + (n(u, v) - 0.5) * 0.12 + (sp(u, v) > 0.86 ? 0.06 : 0)));
+}
+
+// Ice: pale with branching crack lines.
+function ice(): HTMLCanvasElement {
+  const n = fbm([[6, 1], [24, 0.5]], 83), c1 = fbm([[5, 1], [20, 0.5]], 89), c2 = fbm([[7, 1], [28, 0.5]], 97);
+  return paint((u, v) => {
+    const crack = Math.abs(c1(u, v) - 0.5) < 0.008 || Math.abs(c2(u, v) - 0.5) < 0.005 ? 0.78 : 1;
+    return grey((0.88 + (n(u, v) - 0.5) * 0.16) * crack);
+  });
+}
+
+// Shoji: paper panes in a dark wooden lattice (three by four to a metre).
+function paper(): HTMLCanvasElement {
+  const n = fbm([[16, 1], [128, 0.3]], 101);
+  return paint((u, v) => {
+    const lu = (u * 3) % 1, lv = (v * 4) % 1;
+    const bar = lu < 0.05 || lu > 0.95 || lv < 0.05 || lv > 0.95;
+    return bar ? grey(0.32) : grey(0.93 + (n(u, v) - 0.5) * 0.06);
+  });
+}
+
+// Bamboo: canes run along V; a node ring every 40 cm, faint streaks along the cane.
+function bamboo(): HTMLCanvasElement {
+  const n = noise(64, 103);
+  return paint((u, v) => {
+    const node = (v * 2.5) % 1;
+    const ring = node < 0.03 ? 0.62 : node < 0.06 ? 1.08 : 1;
+    return grey((0.84 + (n(u * 4, v * 0.3) - 0.5) * 0.12) * ring);
+  });
+}
+
+// Marble: white with soft grey veins.
+function marble(): HTMLCanvasElement {
+  const n = fbm([[3, 1], [12, 0.6], [48, 0.3]], 107);
+  return paint((u, v) => {
+    const vein = Math.abs(Math.sin((u * 3 + v * 2 + n(u, v) * 4) * Math.PI));
+    return grey(0.95 - 0.16 * (1 - vein) ** 6 + (n(u * 2, v * 2) - 0.5) * 0.04);
+  });
+}
+
+// Bricks: eight courses to a metre, four bricks across, offset every other course.
+function brick(): HTMLCanvasElement {
+  const n = fbm([[16, 1], [64, 0.4]], 109);
+  return paint((u, v) => {
+    const rows = 8, row = Math.floor(v * rows), rv = v * rows - row;
+    const cu = (u + (row % 2) * 0.125) * 4, col = Math.floor(cu), lu = cu - col;
+    const id = Math.sin((row * 11 + col) * 71.3) * 43758.5453;
+    const mortar = rv < 0.12 || lu < 0.04 ? 0.62 : 1;
+    return grey((0.8 + 0.14 * (id - Math.floor(id)) + (n(u, v) - 0.5) * 0.12) * mortar);
+  });
+}
+
+// Felt: matted fibres.
+function felt(): HTMLCanvasElement {
+  const n = fbm([[8, 1], [48, 0.5], [160, 0.4]], 113);
+  return paint((u, v) => grey(0.86 + (n(u, v) - 0.5) * 0.2));
+}
+
+// Ribs: vertical ridges around a cactus (along U, which runs around round shapes).
+function ribs(): HTMLCanvasElement {
+  const n = noise(32, 127);
+  return paint((u, v) => grey(0.7 + 0.25 * Math.abs(Math.sin(u * Math.PI * 12)) + (n(u, v) - 0.5) * 0.08));
+}
+
 // The leaf clump of the Oriverse trees (#texture LeafClump): a cluster of five-leaf rosettes
 // in greens, transparent around them.
-export function leafClump(): HTMLCanvasElement {
+export interface LeafPalette {
+  dark: [number, number, number];
+  light: [number, number, number];
+  leaves?: number;  // rosettes in the clump
+  thin?: number;    // leaf width relative to its length
+}
+export const LEAVES: Record<string, LeafPalette> = {
+  green: { dark: [47, 106, 28], light: [169, 219, 82] },
+  blossom: { dark: [214, 120, 160], light: [255, 214, 230] },
+  birch: { dark: [118, 150, 40], light: [222, 230, 110] },
+  jungle: { dark: [22, 78, 30], light: [92, 168, 60], leaves: 12 },
+  autumn: { dark: [170, 70, 30], light: [240, 170, 60] },
+  frost: { dark: [70, 110, 90], light: [200, 225, 220] },
+  bamboo: { dark: [60, 110, 40], light: [150, 200, 80], leaves: 20, thin: 0.14 },
+};
+export function leafClump(palette: LeafPalette = LEAVES.green): HTMLCanvasElement {
   const size = 256;
   const c = document.createElement("canvas");
   c.width = c.height = size;
@@ -123,11 +271,12 @@ export function leafClump(): HTMLCanvasElement {
   let s = 41;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   const mix = (a: number[], b: number[], t: number) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
-  for (let i = 0; i < 16; i++) {
-    const a = i * 2.39996, r = 0.03 + 0.34 * Math.sqrt((i + 0.5) / 16);
+  const count = palette.leaves ?? 16, thin = palette.thin ?? 0.26;
+  for (let i = 0; i < count; i++) {
+    const a = i * 2.39996, r = 0.03 + 0.34 * Math.sqrt((i + 0.5) / count);
     const cx = (0.5 + r * Math.cos(a)) * size, cy = (0.54 + r * 0.82 * Math.sin(a)) * size;
     const len = (0.13 + 0.05 * rnd()) * size, rot = 1.2 + rnd() * 1.4;
-    const [cr, cg, cb] = mix([47, 106, 28], [169, 219, 82], 0.15 + 0.75 * rnd());
+    const [cr, cg, cb] = mix(palette.dark, palette.light, 0.15 + 0.75 * rnd());
     for (let k = 0; k < 5; k++) {
       const ang = rot + k * 1.2566, l = len * [1, 0.85, 0.5, 0.5, 0.85][k];
       g.save();
@@ -138,11 +287,39 @@ export function leafClump(): HTMLCanvasElement {
       grad.addColorStop(1, `rgb(${cr},${cg},${cb})`);
       g.fillStyle = grad;
       g.beginPath();
-      g.ellipse(l / 2, 0, l / 2, l * 0.26, 0, 0, Math.PI * 2);
+      g.ellipse(l / 2, 0, l / 2, l * thin, 0, 0, Math.PI * 2);
       g.fill();
       g.restore();
     }
   }
+  return c;
+}
+
+// A palm frond seen flat: a rib along U with leaflets either side, transparent around it.
+export function frondTexture(dark: [number, number, number] = [40, 110, 40], light: [number, number, number] = [130, 196, 70]): HTMLCanvasElement {
+  const w = 256, h = 64;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  let s = 7;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 34; i++) {
+    const x = 8 + (i / 34) * (w - 16), len = (h / 2 - 3) * (1 - Math.abs(i / 34 - 0.35) * 0.9);
+    const t = rnd();
+    for (const side of [-1, 1]) {
+      g.save();
+      g.translate(x, h / 2);
+      g.rotate(side * (0.9 + rnd() * 0.25));
+      g.fillStyle = `rgb(${dark.map((d, k) => Math.round(d + (light[k] - d) * t)).join(",")})`;
+      g.beginPath();
+      g.ellipse(len / 2, 0, len / 2, 2.2, 0, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+  }
+  g.fillStyle = `rgb(${dark.join(",")})`;
+  g.fillRect(4, h / 2 - 1.5, w - 8, 3);
   return c;
 }
 
@@ -155,8 +332,10 @@ function texture(canvas: HTMLCanvasElement, srgb = true): THREE.CanvasTexture {
 }
 
 // ---- materials by Oriverse name ----
-const DETAIL = { wood, stone, plaster, fabric, metal, bark, shingles };
-type Recipe = { map?: keyof typeof DETAIL; tint: string; rough?: number; metal?: number; bump?: number };
+const DETAIL = { wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs };
+export type DetailMap = keyof typeof DETAIL;
+// glow: emissive colour (crystals, lanterns); opacity < 1 makes it see-through (ice, glass).
+export type Recipe = { map?: DetailMap; tint: string; rough?: number; metal?: number; bump?: number; glow?: string; glowI?: number; opacity?: number };
 const RECIPES: Record<string, Recipe> = {
   WoodWarm: { map: "wood", tint: "#b07c44", bump: 1.2 },
   WoodShade: { map: "wood", tint: "#6e4729", bump: 1.2 },
@@ -173,7 +352,65 @@ const RECIPES: Record<string, Recipe> = {
   BarkWarm: { map: "bark", tint: "#80593a", bump: 3 },
   GlassBlue: { tint: "#3c5872", rough: 0.25 },
   WaterDark: { tint: "#2b4655", rough: 0.1 },
+
+  // ---- the town kits' shared palette ----
+  WoodDark: { map: "wood", tint: "#4a3322", bump: 1.2 },
+  WoodPale: { map: "wood", tint: "#d9b98a", bump: 1.2 },
+  WoodRed: { map: "wood", tint: "#8c3a2a", bump: 1.2 },
+  WoodGrey: { map: "wood", tint: "#8d8579", bump: 1.2 }, // weathered dock planks
+  StoneGrey: { map: "stone", tint: "#b8b6b0", bump: 2 },
+  StoneBlueDark: { map: "stone", tint: "#6f7a8c", bump: 2 },
+  StoneWhite: { map: "stone", tint: "#f2eee6", bump: 2 },
+  SandstoneWarm: { map: "sandstone", tint: "#e2b97c", bump: 1.5 },
+  SandstonePale: { map: "sandstone", tint: "#efd9ab", bump: 1.5 },
+  AdobeOchre: { map: "adobe", tint: "#d79b5c", bump: 1 },
+  AdobeWhite: { map: "adobe", tint: "#f1e6d2", bump: 1 },
+  MarbleWhite: { map: "marble", tint: "#f5f3ee", rough: 0.45 },
+  Cobble: { map: "cobble", tint: "#bdb5a6", bump: 2 },
+  CobbleDark: { map: "cobble", tint: "#8a857c", bump: 2 },
+  BrickRed: { map: "brick", tint: "#b5583b", bump: 1.5 },
+  RoofTerracotta: { map: "tiles", tint: "#c4643a", bump: 2.5 },
+  RoofKawara: { map: "tiles", tint: "#5c6372", bump: 2.5 },
+  RoofBlue: { map: "tiles", tint: "#3f6fb0", bump: 2.5 },
+  RoofCopper: { map: "tiles", tint: "#5f9e88", bump: 2.5, metal: 0.2 },
+  RoofRed: { map: "shingles", tint: "#b5452f", bump: 2.5 },
+  Thatch: { map: "thatch", tint: "#c9a65a", bump: 2 },
+  Snow: { map: "snow", tint: "#f6f9ff", rough: 0.8 },
+  IceBlue: { map: "ice", tint: "#bfe3f5", rough: 0.15, opacity: 0.85 },
+  LacquerRed: { map: "plaster", tint: "#c8372d", rough: 0.45 },
+  LacquerBlack: { map: "plaster", tint: "#262224", rough: 0.4 },
+  PaperShoji: { map: "paper", tint: "#f7f2e4", rough: 0.95 },
+  Bamboo: { map: "bamboo", tint: "#9fb35a", rough: 0.6 },
+  BambooDry: { map: "bamboo", tint: "#c9b77a", rough: 0.7 },
+  FeltCream: { map: "felt", tint: "#e8dcc2", rough: 1 },
+  FeltRed: { map: "felt", tint: "#a8433a", rough: 1 },
+  FabricRed: { map: "fabric", tint: "#c23b32", rough: 0.95 },
+  FabricGold: { map: "fabric", tint: "#d9a93a", rough: 0.95 },
+  FabricPurple: { map: "fabric", tint: "#6a3d8f", rough: 0.95 },
+  FabricGreen: { map: "fabric", tint: "#4f8a4a", rough: 0.95 },
+  FabricSand: { map: "fabric", tint: "#e9d5a8", rough: 0.95 },
+  FabricNavy: { map: "fabric", tint: "#2c3e6b", rough: 0.95 },
+  RopeTan: { map: "fabric", tint: "#b89a66", rough: 1 },
+  GoldTrim: { map: "metal", tint: "#d6a640", rough: 0.35, metal: 0.7 },
+  Bronze: { map: "metal", tint: "#a8743c", rough: 0.45, metal: 0.6 },
+  CopperGreen: { map: "metal", tint: "#6fa591", rough: 0.6, metal: 0.3 },
+  IronLight: { map: "metal", tint: "#8d939b", rough: 0.5, metal: 0.5 },
+  CrystalViolet: { tint: "#b08cff", rough: 0.2, glow: "#8a52ff", glowI: 1.4, opacity: 0.92 },
+  CrystalBlue: { tint: "#9be3ff", rough: 0.2, glow: "#3fb6ff", glowI: 1.3, opacity: 0.92 },
+  LanternGlow: { tint: "#ffd28a", rough: 0.6, glow: "#ffb347", glowI: 1.6 },
+  FireGlow: { tint: "#ff9a3c", rough: 1, glow: "#ff6a1a", glowI: 2 },
+  CactusGreen: { map: "ribs", tint: "#5f9a4e", rough: 0.8 },
+  LeafGreen: { map: "felt", tint: "#4f8a34", rough: 0.9 },
+  PineNeedle: { map: "felt", tint: "#2f5a3a", rough: 0.95 },
+  BarkBirch: { map: "bark", tint: "#e6e2d8", bump: 2 },
+  BarkPalm: { map: "bark", tint: "#9a7a52", bump: 3 },
+  WaterSea: { tint: "#2f6f8f", rough: 0.08, opacity: 0.9 },
 };
+
+// Kits can add their own materials (a name used by their meshes and a recipe).
+export function defineMaterial(name: string, recipe: Recipe): void {
+  if (!RECIPES[name]) RECIPES[name] = recipe;
+}
 
 const maps = new Map<string, THREE.Texture>();
 const mats = new Map<string, THREE.MeshStandardMaterial>();
@@ -184,6 +421,14 @@ export function material(name: string): THREE.MeshStandardMaterial {
   if (m) return m;
   const r = RECIPES[name] ?? { tint: "#ff00ff" };
   m = new THREE.MeshStandardMaterial({ color: r.tint, roughness: r.rough ?? 0.9, metalness: r.metal ?? 0 });
+  if (r.glow) {
+    m.emissive = new THREE.Color(r.glow);
+    m.emissiveIntensity = r.glowI ?? 1;
+  }
+  if (r.opacity !== undefined && r.opacity < 1) {
+    m.transparent = true;
+    m.opacity = r.opacity;
+  }
   if (r.map) {
     let t = maps.get(r.map);
     if (!t) maps.set(r.map, (t = texture(DETAIL[r.map]())));
@@ -213,4 +458,26 @@ export function dirtMap(): THREE.CanvasTexture {
     const a = [201, 159, 90], b = [232, 199, 132];
     return a.map((x, i) => (x + (b[i] - x) * t) * pebble);
   }, 512), false);
+}
+
+// Ground colour maps for the other lands (sRGB, one tile per metre; the gallery repeats them).
+const GROUNDS: Record<string, { a: number[]; b: number[]; seed: number; speck?: number[]; ripple?: boolean }> = {
+  grass: { a: [79, 143, 42], b: [127, 191, 60], seed: 23 },
+  sand: { a: [214, 184, 128], b: [240, 216, 164], seed: 131, ripple: true },
+  snow: { a: [222, 232, 244], b: [250, 252, 255], seed: 137 },
+  steppe: { a: [128, 140, 70], b: [190, 180, 104], seed: 139, speck: [150, 120, 70] },
+  jungle: { a: [44, 98, 36], b: [92, 150, 52], seed: 149, speck: [70, 56, 34] },
+  moss: { a: [86, 120, 58], b: [140, 164, 86], seed: 151, speck: [170, 168, 150] },
+  dirt: { a: [176, 132, 80], b: [214, 178, 118], seed: 157 },
+  rock: { a: [120, 116, 108], b: [170, 164, 152], seed: 163 },
+};
+export function groundTexture(kind: string): THREE.CanvasTexture {
+  const g = GROUNDS[kind] ?? GROUNDS.grass;
+  const n = fbm([[6, 1], [24, 0.6], [96, 0.35]], g.seed), m = noise(48, g.seed + 6);
+  return texture(paint((u, v) => {
+    let t = n(u, v);
+    if (g.ripple) t = t * 0.7 + 0.3 * (0.5 + 0.5 * Math.sin((v * 9 + n(u, v) * 3) * Math.PI * 2));
+    if (g.speck && m(u, v) > 0.84) return g.speck;
+    return g.a.map((x, i) => (x + (g.b[i] - x) * t) * (0.94 + (m(u * 2, v * 2) - 0.5) * 0.1));
+  }, 512));
 }

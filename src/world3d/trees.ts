@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import { cylinderBetween, merge, toThree } from "./geo";
 import type { Geo, V3 } from "./geo";
-import { material, leafClump } from "./textures";
+import { material, leafClump, LEAVES } from "./textures";
 
 export interface TreeSpec {
   seed: number;
@@ -17,6 +17,8 @@ export interface TreeSpec {
   leafSize: number;
   density?: number;     // leaf cards per crown surface, relative
   twigs?: number;
+  leaf?: string;        // palette in LEAVES (default green)
+  bark?: string;        // trunk material (default BarkWarm)
 }
 
 // The recipes from courtyard.weave.
@@ -38,6 +40,35 @@ export const TREES: Record<string, TreeSpec> = {
     seed: 3, trunkHeight: 10, trunkRadius: 4, leafSize: 30, density: 1.6, twigs: 0,
     crowns: [[0, 0, 32, 38, 38, 28]],
   },
+
+  // ---- other lands (town kits) ----
+  Cherry: {
+    seed: 31, trunkHeight: 190, trunkRadius: 20, leafSize: 70, twigs: 5, leaf: "blossom",
+    trunkPoints: [[20, 10, 110], [40, -10, 190]],
+    crowns: [[60, 0, 330, 230, 200, 120], [-90, 60, 300, 150, 140, 100], [110, -110, 290, 140, 130, 90]],
+  },
+  Birch: {
+    seed: 37, trunkHeight: 420, trunkRadius: 13, leafSize: 60, twigs: 3, leaf: "birch", bark: "BarkBirch",
+    crowns: [[0, 0, 470, 120, 110, 170], [30, -20, 600, 80, 80, 90]],
+  },
+  JungleTree: {
+    seed: 43, trunkHeight: 520, trunkRadius: 30, leafSize: 130, twigs: 6, leaf: "jungle", density: 1.3,
+    trunkPoints: [[-20, 10, 300], [10, 0, 520]],
+    crowns: [[0, 0, 640, 340, 320, 150], [-180, 80, 560, 200, 180, 110], [190, -60, 580, 200, 190, 110]],
+  },
+  FrostOak: {
+    seed: 47, trunkHeight: 230, trunkRadius: 40, leafSize: 110, twigs: 5, leaf: "frost",
+    trunkPoints: [[30, -20, 120], [60, -40, 230]],
+    crowns: [[150, -90, 400, 260, 280, 170], [-40, 60, 380, 190, 190, 140]],
+  },
+  AutumnTree: {
+    seed: 53, trunkHeight: 280, trunkRadius: 24, leafSize: 100, twigs: 4, leaf: "autumn",
+    crowns: [[0, 0, 470, 280, 260, 210], [90, -60, 600, 200, 190, 150]],
+  },
+  JungleBush: {
+    seed: 59, trunkHeight: 10, trunkRadius: 4, leafSize: 45, density: 1.5, twigs: 0, leaf: "jungle",
+    crowns: [[0, 0, 45, 60, 60, 40]],
+  },
 };
 
 function seeded(seed: number): () => number {
@@ -45,16 +76,17 @@ function seeded(seed: number): () => number {
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 }
 
-let leafMat: THREE.MeshStandardMaterial | null = null;
-let leafDepth: THREE.MeshDepthMaterial | null = null;
 export const wind = { value: 0 };
+const leafMats = new Map<string, [THREE.MeshStandardMaterial, THREE.MeshDepthMaterial]>();
 
-function leafMaterials(): [THREE.MeshStandardMaterial, THREE.MeshDepthMaterial] {
-  if (!leafMat) {
-    const tex = new THREE.CanvasTexture(leafClump());
+// Leaf cards that sway in the wind, painted with `canvas` (one material per texture key).
+export function leafMaterials(key = "green", canvas?: () => HTMLCanvasElement): [THREE.MeshStandardMaterial, THREE.MeshDepthMaterial] {
+  let pair = leafMats.get(key);
+  if (!pair) {
+    const tex = new THREE.CanvasTexture(canvas ? canvas() : leafClump(LEAVES[key] ?? LEAVES.green));
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
-    leafMat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85, vertexColors: true });
+    const leafMat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85, vertexColors: true });
     leafMat.onBeforeCompile = (shader) => {
       shader.uniforms.uWind = wind;
       shader.vertexShader = shader.vertexShader
@@ -64,14 +96,15 @@ function leafMaterials(): [THREE.MeshStandardMaterial, THREE.MeshDepthMaterial] 
           transformed.x += sin(uWind * 1.3 + position.x * 0.011 + position.z * 0.007) * 3.5 * sway;
           transformed.z += cos(uWind * 1.1 + position.z * 0.012) * 3.0 * sway;`);
     };
-    leafDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.45 });
+    pair = [leafMat, new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.45 })];
+    leafMats.set(key, pair);
   }
-  return [leafMat, leafDepth!];
+  return pair;
 }
 
 // Leaf cards in a crown: random points through the ellipsoid (more near its skin), each a
 // square card turned at random, its normal pointing out of the crown.
-function leaves(spec: TreeSpec, rnd: () => number): THREE.BufferGeometry {
+export function leaves(spec: Pick<TreeSpec, "crowns" | "leafSize" | "density">, rnd: () => number): THREE.BufferGeometry {
   const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
   const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3();
   for (const [cx, cy, cz, rx, ry, rz] of spec.crowns) {
@@ -112,21 +145,21 @@ function leaves(spec: TreeSpec, rnd: () => number): THREE.BufferGeometry {
 function wood(spec: TreeSpec, rnd: () => number): Geo {
   const path: V3[] = [[0, 0, 0], ...(spec.trunkPoints ?? []), ...(spec.trunkPoints?.length ? [] : [[0, 0, spec.trunkHeight] as V3])];
   const parts: Geo[] = [];
-  const r0 = spec.trunkRadius;
+  const r0 = spec.trunkRadius, bark = spec.bark ?? "BarkWarm";
   for (let i = 0; i < path.length - 1; i++) {
     const t0 = i / (path.length - 1), t1 = (i + 1) / (path.length - 1);
-    parts.push(cylinderBetween(path[i], path[i + 1], r0 * (1 - 0.35 * t0), 10, "BarkWarm", r0 * (1 - 0.35 * t1)));
+    parts.push(cylinderBetween(path[i], path[i + 1], r0 * (1 - 0.35 * t0), 10, bark, r0 * (1 - 0.35 * t1)));
   }
   // a root flare
-  parts.push(cylinderBetween([0, 0, 0], [0, 0, Math.min(35, spec.trunkHeight)], r0 * 1.3, 10, "BarkWarm", r0 * 0.98));
+  parts.push(cylinderBetween([0, 0, 0], [0, 0, Math.min(35, spec.trunkHeight)], r0 * 1.3, 10, bark, r0 * 0.98));
   const top = path[path.length - 1];
   for (const [cx, cy, cz] of spec.crowns) {
     const end: V3 = [top[0] + (cx - top[0]) * 0.75, top[1] + (cy - top[1]) * 0.75, top[2] + (cz - top[2]) * 0.7];
-    parts.push(cylinderBetween(top, end, r0 * 0.55, 8, "BarkWarm", r0 * 0.22));
+    parts.push(cylinderBetween(top, end, r0 * 0.55, 8, bark, r0 * 0.22));
     for (let t = 0; t < (spec.twigs ?? 0); t++) {
       const a = rnd() * Math.PI * 2, l = 0.4 + rnd() * 0.5;
       const tip: V3 = [end[0] + Math.cos(a) * 140 * l, end[1] + Math.sin(a) * 140 * l, end[2] + 40 + rnd() * 80];
-      parts.push(cylinderBetween(end, tip, r0 * 0.2, 6, "BarkWarm", r0 * 0.06));
+      parts.push(cylinderBetween(end, tip, r0 * 0.2, 6, bark, r0 * 0.06));
     }
   }
   return merge(...parts);
@@ -140,7 +173,7 @@ export function tree(name: string): THREE.Group {
   if (!g) {
     const spec = TREES[name], rnd = seeded(spec.seed);
     g = spec.trunkHeight > 20 ? toThree(wood(spec, rnd), material) : new THREE.Group();
-    const [mat, depth] = leafMaterials();
+    const [mat, depth] = leafMaterials(spec.leaf);
     const crown = new THREE.Mesh(leaves(spec, rnd), mat);
     crown.customDepthMaterial = depth;
     crown.castShadow = true;

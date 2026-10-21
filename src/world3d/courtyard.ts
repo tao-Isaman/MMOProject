@@ -14,7 +14,7 @@ import { tree } from "./trees";
 import { BOUNDS } from "../world";
 
 // ---- props (#mesh) ----
-function bench(): Geo {
+export function bench(): Geo {
   const seat = merge(
     boxAt([16, 170, 5], [-14, 0, 42], "WoodWarm", 1.5),
     boxAt([16, 170, 5], [4, 0, 42], "WoodWarm", 1.5),
@@ -32,7 +32,7 @@ function bench(): Geo {
   return merge(seat, back, legL, translate(legL, [0, 140, 0]));
 }
 
-function crate(): Geo {
+export function crate(): Geo {
   const core = boxAt([56, 56, 56], [0, 0, 2], "WoodWarm", 1);
   const posts = gridArray(boxAt([8, 8, 60], [-26, -26, 0], "WoodShade", 1), [2, 2, 1], [52, 52, 0]);
   const railsX = gridArray(boxAt([60, 8, 8], [0, -26, 0], "WoodShade", 1), [1, 2, 2], [0, 52, 52]);
@@ -40,7 +40,7 @@ function crate(): Geo {
   return merge(core, posts, railsX, railsY);
 }
 
-function fenceBroken(): Geo {
+export function fenceBroken(): Geo {
   const p1 = boxAt([10, 10, 80], [0, -65, 0], "WoodShade", 1.5);
   const p2 = rotateX(boxAt([10, 10, 70], [0, 65, 0], "WoodShade", 1.5), 12, [0, 65, 0]);
   const r1 = boxAt([5, 150, 12], [-4, 0, 55], "WoodWarm", 1.5);
@@ -48,7 +48,7 @@ function fenceBroken(): Geo {
   return merge(p1, p2, r1, r2);
 }
 
-function signPost(): Geo {
+export function signPost(): Geo {
   return merge(
     boxAt([12, 12, 105], [0, 0, 0], "WoodWarm", 2),
     boxAt([16, 16, 6], [0, 0, 105], "WoodShade", 2),
@@ -56,10 +56,10 @@ function signPost(): Geo {
   );
 }
 
-const flatStone = (seed: number): Geo => rock([42, 30, 7], 0.3, seed, "StoneLight", true);
-const rockSmall = (seed: number): Geo => rock([45, 38, 26], 0.4, seed, "MossStone");
+export const flatStone = (seed: number): Geo => rock([42, 30, 7], 0.3, seed, "StoneLight", true);
+export const rockSmall = (seed: number): Geo => rock([45, 38, 26], 0.4, seed, "MossStone");
 
-function gazebo(): Geo {
+export function gazebo(): Geo {
   const base = boxAt([190, 190, 30], [0, 0, 0], "StoneLight", 4);
   const posts = gridArray(boxAt([13, 13, 170], [-75, -75, 30], "WoodWarm", 2), [2, 2, 1], [150, 150, 0]);
   const beamsX = array(boxAt([172, 12, 12], [0, -75, 196], "WoodShade", 2), 2, [0, 150, 0]);
@@ -72,7 +72,7 @@ function gazebo(): Geo {
   return merge(base, posts, beamsX, beamsY, roof, eave, finial, wellRing, water);
 }
 
-function marketCart(): Geo {
+export function marketCart(): Geo {
   const body = boxAt([150, 110, 60], [0, 0, 50], "WoodWarm", 3);
   const trim = boxAt([156, 116, 8], [0, 0, 106], "WoodShade", 2);
   const rim = rotateX(torus(40, 6, 20, 8, "WoodShade"), 90);
@@ -101,7 +101,7 @@ function marketCart(): Geo {
   return merge(body, trim, wheels, posts, awning, flaps, goods, shafts);
 }
 
-function house(): Geo {
+export function house(): Geo {
   const plinth = boxBounds([-410, -460, 0], [410, 460, 40], "StoneDark", 3);
   const stone = boxBounds([-405, -455, 0], [405, 455, 130], "StoneLight", 4);
   const upper = boxBounds([-400, -450, 130], [400, 450, 640], "PlasterCream", 2);
