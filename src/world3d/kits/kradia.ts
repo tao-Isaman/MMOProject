@@ -23,6 +23,9 @@ defineMaterial("Kradia_Rune", { tint: "#d4bcff", rough: 0.4, glow: "#9259ff", gl
 defineMaterial("Kradia_RuneBlue", { tint: "#bff2ff", rough: 0.4, glow: "#3fbfff", glowI: 1.7 });
 defineMaterial("Kradia_Void", { tint: "#15141b", rough: 1 });
 defineMaterial("Kradia_Window", { tint: "#8b7ad8", rough: 0.3, glow: "#5b3fd0", glowI: 0.8 });
+defineMaterial("Kradia_Flame", { tint: "#ff7a22", rough: 1, glow: "#ff4d00", glowI: 1.6 });
+defineMaterial("Kradia_Flag", { map: "marble", tint: "#bdbab2", rough: 0.85 });
+defineMaterial("Kradia_FlagPale", { map: "marble", tint: "#d8d3c8", rough: 0.85 });
 
 const DEG = 180 / Math.PI;
 
@@ -1066,18 +1069,19 @@ function barricade(): Geo {
 // ---- lights and decor ----
 
 function brazier(): Geo {
-  const flame = (r: number, h: number, at: V3, tilt: number, turn: number, mat = "FireGlow") =>
+  const flame = (r: number, h: number, at: V3, tilt: number, turn: number, mat = "Kradia_Flame") =>
     translate(rotateZ(rotateY(facet(cylinderAt({ rBot: r, rTop: 0.5, height: h, segments: 7, bottom: [0, 0, 0] }, mat)), tilt), turn), at);
   return merge(
     oct(44, 18, 0, "Kradia_StoneDeep"),
     oct(28, 82, 18, "StoneGrey", 22),
     oct(36, 12, 100, "Kradia_StoneDeep"),
     cylinderAt({ rBot: 24, rTop: 52, height: 32, segments: 12, bottom: [0, 0, 112] }, "IronDark"),
-    drum(54, 6, 142, "GoldTrim", 12, 52),
+    translate(torus(51, 4, 20, 6, "GoldTrim"), [0, 0, 144]),
     around(beamBetween([26, 0, 112], [58, 0, 154], 5, 5, "IronDark"), 4, 45),
-    drum(46, 4, 136, "WoodDark", 12),
+    drum(46, 6, 130, "WoodDark", 12),
+    ...[[24, 10], [-20, 22], [-8, -28], [30, -14], [-30, -6]].map(([x, y]) => sphereCenter(7, [x, y, 137], "FireGlow", 6)),
     flame(30, 74, [0, 0, 138], 0, 0), flame(18, 50, [20, 8, 138], 16, 20), flame(16, 44, [-16, -14, 138], 18, 210),
-    flame(14, 40, [-6, 20, 138], 14, 120, "LanternGlow"), flame(12, 34, [14, -20, 138], 18, 300, "LanternGlow"),
+    flame(14, 40, [-6, 20, 138], 14, 120, "FireGlow"), flame(12, 34, [14, -20, 138], 18, 300, "FireGlow"),
   );
 }
 
@@ -1162,7 +1166,7 @@ function runePlazaTile(): Geo {
   const out: Geo[] = [boxBounds([-200, -200, 0], [200, 200, 3], "Kradia_StoneDeep")];
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
     const x0 = -186 + i * 93, y0 = -186 + j * 93;
-    out.push(boxBounds([x0 + 1, y0 + 1, 0], [x0 + 92, y0 + 92, 6], (i * 3 + j * 5) % 7 === 0 ? "StoneWhite" : "StoneGrey", 1.5));
+    out.push(boxBounds([x0 + 1, y0 + 1, 0], [x0 + 92, y0 + 92, 6], (i * 3 + j * 5) % 7 === 0 ? "Kradia_FlagPale" : "Kradia_Flag", 1.5));
   }
   const band = boxBounds([-199, -199, 0], [-187, 199, 6.5], "StoneBlueDark", 1);
   out.push(band, rotateZ(band, 90), rotateZ(band, 180), rotateZ(band, 270));

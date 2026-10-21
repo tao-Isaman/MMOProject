@@ -741,8 +741,9 @@ function furStall(): Geo {
   const pitch = Math.atan2(48, 230) * DEG;
   const roof = merge(
     box([340, 2 * W + 50, 10], [0, 0, 0], "Iceberg_Shingle", 2),
-    box([330, 2 * W + 40, 12], [0, 0, 10], "Snow", 5),
-    cylinderBetween([-165, -W - 18, 10], [-165, W + 18, 10], 8, 7, "Snow"),
+    box([272, 2 * W + 40, 12], [30, 0, 10], "Snow", 5),
+    cylinderBetween([-106, -W - 18, 10], [-106, W + 18, 10], 8, 7, "Snow"),
+    ...[[-150, 26, 70], [-60, 18, 52], [80, 30, 80]].map(([y, e, w]) => scale(sphereCenter(w / 2, [-106, y, 5], "Snow", 8), [e / (w / 2), 1, 9 / (w / 2)], [-106, y, 5])),
   );
   parts.push(translate(rotateY(roof, pitch), [0, 0, 243]));
   const ex = -170 * Math.cos(pitch * RAD) - 5 * Math.sin(pitch * RAD), ez = 243 + 170 * Math.sin(pitch * RAD) - 5 * Math.cos(pitch * RAD);
@@ -950,7 +951,7 @@ function harbourQuay(): Geo {
   parts.push(icicles([-158, -L + 6, -12], [-158, L - 6, -12], 74, 30, 36));
   // snow
   parts.push(box([60, 800, 10], [124, 0, 6], "Snow", 4));
-  for (const [x, yy, w, d] of [[-60, -250, 110, 90], [10, 120, 160, 70], [-30, 310, 90, 60]]) parts.push(drift([x, yy, 8], w, d, 8));
+  for (const [x, yy, w, d] of [[92, -250, 110, 120], [86, 190, 90, 80], [-80, -180, 60, 50]]) parts.push(drift([x, yy, 8], w, d, 8));
   // fittings
   for (const yy of [-300, 300]) parts.push(boxBounds([-174, yy - 12, -170], [-162, yy + 12, 12], "WoodGrey", 2));
   parts.push(
