@@ -316,7 +316,7 @@ function awning(width: number, depth: number, drop: number, a: string, b: string
     const y = -width / 2 + sw * (i + 0.5), m = i % 2 ? b : a;
     out.push(rotateY(box([len, sw, 3], [-len / 2, y, 0], m), -ang));
     out.push(box([3, sw, 18], [-depth - 1, y, -drop - 9], m));
-    out.push(translate(rotateY(cylinderAt({ radius: sw / 2, height: 2.4, segments: 10, bottom: [0, 0, 0] }, m), 90), [-depth - 2.2, y, -drop - 18]));
+    out.push(translate(rotateY(cylinderAt({ radius: sw / 2, height: 2.4, segments: 8, bottom: [0, 0, 0] }, m), 90), [-depth - 2.2, y, -drop - 18]));
   }
   if (stays) for (const s of [-1, 1]) out.push(cylinderBetween([0, s * (width / 2 - 6), -drop - 50], [-depth + 2, s * (width / 2 - 6), -drop], 1.5, 5, "IronDark"));
   return merge(...out);
@@ -949,7 +949,7 @@ function heroStatue(): Geo {
     wuv(boxAt([200, 200, 168], [0, 0, 52], "StoneWhite", 2)),
     boxAt([228, 228, 22], [0, 0, 220], "StoneLight", 3),
     boxAt([190, 190, 20], [0, 0, 242], "StoneWhite", 2),
-    boxBounds([-104, -56, 106], [-100, 56, 172], "Bronze", 1),
+    boxBounds([-104, -56, 106], [-100, 56, 172], "GoldTrim", 1),
     ...[150, 136, 122].map((z) => boxBounds([-105, -40, z], [-104, 40, z + 4], "Eden_Dark")),
     translate(rotateY(torus(20, 3.5, 14, 6, "GoldTrim"), 90), [-104, 0, 194]),
     // the figure
@@ -958,7 +958,7 @@ function heroStatue(): Geo {
     cylinderBetween([-12, 20, Z + 14], [-4, 18, Z + 92], 12, 8, M, 14),
     cylinderBetween([10, -21, Z + 14], [2, -17, Z + 92], 12, 8, M, 14),
     cylinderAt({ rBot: 46, rTop: 30, height: 52, segments: 10, bottom: [0, 0, Z + 78] }, M),
-    box([46, 66, 72], [0, 0, Z + 160], M, 8),
+    scale(cylinderAt({ rBot: 27, rTop: 35, height: 76, segments: 10, bottom: [0, 0, Z + 122] }, M), [0.72, 1, 1], [0, 0, 0]),
     cylinderAt({ radius: 31, height: 9, segments: 10, bottom: [0, 0, Z + 124] }, "GoldTrim"),
     sphereCenter(19, [0, -38, Z + 190], M, 10),
     sphereCenter(19, [0, 38, Z + 190], M, 10),
@@ -1013,20 +1013,20 @@ function fruitStall(): Geo {
   const out: Geo[] = [];
   const heap = (x: number, y: number, z: number, fruit: string, r: number): Geo => {
     const g: Geo[] = [];
-    for (let k = 0; k < 6; k++) g.push(sphereCenter(r, [x + Math.cos(k * 60 * D) * 12, y + Math.sin(k * 60 * D) * 12, z + r * 0.6], fruit, 6));
-    g.push(sphereCenter(r, [x, y, z + r * 1.1], fruit, 6));
+    for (let k = 0; k < 6; k++) g.push(sphereCenter(r, [x + Math.cos(k * 60 * D) * 12, y + Math.sin(k * 60 * D) * 12, z + r * 0.6], fruit, 5));
+    g.push(sphereCenter(r, [x, y, z + r * 1.1], fruit, 5));
     return merge(...g);
   };
   const fruits = ["Eden_Apple", "Eden_Orange", "Eden_Lemon", "Eden_Pear"];
   fruits.forEach((f, i) => {
     const y = -96 + i * 64;
-    out.push(cylinderAt({ rBot: 20, rTop: 27, height: 16, segments: 10, bottom: [-62, y, 96] }, "BambooDry"));
+    out.push(cylinderAt({ rBot: 20, rTop: 27, height: 16, segments: 8, bottom: [-62, y, 96] }, "BambooDry"));
     out.push(heap(-62, y, 106, f, 7.5));
   });
   for (let i = 0; i < 3; i++) {
     const y = -78 + i * 78, f = fruits[(i + 2) % 4];
     out.push(boxBounds([46, y - 32, 76], [88, y + 32, 98], "WoodWarm", 1.5));
-    for (let a = 0; a < 2; a++) for (let c = 0; c < 3; c++) out.push(sphereCenter(9, [57 + a * 20, y - 20 + c * 20, 99], f, 6));
+    for (let a = 0; a < 2; a++) for (let c = 0; c < 3; c++) out.push(sphereCenter(9, [57 + a * 20, y - 20 + c * 20, 99], f, 5));
   }
   for (const [y, s] of [[-150, 1], [152, 0.85]] as const) out.push(scale(sphereCenter(28, [-40, y, 28], "FabricSand", 7), [1, s, 1.1], [-40, y, 0]), cylinderAt({ rBot: 8, rTop: 6, height: 12, segments: 6, bottom: [-40, y, 56] }, "FabricSand"));
   out.push(scale(sphereCenter(22, [-120, -150, 22], "Eden_Orange", 8), [1, 1, 0.75], [-120, -150, 0]));
@@ -1077,8 +1077,9 @@ function flowerPlanter(): Geo {
     wuv(boxAt([62, 180, 44], [0, 0, 6], "StoneWhite", 2)),
     boxAt([72, 192, 8], [0, 0, 50], "StoneLight", 2),
     boxAt([52, 170, 3], [0, 0, 56], "Eden_Soil"),
-    translate(blooms(160, 9, 0, 9), [-8, 0, 58]),
-    translate(blooms(150, 8, 1, 8), [12, 6, 58]),
+    translate(blooms(160, 9, 0, 8), [-17, 0, 57]),
+    translate(blooms(156, 9, 2, 9), [-1, 7, 59]),
+    translate(blooms(150, 8, 1, 8), [14, -4, 58]),
   ];
   for (let i = 0; i < 6; i++) out.push(sphereCenter(8, [-37, -75 + i * 30, 46 - (i % 2) * 10], "LeafGreen", 6));
   return merge(...out);

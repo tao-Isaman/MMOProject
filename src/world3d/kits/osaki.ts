@@ -475,7 +475,7 @@ function pagoda(): Geo {
   for (const rot of [0, 90, 180, 270])
     for (let k = 0; k < 3; k++) parts.push(rotateZ(boxAt([40, 280, 74 - k * 24], [-580 - k * 36, 0, 0], "StoneGrey", 3), rot));
   const cores = [300, 268, 240, 214, 190];
-  const wallH = [300, 240, 228, 216, 205];
+  const wallH = [290, 212, 200, 188, 178];
   let z0 = 74;
   for (let i = 0; i < 5; i++) {
     const c = cores[i], wh = wallH[i];
@@ -488,7 +488,7 @@ function pagoda(): Geo {
     sideParts.push(boxAt([24, 2 * c, 14], [-c - 2, 0, z0 + wh * 0.33], R));
     sideParts.push(boxAt([30, 2 * c + 30, 20], [-c - 2, 0, z0 + wh - 22], R));
     // plaster frieze above the head beam
-    sideParts.push(boxAt([14, 2 * c, 40], [-c + 4, 0, z0 + wh - 2], W));
+    sideParts.push(boxAt([14, 2 * c, 28], [-c + 4, 0, z0 + wh - 2], W));
     // bays: a door in the middle, plaster (with a slat window on the ground floor) at the sides
     const bay = (2 * c) / 3;
     const dh = i === 0 ? 236 : wh * 0.72;
@@ -511,11 +511,11 @@ function pagoda(): Geo {
     const side = merge(...sideParts);
     parts.push(side, rotateZ(side, 90), rotateZ(side, 180), rotateZ(side, 270));
     // brackets under the eaves
-    const zb = z0 + wh + 38;
+    const zb = z0 + wh + 26;
     parts.push(brackets(c, c, zb, 70, 4, 4, R, "WoodDark"));
     // the roof
     const he = c + 200 - i * 9;
-    const spec: RoofSpec = { hx: he, hy: he, z: zb + 92 - 40, h: i === 4 ? he * 0.8 : he * 0.55, kind: "hip", ridge: 0, curve: 1.8, lift: 46, flare: 24, reach: he * 0.75, th: 22, nt: 8, ns: 12 };
+    const spec: RoofSpec = { hx: he, hy: he, z: zb + 92 - 40, h: i === 4 ? he * 0.66 : he * 0.55, kind: "hip", ridge: 0, curve: 1.8, lift: 46, flare: 24, reach: he * 0.75, th: 22, nt: 8, ns: 12 };
     // the roof's underside rests on the eave purlin (top at zb + 88, c + 80 out)
     spec.z = zb + 112 - spec.h * Math.pow((he - c - 70) / he, 1.8);
     parts.push(roof(spec));
@@ -537,9 +537,9 @@ function pagoda(): Geo {
       parts.push(boxAt([76, 76, 34], [0, 0, zA - 16], "Bronze", 3));
       parts.push(lathe([[0, 0], [30, 2], [36, 14], [30, 30], [0, 34]], 12, "Bronze", [0, 0, zA + 16]));
       parts.push(lathe([[8, 0], [24, 10], [30, 22], [0, 22]], 12, "Bronze", [0, 0, zA + 48]));
-      parts.push(cylinderAt({ radius: 7, height: 500, segments: 10, bottom: [0, 0, zA] }, "Bronze"));
-      for (let k = 0; k < 9; k++) parts.push(translate(torus(27 - k * 1.2, 4, 14, 5, "Bronze"), [0, 0, zA + 92 + k * 34]));
-      const zf = zA + 92 + 9 * 34;
+      parts.push(cylinderAt({ radius: 7, height: 420, segments: 10, bottom: [0, 0, zA] }, "Bronze"));
+      for (let k = 0; k < 9; k++) parts.push(translate(torus(26 - k * 1.2, 4, 14, 5, "Bronze"), [0, 0, zA + 88 + k * 28]));
+      const zf = zA + 88 + 9 * 28;
       for (const rot of [0, 45, 90, 135]) parts.push(rotateZ(boxAt([60, 3, 70], [0, 0, zf], "GoldTrim"), rot));
       parts.push(sphereCenter(13, [0, 0, zf + 86], "GoldTrim", 10));
       parts.push(lathe([[0, 0], [12, 6], [14, 16], [8, 28], [0, 40]], 10, "GoldTrim", [0, 0, zf + 98]));
@@ -867,7 +867,7 @@ function teaHouse(): Geo {
   P.push(bb([nx - 1, ny + 4, 140], [nx + 1, ny + 62, 350], "FabricWhite"));
   P.push(bb([nx - 1.5, ny + 4, 316], [nx + 1.5, ny + 62, 350], "FabricRed"), bb([nx - 1.5, ny + 4, 140], [nx + 1.5, ny + 62, 152], "FabricRed"));
   for (const [z, w] of [[284, 30], [262, 8], [240, 26], [214, 8], [190, 34]] as const) P.push(bb([nx - 2.5, ny + 33 - w / 2, z], [nx - 1, ny + 33 + w / 2, z + 9], "LacquerBlack"));
-  return merge(...P);
+  return translate(merge(...P), [100, 0, 0]); // centre the footprint (the bench and parasol stand in front)
 }
 
 // ---- farmhouse (minka): thatched irimoya roof, earthen walls, a veranda, firewood ----
@@ -1057,7 +1057,7 @@ function shrineHall(): Geo {
   P.push(boxAt([56, 140, 50], [-428, 0, zF], D, 2));
   for (let k = 0; k < 6; k++) P.push(boxAt([58, 6, 4], [-428, -55 + k * 22, zF + 50], "WoodPale"));
   P.push(disc(10, [-457, 0, zF + 26], "GoldTrim", "x", 2, 12));
-  return merge(...P);
+  return translate(merge(...P), [70, 0, 0]); // centre the footprint (porch and guardians in front)
 }
 
 // ---- the red arched bridge (taiko-bashi) over a little stream ----
@@ -1483,13 +1483,13 @@ function sample(put: Put): void {
   for (let x = -1300; x <= 700; x += 400) put("plaza_tile", [x, -1500, 0]);
   put("torii", [-950, -1500, 0], 0);
   for (const x of [-650, -50, 550]) for (const y of [-1785, -1215]) if (!(x > 0 && y > -1300)) put("stone_lantern", [x, y, 0], 0);
-  put("shrine_hall", [1500, -1450, 0], 0);
+  put("shrine_hall", [1430, -1450, 0], 0);
   // the cross street: a shop, two machiya and the tea house facing it
   for (let y = -1100; y <= 2100; y += 400) put("plaza_tile", [-500, y, 0]);
   put("shop", [230, -700, 0], 0);
   put("machiya", [250, 150, 0], 0);
   put("machiya", [250, 920, 0], 0);
-  put("tea_house", [200, 1800, 0], 0);
+  put("tea_house", [100, 1800, 0], 0);
   for (const y of [-500, 700, 1500]) put("lantern_post", [-740, y, 0], 180);
   // the pagoda behind its precinct wall
   put("pagoda", [1500, 450, 0], 0);

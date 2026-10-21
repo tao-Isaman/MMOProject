@@ -87,7 +87,7 @@ function thatchRoof(sx: number, sy: number, th: number, bottom: V3, h: number, o
   for (const s of [1, -1] as const)
     for (let k = 0; k < tiers; k++) {
       const t = th * (1 + (tiers - 1 - k) * 0.8), d0 = k * seg, d1 = Math.min(slope, (k + 1) * seg + th);
-      out.push(rotateX(uvAlong(box([len - k * 6, d1 - d0, t], [0, (s * (d0 + d1)) / 2, t / 2], k % 2 ? "Yodia_ThatchOld" : "Thatch", 2.5), 0), -s * a * D));
+      out.push(rotateX(uvAlong(box([len - k * 6, d1 - d0, t], [0, (s * (d0 + d1)) / 2, t / 2 - k * 0.8], k % 2 ? "Yodia_ThatchOld" : "Thatch", 2.5), 0), -s * a * D));
     }
   return translate(merge(...out), [bottom[0], bottom[1], bottom[2] + h]);
 }
@@ -1203,6 +1203,11 @@ function sample(put: Put): void {
   put("ship", [-750, -2840, 0]);
   put("fishing_boat", [1545, -2930, 0], 92);
   put("outrigger_canoe", [1200, -2650, 0], 176);
+  put("outrigger_canoe", [2085, -2960, 0], 88);
+  for (const [x, y, h] of [[1760, -2620, 15], [1835, -2640, -10]]) put("common:crate", [x, y, 40], h);
+  put(solid(merge(basket(24, 24), ...[0, 1, 2].map((i) => translate(rotateZ(fish(28), i * 70), [0, 0, 22 + i * 3])))), [1850, -2980, 40]);
+  put(solid(merge(basket(22, 22), translate(rock([40, 34, 14], 0.4, 3, "Yodia_Net", true), [0, 0, 18]))), [1760, -3060, 40]);
+  put(solid(coil(22, 3)), [1840, -3200, 40]);
   put("crane", [-300, -2280, 40], 90);
   // mooring lines to the bollards and a gangplank up to the ship's rail
   const moor = (a: V3, b: V3, sag: number): Geo => {

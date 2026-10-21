@@ -776,28 +776,31 @@ function smithy(): Geo {
       gableWall(-350, 200, 446, 268, "StoneBlueDark"), gableWall(350, 200, 446, 268, "StoneBlueDark"),
     ), 90), [200, 0, 0]),
     boxBounds([-444, -362, 0], [-10, 362, 4], "CobbleDark"),
-    // lean-to on posts
-    beamBetween([-462, 0, 322], [6, 0, 426], 770, 14, "RoofSlate"),
-    boxBounds([-436, -364, 302], [-404, 364, 324], "WoodDark", 2),
+    // lean-to on posts (high enough to see the forge under it)
+    beamBetween([-462, 0, 362], [6, 0, 432], 770, 14, "RoofSlate"),
+    boxBounds([-436, -364, 334], [-404, 364, 358], "WoodDark", 2),
   ];
   for (const y of [-340, 0, 340]) {
-    out.push(boxAt([42, 42, 12], [-420, y, 0], "StoneGrey", 2), boxBounds([-432, y - 12, 12], [-408, y + 12, 304], "WoodDark", 2));
-    for (const s of [-1, 1]) if (Math.abs(y + s * 70) < 345) out.push(beamBetween([-420, y, 230], [-420, y + s * 70, 304], 8, 8, "WoodDark"));
+    out.push(boxAt([42, 42, 12], [-420, y, 0], "StoneGrey", 2), boxBounds([-432, y - 12, 12], [-408, y + 12, 336], "WoodDark", 2));
+    for (const s of [-1, 1]) if (Math.abs(y + s * 70) < 345) out.push(beamBetween([-420, y, 262], [-420, y + s * 70, 336], 8, 8, "WoodDark"));
   }
-  // forge, hood, chimney, bellows
+  // the forge: a hearth of glowing coals before a chimney breast with a fire mouth, bellows
   out.push(
-    boxBounds([-210, 110, 0], [0, 340, 96], "Kradia_StoneDeep", 3),
-    boxBounds([-196, 126, 96], [-14, 324, 102], "FireGlow"),
-    ...[[-150, 170], [-90, 260], [-60, 180], [-120, 300]].map(([x, y]) => sphereCenter(9, [x, y, 102], "FireGlow", 6)),
-    translate(facet(rotateZ(cylinderAt({ rBot: 150, rTop: 60, height: 150, segments: 4, bottom: [0, 0, 0] }, "StoneBlueDark"), 45)), [-105, 225, 200]),
-    boxBounds([-206, 118, 96], [-198, 126, 200], "IronDark"), boxBounds([-206, 324, 96], [-198, 332, 200], "IronDark"),
-    boxBounds([-140, 185, 350], [-70, 265, 880], "StoneBlueDark", 3),
-    boxBounds([-148, 177, 880], [-62, 273, 898], "StoneGrey", 2),
-    boxBounds([-130, 195, 898], [-80, 255, 900], "Kradia_Void"),
-    boxBounds([-180, 20, 0], [-80, 90, 40], "WoodDark", 2),
-    boxBounds([-176, 28, 40], [-90, 82, 64], "FeltRed", 3),
-    beamBetween([-180, 55, 66], [-90, 55, 54], 60, 5, "WoodWarm"),
-    cylinderBetween([-80, 55, 52], [-40, 100, 70], 4, 6, "IronDark"),
+    boxBounds([-250, 110, 0], [-50, 330, 86], "Kradia_StoneDeep", 3),
+    boxBounds([-238, 122, 86], [-140, 318, 92], "FireGlow"),
+    ...[[-215, 150], [-180, 290], [-165, 175], [-205, 250], [-160, 240]].map(([x, y]) => sphereCenter(8, [x, y, 92], "FireGlow", 6)),
+    boxBounds([-140, 130, 86], [-50, 310, 300], "StoneBlueDark", 3),
+    boxBounds([-144, 176, 92], [-139, 264, 172], "Kradia_Void"),
+    boxBounds([-148, 168, 172], [-138, 272, 184], "IronDark"),
+    ...[[200, 0, 46], [232, 14, 38], [222, -16, 30]].map(([y, tilt, h]) => translate(rotateY(facet(cylinderAt({ rBot: 13, rTop: 0.5, height: h, segments: 6, bottom: [0, 0, 0] }, "FireGlow")), tilt), [-152, y, 92])),
+    boxBounds([-146, 124, 300], [-44, 316, 312], "StoneGrey", 2),
+    boxBounds([-130, 180, 312], [-62, 260, 900], "StoneBlueDark", 3),
+    boxBounds([-138, 172, 900], [-54, 268, 918], "StoneGrey", 2),
+    boxBounds([-120, 190, 918], [-72, 250, 920], "Kradia_Void"),
+    boxBounds([-230, 20, 0], [-130, 90, 40], "WoodDark", 2),
+    boxBounds([-226, 28, 40], [-140, 82, 64], "FeltRed", 3),
+    beamBetween([-230, 55, 66], [-140, 55, 54], 60, 5, "WoodWarm"),
+    cylinderBetween([-185, 82, 54], [-185, 116, 70], 4, 6, "IronDark"),
   );
   // anvil on its stump, hammer
   out.push(translate(merge(
@@ -834,7 +837,7 @@ function smithy(): Geo {
   );
   // hanging sign with an anvil
   out.push(
-    boxBounds([-424, -192, 262], [-420, -190, 304], "IronDark"), boxBounds([-424, -110, 262], [-420, -108, 304], "IronDark"),
+    boxBounds([-424, -192, 262], [-420, -190, 336], "IronDark"), boxBounds([-424, -110, 262], [-420, -108, 336], "IronDark"),
     boxBounds([-426, -200, 200], [-418, -100, 262], "WoodWarm", 2),
     ...[[-428, -426], [-418, -416]].map(([x0, x1]) => merge(
       boxBounds([x0, -170, 222], [x1, -130, 234], "IronDark"),

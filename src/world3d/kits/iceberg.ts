@@ -922,11 +922,11 @@ function snowPier(): Geo {
     while (x < 190) {
       const len = 60 + rnd() * 110;
       const e = Math.min(200, x + len);
-      if (rnd() < 0.75 && e - x > 30) parts.push(box([e - x, 30 + rnd() * 16, 7], [(x + e) / 2, s * 132, 41], "Snow", 3));
+      if (rnd() < 0.75 && e - x > 30) parts.push(drift([(x + e) / 2, s * 130, 40], e - x, 34 + rnd() * 16, 7));
       x = e + 10 + rnd() * 40;
     }
   }
-  parts.push(box([70, 50, 6], [-60, 60, 41], "Snow", 3), box([40, 36, 5], [110, -40, 41], "Snow", 2.4));
+  parts.push(drift([-60, 60, 40], 80, 56, 6), drift([110, -40, 40], 46, 40, 5));
   parts.push(translate(torus(16, 4, 10, 5, "RopeTan"), [80, 95, 44]), translate(torus(12, 3.6, 10, 5, "RopeTan"), [80, 95, 50]));
   return merge(...parts);
 }
@@ -937,7 +937,7 @@ function snowPier(): Geo {
 function harbourQuay(): Geo {
   const L = 400, rnd = seeded(73), parts: Geo[] = [];
   parts.push(boxBounds([-150, -L, -230], [150, L, 0], "StoneBlueDark"));
-  parts.push(boxBounds([-120, -L, 0], [150, L, 8], "Cobble"));
+  parts.push(boxBounds([-120, -L, 0], [150, L, 8], "Iceberg_Flag"));
   for (let i = 0; i < 8; i++) parts.push(boxBounds([-162, -L + i * 100 + 1, -12], [-112, -L + (i + 1) * 100 - 1, 14], "StoneGrey", 3));
   parts.push(boxBounds([-158, -L, -150], [-148, L, -120], "StoneGrey"));
   // ice crust along the waterline
@@ -950,7 +950,7 @@ function harbourQuay(): Geo {
   parts.push(icicles([-158, -L + 6, -12], [-158, L - 6, -12], 74, 30, 36));
   // snow
   parts.push(box([60, 800, 10], [124, 0, 6], "Snow", 4));
-  for (const [x, yy, w, d] of [[-60, -250, 110, 90], [10, 120, 160, 70], [-30, 310, 90, 60]]) parts.push(box([w, d, 8], [x, yy, 8], "Snow", 3.5));
+  for (const [x, yy, w, d] of [[-60, -250, 110, 90], [10, 120, 160, 70], [-30, 310, 90, 60]]) parts.push(drift([x, yy, 8], w, d, 8));
   // fittings
   for (const yy of [-300, 300]) parts.push(boxBounds([-174, yy - 12, -170], [-162, yy + 12, 12], "WoodGrey", 2));
   parts.push(
@@ -1169,12 +1169,14 @@ function lanternPost(): Geo {
     cylinderAt({ radius: 9, height: 8, segments: 8, bottom: [0, 0, 276] }, "IronDark"),
     sphereCenter(8, [0, 0, 290], "IronDark", 8),
     sphereCenter(7, [0, 0, 296], "Snow", 8),
-    beamBetween([0, 0, 272], [-64, 0, 272], 5, 5, "IronDark"),
-    beamBetween([0, 0, 236], [-44, 0, 270], 4, 4, "IronDark"),
-    translate(rotateX(torus(10, 2, 10, 4, "IronDark"), 90), [-22, 0, 254]),
-    box([62, 8, 5], [-31, 0, 277], "Snow", 2),
-    cylinderBetween([-58, 0, 256], [-58, 0, 272], 1.2, 4, "IronDark"),
-    translate(lanternBox(), [-58, 0, 208]),
+    ...[1, -1].map((s) => merge(
+      beamBetween([0, 0, 272], [0, s * 64, 272], 5, 5, "IronDark"),
+      beamBetween([0, 0, 236], [0, s * 44, 270], 4, 4, "IronDark"),
+      translate(rotateZ(rotateX(torus(10, 2, 10, 4, "IronDark"), 90), 90), [0, s * 22, 254]),
+      box([8, 62, 5], [0, s * 31, 277], "Snow", 2),
+      cylinderBetween([0, s * 58, 256], [0, s * 58, 272], 1.2, 4, "IronDark"),
+      translate(lanternBox(), [0, s * 58, 208]),
+    )),
   );
 }
 
@@ -1282,7 +1284,7 @@ function snowPlaza(): Geo {
       parts.push(boxAt([88 + rnd() * 6, 88 + rnd() * 6, 5], [cx, cy, 0], rnd() < 0.5 ? "StoneGrey" : "Iceberg_Flag", 1.5));
     }
   for (const [x, y, w, d, r] of [[-120, 60, 110, 60, 15], [90, -130, 90, 70, -20], [140, 120, 70, 50, 40], [-60, -110, 60, 40, 0], [20, 170, 80, 30, 5]])
-    parts.push(translate(rotateZ(box([w, d, 8], [0, 0, 3], "Snow", 3.5), r), [x, y, 0]));
+    parts.push(translate(rotateZ(drift([0, 0, 3], w, d, 6), r), [x, y, 0]));
   return merge(...parts);
 }
 
