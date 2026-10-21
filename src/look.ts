@@ -261,11 +261,15 @@ export class Looks {
       // a body's own colour for this region needs no work
       return dye && d.natural?.[region] !== dyeId ? { [region]: dye } : {};
     };
-    const topDyes: Record<string, Dye | undefined> = cloth(def, def.cloth.top, top.dye);
+    // Both pieces of one body's outfit cross the waist (the mage's long coat runs down past it,
+    // its dark vest up above it), so each half takes both dyes; mixed bodies dye their own piece.
+    const same = topBody === bottomBody;
+    const topCloth = cloth(def, def.cloth.top, top.dye), bottomCloth = cloth(bdef, bdef.cloth.bottom, bottom.dye);
+    const topDyes: Record<string, Dye | undefined> = same ? { ...bottomCloth, ...topCloth } : topCloth;
     if (!def.hairless) Object.assign(topDyes, { hair: hairDye, eyes: eyeDye });
     const split = (d: BodyDef) => (d.split ? { neck: d.split, offsets: d.head?.offsets } : null);
     const upperC = recolor(upper, def.regions, topDyes, def.mean, split(def));
-    const lowerC = recolor(lower, bdef.regions, cloth(bdef, bdef.cloth.bottom, bottom.dye), bdef.mean, split(bdef));
+    const lowerC = recolor(lower, bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
     // per frame, how far the top moves down so its waist meets the bottom's
     const bob = (d: BodyDef, clip: string, dir: number, f: number) => d.head?.offsets[clip]?.[dir]?.[f]?.[1] ?? 0;
     // a bottom without one of the top's clips (cast) moves its legs as in its swing

@@ -121,13 +121,13 @@ export interface Shape {
 
 export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
   top: {
-    mage: { name: "เสื้อคลุมจอมเวท", body: "mage", gender: "female", note: "เสื้อคลุมยาวแขนระฆัง ขลิบทอง เสื้อลายทาง" },
+    mage: { name: "เสื้อคลุมจอมเวท", body: "mageb", gender: "female", note: "เสื้อคลุมยาวขลิบทอง แขนกว้าง เสื้อกั๊กคาดเข็มขัด" },
     priestess: { name: "เสื้อนักบวช", body: "priestess", gender: "female", note: "เสื้อแขนยาว ปกสูง ผ้าคลุมไหล่สีขาว" },
     adventurer: { name: "เสื้อกั๊กนักผจญภัย", body: "adventurer", gender: "female", note: "เสื้อกั๊กหนัง เกราะไหล่ สายสะพาย ผ้าพันแขน" },
     warrior: { name: "แจ็กเก็ตนักรบ", body: "warrior", gender: "male", note: "แจ็กเก็ตแขนพับ เสื้อด้านในสีดำ" },
   },
   bottom: {
-    mage: { name: "กระโปรงสั้นจอมเวท", body: "mage", gender: "female", note: "กระโปรงสั้น ถุงน่องสีเข้ม บูทหนัง" },
+    mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "ชายเสื้อคลุมยาว กางเกงรัดรูปสีเข้ม บูทหนัง" },
     priestess: { name: "กระโปรงยาวนักบวช", body: "priestess", gender: "female", note: "กระโปรงยาวถึงข้อเท้า ผ้าคาดหน้าตราอาทิตย์" },
     adventurer: { name: "กระโปรงจีบนักผจญภัย", body: "adventurer", gender: "female", note: "กระโปรงจีบสั้น เลกกิ้ง บูทผูกเชือกสูง" },
     warrior: { name: "กางเกงนักรบ", body: "warrior", gender: "male", note: "กางเกงขายาว บูทหนัง" },
