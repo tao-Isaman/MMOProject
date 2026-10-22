@@ -2256,7 +2256,17 @@ function topiary(): Geo {
     cylinderAt({ radius: 27, height: 2, segments: 12, bottom: [0, 0, 50] }, "Eden_Soil"),
     cylinderAt({ rBot: 4, rTop: 3, height: 26, segments: 6, bottom: [0, 0, 52] }, "BarkWarm"),
     shrub({ seed: 33, lobes: [[0, 0, 98, 25, 25, 24]], leaf: 14, ragged: 0.12, core: 0.94, coreDetail: 1, density: 1.1, sun: 0.04, look: { core: "Eden_Hedge", dark: "LeafCardDark", mid: "LeafCard", light: "LeafCardLight" } }),
+    urnMoss(),
   );
+}
+// low leaves over the soil in the urn round the stem
+function urnMoss(): Geo {
+  const cards = new Cards(), rnd = rng(35);
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + rnd() * 0.5, d = 9 + rnd() * 10;
+    cards.facing(i % 2 ? "LeafCardDark" : "LeafCard", [Math.cos(a) * d, Math.sin(a) * d, 54 + rnd() * 2], new THREE.Vector3(Math.cos(a) * 0.4, Math.sin(a) * 0.4, 1), rnd() * 6.28, 20, 20, SKY);
+  }
+  return cards.geo();
 }
 
 // A round flower bed, 3 m across: a stone kerb, soil, rings of mixed flowers round a little
