@@ -315,6 +315,12 @@ const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct
 const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => `${BAG_NAMES[k] ?? k} ${signed(k, v)}`).join(" · ");
 const statName = (s: SkillDef) => (s.stat === "matk" ? "พลังเวท" : "พลังโจมตี");
 
+// The element a skill's hits are made of, for a skill that does damage: its words and colour.
+function hitElement(s: SkillDef | undefined): { text: string; color: string } | null {
+  if (!s?.mult) return null;
+  return s.element ? { text: `ธาตุ${ELEMENTS[s.element].name}`, color: ELEMENTS[s.element].color } : { text: "ไร้ธาตุ", color: "#c9c2ad" };
+}
+
 // What one rank of a node gives, as short parts: the headline number first.
 function rankParts(node: TreeNode, r: number): string[] {
   if (node.kind === "passive") return node.stats ? [bagText(node.stats(r))] : [];
@@ -655,7 +661,15 @@ export class SkillUI {
       if (more) node.classList.add("planned");
       el("span", "sk-rank", node).textContent = `${rank}/${n.max}${more ? ` (+${more})` : ""}`;
       el("span", "sk-tname", node).textContent = n.name;
-      el("span", "sk-tkind", node).textContent = n.kind === "active" ? "สกิล" : "ติดตัว";
+      const kind = el("span", "sk-tkind", node);
+      kind.textContent = n.kind === "active" ? "สกิล" : "ติดตัว";
+      const hits = hitElement(n.skill);
+      if (hits) {
+        kind.append(" · ");
+        const tag = el("span", "sk-tel", kind);
+        tag.textContent = hits.text;
+        tag.style.color = hits.color;
+      }
       if (!why) this.plus(node, true, "จองอัพ 1 ระดับ", () => this.add({ kind: "node", tree: treeId, id: n.id })).classList.add("mini");
       this.minus(node, "node", n.id)?.classList.add("mini");
       const pick = () => {
@@ -680,7 +694,15 @@ export class SkillUI {
     this.skillIcon(head, n.glyph, tree.color, n.kind === "active" && (this.real.ranks[n.id] ?? 0) > 0 ? n.id : null, rank > 0);
     const t = el("div", "", head);
     el("strong", "", t).textContent = n.name;
-    el("span", "sk-sub", t).textContent = `${n.kind === "active" ? "สกิลกดใช้" : "สกิลติดตัว (ได้ผลตลอด)"} · ระดับ ${rank}/${n.max}`;
+    const sub = el("span", "sk-sub", t);
+    sub.textContent = `${n.kind === "active" ? "สกิลกดใช้" : "สกิลติดตัว (ได้ผลตลอด)"} · ระดับ ${rank}/${n.max}`;
+    const hits = hitElement(n.skill);
+    if (hits) {
+      sub.append(" · ");
+      const tag = el("b", "sk-tel", sub);
+      tag.textContent = `โจมตี${hits.text}`;
+      tag.style.color = hits.color;
+    }
     el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
     if (n.kind === "active" && n.skill) {
       const s = n.skill;
