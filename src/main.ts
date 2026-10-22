@@ -3,7 +3,7 @@ import { loadAll, mipChain, bakeGround, glow, tint } from "./assets";
 import { World3D } from "./world3d/view";
 import { SPAWN, debugShapes } from "./world";
 import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./particles";
-import { Player, directionIndex } from "./player";
+import { Player, directionIndex, viewRow } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
 import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon } from "./items";
@@ -1361,7 +1361,8 @@ async function boot(): Promise<void> {
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
     progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
-    zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS } };
+    zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
+    draw: { mapX, mapY, viewRow, WEAPON_ART } }; // for test scripts drawing the player by hand
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).
