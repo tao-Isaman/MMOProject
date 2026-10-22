@@ -4,6 +4,13 @@
 // east). Ragnarok's Prontera and Alberta set the scale: wide tree-lined avenues, a cathedral,
 // a market, a fountain plaza, piers with ships.
 //
+// The streets are an orderly grid: one straight cross of avenues of one width (the north-south
+// avenue from gate to gate, the west-east avenue from the west gate through the crossroads to the
+// quay and the ship's pier), a ring of the same width round the fountain plaza (its east side is
+// the harbour street), alleys of one width centred on the rows into the plazas, and in the
+// harbour quarter the harbour street and the quay side by side, joined by cross streets, with
+// houses facing the street and warehouses facing the quay back to back between them.
+//
 // The plan is read in its own pixels (u right, v down, as drawn) and turned into the world:
 // north (up the page) is +X, east (right) is -Y, so the starting camera sees it as drawn.
 // One plan pixel is 18 cm, and the whole town (layout, houses, trees, everything in it) is then
@@ -18,7 +25,7 @@ import { buildPaved } from "./paved";
 import type { Poly } from "./paved";
 import { KIT as EDEN } from "./kits/eden";
 import { KIT as YODIA } from "./kits/yodia";
-import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE, travelGuide, gateWay, waysOut } from "./town";
+import { Plan, TownBuilder, useKits, fallbacks, colourways, facing, FACE, travelGuide, gateWay, waysOut, protoOf } from "./town";
 import type { Side, Town } from "./town";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
@@ -48,49 +55,67 @@ colourways({
 });
 
 // ---- the plan's pixels -> the world: 18 cm a pixel, the crossroads at the origin ----
-const { P, rect, quarter } = new Plan(18, 625, 565);
+const PX = 18;
+const { P, rect, quarter } = new Plan(PX, 625, 565);
+
+// ---- the grid, in plan pixels ----
+// avenues 70 wide (12.6 m): the cross, the fountain plaza's ring and the harbour street
+const NS: [number, number] = [590, 660]; // the north-south avenue (u), from the north gate to the south gate
+const WE: [number, number] = [530, 600]; // the west-east avenue (v), from the west gate to the quay
+const HS: [number, number] = [914, 984]; // the harbour street (u), outside the east wall: the ring's east side
+const RS: [number, number] = [898, 968]; // the ring's south side (v), on through the harbour to the quay
+const QUAY = 1080;                       // the quay's edge on the land side (u)
+// alleys 25 wide (4.5 m), each in the middle of its row
+const A_N: [number, number] = [299, 324];     // across the north avenue (v): into the cathedral green and the market
+const A_W: [number, number] = [301, 326];     // across the west avenue (u): into the cathedral green and the hero's garden
+const A_S: [number, number] = [802, 827];     // off the south avenue (v): into the hero's garden
+const A_M: [number, number] = [760.5, 785.5]; // off the east avenue (u): into the market
+// the harbour's blocks between the harbour street and the quay (v), and the cross streets 40
+// wide (7.2 m) between them: one at each end, one between the two blocks south of the avenue
+const DOCKS: [number, number][] = [[60, 225], [600, 729], [769, 898], [968, 1055]];
+const CROSS: [number, number][] = [[20, 60], [729, 769], [1055, 1095]];
+const F = 2; // the fronts of the rows stand this far back from a street's edge
 
 export function buildEden(quality: { flowers: number }): Town {
   const town = new TownBuilder(11);
   const { put, rnd, extra } = town;
+  const post = (r = 22): SolidSpec[] => [{ kind: "post", x: 0, y: 0, r }];
 
   // ---- ground: roads (cobbles), plazas (flagstones) and the harbour basin (water) ----
   const roads: Poly[] = [
-    rect(70, 520, 610, 605),    // the west avenue, from the west gate to the crossroads
-    rect(585, 75, 655, 560),    // the north avenue, from the north gate
-    rect(585, 520, 680, 615),   // the crossroads
-    rect(610, 560, 680, 1045),  // the south avenue, to the south gate
-    rect(610, 560, 920, 615),   // round the fountain plaza
-    rect(610, 920, 920, 1005),
-    rect(860, 560, 920, 1005),
-    rect(905, 20, 1085, 1095),  // the harbour quarter, paved between its warehouses
-    rect(-200, 520, 70, 605),   // outside the gates
-    rect(585, -200, 655, 75),
-    rect(610, 1045, 680, 1300),
-    // the alleys between the houses into the plazas
-    rect(537, 280, 585, 305), rect(290, 470, 315, 520), rect(655, 230, 708, 255), rect(655, 400, 708, 425),
-    rect(760, 505, 800, 560), rect(290, 605, 315, 655), rect(560, 780, 610, 805),
+    rect(-200, WE[0], QUAY, WE[1]),     // the west-east avenue, through the crossroads to the quay
+    rect(NS[0], -200, NS[1], 1300),     // the north-south avenue, from outside the north gate to outside the south gate
+    rect(HS[0], 20, HS[1], 1095),       // the harbour street
+    rect(NS[1], RS[0], QUAY, RS[1]),    // the fountain plaza's ring, south side, on to the quay
+    ...CROSS.map(([v0, v1]) => rect(HS[1], v0, QUAY, v1)), // the harbour's cross streets
+    // the alleys, through the rows to the plazas
+    rect(390, A_N[0], NS[0], A_N[1]), rect(NS[1], A_N[0], 720, A_N[1]),
+    rect(A_W[0], 360, A_W[1], WE[0]), rect(A_W[0], WE[1], A_W[1], 750),
+    rect(390, A_S[0], NS[0], A_S[1]),
+    rect(A_M[0], 470, A_M[1], WE[0]),
   ];
-  const P1 = quarter(175, 145, 310, 255);   // the cathedral plaza
-  const P2 = rect(708, 150, 846, 508);      // the market
-  const P3 = quarter(150, 900, 280, -200);  // the hero's garden
-  const P4 = rect(680, 615, 860, 920);      // the fountain plaza
+  const P1 = quarter(150, 150, 335, 255);       // the cathedral plaza
+  const P2 = rect(716, 150, 830, 474);          // the market
+  const P3 = quarter(150, 900, 280, -200);      // the hero's garden
+  const P4 = rect(NS[1], 667, HS[0], RS[0]);    // the fountain plaza (the inn's row along its top)
   const BASIN = { u0: 1040, v0: 250, u1: 1140, v1: 420 }; // the harbour basin, open to the sea
-  const plazas: Poly[] = [P1, P2, P3, P4, rect(1080, 20, 1140, 1095)]; // and the quay
+  const plazas: Poly[] = [P1, P2, P3, P4, rect(QUAY, 20, 1140, 1095), rect(HS[1], 225, 1140, 445)]; // and the quay, round the basin
   const SHORE = P(1140, 0)[1];
   const area = { x0: -15000, x1: 15500, y0: SHORE, y1: 17000 };
   const ground = buildPaved({ area, roads, plazas, water: [rect(BASIN.u0, BASIN.v0, BASIN.u1 + 40, BASIN.v1)] });
+  // whether plan point (u, v) and r pixels round it are open grass (no road, plaza or water)
+  const grass = (u: number, v: number, r = 6) => [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([du, dv]) => ground.kind(...P(u + du, v + dv)) === 0);
 
-  // ---- the city wall: 8 m pieces between towers, gates cut into it ----
+  // ---- the city wall: 8 m pieces between towers, gates cut into it where the avenues meet it ----
   const NORTH = P(0, 75)[0], SOUTH = P(0, 1045)[0], WEST = P(75, 0)[1], EAST = P(905, 0)[1];
-  const EAST_END = P(0, 545)[0]; // the east wall stops short of the road down to the harbour
-  const GATE_N: [number, number] = [NORTH, P(620, 0)[1]];
-  const GATE_S: [number, number] = [SOUTH, P(645, 0)[1]];
-  const GATE_W: [number, number] = [P(0, 562)[0], WEST];
+  const EAST_END = P(0, 505)[0]; // the east wall stops short of the avenue down to the harbour
+  const GATE_N: [number, number] = [NORTH, P(625, 0)[1]];
+  const GATE_S: [number, number] = [SOUTH, P(625, 0)[1]];
+  const GATE_W: [number, number] = [P(0, 565)[0], WEST];
   // a straight run of wall from a to b (world), its outside facing `out`, skipping gaps
   const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) => town.wall(a, b, out, "eden:city_wall", { gaps });
   const corner = (x: number, y: number) => put("eden:wall_tower", [x, y], 0, { solid: [{ kind: "tower", x: 0, y: 0, r: 330 }] });
-  run([NORTH, WEST], [NORTH, EAST], "n", [GATE_N[1] < WEST ? WEST - GATE_N[1] : 0]);
+  run([NORTH, WEST], [NORTH, EAST], "n", [WEST - GATE_N[1]]);
   run([NORTH, EAST], [EAST_END, EAST], "e");
   run([NORTH, WEST], [SOUTH, WEST], "w", [NORTH - GATE_W[0]]);
   run([SOUTH, WEST], [SOUTH, EAST], "s", [WEST - GATE_S[1]]);
@@ -109,135 +134,170 @@ export function buildEden(quality: { flowers: number }): Town {
   put("eden:city_gate", GATE_S, 0, { solid: gateSolid });
   put("eden:city_gate", GATE_W, -90, { solid: gateSolid });
 
-  // ---- houses: terraces wall to wall along the streets (the plan's rows of boxes), with
-  // alleys left open into the plazas behind them ----
+  // ---- houses: terraces wall to wall with their fronts along the streets, an alley left open
+  // in the middle of each row along the avenues ----
   const STREET = ["townhouse", "townhouse_narrow", "corner_house", "townhouse_narrow", "row_houses", "townhouse", "townhouse_narrow"];
-  const HARBOUR = ["warehouse", "yodia:warehouse", "townhouse_narrow", "warehouse", "townhouse"];
+  // the harbour's blocks (as DOCKS): the houses facing the harbour street and the warehouses
+  // facing the quay stand back to back, 96 px deep together, so only the shallower pieces
+  const HOUSES = [["townhouse", "warehouse", "townhouse_narrow"], ["townhouse", "townhouse_narrow", "townhouse_narrow"], ["townhouse_narrow", "townhouse", "townhouse_narrow"], ["townhouse", "townhouse_narrow"]];
+  const DOCK = [["warehouse", "warehouse"], ["warehouse", "townhouse"], ["townhouse", "warehouse"], ["warehouse"]];
   const TINTS = ["", "red", "slate", "cream", "yellow", "red", "cream"];
-  // a row with the fronts on the plan line a -> b, facing `side`, the pieces in turn from `start`
-  const terrace = (a: [number, number], b: [number, number], side: Side, pieces = STREET, start = 0) =>
-    town.terrace(P(a[0], a[1]), P(b[0], b[1]), side, pieces, { start, kit: "eden", tints: TINTS, narrow: "townhouse_narrow" });
-  // north-west: down the north avenue and along the west avenue (an alley into the cathedral
-  // plaza in each), and round the back of the plaza
-  terrace([583, 98], [583, 280], "e");
-  terrace([583, 305], [583, 518], "e", STREET, 3);
-  terrace([95, 518], [290, 518], "s", STREET, 1);
-  terrace([315, 518], [530, 518], "s", STREET, 4);
-  terrace([330, 146], [530, 146], "s", STREET, 2);
-  terrace([146, 330], [146, 460], "e", STREET, 5);
-  // north-east: shop houses down the north avenue (two ways into the market), round the market
-  terrace([657, 98], [657, 230], "w", STREET, 2);
-  terrace([657, 255], [657, 400], "w", STREET, 5);
-  terrace([657, 425], [657, 558], "w", STREET, 1);
-  terrace([708, 146], [844, 146], "s", STREET, 3);
-  terrace([848, 100], [848, 500], "w", STREET, 6);
-  terrace([708, 558], [760, 558], "s", STREET, 1);
-  terrace([800, 558], [894, 558], "s", STREET, 4);
-  // south-west: along the west avenue and down the south avenue (alleys into the garden), along
-  // the walls behind the garden
-  terrace([95, 607], [290, 607], "n", ["row_houses", "townhouse", "guild_hall", "townhouse_narrow"]);
-  terrace([315, 607], [556, 607], "n", STREET, 2);
-  terrace([608, 660], [608, 780], "e", ["weapon_shop", "townhouse", "townhouse_narrow"]);
-  terrace([608, 805], [608, 1030], "e", STREET, 4);
-  terrace([146, 660], [146, 1030], "e", STREET, 6);
-  terrace([150, 986], [556, 986], "n", STREET, 0);
-  // the fountain plaza: the inn and the tool shop along its north side
-  terrace([683, 680], [857, 680], "s", ["inn", "tool_shop", "cafe", "townhouse_narrow"]);
-  // the harbour quarter: warehouses facing the quay and the basin, houses facing the lanes
-  terrace([1078, 30], [1078, 245], "e", HARBOUR);
-  terrace([948, 85], [948, 245], "w", STREET, 3);
-  terrace([1017, 255], [1017, 415], "e", ["yodia:customs_house", "warehouse", "yodia:warehouse"]);
-  terrace([1078, 445], [1078, 555], "e", HARBOUR, 2);
-  terrace([948, 445], [948, 555], "w", STREET, 5);
-  terrace([922, 620], [922, 1000], "w", STREET, 2);
-  terrace([1078, 620], [1078, 995], "e", HARBOUR, 1);
-  terrace([1078, 1052], [1078, 1092], "e", HARBOUR, 3);
-  put("eden:notice_board", P(540, 532), FACE.s);
+  const NARROW = "townhouse_narrow";
+  const ref = (pc: string) => (pc.includes(":") ? pc : `eden:${pc}`);
+  const width = (pc: string) => {
+    const f = protoOf(ref(pc)).foot;
+    return f.y1 - f.y0;
+  };
+  // a row with the fronts on the plan line a -> b, facing `side`, the pieces in turn from `start`;
+  // centred on the line (what is left over split between the two ends) unless `centre` is false
+  const terrace = (a: [number, number], b: [number, number], side: Side, pieces = STREET, start = 0, centre = true) => {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]) * PX;
+    let t = 0; // (as TownBuilder.terrace fills it)
+    for (let i = start; ; i++) {
+      let w = width(pieces[i % pieces.length]);
+      if (t + w > L + 40) {
+        w = width(NARROW);
+        if (t + w > L + 40) break;
+      }
+      t += w + 4;
+    }
+    const k = centre && t > 0 ? (L - (t - 4)) / 2 / L : 0;
+    const A: [number, number] = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    const B: [number, number] = [b[0] - (b[0] - a[0]) * k, b[1] - (b[1] - a[1]) * k];
+    town.terrace(P(A[0], A[1]), P(B[0], B[1]), side, pieces, { start, kit: "eden", tints: TINTS, narrow: NARROW });
+  };
+  const [n0, n1] = [NS[0] - F, NS[1] + F], [w0, w1] = [WE[0] - F, WE[1] + F]; // the avenues' building lines
+  // north-west: down the north avenue and along the west avenue, round the back of the
+  // cathedral plaza
+  terrace([n0, 98], [n0, A_N[0]], "e");
+  terrace([n0, A_N[1]], [n0, w0], "e", STREET, 3);
+  terrace([97, w0], [A_W[0], w0], "s", STREET, 1);
+  terrace([A_W[1], w0], [n0 - 52, w0], "s", STREET, 4);
+  terrace([330, 150], [532, 150], "s", STREET, 2);
+  terrace([150, 330], [150, 466], "e", STREET, 5);
+  // north-east: shop houses down the north avenue, round the market
+  terrace([n1, 98], [n1, A_N[0]], "w", STREET, 2);
+  terrace([n1, A_N[1]], [n1, w0], "w", STREET, 5);
+  terrace([716, 150], [830, 150], "s", STREET, 3);
+  terrace([830, 98], [830, 480], "w", STREET, 6);
+  terrace([716, w0], [A_M[0], w0], "s", ["corner_house"]);
+  terrace([A_M[1], w0], [830, w0], "s", ["corner_house"]);
+  terrace([832, w0], [880, w0], "s", [NARROW]); // (on the corner by the end of the east wall)
+  // south-west: along the west avenue (the guild hall) and down the south avenue (the weapon
+  // shop), along the walls round the back of the garden
+  terrace([97, w1], [A_W[0], w1], "n", ["row_houses", "townhouse", "guild_hall", "townhouse_narrow"]);
+  terrace([A_W[1], w1], [n0 - 56, w1], "n", STREET, 2);
+  terrace([n0, w1], [n0, A_S[0]], "e", ["weapon_shop", "townhouse", "townhouse_narrow", "corner_house"]);
+  terrace([n0, A_S[1]], [n0, 1024], "e", STREET, 4);
+  terrace([150, 660], [150, 1020], "e", STREET, 6);
+  terrace([154, 970], [532, 970], "n", STREET, 0);
+  // south-east: the inn, the tool shop and the café in a row along the top of the fountain
+  // plaza; houses along the wall facing the ring
+  terrace([n1, 667], [HS[0] - F, 667], "s", ["inn", "tool_shop", "cafe", "townhouse_narrow", "townhouse"], 0, false);
+  terrace([670, RS[1] + F], [880, RS[1] + F], "n", STREET, 3);
+  // the harbour quarter: in each block houses facing the harbour street and warehouses facing
+  // the quay, back to back; the customs house on the corner of the avenue and the quay
+  DOCKS.forEach(([v0, v1], i) => {
+    terrace([HS[1] + F, v0 + F], [HS[1] + F, v1 - F], "w", HOUSES[i]);
+    terrace([QUAY - F, v0 + F], [QUAY - F, v1 - F], "e", DOCK[i]);
+  });
+  terrace([HS[1], w0], [QUAY - F, w0], "s", ["townhouse_narrow", "yodia:customs_house"], 0, false);
+  put("eden:notice_board", P(556, 536), FACE.s);
 
-  // ---- avenues: trees and lamps down both sides ----
-  const avenue = (a: [number, number], b: [number, number], step: number, skip: (u: number, v: number) => boolean = () => false) => {
-    const n = Math.floor(Math.hypot(b[0] - a[0], b[1] - a[1]) / step);
+  // ---- the avenues: lamps and trees by turns down both sides, the alley mouths left open ----
+  // a line every `step` from plan a to b (along u or v), leaving out what falls in `gaps`
+  const avenue = (a: [number, number], b: [number, number], step: number, gaps: [number, number][] = []) => {
+    const n = Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / step);
     for (let i = 0; i <= n; i++) {
       const u = a[0] + ((b[0] - a[0]) * i) / n, v = a[1] + ((b[1] - a[1]) * i) / n;
-      if (skip(u, v)) continue;
-      if (i % 2) put("eden:street_lamp", P(u, v), 0, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
+      const s = a[0] === b[0] ? v : u;
+      if (gaps.some(([g0, g1]) => s > g0 && s < g1)) continue;
+      if (i % 2) put("eden:street_lamp", P(u, v), a[0] === b[0] ? 0 : 90, { solid: post() });
       else put(rnd() < 0.5 ? "flora:RoundTree" : "flora:SmallTree", P(u, v), rnd() * 360, { s: 0.7 + rnd() * 0.15 });
     }
   };
-  avenue([150, 534], [560, 534], 55);
-  avenue([150, 591], [560, 591], 55);
-  avenue([600, 140], [600, 500], 55);
-  avenue([641, 140], [641, 500], 55);
-  avenue([624, 650], [624, 1000], 55);
-  avenue([666, 650], [666, 880], 55);
+  const [lw, le] = [NS[0] + 13, NS[1] - 13], [ln, ls] = [WE[0] + 13, WE[1] - 13]; // the lines, 13 px in from the edges
+  for (const v of [ln, ls]) avenue([163.5, v], [513.5, v], 50, [[A_W[0] - 2, A_W[1] + 2]]);        // west
+  for (const u of [lw, le]) avenue([u, 161.5], [u, 511.5], 50, [[A_N[0] - 2, A_N[1] + 2]]);        // north
+  avenue([lw, 664.5], [lw, 964.5], 50, [[A_S[0] - 2, A_S[1] + 2]]);                                 // south
+  avenue([le, 664.5], [le, 964.5], 50, [[RS[0] - 8, RS[1] + 8]]);
+  avenue([673, ln], [873, ln], 50, [[A_M[0] - 2, A_M[1] + 2]]);                                     // east
+  avenue([673, ls], [873, ls], 50);
+  for (const v of [RS[0] + 13, RS[1] - 13]) avenue([673, v], [873, v], 50);                         // the ring's south side
   // the crossroads: a lamp on each corner and banners
-  for (const [u, v] of [[598, 532], [668, 532], [598, 603], [668, 603]]) put("eden:street_lamp", P(u, v), 45, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
-  for (const [u, v] of [[578, 610], [672, 524]]) put("eden:banner_pole", P(u, v), facing(625 - u, 565 - v));
+  for (const u of [lw, le]) for (const v of [ln, ls]) put("eden:street_lamp", P(u, v), 45, { solid: post() });
+  for (const [u, v] of [[594, 606], [656, 524]]) put("eden:banner_pole", P(u, v), facing(625 - u, 565 - v));
+  // the harbour street: harbour lamps along its east side, by the houses
+  for (const v of [100, 185, 487, 642, 687, 812, 855, 1011]) put("yodia:harbour_lamp", P(HS[1] - 9, v), 90, { solid: post() });
 
   // ---- the cathedral plaza (north-west) ----
   put("eden:cathedral", P(262, 232), facing(1, 1));
   for (const t of [0.12, 0.35, 0.6, 0.85]) {
     const a = t * (Math.PI / 2);
-    put("eden:street_lamp", P(175 + 0.9 * 310 * Math.cos(a), 145 + 0.9 * 255 * Math.sin(a)), 0, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
-    put(t < 0.5 ? "eden:park_bench" : "eden:flower_bed", P(175 + 0.75 * 310 * Math.cos(a + 0.2), 145 + 0.75 * 255 * Math.sin(a + 0.2)), facing(-Math.cos(a), -Math.sin(a)));
+    put("eden:street_lamp", P(150 + 0.9 * 335 * Math.cos(a), 150 + 0.9 * 255 * Math.sin(a)), 0, { solid: post() });
+    put(t < 0.5 ? "eden:park_bench" : "eden:flower_bed", P(150 + 0.75 * 335 * Math.cos(a + 0.2), 150 + 0.75 * 255 * Math.sin(a + 0.2)), facing(-Math.cos(a), -Math.sin(a)));
   }
   for (const [u, v] of [[310, 250], [270, 300]]) put("eden:banner_pole", P(u, v), facing(1, 1));
   put("eden:hero_statue", P(330, 300), facing(1, 1));
-  // trees in the corner behind it
-  for (const [u, v] of [[160, 160], [165, 260], [250, 125], [300, 120]])
+  // trees in the corner behind it, between the plaza and the walls
+  for (const [u, v] of [[122, 125], [122, 210], [122, 290], [210, 122], [280, 122]])
     put(rnd() < 0.6 ? "flora:BigOak" : "flora:RoundTree", P(u, v), rnd() * 360, { s: 0.7 + rnd() * 0.2 });
-  // the green between the plaza and the houses
-  for (const [u, v] of [[430, 300], [400, 360], [500, 230], [470, 420]]) put(rnd() < 0.5 ? "flora:RoundTree" : "flora:Cherry", P(u, v), rnd() * 360, { s: 0.7 });
-  for (const [u, v] of [[380, 420], [450, 395], [300, 430]]) put("eden:flower_bed", P(u, v), 0);
-  for (const [u, v] of [[470, 230], [470, 330], [415, 445], [230, 440]]) put("eden:topiary", P(u, v), 0);
+  // the green between the plaza and the houses: trees along the alleys, flower beds and topiary
+  for (const [u, v] of [[455, 288], [505, 288], [455, 335], [505, 335], [290, 420], [290, 455], [337, 420], [337, 455]])
+    put(rnd() < 0.5 ? "flora:RoundTree" : "flora:Cherry", P(u, v), rnd() * 360, { s: 0.7 });
+  for (const [u, v] of [[400, 415], [460, 415]]) put("eden:flower_bed", P(u, v), 0);
+  for (const [u, v] of [[430, 385], [490, 385], [430, 445], [490, 445], [200, 445], [250, 445]]) put("eden:topiary", P(u, v), 0);
 
-  // ---- the market (north-east) ----
-  for (let v = 180; v <= 480; v += 32) {
-    put(v % 64 === 52 ? "eden:market_stall_fruit" : "eden:market_stall_cloth", P(734, v), FACE.e);
-    put(v % 64 === 52 ? "eden:market_stall_cloth" : "eden:market_stall_fruit", P(820, v), FACE.w);
+  // ---- the market (north-east): stalls in two rows facing the middle, the way in from the
+  // north avenue left open ----
+  for (let v = 182; v <= 438; v += 32) {
+    if (v < A_N[0] - 8 || v > A_N[1] + 8) put(v % 64 === 54 ? "eden:market_stall_fruit" : "eden:market_stall_cloth", P(732, v), FACE.e);
+    put(v % 64 === 54 ? "eden:market_stall_cloth" : "eden:market_stall_fruit", P(814, v), FACE.w);
   }
-  for (const v of [260, 420]) put("common:market_cart", P(777, v), FACE.s);
-  for (const v of [210, 340, 470]) put("eden:street_lamp", P(777, v), 90, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
-  put("eden:public_well", P(777, 172), 0);
-  for (const u of [764, 796]) put("eden:banner_pole", P(u, 530), FACE.s);
-  for (const [u, v] of [[770, 548], [790, 548]]) put("eden:flower_bed", P(u, v), 0);
+  for (const v of [270, 440]) put("common:market_cart", P(773, v), FACE.s);
+  for (const v of [230, 355]) put("eden:street_lamp", P(773, v), 90, { solid: post() });
+  put("eden:public_well", P(773, 178), 0);
+  for (const u of [A_M[0] - 6, A_M[1] + 6]) put("eden:banner_pole", P(u, WE[0] + 3), FACE.s);
 
   // ---- the hero's garden (south-west) ----
   put("eden:pergola", P(205, 760), FACE.e);
   for (const [u, v, f] of [[260, 790, "s"], [330, 840, "w"], [220, 860, "e"], [300, 760, "n"]] as [number, number, Side][]) put("eden:park_bench", P(u, v), FACE[f]);
   for (const [u, v] of [[190, 820], [360, 870], [280, 880]]) put("eden:flower_bed", P(u, v), 0);
   for (let i = 0; i <= 6; i++) {
-    const a = (i / 6) * (Math.PI / 2);
-    put("eden:hedge", P(150 + 300 * Math.cos(a), 900 - 220 * Math.sin(a)), facing(Math.cos(a), -Math.sin(a)) + 90);
+    const a = (i / 6) * (Math.PI / 2), u = 150 + 300 * Math.cos(a), v = 900 - 220 * Math.sin(a);
+    if (grass(u, v, 12)) put("eden:hedge", P(u, v), facing(Math.cos(a), -Math.sin(a)) + 90);
   }
   for (const [u, v] of [[175, 700], [400, 760], [430, 860], [200, 940], [320, 945], [450, 940], [520, 700]])
     put(rnd() < 0.5 ? "flora:RoundTree" : "flora:Cherry", P(u, v), rnd() * 360, { s: 0.75 });
-  for (const [u, v] of [[240, 715], [330, 715], [400, 700]]) put("eden:topiary", P(u, v), 0);
+  for (const [u, v] of [[240, 715], [345, 712], [400, 700]]) if (grass(u, v, 3)) put("eden:topiary", P(u, v), 0);
 
-  // ---- the fountain plaza (south-east) ----
-  put("eden:fountain", P(770, 800), 0, { s: 1.6, solid: [{ kind: "fountain", x: 0, y: 0, r: 320 }] });
-  for (const [u, v] of [[700, 700], [855, 700], [700, 905], [855, 905]]) put("eden:street_lamp", P(u, v), 45, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
+  // ---- the fountain plaza (south-east), where newcomers arrive ----
+  const FU = (NS[1] + HS[0]) / 2, FV = 795; // the fountain
+  put("eden:fountain", P(FU, FV), 0, { s: 1.6, solid: [{ kind: "fountain", x: 0, y: 0, r: 320 }] });
+  for (const u of [NS[1] + 14, HS[0] - 14]) for (const v of [682, RS[0] - 14]) put("eden:street_lamp", P(u, v), 45, { solid: post() });
   // a ring round the fountain: lamps on the diagonals, benches and flower beds between
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2, du = Math.cos(a), dv = Math.sin(a);
-    if (i % 2) put("eden:street_lamp", P(770 + du * 48, 800 + dv * 48), 45, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
-    else put("eden:park_bench", P(770 + du * 44, 800 + dv * 44), facing(-du, -dv));
-    put("eden:flower_bed", P(770 + Math.cos(a + 0.39) * 52, 800 + Math.sin(a + 0.39) * 52), facing(-Math.cos(a + 0.39), -Math.sin(a + 0.39)) + 90);
+    if (i % 2) put("eden:street_lamp", P(FU + du * 48, FV + dv * 48), 45, { solid: post() });
+    else put("eden:park_bench", P(FU + du * 44, FV + dv * 44), facing(-du, -dv));
+    put("eden:flower_bed", P(FU + Math.cos(a + 0.39) * 52, FV + Math.sin(a + 0.39) * 52), facing(-Math.cos(a + 0.39), -Math.sin(a + 0.39)) + 90);
   }
-  for (const [u, v] of [[700, 770], [700, 860], [845, 770], [845, 860]]) put("flora:Cherry", P(u, v), rnd() * 360, { s: 0.65 });
-  for (const [u, v] of [[700, 815], [845, 815]]) put("eden:flower_bed", P(u, v), 0);
-  for (const [u, v] of [[800, 702], [830, 708], [770, 708], [815, 722]]) put("eden:cafe_table", P(u, v), rnd() * 90);
-  put("eden:kiosk", P(830, 900), FACE.n);
-  put("eden:kiosk", P(712, 900), FACE.n);
-  for (const [u, v] of [[690, 700], [692, 712]]) put("common:crate", P(u, v), rnd() * 90);
+  // cherry trees and flower beds either side of it, trees down the plaza's sides
+  for (const u of [FU - 65, FU + 65]) {
+    for (const v of [FV - 35, FV + 35]) put("flora:Cherry", P(u, v), rnd() * 360, { s: 0.65 });
+    put("eden:flower_bed", P(u, FV), 0);
+  }
+  for (const u of [NS[1] + 16, HS[0] - 16]) for (const v of [735, 835]) put("flora:RoundTree", P(u, v), rnd() * 360, { s: 0.7 });
+  for (const [u, v] of [[770, 684], [796, 688]]) put("eden:cafe_table", P(u, v), rnd() * 90);
+  for (const u of [NS[1] + 40, HS[0] - 40]) put("eden:kiosk", P(u, RS[0] - 18), FACE.n);
+  for (const [u, v] of [[712, 683], [714, 695]]) put("common:crate", P(u, v), rnd() * 90);
 
   // ---- gates: guard posts ----
-  put("eden:guard_post", P(598, 108), FACE.s);
-  put("eden:guard_post", P(643, 108), FACE.s);
-  put("eden:guard_post", P(108, 532), FACE.e);
-  put("eden:guard_post", P(108, 594), FACE.e);
-  put("eden:guard_post", P(622, 1018), FACE.n);
-  put("eden:guard_post", P(668, 1018), FACE.n);
+  for (const u of [lw, le]) {
+    put("eden:guard_post", P(u, 108), FACE.s);
+    put("eden:guard_post", P(u, 1018), FACE.n);
+  }
+  for (const v of [WE[0] + 8, WE[1] - 8]) put("eden:guard_post", P(108, v), FACE.e);
 
   // ---- the harbour: the quay, the basin, piers, ships, cargo, the lighthouse ----
   // quay walls (8 m each, the sea side facing `out`) from plan a to b, cut to length
@@ -272,10 +332,10 @@ export function buildEden(quality: { flowers: number }): Town {
   put("eden:lighthouse", [P(0, 30)[0] - 300, SHORE - 900], 0, { z: -60 });
   put("yodia:crane", [P(0, 600)[0], SHORE + 300], 90);
   put("yodia:crane", P(1030, 430), 0);
-  for (let v = 60; v < 1090; v += 110) if (v < BASIN.v0 - 20 || v > BASIN.v1 + 20) put("yodia:harbour_lamp", P(1128, v), 90, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
-  for (const v of [270, 335, 400]) put("yodia:harbour_lamp", P(1028, v), 90, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
-  for (const [u, v] of [[1100, 180], [1100, 470], [1000, 590], [1100, 760], [1095, 990], [1095, 1060]]) put("eden:cargo_stack", P(u, v), rnd() * 90);
-  for (const [u, v] of [[1110, 210], [1110, 640], [1110, 880], [1030, 245]]) put("common:crate", P(u, v), rnd() * 90);
+  for (let v = 60; v < 1090; v += 110) if (v < BASIN.v0 - 20 || v > BASIN.v1 + 20) put("yodia:harbour_lamp", P(1128, v), 90, { solid: post() });
+  for (const v of [270, 335, 400]) put("yodia:harbour_lamp", P(1028, v), 90, { solid: post() });
+  for (const [u, v] of [[1100, 180], [1100, 470], [1100, 625], [1100, 760], [1095, 990], [1095, 1060]]) put("eden:cargo_stack", P(u, v), rnd() * 90);
+  for (const [u, v] of [[1110, 210], [1110, 650], [1110, 880], [1030, 245], [1000, 300], [1000, 380]]) put("common:crate", P(u, v), rnd() * 90);
   // the sea is solid except along the piers, and so is the basin
   const seaX0 = P(0, 1100)[0], seaX1 = P(0, 10)[0];
   const cuts = PIERS.map((v) => P(0, v)[0]).sort((p, q) => p - q);
@@ -301,7 +361,7 @@ export function buildEden(quality: { flowers: number }): Town {
   for (let i = 0; i < 6; i++) {
     const a = 0.15 + (i / 5) * (Math.PI / 2 - 0.3);
     put("flora:Cherry", P(150 + 220 * Math.cos(a), 900 - 150 * Math.sin(a)), rnd() * 360, { s: 0.6 + rnd() * 0.15 });
-    if (i < 5) put("eden:street_lamp", P(150 + 240 * Math.cos(a + 0.15), 900 - 165 * Math.sin(a + 0.15)), 0, { solid: [{ kind: "post", x: 0, y: 0, r: 22 }] });
+    if (i < 5) put("eden:street_lamp", P(150 + 240 * Math.cos(a + 0.15), 900 - 165 * Math.sin(a + 0.15)), 0, { solid: post() });
   }
 
   // ---- the greens left between: trees and flower beds wherever there is room ----
@@ -332,11 +392,11 @@ export function buildEden(quality: { flowers: number }): Town {
       density: 0.35 * quality.flowers,
     },
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: SHORE - 2800, maxY: WEST + 1400 },
-    spawn: pt(780, 740),
+    spawn: pt(FU, 718),
     npcs: edenNpcs(town.doors),
     // out of the west gate to the first field; north up the royal road, south to the savanna
     ...waysOut([
-      { warp: { x: GATE_W[0], y: WEST + 1050, r: 160, to: "field" }, back: { x: 54, y: 8550 } },
+      { warp: { x: GATE_W[0], y: WEST + 1050, r: 160, to: "field" }, back: { x: GATE_W[0], y: 8550 } },
       gateWay(GATE_N, "n", "royal_road", 480, 450),
       gateWay(GATE_S, "s", "south_savanna", 480, 450),
     ]),
@@ -344,9 +404,9 @@ export function buildEden(quality: { flowers: number }): Town {
     // names on the map window
     labels: [
       { ...pt(262, 232), text: "มหาวิหาร" },
-      { ...pt(777, 330), text: "ตลาด" },
+      { ...pt(773, 330), text: "ตลาด" },
       { ...pt(255, 760), text: "สวนวีรบุรุษ" },
-      { ...pt(770, 860), text: "ลานน้ำพุ" },
+      { ...pt(FU, 860), text: "ลานน้ำพุ" },
       { ...pt(625, 640), text: "สี่แยกกลางเมือง", kind: "small" },
       { ...pt(1110, 720), text: "ท่าเรือ" },
       { ...pt(1090, 335), text: "อู่จอดเรือ", kind: "small" },
@@ -362,35 +422,35 @@ function edenNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
     const [x, y] = P(u, v);
     return { x, y };
   };
-  const shopAt = doors.tool_shop ?? P(760, 700);
+  const shopAt = doors.tool_shop ?? P(744, 677);
   const guard = (top: string) => ({ gender: "male", hair: "", hairColor: "ink", eyes: "blue", top, bottom: "bottom_warrior_black" });
   return [
-    { id: "guard_n1", ...at(600, 125), face: 180, name: "ทหารยามโรแลนด์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
+    { id: "guard_n1", ...at(603, 125), face: 180, name: "ทหารยามโรแลนด์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
       lines: ["ออกประตูเหนือไปคือถนนหลวงสู่ปราสาท แต่ปราสาทยังปิดซ่อมอยู่นะ", "ถนนหลวงแยกไปเชิงเขาหิมะทางเหนือ กับป่าสนริมแม่น้ำทางตะวันออก", "มือใหม่ล่าสไลม์ที่ทุ่งหญ้าตะวันตกก่อนดีกว่า"] },
-    { id: "guard_n2", ...at(641, 125), face: 180, name: "ทหารยามเกรเกอร์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
+    { id: "guard_n2", ...at(647, 125), face: 180, name: "ทหารยามเกรเกอร์", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_navy"),
       lines: ["อีเดนเป็นเมืองหลวงของอาณาจักร ยินดีต้อนรับ", "เดินตรงลงไปจะเจอสี่แยกกลางเมือง"] },
-    { id: "guard_w1", ...at(140, 530), face: -90, name: "ทหารยามเฮนริก", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
+    { id: "guard_w1", ...at(140, 540), face: -90, name: "ทหารยามเฮนริก", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
       lines: ["ออกประตูนี้ไปเป็นทุ่งหญ้าตะวันตก มีสไลม์อยู่เยอะ", "เดินเข้าวงแสงสีฟ้าตรงหน้าประตูเพื่อออกไปข้างนอก"] },
-    { id: "guard_w2", ...at(140, 596), face: -90, name: "ทหารยามอลัน", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
+    { id: "guard_w2", ...at(140, 590), face: -90, name: "ทหารยามอลัน", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
       lines: ["สไลม์สีม่วงแรงกว่าสีอื่นนะ ระวังด้วย", "ถ้าบาดเจ็บ กลับมาหานักบวชที่สี่แยกได้"] },
-    { id: "guide", ...at(560, 545), face: -135, name: "ลีน่า", title: "ผู้นำทาง", role: "talk",
+    { id: "guide", ...at(572, 547), face: -135, name: "ลีน่า", title: "ผู้นำทาง", role: "talk",
       look: { gender: "female", hair: "hime", hairColor: "gold", eyes: "blue", top: "top_adventurer_teal", bottom: "bottom_adventurer_sand" },
       lines: ["ที่นี่คือสี่แยกกลางเมืองอีเดน", "มหาวิหารอยู่ทางตะวันตกเฉียงเหนือ ตลาดอยู่ตะวันออกเฉียงเหนือ", "ลานน้ำพุกับร้านเครื่องมืออยู่ทางตะวันออกเฉียงใต้ ท่าเรืออยู่ริมทะเลฝั่งตะวันออก",
         "ทุ่งล่าสไลม์ออกทางประตูตะวันตก ประตูเหนือไปถนนหลวง ประตูใต้ไปทุ่งสะวันนาและทะเลทราย", "ที่ท่าเรือมีเรือไปโยเดียกับเกาะโอซากิ"] },
-    { id: "healer", ...at(548, 590), face: -45, name: "ซิสเตอร์มาเรีย", title: "นักบวช · รักษาฟรี", role: "heal",
+    { id: "healer", ...at(572, 584), face: -45, name: "ซิสเตอร์มาเรีย", title: "นักบวช · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal", top: "top_priestess_white", bottom: "bottom_priestess_white" },
       lines: ["ขอพรแห่งแสงจงคุ้มครองท่าน", "หายเหนื่อยแล้วนะ ไปผจญภัยต่อได้"] },
-    { id: "adventurer", ...at(645, 512), face: 135, name: "คาร่า", title: "นักผจญภัย", role: "talk",
+    { id: "adventurer", ...at(632, 505), face: 135, name: "คาร่า", title: "นักผจญภัย", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "rose", eyes: "amber", top: "top_adventurer", bottom: "bottom_adventurer" },
       lines: ["ได้ยินว่าโยเดียทางใต้มีเรือสินค้าลำใหญ่มาก", "เรือไปเกาะโอซากิออกจากท่าเรือนี่แหละ ไปหากัปตันมาร์โกสิ"] },
-    { id: "merchant_boy", ...at(672, 560), face: 90, name: "ทอม", title: "เด็กส่งของ", role: "talk", look: guard("top_warrior_forest"),
+    { id: "merchant_boy", ...at(682, 562), face: 90, name: "ทอม", title: "เด็กส่งของ", role: "talk", look: guard("top_warrior_forest"),
       lines: ["ร้านอาวุธอยู่ถนนใต้ ร้านเครื่องมืออยู่ลานน้ำพุ", "ตลาดทางเหนือมีผ้ากับผลไม้ขายเยอะเลย"] },
     { id: "guard_s", ...at(630, 700), face: -90, name: "ทหารยามบรูโน", title: "ทหารยามลาดตระเวน", role: "talk", look: guard("top_warrior_navy"),
       lines: ["ออกประตูใต้ไปเป็นทุ่งสะวันนา เดินต่อลงไปถึงขอบทะเลทรายกับเมืองบาฮามัส", "ระวังของหายนะ ตลาดคนเยอะ"] },
-    travelGuide("eden", P(748, 728), -150),
+    travelGuide("eden", P(755, 722), -150),
     { id: "shop", x: shopAt[0], y: shopAt[1], face: 180, name: "ลิเลีย", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ยา เสื้อผ้า คัมภีร์ มีครบ เข้ามาดูก่อนได้"] },
-    { id: "sailor", ...at(1112, 470), face: 90, name: "กัปตันมาร์โก", title: "เรือโดยสาร · โยเดีย โอซากิ", role: "travel", ports: ["yodia", "osaki"],
+    { id: "sailor", ...at(1105, 515), face: 90, name: "กัปตันมาร์โก", title: "เรือโดยสาร · โยเดีย โอซากิ", role: "travel", ports: ["yodia", "osaki"],
       look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior" },
       lines: ["ขึ้นเรือไหม ลงใต้ไปโยเดีย หรือข้ามทะเลไปเกาะโอซากิ", "เรือไปไอซ์เบิร์กยังไม่เปิด ทะเลเหนือน้ำแข็งเยอะเกินไป"] },
   ];
