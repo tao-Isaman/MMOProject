@@ -10,7 +10,7 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock, gableRoof, gableWall } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial } from "../textures";
-import { shrub } from "../trees";
+import { shrub, limb as smooth } from "../trees";
 import type { ShrubLook } from "../trees";
 import type { Kit, Put } from "./types";
 
@@ -667,7 +667,7 @@ function fallenLog(): Geo {
     const ang = (k / 8) * Math.PI * 2, c: V3 = [195, 12 + Math.cos(ang) * 20, 26 + Math.sin(ang) * 20];
     P.push(cylinderBetween(c, add(c, [24 + ((k * 13) % 5) * 9, Math.cos(ang) * 6, Math.sin(ang) * 6]), 7, 5, "Volcanic_Heartwood", 0.6));
   }
-  P.push(cylinderBetween([-60, 4, 50], [-20, -30, 110], 8, 7, B, 4), cylinderBetween([80, 8, 48], [120, 60, 80], 7, 6, B, 3), cylinderBetween([20, -22, 30], [10, -70, 16], 6, 6, B, 3));
+  P.push(smooth([[-60, 4, 50], [-36, -16, 84], [-20, -30, 110]], 8, 4, B, { seg: 6, maxRings: 3 }), smooth([[80, 8, 48], [104, 34, 68], [120, 60, 80]], 7, 3, B, { seg: 6, maxRings: 3 }), smooth([[20, -22, 30], [14, -46, 26], [10, -70, 16]], 6, 3, B, { seg: 6, maxRings: 3 }));
   for (let k = 0; k < 6; k++) P.push(ellipsoid([34, 16, 6], [-160 + k * 62, 5 + k * 2, 55 - k * 0.6], k % 2 ? "Volcanic_Moss" : "Volcanic_MossDark", 8));
   for (const [x, z, r] of [[-110, 22, 13], [-80, 34, 10], [40, 18, 12], [70, 30, 9]] as const) P.push(cylinderAt({ radius: r, height: 4, segments: 10, bottom: [x, -27, z] }, "Volcanic_Fungus"));
   P.push(tuft([-120, 50, 0], 81, 9, 55), tuft([100, -45, 0], 83, 8, 50), tuft([0, 50, 0], 85, 6, 45));
@@ -684,7 +684,7 @@ function stump(): Geo {
   }
   for (let k = 0; k < 5; k++) {
     const a = (k / 5) * Math.PI * 2 + 0.4;
-    P.push(chain([[Math.cos(a) * 28, Math.sin(a) * 28, 30], [Math.cos(a) * 62, Math.sin(a) * 62, 10], [Math.cos(a) * 92, Math.sin(a) * 92, -6]], 15, 6, B, 8, true));
+    P.push(smooth([[Math.cos(a) * 24, Math.sin(a) * 24, 32], [Math.cos(a) * 58, Math.sin(a) * 58, 10], [Math.cos(a + 0.1) * 92, Math.sin(a + 0.1) * 92, -6]], 15, 5, B, { seg: 7, maxRings: 4, gnarl: 0.5 }));
   }
   P.push(ellipsoid([30, 22, 6], [-10, 14, 66], "Volcanic_Moss", 8));
   for (const [x, y, h] of [[-48, -30, 14], [-56, -16, 10], [-44, -44, 8]] as const) P.push(cylinderAt({ radius: 2.4, height: h, segments: 6, bottom: [x, y, 0] }, "FabricWhite"), ellipsoid([7, 7, 4.5], [x, y, h], "FabricRed", 8));
@@ -767,10 +767,10 @@ function basaltColumns(): Geo {
 function deadTree(): Geo {
   const rnd = seeded(121), C = "Volcanic_Charred", Dw = "Volcanic_DeadWood", P: Geo[] = [];
   const trunk: V3[] = [[0, 0, 0], [10, 6, 120], [26, -10, 240], [14, -22, 360], [30, -16, 470]];
-  P.push(chain(trunk, 26, 7, C, 9, true), cylinderAt({ rBot: 40, rTop: 25, height: 44, segments: 9, bottom: [0, 0, 0] }, C));
+  P.push(smooth(trunk, 28, 6, C, { seg: 9, flare: 0.6, roots: 5, gnarl: 0.9, seed: 121, taper: 0.85 }));
   for (let k = 0; k < 5; k++) {
     const a = (k / 5) * Math.PI * 2 + 0.3;
-    P.push(chain([[Math.cos(a) * 20, Math.sin(a) * 20, 26], [Math.cos(a) * 60, Math.sin(a) * 60, 8], [Math.cos(a) * 90, Math.sin(a) * 90, -6]], 12, 4, C, 7, true));
+    P.push(smooth([[Math.cos(a) * 16, Math.sin(a) * 16, 28], [Math.cos(a) * 52, Math.sin(a) * 52, 8], [Math.cos(a + 0.12) * 86, Math.sin(a + 0.12) * 86, -6]], 12, 4, C, { seg: 6, maxRings: 4 }));
   }
   for (const [t, a, l] of [[0.42, 30, 190], [0.55, 160, 210], [0.68, 260, 170], [0.8, 90, 150], [0.9, 210, 120]] as const) {
     const i = Math.min(3, Math.floor(t * 4)), f = t * 4 - i;
@@ -778,10 +778,10 @@ function deadTree(): Geo {
     const m: V3 = add(s, [Math.cos(d) * l * 0.55, Math.sin(d) * l * 0.55, l * 0.35]);
     const e: V3 = add(m, [Math.cos(d + 0.3) * l * 0.45, Math.sin(d + 0.3) * l * 0.45, l * 0.45]);
     const r0 = 10 - t * 5;
-    P.push(chain([s, m, e], r0, 1.2, i % 2 ? Dw : C, 7, true));
+    P.push(smooth([s, m, e], r0, 1.2, i % 2 ? Dw : C, { seg: 6, gnarl: 0.4 }));
     for (let k = 0; k < 2; k++) {
       const dd = d + (rnd() - 0.5) * 1.6, tip: V3 = add(m, [Math.cos(dd) * l * 0.4, Math.sin(dd) * l * 0.4, l * (0.2 + rnd() * 0.4)]);
-      P.push(cylinderBetween(m, tip, r0 * 0.4, 5, Dw, 0.6));
+      P.push(smooth([m, [(m[0] + tip[0]) / 2, (m[1] + tip[1]) / 2, (m[2] + tip[2]) / 2 + 6], tip], r0 * 0.4, 0.6, Dw, { seg: 4, maxRings: 3 }));
     }
   }
   for (let k = 0; k < 4; k++) {

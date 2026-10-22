@@ -1,5 +1,6 @@
-// Plants of the other lands that the leaf-card trees (trees.ts) don't cover: palms, pines (with
-// or without snow), bamboo and cacti; and `plant(name)`, one place to get any tree or plant.
+// Plants of the other lands that the crown trees (trees.ts) don't cover: palms (drooping fronds
+// on a ringed trunk), firs as tiers of needle boughs (with or without snow), bamboo and cacti;
+// and `plant(name)`, one place to get any tree or plant.
 //
 // Like everything in src/world3d these are built from code at start-up, in centimetres with
 // Z up; each name is built once and cloned.
@@ -8,7 +9,7 @@ import * as THREE from "three";
 import { merge, sphereCenter, toThree } from "./geo";
 import type { Geo, V3 } from "./geo";
 import { material, flowerCell, FLOWER_CELLS } from "./textures";
-import { tree, TREES, limb, along, LeafCards, foliage, CANOPY, treeObject, Cards } from "./trees";
+import { tree, TREES, limb, along, LeafCards, foliage, CANOPY, treeObject, Cards, frond } from "./trees";
 import type { Lobe } from "./trees";
 
 function seeded(seed: number): () => number {
@@ -17,41 +18,6 @@ function seeded(seed: number): () => number {
 }
 const UP = new THREE.Vector3(0, 0, 1);
 const lin = (r: number, g: number, b: number, k = 1.6) => new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiplyScalar(k);
-
-// A frond (or any long leaf) as cards: a rib from `at` heading `yaw`, rising at `lift` and
-// bending down by `droop` toward its tip, its two halves folded down from the rib by `fold` (a V
-// seen end on) so it reads as leaflets hanging either side; `w` its half-width at the widest.
-// The texture runs along U with the rib across the middle (v = 0.5). Colours go from `base` at
-// the stalk to `tip`.
-export interface FrondSpec { at: V3; yaw: number; lift: number; droop: number; len: number; w: number; fold?: number; segs?: number; base: THREE.Color; tip: THREE.Color; twist?: number }
-export function frond(cards: LeafCards, f: FrondSpec): void {
-  const segs = f.segs ?? 6, fold = f.fold ?? 0.5;
-  const dir = new THREE.Vector3(Math.cos(f.yaw), Math.sin(f.yaw), 0), side = new THREE.Vector3(-Math.sin(f.yaw), Math.cos(f.yaw), 0);
-  const pts = [new THREE.Vector3(...f.at)], tans: THREE.Vector3[] = [];
-  for (let k = 0; k <= segs; k++) {
-    const ang = f.lift - f.droop * Math.pow(k / segs, 1.35);
-    const t = dir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(UP, Math.sin(ang));
-    tans.push(t);
-    if (k < segs) pts.push(pts[k].clone().addScaledVector(t, f.len / segs));
-  }
-  const width = (k: number) => f.w * Math.pow(Math.sin(Math.PI * (0.06 + 0.9 * (k / segs))), 0.8);
-  const rib: THREE.Vector3[] = [], left: THREE.Vector3[] = [], right: THREE.Vector3[] = [], nor: THREE.Vector3[] = [], col: THREE.Color[] = [];
-  for (let k = 0; k <= segs; k++) {
-    const t = tans[k], s = side.clone().applyAxisAngle(t, (f.twist ?? 0) * (k / segs));
-    const up = new THREE.Vector3().crossVectors(t, s).normalize(); // the frond's own up
-    const w = width(k);
-    rib.push(pts[k]);
-    left.push(pts[k].clone().addScaledVector(s, w * Math.cos(fold)).addScaledVector(up, -w * Math.sin(fold)));
-    right.push(pts[k].clone().addScaledVector(s, -w * Math.cos(fold)).addScaledVector(up, -w * Math.sin(fold)));
-    nor.push(up.clone().multiplyScalar(0.6).addScaledVector(UP, 0.7).normalize());
-    col.push(f.base.clone().lerp(f.tip, k / segs));
-  }
-  for (let k = 0; k < segs; k++) {
-    const u0 = k / segs, u1 = (k + 1) / segs;
-    cards.quad([rib[k], rib[k + 1], left[k + 1], left[k]], [[u0, 0.5], [u1, 0.5], [u1, 1], [u0, 1]], [nor[k], nor[k + 1], nor[k + 1], nor[k]], [col[k], col[k + 1], col[k + 1], col[k]]);
-    cards.quad([right[k], right[k + 1], rib[k + 1], rib[k]], [[u0, 0], [u1, 0], [u1, 0.5], [u0, 0.5]], [nor[k], nor[k + 1], nor[k + 1], nor[k]], [col[k], col[k + 1], col[k + 1], col[k]]);
-  }
-}
 
 // ---- palm: a leaning ringed trunk swelling at the foot, a crown of arching fronds that droop
 // at the tips (young ones rising in the middle, old ones lower, a few dead ones hanging), a
@@ -71,12 +37,12 @@ function palm(seed: number, height: number, lean: number, fronds: number): THREE
   const head = top.clone().addScaledVector(axis, 4);
   for (let f = 0; f < fronds; f++) {
     const yaw = (f / fronds) * Math.PI * 2 + rnd() * 0.45, young = f % 3 === 0;
-    const lift = young ? 0.85 + rnd() * 0.3 : f % 3 === 1 ? 0.45 + rnd() * 0.2 : 0.15 + rnd() * 0.2;
-    const shade = young ? 1 : f % 3 === 1 ? 0.88 : 0.78;
+    const lift = young ? 0.62 + rnd() * 0.25 : f % 3 === 1 ? 0.38 + rnd() * 0.2 : 0.1 + rnd() * 0.2;
+    const shade = young ? 1.04 : f % 3 === 1 ? 0.94 : 0.84;
     frond(cards, {
       at: head.clone().add(new THREE.Vector3(Math.cos(yaw) * 5, Math.sin(yaw) * 5, 0)).toArray() as V3,
-      yaw, lift, droop: (young ? 1.5 : 1.9) + rnd() * 0.3, len: height * 0.42 * (0.88 + rnd() * 0.24), w: 34 + rnd() * 6, fold: 0.42 + rnd() * 0.2, segs: 7,
-      base: lin(70 * shade, 104 * shade, 46 * shade), tip: lin(150 * shade, 196 * shade, 84 * shade), twist: (rnd() - 0.5) * 0.6,
+      yaw, lift, droop: (young ? 1.45 : 1.8) + rnd() * 0.3, len: height * 0.35 * (0.88 + rnd() * 0.24), w: 42 + rnd() * 8, fold: 0.34 + rnd() * 0.16, segs: 7,
+      base: lin(84 * shade, 120 * shade, 50 * shade), tip: lin(160 * shade, 204 * shade, 90 * shade), twist: (rnd() - 0.5) * 0.6,
     });
   }
   for (let f = 0; f < 3; f++) {
@@ -152,13 +118,13 @@ function bamboo(seed: number, canes: number): THREE.Group {
     const tip: V3 = [x + Math.cos(a) * 30 + (rnd() - 0.5) * 50, y + Math.sin(a) * 30 + (rnd() - 0.5) * 50, h];
     const pts: V3[] = [[x, y, 0], [x + (tip[0] - x) * 0.3, y + (tip[1] - y) * 0.3, h * 0.5], tip];
     parts.push(limb(pts, r, r * 0.7, i % 3 ? "Bamboo" : "BambooDry", { seg: 5, step: 200 }));
-    for (const t of [0.66, 0.8, 0.93]) {
+    for (const t of [0.5, 0.63, 0.76, 0.88, 0.98]) {
       const p = along(pts, t);
-      lobes.push([p[0] + (rnd() - 0.5) * 30, p[1] + (rnd() - 0.5) * 30, p[2], 46 + rnd() * 18, 46 + rnd() * 18, 34 + rnd() * 10]);
+      lobes.push([p[0] + (rnd() - 0.5) * 40, p[1] + (rnd() - 0.5) * 40, p[2], 50 + rnd() * 22, 50 + rnd() * 22, 36 + rnd() * 10]);
     }
   }
   const cards = new LeafCards();
-  parts.push(foliage({ seed: seed + 5, lobes, leaf: 50, look: CANOPY.bamboo, density: 0.75, hang: 0.7, flat: 0, ragged: 0.9, under: 0.6 }, cards));
+  parts.push(foliage({ seed: seed + 5, lobes, leaf: 52, look: CANOPY.bamboo, density: 0.95, hang: 0.6, flat: 0, ragged: 0.9, under: 0.7 }, cards));
   return treeObject(merge(...parts), [cards, "lance"]);
 }
 
@@ -199,9 +165,9 @@ function cactus(seed: number, tall: boolean): THREE.Group {
 
 // ---- every plant by name ----
 const MAKERS: Record<string, () => THREE.Object3D> = {
-  Palm: () => palm(3, 620, 10, 9),
-  PalmTall: () => palm(5, 820, 16, 10),
-  PalmBent: () => palm(9, 560, 30, 8),
+  Palm: () => palm(3, 620, 10, 13),
+  PalmTall: () => palm(5, 820, 16, 14),
+  PalmBent: () => palm(9, 560, 30, 12),
   Pine: () => pine(4, 700, false),
   PineSmall: () => pine(8, 420, false),
   SnowPine: () => pine(6, 720, true),

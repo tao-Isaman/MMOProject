@@ -18,7 +18,7 @@ import {
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, frondTexture } from "../textures";
 import type { Recipe } from "../textures";
-import { wind } from "../trees";
+import { wind, limb as tlimb } from "../trees";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -539,15 +539,15 @@ function fallenLog(): Geo {
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2 + 0.3, L = 100 + rnd() * 50;
     const end: V3 = [Math.cos(a) * L, -320 - rnd() * 30, Math.max(-6, 70 + Math.sin(a) * L)];
-    out.push(cylinderBetween([Math.cos(a) * 60, -318, 70 + Math.sin(a) * 60], end, 10, 5, "Plains_Bark", 3));
+    out.push(tlimb([[Math.cos(a) * 50, -312, 70 + Math.sin(a) * 50], [Math.cos(a) * (60 + L) * 0.55, -324, 70 + Math.sin(a) * (60 + L) * 0.5], end], 10, 3, "Plains_Bark", { seg: 5, maxRings: 4 }));
   }
   // branch stubs and a broken limb on the ground
-  out.push(cylinderBetween([-20, -60, 66], [-80, -100, 132], 13, 7, "Plains_Bark", 8));
+  out.push(tlimb([[-20, -60, 66], [-54, -76, 104], [-80, -100, 132]], 13, 8, "Plains_Bark", { seg: 7, maxRings: 3, gnarl: 0.4 }));
   out.push(cylinderBetween([-80, -100, 131], [-82, -101, 134], 7, 7, "Plains_LogEnd"));
-  out.push(cylinderBetween([22, 110, 62], [70, 140, 100], 11, 7, "Plains_Bark", 7));
-  out.push(cylinderBetween([30, 150, 30], [160, 240, 16], 15, 7, "Plains_Bark", 8));
-  out.push(cylinderBetween([150, 232, 18], [190, 310, 34], 7, 5, "Plains_Bark", 3));
-  out.push(cylinderBetween([110, 200, 22], [170, 180, 50], 6, 5, "Plains_Bark", 2));
+  out.push(tlimb([[22, 110, 62], [44, 128, 84], [70, 140, 100]], 11, 7, "Plains_Bark", { seg: 7, maxRings: 3 }));
+  out.push(tlimb([[30, 150, 30], [96, 190, 28], [160, 240, 16]], 15, 8, "Plains_Bark", { seg: 7, maxRings: 4, gnarl: 0.4 }));
+  out.push(tlimb([[150, 232, 18], [168, 272, 22], [190, 310, 34]], 7, 3, "Plains_Bark", { seg: 5, maxRings: 3 }));
+  out.push(tlimb([[110, 200, 22], [140, 186, 38], [170, 180, 50]], 6, 2, "Plains_Bark", { seg: 5, maxRings: 3 }));
   // bracket fungi and mushrooms
   for (const [y, z] of [[-150, 40], [-122, 56], [-96, 34], [60, 30]]) out.push(translate(scale(sphereCenter(17, [0, 0, 0], "Plains_Fungus", 8), [0.75, 1, 0.26]), [-44, y, z]));
   out.push(mushroom(-62, 160, 16, 11), mushroom(-74, 186, 11, 8), mushroom(-50, 205, 8, 6), mushroom(58, -200, 14, 10, false), mushroom(70, -176, 10, 7, false));
@@ -564,7 +564,7 @@ function stump(): Geo {
   ];
   for (let i = 0; i < 5; i++) {
     const a = (i * 72 + 15) * D;
-    out.push(cylinderBetween([Math.cos(a) * 26, Math.sin(a) * 26, 36], [Math.cos(a) * 92, Math.sin(a) * 92, -8], 18, 7, "Plains_Bark", 6));
+    out.push(tlimb([[Math.cos(a) * 20, Math.sin(a) * 20, 40], [Math.cos(a) * 54, Math.sin(a) * 54, 12], [Math.cos(a + 0.1) * 92, Math.sin(a + 0.1) * 92, -8]], 18, 6, "Plains_Bark", { seg: 7, maxRings: 4, gnarl: 0.5 }));
   }
   out.push(mushroom(-58, 40, 12, 9, false), mushroom(-48, 60, 9, 6, false), mushroom(40, -62, 14, 9));
   return merge(...out);

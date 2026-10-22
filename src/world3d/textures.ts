@@ -555,9 +555,10 @@ export function leafCard(kind: Exclude<CardKind, "flowers">): HTMLCanvasElement 
 // tiny leaflets (acacia, birch), "glossy" big jungle leaves, "lance" bamboo leaves, "blossom"
 // cherry flowers (in colour), "bough"/"boughSnow" a fir spray along U (256 x 128), "frond" a
 // palm frond along U with its rib across the middle (256 x 64).
-export type CanopyCard = "canopy" | "maple" | "blossom" | "fine" | "glossy" | "lance" | "bough" | "boughSnow" | "frond";
+export type CanopyCard = "canopy" | "maple" | "blossom" | "fine" | "glossy" | "lance" | "bough" | "boughSnow" | "frond" | "heart";
 export function canopyCard(kind: CanopyCard): HTMLCanvasElement {
   if (kind === "lance") return leafCard("lance");
+  if (kind === "heart") return heartCard();
   if (kind === "bough" || kind === "boughSnow") return boughCard(kind === "boughSnow");
   if (kind === "frond") return frondCard();
   const size = 256, c = document.createElement("canvas");
@@ -812,6 +813,47 @@ function frondCard(): HTMLCanvasElement {
   g.moveTo(2, h / 2);
   g.lineTo(w - 4, h / 2);
   g.stroke();
+  return c;
+}
+
+// One big heart-shaped leaf filling the card, its stalk at u = 0 and tip at u = 1, veins
+// fanning from the midrib (elephant ears), grey for the tint.
+function heartCard(): HTMLCanvasElement {
+  const S = 256, c = document.createElement("canvas");
+  c.width = c.height = S;
+  const g = c.getContext("2d")!;
+  const m = S / 2;
+  g.beginPath();
+  g.moveTo(S * 0.16, m);
+  g.bezierCurveTo(S * 0.02, m - S * 0.1, S * 0.02, m - S * 0.42, S * 0.3, m - S * 0.44);
+  g.bezierCurveTo(S * 0.62, m - S * 0.46, S * 0.86, m - S * 0.22, S * 0.985, m);
+  g.bezierCurveTo(S * 0.86, m + S * 0.22, S * 0.62, m + S * 0.46, S * 0.3, m + S * 0.44);
+  g.bezierCurveTo(S * 0.02, m + S * 0.42, S * 0.02, m + S * 0.1, S * 0.16, m);
+  g.closePath();
+  const grad = g.createRadialGradient(S * 0.3, m, 4, S * 0.4, m, S * 0.6);
+  grad.addColorStop(0, shade(0.95));
+  grad.addColorStop(1, shade(0.7));
+  g.fillStyle = grad;
+  g.fill();
+  g.strokeStyle = shade(0.45);
+  g.lineWidth = 3;
+  g.stroke();
+  g.strokeStyle = shade(1);
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(S * 0.16, m);
+  g.lineTo(S * 0.96, m);
+  g.stroke();
+  g.lineWidth = 1.6;
+  for (let i = 0; i < 7; i++) {
+    const x = S * (0.22 + i * 0.1);
+    for (const sd of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(x, m);
+      g.quadraticCurveTo(x + S * 0.06, m + sd * S * 0.18, x + S * 0.04 - i * 2, m + sd * S * (0.38 - i * 0.04));
+      g.stroke();
+    }
+  }
   return c;
 }
 
@@ -1076,13 +1118,13 @@ const RECIPES: Record<string, Recipe> = {
   BarkPalm: { map: "palmBark", tint: "#a4865e", bump: 3 },
   Palm_Coconut: { map: "bark", tint: "#6e5030", rough: 0.7, bump: 1 },
   // tree canopies: the leafy mass inside each lobe of a crown (src/world3d/trees.ts: foliage)
-  CanopyCore: { map: "foliage", tint: "#5a963e", rough: 0.95, bump: 1.5 },
-  CanopyCoreDeep: { map: "foliage", tint: "#3f7834", rough: 0.95, bump: 1.5 },
-  CanopyCoreBirch: { map: "foliage", tint: "#7a9c3c", rough: 0.95, bump: 1.5 },
-  CanopyCoreAutumn: { map: "foliage", tint: "#a8582a", rough: 0.95, bump: 1.5 },
-  CanopyCoreRed: { map: "foliage", tint: "#8a2a1e", rough: 0.95, bump: 1.5 },
+  CanopyCore: { map: "foliage", tint: "#66a246", rough: 0.95, bump: 1.5 },
+  CanopyCoreDeep: { map: "foliage", tint: "#48843a", rough: 0.95, bump: 1.5 },
+  CanopyCoreBirch: { map: "foliage", tint: "#8cae4c", rough: 0.95, bump: 1.5 },
+  CanopyCoreAutumn: { map: "foliage", tint: "#c06a30", rough: 0.95, bump: 1.5 },
+  CanopyCoreRed: { map: "foliage", tint: "#9a3222", rough: 0.95, bump: 1.5 },
   CanopyCoreFrost: { map: "foliage", tint: "#6c9488", rough: 0.95, bump: 1.5 },
-  CanopyCoreBlossom: { map: "foliage", tint: "#d890ae", rough: 0.95, bump: 1.5 },
+  CanopyCoreBlossom: { map: "foliage", tint: "#eab0c8", rough: 0.95, bump: 1.5 },
   CanopyCoreOlive: { map: "foliage", tint: "#76823e", rough: 0.95, bump: 1.5 },
   CanopyCoreFir: { map: "foliage", tint: "#2f5a36", rough: 1, bump: 1.5 },
   CanopyCoreFirSnow: { map: "foliage", tint: "#4a6e58", rough: 1, bump: 1.5 },

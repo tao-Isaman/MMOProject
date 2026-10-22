@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, gableWall, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial } from "../textures";
-import { shrub, Cards } from "../trees";
+import { shrub, Cards, limb } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the town's own colours ----
@@ -705,7 +705,10 @@ function orangeTree(at: V3): Geo {
     sboxAt([100, 100, 12], [0, 0, 30], "Bahamas_TileTeal", 1),
     sboxAt([104, 104, 8], [0, 0, 56], "SandstonePale", 2),
     cyl(42, 2, 10, [0, 0, 62], "WoodDark"),
-    cylinderBetween([0, 0, 60], [0, 0, 170], 7, 8, "BarkWarm", 5),
+    // a short crooked trunk forking into the crown
+    limb([[0, 0, 60], [4, -2, 110], [-2, 1, 150], [0, 0, 180]], 7.5, 4, "BarkWarm", { seg: 6, flare: 0.35, roots: 4, gnarl: 0.6, seed: 697 }),
+    limb([[0, 0, 150], [16, 8, 172], [28, 14, 192]], 3.6, 1.2, "BarkWarm", { seg: 4 }),
+    limb([[0, 0, 158], [-14, 12, 180], [-24, 22, 196]], 3.2, 1.1, "BarkWarm", { seg: 4 }),
     // the clipped crown: a ball of leafy lobes
     shrub({ seed: 701, leaf: 22, ragged: 0.3, core: 0.86, lobes: [[0, 0, 206, 50, 50, 44], [24, -16, 194, 34, 32, 30], [-24, 18, 196, 34, 32, 30], [6, 26, 222, 30, 28, 26], [-8, -24, 224, 30, 28, 24], [20, 18, 186, 30, 28, 24], [-20, -20, 186, 30, 28, 24]] }),
     ...fruit,

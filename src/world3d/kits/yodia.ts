@@ -16,6 +16,7 @@ import {
 } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial } from "../textures";
+import { shrub, SHRUB_JUNGLE } from "../trees";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -53,6 +54,12 @@ const at = (g: Geo, heading: number, d: number, along: number, z: number): Geo =
 
 // Texture coordinates again, with U along `axis` on every face that runs along it (roof slabs
 // whose slope is longer than their ridge, upright boards). Call it before any rotation.
+// The leafy top of a potted plant: a few lobes of broad tropical leaves over a dark core, its
+// middle `z` above the pot's foot, about `r` across.
+function pottedLeaves(z: number, r: number, seed: number): Geo {
+  return shrub({ seed, look: SHRUB_JUNGLE, leaf: r * 0.62, ragged: 0.75, core: 0.7, lobes: [[0, 0, z, r * 0.9, r * 0.9, r * 0.7], [r * 0.35, r * 0.2, z + r * 0.45, r * 0.55, r * 0.55, r * 0.5], [-r * 0.3, -r * 0.25, z + r * 0.35, r * 0.55, r * 0.55, r * 0.5]] });
+}
+
 function uvAlong(g: Geo, axis: 0 | 1 | 2): Geo {
   for (const p of g) {
     const pos = p.geo.getAttribute("position"), nor = p.geo.getAttribute("normal");
@@ -790,7 +797,7 @@ function longhouse(): Geo {
   for (let i = 0; i < 4; i++) g.push(boxBounds([xv - 30 - i * 30, -60, 0], [xv - i * 30, 60, F - 14 - i * 30], "WoodWarm", 1.5));
   for (const s of [-1, 1]) g.push(beamBetween([xv - 130, s * 64, 0], [xv, s * 64, F], 8, 12, "WoodDark"));
   // veranda life: potted plants, a bench, a fish trap, lanterns; firewood and jars underneath
-  for (const y of [-80, 80]) g.push(translate(merge(cylinderAt({ rBot: 14, rTop: 19, height: 30, segments: 8, bottom: [0, 0, 0] }, "Yodia_Clay"), sphereCenter(24, [0, 0, 46], "LeafGreen", 8)), [xv + 30, y, F]));
+  for (const y of [-80, 80]) g.push(translate(merge(cylinderAt({ rBot: 14, rTop: 19, height: 30, segments: 8, bottom: [0, 0, 0] }, "Yodia_Clay"), pottedLeaves(46, 24, 793)), [xv + 30, y, F]));
   g.push(boxAt([44, 160, 8], [x0 - 40, -300, F + 40], "WoodWarm", 1.5), boxAt([40, 8, 40], [x0 - 40, -370, F], "WoodShade"), boxAt([40, 8, 40], [x0 - 40, -230, F], "WoodShade"));
   g.push(translate(merge(cylinderAt({ rBot: 16, rTop: 6, height: 50, segments: 8, bottom: [0, 0, 0] }, "BambooDry"), rope([0, 0, 50], [0, 0, 70], 1)), [xv + 30, 300, 230]));
   g.push(hangLantern([xv + 10, -240, 306], 18), hangLantern([xv + 10, 240, 306], 18));
@@ -1332,7 +1339,7 @@ function shophouse(bays: number, storeys: 2 | 3): Geo {
   if (bays > 1) g.push(at(win(70, 110, { bars: true }), 180, HX, centres[bays - 1], 120));
   // life in the arcade: potted plants by the piers, a bench, a bird cage
   for (const yc of centres) {
-    g.push(translate(merge(cylinderAt({ rBot: 13, rTop: 18, height: 34, segments: 8, bottom: [0, 0, 0] }, "Yodia_Clay"), sphereCenter(26, [0, 0, 52], "LeafGreen", 8)), [-HX + 70, yc - BW / 2 + 52, 12]));
+    g.push(translate(merge(cylinderAt({ rBot: 13, rTop: 18, height: 34, segments: 8, bottom: [0, 0, 0] }, "Yodia_Clay"), pottedLeaves(52, 26, 1335)), [-HX + 70, yc - BW / 2 + 52, 12]));
   }
   g.push(boxAt([40, 150, 8], [xs - 34, centres[0] + (bays > 1 ? 60 : 0), 52], "WoodWarm", 1.5), boxAt([36, 8, 40], [xs - 34, centres[0] + (bays > 1 ? 60 : 0) - 64, 12], "WoodShade"), boxAt([36, 8, 40], [xs - 34, centres[0] + (bays > 1 ? 60 : 0) + 64, 12], "WoodShade"));
   if (bays > 1) {

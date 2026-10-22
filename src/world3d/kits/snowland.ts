@@ -16,7 +16,7 @@ import {
 } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, FLOWER_CELLS } from "../textures";
-import { Cards, shrub, lump } from "../trees";
+import { Cards, shrub, lump, limb } from "../trees";
 import type { Lobe, ShrubLook } from "../trees";
 import type { Kit } from "./types";
 
@@ -312,15 +312,16 @@ function fallenLog(): Geo {
   parts.push(translate(rotateY(cylinderAt({ radius: 88, height: 26, segments: 11, bottom: [0, 0, -13] }, "Snowland_Earth"), 90), [x0 - 16, 0, z + 28]));
   for (let i = 0; i < 11; i++) {
     const a = (i / 11) * Math.PI * 2 + rnd() * 0.3;
-    parts.push(cylinderBetween([x0 - 20, Math.cos(a) * 40, z + 28 + Math.sin(a) * 40], [x0 - 36 - rnd() * 30, Math.cos(a) * (100 + rnd() * 30), z + 30 + Math.sin(a) * (95 + rnd() * 25)], 8, 5, "Snowland_Bark", 2.5));
+    const e: V3 = [x0 - 36 - rnd() * 30, Math.cos(a) * (100 + rnd() * 30), z + 30 + Math.sin(a) * (95 + rnd() * 25)];
+    parts.push(limb([[x0 - 20, Math.cos(a) * 40, z + 28 + Math.sin(a) * 40], [(x0 - 20 + e[0]) / 2 - 6, (Math.cos(a) * 40 + e[1]) / 2, (z + 28 + Math.sin(a) * 40 + e[2]) / 2 - 8], e], 8, 2.5, "Snowland_Bark", { seg: 5, maxRings: 3 }));
   }
   parts.push(blob(62, [x0 - 22, 0, z + 112], "Snow", 0.3), blob(40, [x0 - 30, -50, z + 95], "Snow", 0.3));
   // branch stubs
   parts.push(
-    cylinderBetween([-80, 10, z + 20], [-110, 50, z + 78], 7, 5, "Snowland_Bark", 2.5),
-    cylinderBetween([60, -15, z + 18], [92, -62, z + 62], 6, 5, "Snowland_Bark", 2),
-    cylinderBetween([150, 20, z - 8], [195, 75, 2], 6, 5, "Snowland_Bark", 2),
-    cylinderBetween([-170, -15, z + 22], [-190, -40, z + 66], 5, 5, "Snowland_DeadWood", 1.5),
+    limb([[-80, 10, z + 20], [-98, 28, z + 52], [-110, 50, z + 78]], 7, 2.5, "Snowland_Bark", { seg: 5, maxRings: 3 }),
+    limb([[60, -15, z + 18], [80, -36, z + 42], [92, -62, z + 62]], 6, 2, "Snowland_Bark", { seg: 5, maxRings: 3 }),
+    limb([[150, 20, z - 8], [172, 48, z - 10], [195, 75, 2]], 6, 2, "Snowland_Bark", { seg: 5, maxRings: 3 }),
+    limb([[-170, -15, z + 22], [-182, -26, z + 46], [-190, -40, z + 66]], 5, 1.5, "Snowland_DeadWood", { seg: 5, maxRings: 3 }),
   );
   // snow along the top and drifted against its side
   parts.push(translate(scale(cylinderBetween([x0 + 25, 0, 0], [x1 - 25, 0, 3], 24, 8, "Snow"), [1, 1, 0.42]), [0, 0, z + r - 5]));
@@ -338,7 +339,7 @@ function snowyStump(): Geo {
   ];
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + 0.3;
-    parts.push(cylinderBetween([Math.cos(a) * 30, Math.sin(a) * 30, 24], [Math.cos(a) * 80, Math.sin(a) * 80, -4], 13, 6, "Snowland_Bark", 5));
+    parts.push(limb([[Math.cos(a) * 26, Math.sin(a) * 26, 28], [Math.cos(a) * 52, Math.sin(a) * 52, 8], [Math.cos(a + 0.1) * 80, Math.sin(a + 0.1) * 80, -4]], 13, 5, "Snowland_Bark", { seg: 6, maxRings: 4, gnarl: 0.5 }));
   }
   // a woodcutter's axe left in it
   parts.push(translate(merge(
@@ -392,7 +393,8 @@ function deadBranches(): Geo {
   const rnd = seeded(127), parts: Geo[] = [mound(230, 170, 30, 131), mound(120, 90, 18, 133, [90, -90, 0])];
   const branch = (a: V3, dir: THREE.Vector3, len: number, r: number, depth: number): void => {
     const b: V3 = [a[0] + dir.x * len, a[1] + dir.y * len, a[2] + dir.z * len];
-    parts.push(cylinderBetween(a, b, r, 5, "Snowland_DeadWood", r * 0.62));
+    const m: V3 = [(a[0] + b[0]) / 2 + (rnd() - 0.5) * len * 0.15, (a[1] + b[1]) / 2 + (rnd() - 0.5) * len * 0.15, (a[2] + b[2]) / 2];
+    parts.push(limb([a, m, b], r, r * 0.62, "Snowland_DeadWood", { seg: 5, maxRings: 3, gnarl: 0.5 }));
     if (depth <= 0) return;
     for (const s of [-1, 1]) {
       const axis = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5)).normalize();
@@ -404,9 +406,9 @@ function deadBranches(): Geo {
   branch([-60, -50, 0], new THREE.Vector3(-0.5, 0.2, 0.8).normalize(), 45, 5, 1);
   // twigs lying on the snow
   parts.push(
-    cylinderBetween([60, 60, 8], [150, 20, 4], 4, 5, "Snowland_DeadWood", 2.5),
-    cylinderBetween([110, 40, 6], [130, 80, 6], 2, 4, "Snowland_DeadWood", 1),
-    cylinderBetween([-120, 40, 6], [-60, 110, 10], 3.5, 5, "Snowland_DeadWood", 2),
+    limb([[60, 60, 8], [104, 46, 7], [150, 20, 4]], 4, 2.5, "Snowland_DeadWood", { seg: 5, maxRings: 3 }),
+    limb([[110, 40, 6], [118, 60, 7], [130, 80, 6]], 2, 1, "Snowland_DeadWood", { seg: 4, maxRings: 2 }),
+    limb([[-120, 40, 6], [-94, 80, 9], [-60, 110, 10]], 3.5, 2, "Snowland_DeadWood", { seg: 5, maxRings: 3 }),
   );
   return merge(...parts);
 }

@@ -10,12 +10,11 @@
 // sandstone's courses stay level; the grass and reeds are crossed cards that sway in the wind.
 
 import * as THREE from "three";
-import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock, toThree } from "../geo";
+import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial, material, leafClump, FLOWER_CELLS } from "../textures";
-import type { LeafPalette } from "../textures";
-import { leafMaterials, leaves, wind, shrub } from "../trees";
-import type { ShrubLook } from "../trees";
+import { defineMaterial, FLOWER_CELLS } from "../textures";
+import { wind, shrub, limb, foliage, crownLobes, LeafCards, CANOPY, treeObject } from "../trees";
+import type { ShrubLook, Lobe } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the desert's own colours ----
@@ -51,7 +50,6 @@ defineMaterial("Desert_Wicker", { map: "thatch", tint: "#b8925a", bump: 1.5 });
 defineMaterial("Desert_Water", { tint: "#3a8a90", rough: 0.08, opacity: 0.9 });
 
 type P2 = [number, number];
-type Crown = [number, number, number, number, number, number];
 
 function seeded(seed: number): () => number {
   let s = (seed * 16807) % 2147483647 || 1;
@@ -256,20 +254,6 @@ function sheet(pts: V3[], mat: string): Geo {
 
 // ---- plants: leaf-card crowns (trees.ts) and crossed cards of grass blades ----
 const ZUP_TO_YUP = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
-const ACACIA: LeafPalette = { dark: [112, 134, 54], light: [200, 208, 116], leaves: 26, thin: 0.22 };
-const BAOBAB: LeafPalette = { dark: [66, 108, 38], light: [158, 192, 88], leaves: 14 };
-
-function leafy(wood: Geo, crowns: Crown[], leafSize: number, density: number, key: string, pal: LeafPalette, seed: number): THREE.Group {
-  const g = toThree(wood, material);
-  const [mat, depth] = leafMaterials(key, () => leafClump(pal));
-  const m = new THREE.Mesh(leaves({ crowns, leafSize, density }, seeded(seed)), mat);
-  m.customDepthMaterial = depth;
-  m.castShadow = true;
-  m.receiveShadow = true;
-  g.add(m);
-  return g;
-}
-
 // Blades of grass (or reeds) painted on a transparent canvas, roots along the bottom.
 function bladeCanvas(dark: number[], light: number[], count: number, seed: number, heads: "seed" | "cattail" | "none"): HTMLCanvasElement {
   const W = 128, H = 256;
@@ -489,25 +473,27 @@ function butte(): Geo {
 // ต้นอะคาเซียยอดแบน: the savanna's lone tree: a leaning trunk that forks into spreading limbs
 // under a flat umbrella of small leaves.
 function acacia(): THREE.Group {
-  const B = "Desert_AcaciaBark";
+  const B = "Desert_AcaciaBark", rnd = seeded(5);
   const fork: V3 = [34, 14, 270];
   const ends: V3[] = [[-200, 100, 500], [235, -70, 525], [60, 230, 515], [110, -235, 490], [-95, -150, 535], [-60, 170, 545]];
-  const parts: Geo[] = [
-    cylinderBetween([0, 0, 0], [0, 0, 32], 40, 9, B, 27),
-    cylinderBetween([0, 0, 0], [16, 6, 140], 28, 9, B, 22),
-    cylinderBetween([16, 6, 140], fork, 22, 9, B, 17),
-  ];
-  const rnd = seeded(5);
-  const crowns: Crown[] = [[20, 0, 610, 210, 190, 22]];
+  const parts: Geo[] = [limb([[0, 0, 0], [12, 4, 100], [24, 10, 190], fork], 30, 17, B, { flare: 0.55, roots: 4, gnarl: 0.6, seed: 5, seg: 8 })];
+  const lobes: Lobe[] = [[20, 0, 598, 190, 172, 34]];
   for (const e of ends) {
-    parts.push(cylinderBetween(fork, e, 12, 7, B, 6));
+    // each limb climbs steeply out of the fork, then leans out flat under the canopy
+    const m: V3 = [fork[0] + (e[0] - fork[0]) * 0.38, fork[1] + (e[1] - fork[1]) * 0.38, fork[2] + (e[2] - fork[2]) * 0.72];
+    parts.push(limb([fork, m, e], 13, 5.5, B, { gnarl: 0.5, seed: e[0], seg: 6, maxRings: 6 }));
     for (let t = 0; t < 2; t++) {
-      const a = rnd() * Math.PI * 2;
-      parts.push(cylinderBetween(e, [e[0] + Math.cos(a) * 80, e[1] + Math.sin(a) * 80, e[2] + 45], 5, 5, B, 2));
+      const a = Math.atan2(e[1], e[0]) + (t ? 0.7 : -0.7) + (rnd() - 0.5) * 0.4, l = 70 + rnd() * 30;
+      parts.push(limb([e, [e[0] + Math.cos(a) * l * 0.5, e[1] + Math.sin(a) * l * 0.5, e[2] + 30], [e[0] + Math.cos(a) * l, e[1] + Math.sin(a) * l, e[2] + 48]], 5, 1.2, B, { seg: 4, maxRings: 3 }));
     }
-    crowns.push([e[0] * 1.25, e[1] * 1.25, e[2] + 45, 165, 150, 20]);
+    lobes.push([e[0] * 1.22, e[1] * 1.22, e[2] + 52, 150, 136, 30]);
   }
-  return leafy(merge(...parts), crowns, 50, 1.05, "desert_acacia", ACACIA, 7);
+  // the flat-topped crown: thin pancakes of fine leaflets, their cards turned up to the sky
+  const cards = new LeafCards();
+  cards.clip = { min: [-424, -450, 0], max: [474, 437, 667] };
+  const pads = crownLobes(lobes, rnd, 3).lobes;
+  parts.push(foliage({ seed: 7, lobes: pads, leaf: 46, look: CANOPY.acacia, flat: 1.1, core: 0, under: 0.35, ragged: 0.55, density: 1.45 }, cards));
+  return treeObject(merge(...parts), [cards, "fine"]);
 }
 
 // ต้นเบาบับยักษ์: a giant baobab, the savanna's landmark: a bottle of a trunk and a crown of
@@ -517,45 +503,47 @@ function baobab(): THREE.Group {
   const wob = (a: number, z: number) => 1 + 0.07 * Math.sin(3 * a + 0.4) + 0.05 * Math.sin(5 * a + 1 + z * 0.003) + 0.03 * Math.sin(9 * a);
   const parts: Geo[] = [lathe([[200, -10], [212, 40], [222, 150], [214, 270], [188, 390], [150, 490], [118, 570], [102, 630], [0, 640]], 14, B, [0, 0, 0], wob)];
   const rnd = seeded(11);
+  // roots spreading from the foot into the ground
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + 0.3;
-    parts.push(cylinderBetween([Math.cos(a) * 170, Math.sin(a) * 170, 50], [Math.cos(a) * 285, Math.sin(a) * 285, -8], 38, 7, B, 14));
+    parts.push(limb([[Math.cos(a) * 160, Math.sin(a) * 160, 64], [Math.cos(a + 0.05) * 236, Math.sin(a + 0.05) * 236, 18], [Math.cos(a + 0.1) * 288, Math.sin(a + 0.1) * 288, -8]], 38, 12, B, { seg: 7, gnarl: 0.5, seed: 20 + i }));
   }
-  const crowns: Crown[] = [];
+  const lobes: Lobe[] = [];
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2 + rnd() * 0.4, r1 = 250 + rnd() * 70, up = 760 + rnd() * 80;
-    const base: V3 = [Math.cos(a) * 60, Math.sin(a) * 60, 600];
+    const base: V3 = [Math.cos(a) * 50, Math.sin(a) * 50, 590];
     const end: V3 = [Math.cos(a) * r1, Math.sin(a) * r1, up];
-    parts.push(cylinderBetween(base, end, 36, 8, B, 17));
+    const m: V3 = [Math.cos(a) * r1 * 0.45, Math.sin(a) * r1 * 0.45, 600 + (up - 600) * 0.7];
+    parts.push(limb([base, m, end], 36, 16, B, { seg: 8, gnarl: 0.6, seed: 30 + i }));
     for (const side of [-1, 1]) {
       const b = a + side * 0.45, r2 = r1 + 90 + rnd() * 60;
       const tip: V3 = [Math.cos(b) * r2, Math.sin(b) * r2, up + 70 + rnd() * 70];
-      parts.push(cylinderBetween(end, tip, 15, 6, B, 5));
-      crowns.push([tip[0], tip[1], tip[2] + 30, 115, 105, 62]);
+      parts.push(limb([end, [(end[0] + tip[0]) / 2, (end[1] + tip[1]) / 2, (end[2] + tip[2]) / 2 + 10], tip], 15, 4.5, B, { seg: 6, maxRings: 4 }));
+      lobes.push([tip[0], tip[1], tip[2] + 30, 112, 102, 60]);
     }
   }
-  return leafy(merge(...parts), crowns, 66, 1.2, "desert_baobab", BAOBAB, 13);
+  const cards = new LeafCards();
+  cards.clip = { min: [-512, -498, 0], max: [553, 503, 1117] };
+  const tufts = crownLobes(lobes, rnd, 3);
+  parts.push(foliage({ seed: 13, lobes: tufts.lobes, leaf: 54, look: CANOPY.savanna, core: 0.75, details: tufts.lobes.map(() => 0), density: 0.85, flat: 0.5 }, cards));
+  return treeObject(merge(...parts), [cards, "canopy"]);
 }
 
 // ต้นไม้ยืนตาย: a dead tree, bleached and twisted, its branches snapped short.
 function deadTree(): Geo {
   const W = "Desert_DeadWood";
   const parts: Geo[] = [
-    cylinderBetween([0, 0, 0], [15, -5, 120], 24, 8, W, 19),
-    cylinderBetween([15, -5, 120], [-10, 12, 235], 19, 8, W, 13),
-    cylinderBetween([-10, 12, 235], [6, 0, 340], 13, 7, W, 6),
-    cylinderBetween([15, -5, 120], [115, -65, 225], 9, 6, W, 3),
-    cylinderBetween([115, -65, 225], [150, -60, 300], 3, 5, W, 1.5),
-    cylinderBetween([-10, 12, 235], [-125, 75, 320], 8, 6, W, 3),
-    cylinderBetween([-125, 75, 320], [-160, 40, 385], 3, 5, W, 1.2),
-    cylinderBetween([-80, 48, 280], [-110, 130, 330], 3, 5, W, 1.2),
-    cylinderBetween([4, 4, 300], [85, 95, 410], 6, 6, W, 2),
-    cylinderBetween([-6, 8, 190], [45, 125, 250], 6, 6, W, 4),
-    cylinderBetween([10, -2, 270], [-40, -90, 330], 4, 5, W, 1.5),
+    limb([[0, 0, 0], [15, -5, 120], [-10, 12, 235], [6, 0, 340]], 24, 6, W, { flare: 0.6, roots: 5, gnarl: 0.8, seed: 3, seg: 7, taper: 0.8, grainU: true, step: 45 }),
+    limb([[13, -4, 112], [70, -38, 170], [115, -65, 225], [150, -60, 300]], 9, 1.5, W, { gnarl: 0.5, seed: 4, grainU: true, seg: 5, maxRings: 4 }),
+    limb([[-8, 11, 228], [-70, 45, 280], [-125, 75, 320], [-160, 40, 385]], 8, 1.2, W, { gnarl: 0.5, seed: 5, grainU: true, seg: 5, maxRings: 4 }),
+    limb([[-80, 48, 280], [-96, 92, 310], [-110, 130, 330]], 3, 1.2, W, { seg: 4, grainU: true, maxRings: 2 }),
+    limb([[4, 4, 300], [40, 52, 352], [85, 95, 410]], 6, 2, W, { seg: 4, grainU: true, maxRings: 3 }),
+    limb([[-6, 8, 190], [18, 70, 225], [45, 125, 250]], 6, 3.5, W, { seg: 4, grainU: true, maxRings: 3 }),
+    limb([[10, -2, 270], [-14, -48, 300], [-40, -90, 330]], 4, 1.5, W, { seg: 4, grainU: true, maxRings: 2 }),
   ];
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + 0.4;
-    parts.push(cylinderBetween([0, 0, 22], [Math.cos(a) * 75, Math.sin(a) * 75, -6], 12, 6, W, 5));
+    parts.push(limb([[Math.cos(a) * 8, Math.sin(a) * 8, 26], [Math.cos(a) * 34, Math.sin(a) * 34, 6], [Math.cos(a + 0.12) * 58, Math.sin(a + 0.12) * 58, -6]], 11, 5, W, { seg: 4, maxRings: 3, grainU: true }));
   }
   return merge(...parts);
 }
@@ -586,11 +574,11 @@ function fallenLog(): Geo {
   const W = "Desert_DeadWood";
   const rnd = seeded(23);
   const parts: Geo[] = [
-    cylinderBetween([0, -150, 31], [6, 155, 26], 32, 10, W, 26),
+    limb([[0, -150, 31], [4, 0, 30], [6, 155, 26]], 32, 26, W, { seg: 10, grainU: true, gnarl: 0.4, seed: 23 }),
     translate(rotateX(cylinderAt({ radius: 55, height: 24, segments: 9, bottom: [0, 0, 0] }, "Desert_DarkWood"), 90), [0, -150, 40]),
     cylinderBetween([6, 154, 26], [6, 157, 26], 23, 10, "Desert_WoodEnd"),
-    cylinderBetween([8, -40, 50], [60, -15, 108], 8, 6, W, 4),
-    cylinderBetween([-18, 60, 44], [-80, 92, 66], 7, 6, W, 3),
+    limb([[8, -40, 50], [34, -30, 84], [60, -15, 108]], 8, 4, W, { seg: 6, maxRings: 3, grainU: true }),
+    limb([[-18, 60, 44], [-50, 78, 58], [-80, 92, 66]], 7, 3, W, { seg: 6, maxRings: 3, grainU: true }),
   ];
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
@@ -617,7 +605,7 @@ function stump(): Geo {
   }
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + 0.3;
-    parts.push(cylinderBetween([Math.cos(a) * 30, Math.sin(a) * 30, 20], [Math.cos(a) * 85, Math.sin(a) * 85, -6], 13, 6, W, 5));
+    parts.push(limb([[Math.cos(a) * 26, Math.sin(a) * 26, 24], [Math.cos(a) * 54, Math.sin(a) * 54, 6], [Math.cos(a + 0.1) * 85, Math.sin(a + 0.1) * 85, -6]], 13, 5, W, { seg: 6, maxRings: 4, gnarl: 0.6, grainU: true }));
   }
   return merge(...parts);
 }

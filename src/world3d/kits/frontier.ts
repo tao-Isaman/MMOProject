@@ -17,12 +17,12 @@
 import * as THREE from "three";
 import {
   merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween,
-  cylinderBetween, cylinderAt, cylinderCenter, sphereCenter, torus, gableWall, rock, toThree,
+  cylinderBetween, cylinderAt, cylinderCenter, sphereCenter, torus, gableWall, rock,
 } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial, material, leafClump } from "../textures";
+import { defineMaterial, leafClump } from "../textures";
 import type { LeafPalette } from "../textures";
-import { leaves, leafMaterials, shrub } from "../trees";
+import { leafMaterials, shrub, crownTreeObject, grow, limb as smooth, CANOPY } from "../trees";
 import type { ShrubLook } from "../trees";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
@@ -217,54 +217,16 @@ function flames(at: V3, size: number, mat = "Frontier_Flame", core = "Frontier_E
 // ---- the woods ----
 
 // Leaf palettes: deep crimson maples, a scarlet highlight, the fallen leaves.
-const CRIMSON: LeafPalette = { dark: [150, 30, 30], light: [240, 92, 56] };
-const SCARLET: LeafPalette = { dark: [186, 52, 28], light: [252, 138, 62] };
 const LITTER: LeafPalette = { dark: [112, 30, 20], light: [232, 128, 48], leaves: 9 };
-type Crown = [number, number, number, number, number, number];
-
-function crownMesh(crowns: Crown[], leafSize: number, key: string, palette: LeafPalette, rr: () => number, density = 1): THREE.Mesh {
-  const [mat, depth] = leafMaterials(key, () => leafClump(palette));
-  const m = new THREE.Mesh(leaves({ crowns, leafSize, density }, rr), mat);
-  m.customDepthMaterial = depth;
-  m.castShadow = true;
-  m.receiveShadow = true;
-  m.name = "crown";
-  return m;
-}
-
-// A trunk through its bend points, a limb to each crown with twigs, a root flare.
-function trunk(path: V3[], r0: number, crowns: Crown[], twigs: number, rr: () => number, bark = "Frontier_Log"): Geo {
-  const parts: Geo[] = [];
-  for (let i = 0; i < path.length - 1; i++) {
-    const t0 = i / (path.length - 1), t1 = (i + 1) / (path.length - 1);
-    parts.push(cylinderBetween(path[i], path[i + 1], r0 * (1 - 0.35 * t0), 10, bark, r0 * (1 - 0.35 * t1)));
-  }
-  parts.push(cylinderBetween([0, 0, 0], [0, 0, 40], r0 * 1.35, 10, bark, r0 * 0.98));
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * TAU + 0.4;
-    parts.push(cylinderBetween([Math.cos(a) * r0 * 0.5, Math.sin(a) * r0 * 0.5, 22], [Math.cos(a) * r0 * 2.1, Math.sin(a) * r0 * 2.1, -4], r0 * 0.42, 6, bark, r0 * 0.12));
-  }
-  const top = path[path.length - 1];
-  for (const [cx, cy, cz] of crowns) {
-    const end: V3 = [top[0] + (cx - top[0]) * 0.75, top[1] + (cy - top[1]) * 0.75, top[2] + (cz - top[2]) * 0.7];
-    parts.push(cylinderBetween(top, end, r0 * 0.55, 8, bark, r0 * 0.22));
-    for (let t = 0; t < twigs; t++) {
-      const a = rr() * TAU, l = 0.4 + rr() * 0.5;
-      parts.push(cylinderBetween(end, [end[0] + Math.cos(a) * 140 * l, end[1] + Math.sin(a) * 140 * l, end[2] + 40 + rr() * 80], r0 * 0.2, 6, bark, r0 * 0.06));
-    }
-  }
-  return merge(...parts);
-}
 
 // The crimson maple of the border woods: a leaning trunk and a broad layered crown of deep
-// red leaves with a few scarlet sprays; about 9 m tall and 8 m across.
+// red leaves, scarlet and orange where the sun catches it; about 9 m tall and 8 m across.
 function redMaple(): THREE.Object3D {
-  const rr = seeded(83);
-  const crowns: Crown[] = [[40, -20, 560, 330, 300, 190], [160, -150, 700, 230, 210, 150], [-150, 120, 640, 220, 200, 140], [60, 170, 480, 190, 170, 120]];
-  const g = toThree(trunk([[0, 0, 0], [25, -10, 160], [55, -30, 320]], 30, crowns, 4, rr), material);
-  g.add(crownMesh(crowns.slice(0, 3), 100, "frontier_crimson", CRIMSON, rr, 1.05));
-  g.add(crownMesh([crowns[3], [-20, -160, 760, 150, 140, 100]], 85, "frontier_scarlet", SCARLET, rr));
-  return g;
+  return crownTreeObject({
+    seed: 83, trunk: [[0, 0, 0], [25, -10, 160], [55, -30, 320]], radius: 30, bark: "Frontier_Log", leaf: 58, look: CANOPY.crimson,
+    crowns: [[40, -20, 560, 330, 300, 190], [160, -150, 700, 230, 210, 150], [-150, 120, 640, 220, 200, 140], [60, 170, 480, 190, 170, 120], [-20, -160, 760, 150, 140, 100]],
+    density: 0.92, clip: { min: [-438, -398, 0], max: [421, 370, 902] },
+  });
 }
 
 // A low bush of red leaves, about 2.4 m across: overlapping lobes of scarlet sprays over a dark
@@ -363,9 +325,9 @@ function fallenLog(): Geo {
     translate(rock([40, 150, 16], 0.3, 44, "Frontier_Moss", true), [2, -50, R * 2 - 16]),
     translate(rock([34, 80, 14], 0.3, 45, "Frontier_Moss", true), [4, 100, R * 2 - 17]),
     // branch stubs
-    cylinderBetween([0, -60, R + 10], [-40, -30, R + 70], 9, 6, "Frontier_Log", 5),
-    cylinderBetween([10, 60, R + 4], [70, 90, R + 30], 8, 6, "Frontier_Log", 4),
-    cylinderBetween([-14, 140, R], [-80, 170, R - 6], 7, 6, "Frontier_Log", 3),
+    smooth([[0, -60, R + 10], [-22, -48, R + 44], [-40, -30, R + 70]], 9, 5, "Frontier_Log", { seg: 6, maxRings: 3 }),
+    smooth([[10, 60, R + 4], [42, 78, R + 20], [70, 90, R + 30]], 8, 4, "Frontier_Log", { seg: 6, maxRings: 3 }),
+    smooth([[-14, 140, R], [-48, 158, R + 2], [-80, 170, R - 6]], 7, 3, "Frontier_Log", { seg: 6, maxRings: 3 }),
   ];
   // the root plate: a clod of earth torn up on its edge, roots trailing out of it
   out.push(translate(rotateX(rock([170, 150, 70], 0.45, 42, "Frontier_Earth"), -90), [0, y1 + 20, 0]));
@@ -400,7 +362,7 @@ function stump(): Geo {
   ];
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * TAU + 0.3;
-    out.push(cylinderBetween([Math.cos(a) * 26, Math.sin(a) * 26, 26], [Math.cos(a) * 82, Math.sin(a) * 82, -3], 15, 6, "Frontier_Log", 4));
+    out.push(smooth([[Math.cos(a) * 22, Math.sin(a) * 22, 30], [Math.cos(a) * 50, Math.sin(a) * 50, 10], [Math.cos(a + 0.1) * 82, Math.sin(a + 0.1) * 82, -3]], 15, 4, "Frontier_Log", { seg: 6, maxRings: 4, gnarl: 0.5 }));
   }
   // the axe: haft leaning back, the head bitten into the cut
   const axe = merge(
@@ -877,33 +839,11 @@ function darkCrystal(): Geo {
 // A twisted dead tree: a black trunk that winds up and splits into clawing branches, roots
 // gripping the ground; about 6.5 m tall.
 function deadTree(): Geo {
-  const rr = seeded(131), out: Geo[] = [];
-  const grow = (p: V3, dir: V3, len: number, r: number, depth: number) => {
-    let cur = p, d = norm(dir);
-    const steps = depth >= 2 ? 3 : 2;
-    for (let i = 0; i < steps; i++) {
-      d = norm(add(d, [(rr() - 0.5) * 0.7, (rr() - 0.5) * 0.7, (rr() - 0.35) * 0.3]));
-      const next = add(cur, mul(d, len / steps)), r0 = r * (1 - (0.3 * i) / steps), r1 = r * (1 - (0.3 * (i + 1)) / steps);
-      out.push(cylinderBetween(cur, next, r0, 7, "Frontier_DeadBark", r1));
-      if (r1 > 6) out.push(sphereCenter(r1 * 1.04, next, "Frontier_DeadBark", 7));
-      cur = next;
-    }
-    if (depth === 0) {
-      out.push(spike(cur, d, 30, r * 0.65, "Frontier_DeadBark", 5));
-      return;
-    }
-    const k = depth >= 2 ? 3 : 2, turn = rr() * TAU;
-    for (let j = 0; j < k; j++) {
-      const az = turn + (j / k) * TAU + (rr() - 0.5) * 0.6, t = 0.6 + rr() * 0.45;
-      const h: V3 = [Math.cos(az), Math.sin(az), 0];
-      const nd = norm(add(mul(d, Math.cos(t)), mul(h, Math.sin(t) * 1.1)));
-      grow(cur, nd, len * (0.6 + rr() * 0.15), r * 0.62, depth - 1);
-    }
-  };
-  grow([0, 0, 0], [0.15, -0.1, 1], 330, 34, 3);
+  const rr = seeded(131);
+  const out: Geo[] = [grow({ mat: "Frontier_DeadBark", seed: 172, at: [0, 0, 0], dir: [0.15, -0.1, 1], len: 330, r: 34, depth: 3, spread: 0.85, shrink: 0.67, thin: 0.86, flare: 0.5, roots: 6, gnarl: 0.8, tipR: 0.12 })];
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * TAU + 0.2, l = 90 + rr() * 50;
-    out.push(limb([[Math.cos(a) * 18, Math.sin(a) * 18, 40], [Math.cos(a) * 60, Math.sin(a) * 60, 14], [Math.cos(a) * l, Math.sin(a) * l, -4]], 18, 4, "Frontier_DeadBark", 6, false));
+    out.push(smooth([[Math.cos(a) * 18, Math.sin(a) * 18, 40], [Math.cos(a) * 60, Math.sin(a) * 60, 14], [Math.cos(a) * l, Math.sin(a) * l, -4]], 18, 4, "Frontier_DeadBark", { seg: 6, gnarl: 0.6 }));
   }
   return merge(...out);
 }

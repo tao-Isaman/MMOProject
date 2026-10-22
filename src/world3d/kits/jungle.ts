@@ -17,8 +17,9 @@ import {
   cylinderBetween, cylinderAt, sphereCenter, torus, gableRoof, gableWall, rock, toThree,
 } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial, material, frondTexture, leafClump } from "../textures";
-import { leaves, leafMaterials, shrub, SHRUB_JUNGLE } from "../trees";
+import { defineMaterial, material } from "../textures";
+import { shrub, SHRUB_JUNGLE, limb, foliage, crownLobes, LeafCards, CANOPY, frond, canopyTint } from "../trees";
+import type { CanopyLook, FoliageSpec } from "../trees";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -82,64 +83,56 @@ function group(geo: Geo, ...extra: (THREE.Object3D | null)[]): THREE.Group {
   return g;
 }
 
-// leaf cards (the shared trees' own) in ellipsoid crowns, one swaying mesh
-const MANGROVE_LEAF = () => leafClump({ dark: [34, 84, 36], light: [116, 166, 66], leaves: 14 });
-const VINE_LEAF = () => leafClump({ dark: [40, 96, 30], light: [120, 182, 64], leaves: 10 });
-function crownMesh(crowns: Crown[], leafSize: number, seed: number, key = "jungle", density = 1, canvas?: () => HTMLCanvasElement): THREE.Mesh | null {
-  if (!crowns.length) return null;
-  const [mat, depth] = leafMaterials(key, canvas);
-  const m = new THREE.Mesh(leaves({ crowns, leafSize, density }, seeded(seed)), mat);
-  m.customDepthMaterial = depth;
-  m.castShadow = true;
-  m.receiveShadow = true;
-  return m;
+// leafy crowns (trees.ts foliage): each crown a big lobe and a few smaller ones round its skin,
+// lumpy leafy cores inside, the cards one swaying mesh; `clip` keeps them in the item's box
+interface Canopy { core: Geo; mesh: THREE.Mesh | null }
+function canopy(crowns: Crown[], leaf: number, seed: number, look: CanopyLook, o: Partial<FoliageSpec> = {}, clip?: { min: V3; max: V3 }): Canopy {
+  const cards = new LeafCards();
+  cards.clip = clip ?? null;
+  const { lobes, details } = crownLobes(crowns, seeded(seed));
+  const core = foliage({ seed, lobes, details, leaf, look, ...o }, cards);
+  return { core, mesh: cards.count ? cards.mesh(look.card) : null };
 }
-const vineLeaves = (crowns: Crown[], seed: number): THREE.Mesh | null => crownMesh(crowns, 30, seed, "jungleVine", 1, VINE_LEAF);
-
-// Fronds: strips of quads from `at` heading `yaw`, rising at `lift` (radians) and bending down
-// by `droop` along their length, painted with a frond texture (leaflets either side of a rib).
-interface Frond { at: V3; yaw: number; lift: number; droop: number; len: number; wid: number; segs?: number; shade?: number }
-function frondMesh(list: Frond[], key: string, canvas: () => HTMLCanvasElement): THREE.Mesh | null {
-  if (!list.length) return null;
-  const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
-  for (const f of list) {
-    const segs = f.segs ?? 6;
-    const dir = new THREE.Vector3(Math.cos(f.yaw), Math.sin(f.yaw), 0), side = new THREE.Vector3(-Math.sin(f.yaw), Math.cos(f.yaw), 0);
-    const pts = [new THREE.Vector3(...f.at)];
-    for (let k = 1; k <= segs; k++) {
-      const ang = f.lift - ((k - 0.5) / segs) * f.droop, step = f.len / segs;
-      pts.push(pts[k - 1].clone().addScaledVector(dir, step * Math.cos(ang)).add(new THREE.Vector3(0, 0, step * Math.sin(ang))));
-    }
-    const w = (k: number) => (f.wid / 2) * Math.sin(Math.PI * (0.08 + 0.9 * (k / segs)));
-    const shade = f.shade ?? 1;
-    for (let k = 0; k < segs; k++) {
-      const a0 = pts[k].clone().addScaledVector(side, -w(k)), a1 = pts[k].clone().addScaledVector(side, w(k));
-      const b0 = pts[k + 1].clone().addScaledVector(side, -w(k + 1)), b1 = pts[k + 1].clone().addScaledVector(side, w(k + 1));
-      const u0 = k / segs, u1 = (k + 1) / segs;
-      for (const [p, u, v] of [[a0, u0, 0], [b0, u1, 0], [b1, u1, 1], [a0, u0, 0], [b1, u1, 1], [a1, u0, 1]] as [THREE.Vector3, number, number][]) {
-        pos.push(p.x, p.y, p.z);
-        nor.push(0, 0, 1);
-        uv.push(u, v);
-        col.push(shade, shade, shade);
-      }
+// leaves along the lianas: a few heart-shaped leaves hanging off the vine at each point
+function vineLeaves(crowns: Crown[], seed: number, clip?: { min: V3; max: V3 }): THREE.Mesh | null {
+  if (!crowns.length) return null;
+  const cards = new LeafCards(), rnd = seeded(seed), UP = new THREE.Vector3(0, 0, 1);
+  cards.clip = clip ?? null;
+  for (const [cx, cy, cz, r] of crowns) {
+    const n = 4 + Math.floor(rnd() * 3);
+    for (let k = 0; k < n; k++) {
+      const a = rnd() * Math.PI * 2, droop = 0.5 + rnd() * 0.7, L = r * (1.9 + rnd() * 0.8);
+      const out = new THREE.Vector3(Math.cos(a), Math.sin(a), 0);
+      const dir = out.clone().multiplyScalar(Math.cos(droop)).addScaledVector(UP, -Math.sin(droop)); // stalk -> tip
+      const across = new THREE.Vector3(-Math.sin(a), Math.cos(a), 0).applyAxisAngle(dir, (rnd() - 0.5) * 0.8);
+      const at = new THREE.Vector3(cx, cy, cz + (rnd() - 0.5) * r).addScaledVector(dir, L * 0.5 + 2);
+      const sun = 0.15 + 0.5 * rnd();
+      cards.add(at.toArray() as V3, dir, across, L, L * 0.72, out.clone().multiplyScalar(0.5).addScaledVector(UP, 0.8).normalize(), canopyTint(CANOPY.vine, sun));
     }
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  geo.applyMatrix4(ZUP);
-  const [mat, depth] = leafMaterials(key, canvas);
-  const m = new THREE.Mesh(geo, mat);
-  m.customDepthMaterial = depth;
-  m.castShadow = true;
-  m.receiveShadow = true;
-  return m;
+  return cards.count ? cards.mesh("heart") : null;
 }
-const FERN = () => frondTexture([26, 84, 30], [100, 174, 62]);
-const FERN_DRY = () => frondTexture([92, 70, 38], [170, 138, 84]);
-const fernMesh = (list: Frond[]) => frondMesh(list, "jungleFern", FERN);
+
+// Fronds: leaf strips from `at` heading `yaw`, rising at `lift` (radians) and bending down by
+// `droop` along their length, their halves folded down from the rib (trees.ts frond).
+interface Frond { at: V3; yaw: number; lift: number; droop: number; len: number; wid: number; segs?: number; shade?: number }
+const FROND_COLOURS: Record<string, [RGB3, RGB3]> = {
+  jungleFern: [[34, 84, 34], [108, 176, 64]],
+  jungleFernDry: [[96, 72, 40], [172, 142, 88]],
+  frond: [[64, 104, 44], [150, 196, 84]],
+};
+type RGB3 = [number, number, number];
+const lin = ([r, g, b]: RGB3, k: number) => new THREE.Color().setRGB((r * k) / 255, (g * k) / 255, (b * k) / 255, THREE.SRGBColorSpace).multiplyScalar(1.6);
+function frondMesh(list: Frond[], key: string): THREE.Mesh | null {
+  if (!list.length) return null;
+  const cards = new LeafCards(), [c0, c1] = FROND_COLOURS[key] ?? FROND_COLOURS.frond;
+  for (const f of list) {
+    const k = f.shade ?? 1;
+    frond(cards, { at: f.at, yaw: f.yaw, lift: f.lift, droop: f.droop, len: f.len, w: f.wid / 2, fold: 0.38, segs: f.segs ?? 6, base: lin(c0, k), tip: lin(c1, k) });
+  }
+  return cards.mesh("frond");
+}
+const fernMesh = (list: Frond[]) => frondMesh(list, "jungleFern");
 // a clump of `n` fern fronds round a point
 function fernClump(out: Frond[], at: V3, n: number, len: number, seed: number, o: { lift?: number; droop?: number; wid?: number } = {}): void {
   const rnd = seeded(seed);
@@ -148,16 +141,9 @@ function fernClump(out: Frond[], at: V3, n: number, len: number, seed: number, o
       len: len * (0.8 + rnd() * 0.35), wid: o.wid ?? len * 0.32, shade: 0.78 + rnd() * 0.22 });
 }
 
-// a chain of tapering cylinders through points (roots, lianas), with knuckles at the bends
+// a smooth tapering tube through points (roots, lianas, limbs)
 function tube(pts: V3[], r0: number, r1: number, mat: string, seg = 6): Geo {
-  const out: Geo[] = [];
-  const n = pts.length - 1;
-  for (let i = 0; i < n; i++) {
-    const ra = r0 + ((r1 - r0) * i) / n, rb = r0 + ((r1 - r0) * (i + 1)) / n;
-    out.push(cylinderBetween(pts[i], pts[i + 1], ra, seg, mat, rb));
-    if (i > 0 && ra > 6) out.push(sphereCenter(ra, pts[i], mat, seg));
-  }
-  return merge(...out);
+  return limb(pts, r0, r1, mat, { seg, gnarl: r0 > 8 ? 0.4 : 0, seed: Math.round(pts[0][0] * 3 + pts[0][2]), step: Math.max(30, r0 * 3), maxRings: Math.round((pts.length - 1) * 1.5) + 1 });
 }
 // points along a line from a to b that sags `sag` in the middle
 function sagPts(a: V3, b: V3, sag: number, n = 6): V3[] {
@@ -383,24 +369,34 @@ function treeFern(): THREE.Object3D {
     g.push(translate(rotateZ(rotateX(torus(7, 2.8, 8, 4, "Jungle_Stem"), 90), a * D), [top[0] + Math.cos(a) * 8, top[1] + Math.sin(a) * 8, top[2] + 14]));
   }
   fernClump(fr, [0, 0, 0], 5, 70, 92, { lift: 0.9 });
-  return group(merge(...g), fernMesh(fr), frondMesh(dry, "jungleFernDry", FERN_DRY));
+  return group(merge(...g), fernMesh(fr), frondMesh(dry, "jungleFernDry"));
 }
 
-// elephant ears: big heart-shaped leaves on long stalks (2.4 m)
-function elephantEar(): Geo {
-  const g: Geo[] = [], rnd = seeded(101);
+// elephant ears: big heart-shaped leaves on long stalks (2.4 m), each blade a cupped card bent
+// down along its length
+function elephantEar(): THREE.Object3D {
+  const g: Geo[] = [], rnd = seeded(101), cards = new LeafCards();
+  const UP = new THREE.Vector3(0, 0, 1);
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + rnd() * 0.5, r = 45 + rnd() * 45, z = 85 + rnd() * 75, L = 85 + rnd() * 45, W = L * 0.68;
     const tip: V3 = [Math.cos(a) * r, Math.sin(a) * r, z];
     g.push(tube([[Math.cos(a) * 6, Math.sin(a) * 6, 0], [Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3, z * 0.7], tip], 4, 2.6, "Jungle_Stem", 5));
-    const blade = merge(
-      translate(scale(sphereCenter(1, [0, 0, 0], i % 3 ? "Jungle_Leaf" : "Jungle_LeafPale", 10), [L / 2, W / 2, 2.5]), [L * 0.42, 0, 0]),
-      beamBetween([0, 0, 2.6], [L * 0.86, 0, 1.6], 2.4, 1.6, "Jungle_LeafPale"),
-    );
-    g.push(translate(rotateZ(rotateY(blade, 28 + rnd() * 26), a * D), tip));
+    const pitch = ((28 + rnd() * 26) * Math.PI) / 180, out = new THREE.Vector3(Math.cos(a), Math.sin(a), 0), side = new THREE.Vector3(-Math.sin(a), Math.cos(a), 0);
+    const dir = (p: number) => out.clone().multiplyScalar(Math.cos(p)).addScaledVector(UP, -Math.sin(p));
+    const p0 = new THREE.Vector3(...tip), p1 = p0.clone().addScaledVector(dir(pitch - 0.25), L * 0.5), p2 = p1.clone().addScaledVector(dir(pitch + 0.35), L * 0.5);
+    const rib = [p0, p1, p2], cup = W * 0.12;
+    const edge = (p: THREE.Vector3, k: number, sd: number) => p.clone().addScaledVector(side, sd * W * 0.5 * k).addScaledVector(UP, -cup * k);
+    const n = out.clone().multiplyScalar(0.3).addScaledVector(UP, 0.95).normalize();
+    const pale = i % 3 === 0, base = new THREE.Color().setRGB(pale ? 0.17 : 0.06, pale ? 0.32 : 0.2, pale ? 0.07 : 0.04), tipC = new THREE.Color().setRGB(pale ? 0.3 : 0.12, pale ? 0.48 : 0.34, pale ? 0.12 : 0.07);
+    const ks = [0.75, 1, 0.55];
+    for (let k = 0; k < 2; k++) {
+      const u0 = k / 2, u1 = (k + 1) / 2, c0 = base.clone().lerp(tipC, u0), c1 = base.clone().lerp(tipC, u1);
+      cards.quad([rib[k], rib[k + 1], edge(rib[k + 1], ks[k + 1], 1), edge(rib[k], ks[k], 1)], [[u0, 0.5], [u1, 0.5], [u1, 1], [u0, 1]], n, [c0, c1, c1, c0]);
+      cards.quad([edge(rib[k], ks[k], -1), edge(rib[k + 1], ks[k + 1], -1), rib[k + 1], rib[k]], [[u0, 0], [u1, 0], [u1, 0.5], [u0, 0.5]], n, [c0, c1, c1, c0]);
+    }
   }
   g.push(sphereCenter(14, [0, 0, 4], "Jungle_Stem", 8));
-  return merge(...g);
+  return group(merge(...g), cards.mesh("heart"));
 }
 
 // a tuft of reeds and cattails for the edge of a pool (2 m)
@@ -428,7 +424,7 @@ function stranglerFig(): THREE.Object3D {
     const a = (i / 8) * 360 + rnd() * 25, L = 300 + rnd() * 160, H = 230 + rnd() * 90;
     g.push(rotateZ(translate(slab([[0, 0], [0, H], [L * 0.18, H * 0.62], [L * 0.45, H * 0.26], [L, 0]], 26, "Jungle_Root"), [40, 0, -4]), a));
   }
-  g.push(cylinderAt({ rBot: 95, rTop: 62, height: 780, segments: 12, bottom: [0, 0, 0] }, "Jungle_Root"));
+  g.push(limb([[0, 0, 0], [6, -4, 400], [0, 0, 790]], 92, 62, "Jungle_Root", { seg: 12, flare: 0.25, roots: 8, gnarl: 1, seed: 121, step: 90 }));
   for (let k = 0; k < 6; k++) {
     const a0 = (k / 6) * Math.PI * 2, pts: V3[] = [];
     for (let i = 0; i <= 7; i++) {
@@ -458,7 +454,8 @@ function stranglerFig(): THREE.Object3D {
   fernClump(fr, [-230, 90, 0], 7, 110, 125);
   fernClump(fr, [200, -220, 0], 6, 95, 126);
   fernClump(fr, [40, 260, 0], 6, 100, 127);
-  return group(merge(...g), crownMesh(crowns, 150, 128, "jungle", 1.15), vineLeaves(vineC, 129), fernMesh(fr));
+  const can = canopy(crowns, 84, 128, CANOPY.deep, { density: 1.05 }, { min: [-732, -793, 0], max: [782, 702, 1452] });
+  return group(merge(...g, can.core), can.mesh, vineLeaves(vineC, 129), fernMesh(fr));
 }
 
 // A rainforest giant draped in lianas (11 m): plank buttresses, a tall pale trunk with a liana
@@ -493,7 +490,8 @@ function vineTree(): THREE.Object3D {
     liana(sagPts(lerp3(base, tip, 0.6), next, 260 + rnd() * 150, 8), 3, g, vineC, 2, 18);
   }
   fernClump(fr, [-90, 60, 0], 6, 90, 308);
-  return group(merge(...g), crownMesh(crowns, 135, 309, "jungle", 1.1), vineLeaves(vineC, 310), fernMesh(fr));
+  const can = canopy(crowns, 78, 309, CANOPY.deep, {}, { min: [-546, -560, 0], max: [536, 535, 1297] });
+  return group(merge(...g, can.core), can.mesh, vineLeaves(vineC, 310), fernMesh(fr));
 }
 
 // ================= the ruins =================
@@ -625,9 +623,8 @@ function ruinTemple(): THREE.Object3D {
   liana(bend([140, 60, crown + 40], [380, -100, crown - 200], [520, -430, 248], 7), 4, g, vineC);
   for (const [x, y, z, s] of [[-470, -470, 122, 2], [460, -300, 244, 3], [-300, 460, 244, 4], [560, -560, 0, 5], [-700, 520, 0, 6], [300, -460, 122, 7], [-580, -330, 122, 8]] as [number, number, number, number][])
     fernClump(fr, [x, y, z], 6, 85, 150 + s);
-  return group(merge(...g),
-    crownMesh([[80, 110, crown + 130, 260, 240, 110], [-60, 170, crown + 80, 160, 150, 80], [190, -10, crown + 90, 160, 140, 80]], 115, 146, "jungle", 1.1),
-    vineLeaves(vineC, 147), fernMesh(fr));
+  const can = canopy([[80, 110, crown + 130, 260, 240, 110], [-60, 170, crown + 80, 160, 150, 80], [190, -10, crown + 90, 160, 140, 80]], 66, 146, CANOPY.deep);
+  return group(merge(...g, can.core), can.mesh, vineLeaves(vineC, 147), fernMesh(fr));
 }
 
 // A great carved stone face (landmark, 4 x 4 m, 6 m tall): blocks stacked into a serene head
@@ -751,7 +748,8 @@ function ruinGate(): THREE.Object3D {
   fernClump(fr, [-60, -230, 556], 5, 60, 195, { lift: 0.9 });
   fernClump(fr, [-200, -340, 0], 6, 85, 196);
   fernClump(fr, [180, 330, 0], 6, 80, 197);
-  return group(merge(...g), crownMesh([[60, 120, 820, 220, 200, 110], [-40, 30, 780, 120, 110, 70]], 100, 198, "jungle", 1.1), vineLeaves(vineC, 199), fernMesh(fr));
+  const can = canopy([[60, 120, 820, 220, 200, 110], [-40, 30, 780, 120, 110, 70]], 60, 198, CANOPY.deep);
+  return group(merge(...g, can.core), can.mesh, vineLeaves(vineC, 199), fernMesh(fr));
 }
 
 // ================= ways through =================
@@ -887,7 +885,8 @@ function mangrove(): THREE.Object3D {
   }
   const crowns: Crown[] = limbs.map(([x, y, z]) => [x * 1.1, y * 1.1, z + 40, 190, 175, 105]);
   crowns.push([0, 0, 600, 220, 210, 100]);
-  return group(merge(...g), crownMesh(crowns, 95, 222, "jungleMangrove", 1.15, MANGROVE_LEAF));
+  const can = canopy(crowns, 58, 222, CANOPY.mangrove, { density: 1.05 }, { min: [-346, -371, 0], max: [367, 308, 777] });
+  return group(merge(...g, can.core), can.mesh);
 }
 
 // a clump of nipa palm: long fronds straight up out of the mud, a fruit head in the middle (5 m)
@@ -903,7 +902,7 @@ function nipaPalm(): THREE.Object3D {
     g.push(sphereCenter(7, [24 + Math.cos(a) * r, 8 + Math.sin(a) * r, 34 + (i % 4) * 5], "Jungle_Cattail", 6));
   }
   g.push(cylinderBetween([0, 0, 0], [24, 8, 34], 3, 5, "Jungle_Stem"));
-  return group(merge(...g), frondMesh(fr, "frond", () => frondTexture()));
+  return group(merge(...g), frondMesh(fr, "frond"));
 }
 
 // A boardwalk over the mangrove shallows, 4 m along Y (tiles end to end), 2.2 m wide: the deck
@@ -1205,7 +1204,7 @@ export const KIT: Kit = {
     { id: "stump", name: "ตอไม้ผุ", make: stump, tags: ["log", "decor"] },
     { id: "giant_fern", name: "เฟิร์นยักษ์", make: giantFern, tags: ["plant"] },
     { id: "tree_fern", name: "เฟิร์นต้น", make: treeFern, tags: ["plant"] },
-    { id: "elephant_ear", name: "บอนใบใหญ่", make: () => solid(elephantEar()), tags: ["plant"] },
+    { id: "elephant_ear", name: "บอนใบใหญ่", make: elephantEar, tags: ["plant"] },
     { id: "reeds", name: "กอกกริมบ่อ", make: () => solid(reeds()), tags: ["plant", "ground"] },
     { id: "strangler_fig", name: "ไทรยักษ์รากห้อย", make: stranglerFig, tags: ["landmark", "plant"] },
     { id: "vine_tree", name: "ต้นยางเถาวัลย์พัน", make: vineTree, tags: ["plant"] },

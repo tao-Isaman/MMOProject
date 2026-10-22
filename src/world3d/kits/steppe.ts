@@ -16,7 +16,7 @@ import {
 } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, FLOWER_CELLS } from "../textures";
-import { Cards, shrub } from "../trees";
+import { Cards, shrub, limb as tube } from "../trees";
 import type { Lobe, ShrubLook } from "../trees";
 import type { SolidSpec } from "../../world";
 import type { Paved, Poly } from "../paved";
@@ -148,13 +148,7 @@ function log(a: V3, b: V3, r: number, mat = "Steppe_Bark", end = "Steppe_WoodGre
 
 // A limb through a list of points, its radius tapering from r0 to r1, with a ball at each joint.
 function limb(pts: V3[], r0: number, r1: number, mat: string, seg = 7): Geo {
-  const parts: Geo[] = [];
-  for (let i = 0; i + 1 < pts.length; i++) {
-    const ra = r0 + ((r1 - r0) * i) / (pts.length - 1), rb = r0 + ((r1 - r0) * (i + 1)) / (pts.length - 1);
-    parts.push(cylinderBetween(pts[i], pts[i + 1], ra, seg, mat, rb));
-    if (i > 0) parts.push(sphereCenter(ra, pts[i], mat, seg));
-  }
-  return merge(...parts);
+  return tube(pts, r0, r1, mat, { seg, gnarl: r0 > 6 ? 0.5 : 0, seed: Math.round(pts[0][0] + pts[0][2]) });
 }
 
 // A horse skull looking -X, its back of the head at the origin (about 60 cm long).
@@ -340,15 +334,17 @@ function deadTree(): Geo {
   const W = "Steppe_WoodBleached";
   const trunk: V3[] = [[0, 0, 0], [6, 4, 110], [34, 10, 210], [86, 2, 300], [150, -12, 372], [205, -20, 410]];
   return merge(
-    cylinderAt({ rBot: 48, rTop: 28, height: 46, segments: 8, bottom: [0, 0, -4] }, W),
-    ...[0, 1, 2, 3, 4].map((k) => rotateZ(beamBetween([10, 0, 30], [58, 0, -6], 16, 14, W), k * 72 + 20)),
-    limb(trunk, 28, 6, W, 8),
-    limb([[34, 10, 210], [-20, 50, 300], [-70, 62, 368], [-92, 80, 392]], 11, 3, W),
+    tube(trunk, 30, 6, W, { seg: 9, flare: 0.65, roots: 5, gnarl: 0.9, seed: 71, taper: 0.85 }),
+    ...[0, 1, 2, 3, 4].map((k) => {
+      const a = ((k * 72 + 20) * Math.PI) / 180;
+      return tube([[Math.cos(a) * 12, Math.sin(a) * 12, 26], [Math.cos(a) * 36, Math.sin(a) * 36, 8], [Math.cos(a + 0.1) * 62, Math.sin(a + 0.1) * 62, -6]], 12, 4, W, { seg: 5, maxRings: 4 });
+    }),
+    limb([[30, 9, 200], [-20, 50, 300], [-70, 62, 368], [-92, 80, 392]], 11, 3, W),
     limb([[-20, 50, 300], [10, 100, 350], [20, 128, 380]], 6, 2.5, W, 6),
-    limb([[86, 2, 300], [80, 80, 380], [100, 110, 430]], 9, 3, W),
-    limb([[86, 2, 300], [140, -70, 330], [190, -110, 330]], 8, 3, W),
-    limb([[150, -12, 372], [160, 40, 430], [190, 50, 470]], 6, 2.5, W, 6),
-    limb([[20, 8, 160], [-40, -40, 200], [-60, -50, 215]], 7, 3, W, 6),
+    limb([[84, 2, 296], [80, 80, 380], [100, 110, 430]], 9, 3, W),
+    limb([[84, 2, 296], [140, -70, 330], [190, -110, 330]], 8, 3, W),
+    limb([[148, -12, 368], [160, 40, 430], [190, 50, 470]], 6, 2.5, W, 6),
+    limb([[18, 8, 156], [-40, -40, 200], [-60, -50, 215]], 7, 3, W, 6),
     // a split in the trunk and a hollow
     box([4, 14, 50], [-27, 0, 70], "Steppe_Shadow"),
     tuft([-60, 30, 0], 0.8, 71), tuft([40, -60, 0], 0.7, 72), tuft([60, 60, 0], 0.6, 73),
@@ -370,9 +366,12 @@ function fallenLog(): Geo {
     parts.push(cylinderBetween([Math.cos(a) * 14, 196, 22 + Math.sin(a) * 14], [Math.cos(a) * 10, 222 + rnd() * 30, 22 + Math.sin(a) * 10], 6, 4, "Steppe_WoodBleached", 0.5));
   }
   // root plate at the -Y end
-  for (let k = 0; k < 5; k++) parts.push(rotateX(beamBetween([0, 0, 0], [Math.cos(k * 1.26) * 60, -30, Math.sin(k * 1.26) * 60], 10, 9, "Steppe_Bark"), 0).map((p) => ({ geo: p.geo.clone().translate(0, -240, 26), mat: p.mat })));
+  for (let k = 0; k < 5; k++) {
+    const c = Math.cos(k * 1.26), sn = Math.sin(k * 1.26);
+    parts.push(tube([[c * 8, -236, 26 + sn * 8], [c * 34, -254, 26 + sn * 34], [c * 62, -268, Math.max(0, 26 + sn * 58)]], 8, 3, "Steppe_Bark", { seg: 5, maxRings: 3 }));
+  }
   // stubs of branches and moss
-  parts.push(cylinderBetween([10, -60, 40], [40, -40, 80], 7, 6, "Steppe_Bark", 4), cylinderBetween([-12, 80, 36], [-50, 100, 50], 6, 6, "Steppe_Bark", 3));
+  parts.push(tube([[10, -60, 40], [26, -52, 62], [40, -40, 80]], 7, 4, "Steppe_Bark", { seg: 6, maxRings: 3 }), tube([[-12, 80, 36], [-32, 90, 46], [-50, 100, 50]], 6, 3, "Steppe_Bark", { seg: 6, maxRings: 3 }));
   parts.push(blob([0, -100, 48], [22, 40, 6], "Steppe_Moss"), blob([4, 60, 47], [18, 30, 5], "Steppe_Lichen"));
   parts.push(tuft([-45, -150, 0], 0.7, 82), tuft([45, 20, 0], 0.7, 83), tuft([-40, 140, 0], 0.6, 84));
   return merge(...parts);

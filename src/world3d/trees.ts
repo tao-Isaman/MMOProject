@@ -1,8 +1,10 @@
-// Trees after the courtyard's #tree recipes: a trunk through its trunk points, a branch into
-// every crown ellipsoid with a few twigs, and the crowns filled with leaf cards painted with the
-// LeafClump texture. The cards' normals point out of their crown so a crown shades like one soft
-// ball; they sway a little in the wind (a shader tweak). Bushes (SHRUBS, and `shrub` for the
-// kits' own) are built differently, as lobes of leaf sprays round leafy cores: see below.
+// Trees after the courtyard's #tree recipes (TREES): a trunk through its trunk points running on
+// into the crown above it, a limb arching out to every other crown ellipsoid with twigs, and each
+// crown a cumulus of leafy lobes (crownTree, below): lumpy leafy cores clad in alpha-cut leaf
+// cards, darker underneath, sunlit on top, swaying a little in the wind. The same pieces (limb,
+// grow, foliage, frond, LeafCards) build the kits' own trees, palms and firs (flora.ts). Bushes
+// (SHRUBS, and `shrub` for the kits' own) are lobes of leaf sprays round leafy cores too, in
+// three card materials. `leaves`/`leafMaterials` are the older card crowns, kept for leaf litter.
 
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -56,8 +58,8 @@ export const TREES: Record<string, TreeSpec> = {
     crowns: [[60, 0, 330, 230, 200, 120], [-90, 60, 300, 150, 140, 100], [110, -110, 290, 140, 130, 90]],
   },
   Birch: {
-    seed: 37, trunkHeight: 420, trunkRadius: 13, leafSize: 60, twigs: 3, leaf: "birch", bark: "BarkBirch", lobes: 4, cards: 0.66,
-    foliage: { core: 0.62, hang: 0.5, ragged: 0.75 },
+    seed: 37, trunkHeight: 420, trunkRadius: 13, leafSize: 60, twigs: 3, leaf: "birch", bark: "BarkBirch", lobes: 4, cards: 1.0, card: 40,
+    foliage: { core: 0, hang: 0.5, ragged: 0.75, sun: 0.06, under: 0.6 },
     crowns: [[0, 0, 520, 122, 112, 200], [36, -28, 640, 70, 68, 76], [-46, 36, 430, 78, 74, 86]],
   },
   JungleTree: {
@@ -170,6 +172,7 @@ export interface LimbOpts {
   gnarl?: number; // bumps along the bark (0..1)
   dome?: boolean; // close the tip with a rounded cap (cactus arms)
   maxRings?: number;
+  grainU?: boolean; // texture U along the limb (for plank-grained "wood" maps), V round it
   seed?: number;
 }
 export function limb(pts: V3[], r0: number, r1: number, mat: string, o: LimbOpts = {}): Geo {
@@ -205,7 +208,8 @@ export function limb(pts: V3[], r0: number, r1: number, mat: string, o: LimbOpts
       pos.push(R.p.x + dir.x * r, R.p.y + dir.y * r, R.p.z + dir.z * r);
       const k = Math.sqrt(1 - R.tip * R.tip);
       nor.push(dir.x * k + R.t.x * R.tip, dir.y * k + R.t.y * R.tip, dir.z * k + R.t.z * R.tip);
-      uv.push((j / seg) * repU, R.s / 100);
+      if (o.grainU) uv.push(R.s / 100, (j / seg) * repU);
+      else uv.push((j / seg) * repU, R.s / 100);
     }
   }
   for (let i = 0; i + 1 < list.length; i++)
@@ -219,6 +223,58 @@ export function limb(pts: V3[], r0: number, r1: number, mat: string, o: LimbOpts
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   geo.setIndex(idx);
   return [{ geo, mat }];
+}
+
+// Branches grown by rule (a dead tree, a crown's wood): a limb from `at` heading `dir`, wandering
+// a little at each of its bends, forking at its end into `kids` thinner, shorter limbs that
+// splay out from it, `depth` times over. `tips` collects where the last twigs end.
+export interface GrowSpec {
+  mat: string;
+  seed: number;
+  at: V3;
+  dir: V3;
+  len: number;
+  r: number;
+  depth: number;
+  kids?: (depth: number) => number; // children at each fork (3 near the trunk, then 2)
+  spread?: number;                  // angle between child and parent (0.85 rad)
+  shrink?: number;                  // child length / parent (0.68)
+  thin?: number;                    // child radius / parent's end radius (0.86)
+  wobble?: number;                  // how much each limb wanders (0.7)
+  rise?: number;                    // pulls the children up (+) or down (-) (0)
+  steps?: number;                   // bends per limb (3)
+  tipR?: number;                    // the twigs' end radius relative to their start (0.15)
+  flare?: number;                   // the first limb's root flare...
+  roots?: number;                   // ... in lobes
+  gnarl?: number;
+  tips?: { p: V3; d: V3; r: number }[];
+}
+export function grow(spec: GrowSpec): Geo {
+  const rnd = seeded(spec.seed), out: Geo[] = [], UPV = new THREE.Vector3(0, 0, 1);
+  const go = (p: V3, dir: THREE.Vector3, len: number, r: number, depth: number, first: boolean) => {
+    const steps = spec.steps ?? 3, wob = spec.wobble ?? 0.7, pts: V3[] = [p];
+    const d = dir.clone().normalize(), cur = new THREE.Vector3(...p);
+    for (let i = 0; i < steps; i++) {
+      d.add(new THREE.Vector3((rnd() - 0.5) * wob, (rnd() - 0.5) * wob, (rnd() - 0.35) * 0.3 * wob)).normalize();
+      cur.addScaledVector(d, len / steps);
+      pts.push(cur.toArray() as V3);
+    }
+    const r1 = depth === 0 ? r * (spec.tipR ?? 0.15) : r * 0.72;
+    out.push(limb(pts, r, r1, spec.mat, { flare: first ? spec.flare : 0, roots: spec.roots, gnarl: r > 5 ? spec.gnarl ?? 0.5 : 0, seed: spec.seed + depth * 7 + Math.round(rnd() * 99), step: Math.max(24, r * 2.6), maxRings: 8 }));
+    if (depth === 0) {
+      spec.tips?.push({ p: cur.toArray() as V3, d: d.toArray() as V3, r: r1 });
+      return;
+    }
+    const k = spec.kids ? spec.kids(depth) : depth >= 2 ? 3 : 2, turn = rnd() * Math.PI * 2;
+    for (let j = 0; j < k; j++) {
+      const az = turn + (j / k) * Math.PI * 2 + (rnd() - 0.5) * 0.6, t = (spec.spread ?? 0.85) * (0.75 + rnd() * 0.5);
+      const h = new THREE.Vector3(Math.cos(az), Math.sin(az), 0);
+      const nd = d.clone().multiplyScalar(Math.cos(t)).addScaledVector(h, Math.sin(t) * 1.1).addScaledVector(UPV, spec.rise ?? 0).normalize();
+      go(cur.toArray() as V3, nd, len * (spec.shrink ?? 0.68) * (0.88 + rnd() * 0.24), r1 * (spec.thin ?? 0.86), depth - 1, false);
+    }
+  };
+  go(spec.at, new THREE.Vector3(...spec.dir), spec.len, spec.r, spec.depth, true);
+  return merge(...out);
 }
 
 // A point along a smooth curve through `pts` (t 0..1 by length).
@@ -293,6 +349,41 @@ export class LeafCards {
   }
 }
 
+// A frond (or any long leaf) as cards: a rib from `at` heading `yaw`, rising at `lift` and
+// bending down by `droop` toward its tip, its two halves folded down from the rib by `fold` (a V
+// seen end on) so it reads as leaflets hanging either side; `w` its half-width at the widest.
+// The texture runs along U with the rib across the middle (v = 0.5). Colours go from `base` at
+// the stalk to `tip`.
+export interface FrondSpec { at: V3; yaw: number; lift: number; droop: number; len: number; w: number; fold?: number; segs?: number; base: THREE.Color; tip: THREE.Color; twist?: number }
+export function frond(cards: LeafCards, f: FrondSpec): void {
+  const segs = f.segs ?? 6, fold = f.fold ?? 0.5, UP = new THREE.Vector3(0, 0, 1);
+  const dir = new THREE.Vector3(Math.cos(f.yaw), Math.sin(f.yaw), 0), side = new THREE.Vector3(-Math.sin(f.yaw), Math.cos(f.yaw), 0);
+  const pts = [new THREE.Vector3(...f.at)], tans: THREE.Vector3[] = [];
+  for (let k = 0; k <= segs; k++) {
+    const ang = f.lift - f.droop * Math.pow(k / segs, 1.35);
+    const t = dir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(UP, Math.sin(ang));
+    tans.push(t);
+    if (k < segs) pts.push(pts[k].clone().addScaledVector(t, f.len / segs));
+  }
+  const width = (k: number) => f.w * Math.pow(Math.sin(Math.PI * (0.06 + 0.9 * (k / segs))), 0.8);
+  const rib: THREE.Vector3[] = [], left: THREE.Vector3[] = [], right: THREE.Vector3[] = [], nor: THREE.Vector3[] = [], col: THREE.Color[] = [];
+  for (let k = 0; k <= segs; k++) {
+    const t = tans[k], s = side.clone().applyAxisAngle(t, (f.twist ?? 0) * (k / segs));
+    const up = new THREE.Vector3().crossVectors(t, s).normalize(); // the frond's own up
+    const w = width(k);
+    rib.push(pts[k]);
+    left.push(pts[k].clone().addScaledVector(s, w * Math.cos(fold)).addScaledVector(up, -w * Math.sin(fold)));
+    right.push(pts[k].clone().addScaledVector(s, -w * Math.cos(fold)).addScaledVector(up, -w * Math.sin(fold)));
+    nor.push(up.clone().multiplyScalar(0.6).addScaledVector(UP, 0.7).normalize());
+    col.push(f.base.clone().lerp(f.tip, k / segs));
+  }
+  for (let k = 0; k < segs; k++) {
+    const u0 = k / segs, u1 = (k + 1) / segs;
+    cards.quad([rib[k], rib[k + 1], left[k + 1], left[k]], [[u0, 0.5], [u1, 0.5], [u1, 1], [u0, 1]], [nor[k], nor[k + 1], nor[k + 1], nor[k]], [col[k], col[k + 1], col[k + 1], col[k]]);
+    cards.quad([right[k], right[k + 1], rib[k + 1], rib[k]], [[u0, 0], [u1, 0], [u1, 0.5], [u0, 0.5]], [nor[k], nor[k + 1], nor[k + 1], nor[k]], [col[k], col[k + 1], col[k + 1], col[k]]);
+  }
+}
+
 // The shared, swaying material of a card texture (vertex colours tint each card; both faces lit
 // by the normal the card was given, so a crown shades like one soft mass).
 const canopyMats = new Map<CanopyCard, THREE.MeshStandardMaterial>();
@@ -324,9 +415,9 @@ export function canopyMaterial(kind: CanopyCard): THREE.MeshStandardMaterial {
 // painted in colour, whose tints are then shades).
 export interface CanopyLook { card: CanopyCard; dark: RGB; mid: RGB; light: RGB; core?: string; boost?: number }
 export const CANOPY: Record<string, CanopyLook> = {
-  green: { card: "canopy", dark: [48, 96, 38], mid: [84, 140, 54], light: [150, 196, 80], core: "CanopyCore" },
-  round: { card: "canopy", dark: [54, 104, 40], mid: [96, 152, 58], light: [168, 206, 90], core: "CanopyCore" },
-  deep: { card: "glossy", dark: [26, 74, 34], mid: [54, 118, 50], light: [112, 170, 70], core: "CanopyCoreDeep" },
+  green: { card: "canopy", dark: [58, 108, 42], mid: [94, 150, 58], light: [162, 204, 86], core: "CanopyCore" },
+  round: { card: "canopy", dark: [62, 114, 44], mid: [104, 160, 62], light: [176, 212, 94], core: "CanopyCore" },
+  deep: { card: "glossy", dark: [32, 82, 38], mid: [62, 128, 54], light: [122, 178, 74], core: "CanopyCoreDeep" },
   birch: { card: "fine", dark: [96, 132, 44], mid: [146, 178, 62], light: [210, 222, 108], core: "CanopyCoreBirch" },
   autumn: { card: "maple", dark: [150, 62, 28], mid: [214, 116, 40], light: [248, 184, 74], core: "CanopyCoreAutumn" },
   crimson: { card: "maple", dark: [126, 26, 24], mid: [186, 46, 32], light: [240, 100, 54], core: "CanopyCoreRed" },
@@ -383,7 +474,7 @@ export function foliage(spec: FoliageSpec, cards: LeafCards): Geo {
     const big = Math.max(rx, ry, rz);
     if (core > 0) parts.push(lump([cx, cy, cz], [rx * core, ry * core, rz * core], spec.seed * 13 + li * 7, look.core!, spec.details?.[li] ?? (big * core > 55 ? 1 : 0), 0.16, Math.max(70, spec.leaf * 2.2)));
     const p = 1.6, area = 4 * Math.PI * (((rx * ry) ** p + (rx * rz) ** p + (ry * rz) ** p) / 3) ** (1 / p);
-    const count = Math.round((area / spec.leaf ** 2) * 2.7 * dens);
+    const count = Math.round((area / spec.leaf ** 2) * 2.5 * dens);
     for (let i = 0; i < count; i++) {
       const d = randDir();
       if (d.z < -0.25 && rnd() > (spec.under ?? 0.3)) continue;
@@ -417,14 +508,14 @@ export interface CrownSpec {
   look: CanopyLook;
   bark?: string;       // (BarkWarm)
   density?: number;
-  lobes?: number;      // lobes round each crown's skin (5)
-  twigs?: number;      // twigs into each crown (3)
+  lobes?: number;      // lobes round each crown's skin (4)
+  twigs?: number;      // twigs into each crown (2, at most 2)
   flare?: number;      // root flare (0.35)
   roots?: number;      // root lobes (5)
   gnarl?: number;
   limb?: number;       // limb radius relative to the trunk's (0.5)
   leader?: boolean;    // the trunk runs on into the crown above it (true)
-  topR?: number;       // the trunk's radius where it ends, relative to its foot (0.22 with a leader, else 0.5)
+  topR?: number;       // the trunk's radius where it ends, relative to its foot (0.2 with a leader, else 0.5)
   clip?: { min: V3; max: V3 };
   foliage?: Partial<FoliageSpec>;
 }
@@ -483,22 +574,29 @@ export function crownTree(spec: CrownSpec): { wood: Geo; cards: LeafCards; lobes
     twigInto(new THREE.Vector3(...along(pts, 0.75)), rl * 0.45, c, nt);
   });
   // the leafy lobes
-  const lobes: Lobe[] = [], details: number[] = [];
-  for (const [cx, cy, cz, rx, ry, rz] of spec.crowns) {
-    lobes.push([cx, cy, cz, rx * 0.8, ry * 0.8, rz * 0.82]);
-    details.push(Math.max(rx, ry, rz) > 120 ? 1 : 0);
-    const n = spec.lobes ?? 4, a0 = rnd() * 6.28;
-    for (let k = 0; k < n; k++) {
-      const a = a0 + (k / n) * Math.PI * 2 + (rnd() - 0.5) * 0.7, e = -0.3 + rnd() * 1.05, s = 0.46 + rnd() * 0.12;
-      const dx = Math.cos(a) * Math.cos(e), dy = Math.sin(a) * Math.cos(e), dz = Math.sin(e);
-      lobes.push([cx + dx * rx * (1 - s) * 0.95, cy + dy * ry * (1 - s) * 0.95, cz + dz * rz * (1 - s) * 0.95, rx * s, ry * s, rz * s]);
-      details.push(0);
-    }
-  }
+  const { lobes, details } = crownLobes(spec.crowns, rnd, spec.lobes);
   const cards = new LeafCards();
   cards.clip = spec.clip ?? null;
   parts.push(foliage({ seed: spec.seed * 3 + 1, lobes, details, leaf: spec.leaf, look: spec.look, density: spec.density, ...spec.foliage }, cards));
   return { wood: merge(...parts), cards, lobes };
+}
+
+// Each crown as leafy lobes: a big one in its middle, `n` smaller ones round its skin (a lumpy
+// cumulus of leaves inside the crown's ellipsoid); the cores' detail for foliage().
+export function crownLobes(crowns: Lobe[], rnd: () => number, n = 4): { lobes: Lobe[]; details: number[] } {
+  const lobes: Lobe[] = [], details: number[] = [];
+  for (const [cx, cy, cz, rx, ry, rz] of crowns) {
+    lobes.push([cx, cy, cz, rx * 0.82, ry * 0.82, rz * 0.84]);
+    details.push(Math.max(rx, ry, rz) > 120 ? 1 : 0);
+    const a0 = rnd() * 6.28;
+    for (let k = 0; k < n; k++) {
+      const a = a0 + (k / n) * Math.PI * 2 + (rnd() - 0.5) * 0.7, e = -0.3 + rnd() * 1.05, s = 0.46 + rnd() * 0.12;
+      const dx = Math.cos(a) * Math.cos(e), dy = Math.sin(a) * Math.cos(e), dz = Math.sin(e);
+      lobes.push([cx + dx * rx * (1.04 - s), cy + dy * ry * (1.04 - s), cz + dz * rz * (1.04 - s), rx * s, ry * s, rz * s]);
+      details.push(0);
+    }
+  }
+  return { lobes, details };
 }
 
 // A finished tree: its wood and leafy cores in the shared materials, its cards one mesh.

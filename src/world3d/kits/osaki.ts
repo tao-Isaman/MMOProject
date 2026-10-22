@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, flowerCell, FLOWER_CELLS } from "../textures";
-import { Cards, shrub } from "../trees";
+import { Cards, shrub, limb } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the town's own colours ----
@@ -647,8 +647,7 @@ function pottedPine(at: V3, s = 1): Geo {
   const g = merge(
     cylinderAt({ rBot: 13, rTop: 17, height: 22, segments: 10, bottom: [0, 0, 0] }, "StoneBlueDark"),
     cylinderAt({ radius: 15, height: 2, segments: 10, bottom: [0, 0, 20] }, "WoodDark"),
-    cylinderBetween([0, 0, 20], [6, 2, 48], 3.5, 6, "BarkWarm", 2.6),
-    cylinderBetween([6, 2, 48], [-8, 4, 70], 2.6, 6, "BarkWarm", 1.8),
+    limb([[0, 0, 20], [6, 2, 48], [-8, 4, 70], [-2, 2, 84]], 3.8, 1.6, "BarkWarm", { seg: 6, gnarl: 0.7, flare: 0.3, seed: 646 }),
     // the clipped pads: tufts of needles over dark cores
     shrub({ seed: 641, leaf: 12, density: 0.45, ragged: 0.3, core: 0.8, sun: 0.05, look: { core: "PineCore", dark: "Osaki_NeedleDark", mid: "Osaki_Needle", light: "Osaki_NeedleLight" }, lobes: [[10, 2, 53, 22, 18, 8], [-10, 4, 71, 18, 15, 7], [0, 0, 85, 12, 10, 6]] }),
   );
