@@ -43,7 +43,8 @@ import { RADIUS } from "./player";
 import { BotUI } from "./botui";
 import { garmentIcon } from "./garments";
 import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touch";
-import type { FlowerSpell } from "./spell";
+import type { Spell } from "./spell";
+import { LOOKS, circleTextures } from "./circles";
 import type { Atlas, Img, Textures, View } from "./types";
 
 // What an elemental bite can leave on the player (a buff whose id starts with "ail_").
@@ -89,7 +90,8 @@ async function loading(text: string, progress: number): Promise<void> {
 }
 const loaded = () => loadingEl.classList.add("done");
 
-const screen = { w: 0, h: 0, dpr: 1, zoom: 1, far: 1 }; // far: a debug zoom-out (__game.zoomOut)
+// far: a debug zoom-out (__game.zoomOut); user: the player's own zoom (the mouse wheel)
+const screen = { w: 0, h: 0, dpr: 1, zoom: 1, far: 1, user: 1 };
 function resize() {
   // phones draw the 3D courtyard at up to 1.5 pixels per CSS pixel, to keep it smooth
   screen.dpr = Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2);
@@ -101,6 +103,17 @@ function resize() {
   // show about 15 x 9 m of the courtyard (map pixels are centimetres)
   screen.zoom = Math.max(0.5, Math.min(w / 1500, h / 900));
   world?.resize(w, h, screen.dpr);
+}
+
+// How far the wheel zooms: out to about 1.5 times the courtyard, in to nearly twice as close.
+const ZOOM_MIN = 0.65, ZOOM_MAX = 1.8;
+const zoomKey = "mmo.zoom.v1";
+let zoomTo = 1;
+try {
+  const v = parseFloat(localStorage.getItem(zoomKey) ?? "");
+  if (v >= ZOOM_MIN && v <= ZOOM_MAX) zoomTo = screen.user = v;
+} catch {
+  // a fresh zoom
 }
 
 // Smallest mip level whose cells are still at least r device pixels wide.
@@ -428,7 +441,7 @@ async function boot(): Promise<void> {
   const motes = new Motes(fx, glow("rgba(232, 255, 112, 1)"));
   motes.update(0, { x: player.x, y: player.y });
   motes.prewarm();
-  const spells: FlowerSpell[] = [];
+  const spells: Spell[] = [];
   const floaters = new Floaters();
   // the people among the monsters are dressed like townsfolk, their weapon in hand
   const dress = async (d: MonsterDef): Promise<Person | null> => {
@@ -1062,6 +1075,17 @@ async function boot(): Promise<void> {
   }
   let dragTurn: { x: number; yaw: number } | null = null;
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  // the mouse wheel zooms in and out (kept for next time); a wheel over a window scrolls it
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const dy = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+    zoomTo = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomTo * Math.exp(-dy * 0.0015)));
+    try {
+      localStorage.setItem(zoomKey, zoomTo.toFixed(3));
+    } catch {
+      // not kept
+    }
+  }, { passive: false });
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 2) return;
     dragTurn = { x: e.clientX, yaw };
@@ -1344,8 +1368,9 @@ async function boot(): Promise<void> {
       if (!hero.alive) deathNote.textContent = `ล้มลงแล้ว · ฟื้นที่จุดเกิดในอีก ${Math.ceil(hero.dead)} วินาที`;
     }
 
-    // ---- camera: follow the player ----
-    const k = screen.zoom * screen.dpr * screen.far;
+    // ---- camera: follow the player, easing to the wheel's zoom ----
+    screen.user += (zoomTo - screen.user) * (1 - Math.exp(-dt * 12));
+    const k = screen.zoom * screen.dpr * screen.far * screen.user;
     const tx = mapX(player.x, player.y), ty = mapY(player.x, player.y) - 50;
     const ease = 1 - Math.exp(-dt * 6);
     cam.x += (tx - cam.x) * ease;
@@ -1431,7 +1456,8 @@ async function boot(): Promise<void> {
     progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
-    draw: { mapX, mapY, viewRow, WEAPON_ART } }; // for test scripts drawing the player by hand
+    draw: { mapX, mapY, viewRow, WEAPON_ART }, // for test scripts drawing the player by hand
+    circles: { LOOKS, circleTextures } }; // and looking at the cast circles
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).

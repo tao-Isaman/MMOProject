@@ -119,7 +119,7 @@ const BITE_TIME = 1.6;   // s between bites
 const CHASE_LEASH = 900; // gives up past this far from home
 const ANGER = 12;        // s it stays angry after being hit
 const SHOWN = 8;         // s its name and HP stay under it after the player last hurt it
-const PLATE = 46;        // map px under its feet for its name and HP
+const PLATE = 68;        // map px under its feet for its name and HP
 const RARE_SPOTS = 2;
 const RANGE = 480;       // cm a shooter shoots from
 const SHOT_SPEED = 560;  // cm/s
@@ -816,7 +816,7 @@ export class Monster {
     const L = this.look;
     const foot = Math.max(PLATE, L.foot * L.scale + 12);
     return {
-      w: Math.max(210, L.cell * L.scale * 1.3),
+      w: Math.max(280, L.cell * L.scale * 1.3),
       h: Math.max(170, (L.cell - L.foot) * L.scale + (this.fly ? 130 : 80)) + foot - 30,
       foot,
     };
@@ -911,28 +911,28 @@ export class Monster {
   // and its HP as a bar with the numbers on it.
   drawPlate(ctx: CanvasRenderingContext2D, cx: number, feet: number, k: number): void {
     if (!this.alive || !(this.focus || this.shown > 0)) return;
-    const w = (this.boss ? 120 : 76) * k, h = (this.boss ? 10 : 9) * k;
+    const w = (this.boss ? 150 : 104) * k, h = (this.boss ? 14 : 12) * k;
     const gold = this.boss || this.entry?.kind === "rare";
     ctx.lineJoin = "round";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.font = `600 ${12.5 * k}px Kanit, system-ui, sans-serif`;
-    ctx.lineWidth = 3.5 * k;
+    ctx.font = `600 ${19 * k}px Kanit, system-ui, sans-serif`;
+    ctx.lineWidth = 4.5 * k;
     ctx.strokeStyle = "rgba(10, 12, 8, 0.9)";
     ctx.fillStyle = gold ? "#ffd27a" : this.focus ? "#fff6d8" : "#e8e2cc";
     const label = `Lv ${this.level} ${this.variant.name}`;
-    const ty = feet + 20 * k;
+    const ty = feet + 27 * k;
     ctx.strokeText(label, cx, ty);
     ctx.fillText(label, cx, ty);
-    const y = ty + 5 * k;
+    const y = ty + 6 * k;
     ctx.fillStyle = "rgba(10, 12, 8, 0.85)";
     ctx.fillRect(cx - w / 2 - k, y - k, w + 2 * k, h + 2 * k);
     ctx.fillStyle = "#4b1c18";
     ctx.fillRect(cx - w / 2, y, w, h);
     ctx.fillStyle = this.angry > 0 ? "#ff6a5a" : "#e0a090";
     ctx.fillRect(cx - w / 2, y, (w * Math.max(0, this.hp)) / this.maxHp, h);
-    ctx.font = `600 ${8.5 * k}px Kanit, system-ui, sans-serif`;
-    ctx.lineWidth = 2.5 * k;
+    ctx.font = `600 ${11 * k}px Kanit, system-ui, sans-serif`;
+    ctx.lineWidth = 3 * k;
     ctx.textBaseline = "middle";
     const hp = `${Math.max(0, Math.ceil(this.hp))} / ${this.maxHp}`;
     ctx.strokeText(hp, cx, y + h / 2 + 0.5 * k);

@@ -16,6 +16,13 @@ interface Caster {
   z: number;
 }
 
+// Anything a spell leaves running after it goes off, updated every frame until it is done (this
+// flower field, a cast's circle in src/castfx.ts).
+export interface Spell {
+  update(dt: number): void;
+  readonly done: boolean;
+}
+
 export const CAST_TIME = 1.5;
 export const HOVER_END = 7.0; // the caster floats until the carpet starts to clear
 

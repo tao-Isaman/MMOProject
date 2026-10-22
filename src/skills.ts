@@ -39,6 +39,10 @@ import type { Combat, Floaters } from "./combat";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
 import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell";
+import type { Spell } from "./spell";
+import { CastCircle } from "./castfx";
+import type { CastTarget } from "./castfx";
+import { lookFor } from "./circles";
 import { WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
 import type { Hero } from "./hero";
@@ -55,7 +59,7 @@ interface SkillDeps {
   fx: Particles;
   tex: Textures;
   floaters: Floaters;
-  spells: FlowerSpell[];
+  spells: Spell[];
   weapon: () => string | null;
 }
 
@@ -81,6 +85,7 @@ interface Casting {
   mark: Monster | null;
   locked: boolean; // the mark is a single-target skill's lock (it comes to nothing without it)
   left: number;    // s until it goes off
+  circle: CastCircle;
 }
 
 // One target, locked on (a shot that homes in, a blow at the one in front); the other damage
@@ -103,7 +108,7 @@ export class Skills {
   fx: Particles;
   tex: Textures;
   floaters: Floaters;
-  spells: FlowerSpell[];
+  spells: Spell[];
   weapon: () => string | null;
   timers: { t: number; fn: () => void }[] = [];
   pending: Casting | null = null;
@@ -183,7 +188,13 @@ export class Skills {
     const time = this.castTime(s);
     if (time > 0) {
       const mark = lock ?? this.markFor(s, dir, aim);
-      this.pending = { id, s, rank, dir, aim, mark, locked: !!lock, left: time };
+      // the circle under the caster (as wide as a spell round the caster reaches), and a sigil
+      // under what it is aimed at
+      const look = lookFor(id, s.color);
+      const size = s.type === "nova" || s.type === "storm" ? Math.max(look.size, (s.radius ?? 200) * 2) : look.size;
+      const circle = new CastCircle(this.fx, this.tex, look, p, time, size, this.sigilFor(s, dir, aim, mark, lock));
+      this.spells.push(circle);
+      this.pending = { id, s, rank, dir, aim, mark, locked: !!lock, left: time, circle };
       p.startCast(time, time + RELEASE, dir);
       p.target = lock;
       this.notice(s, dir, aim, lock);
@@ -223,6 +234,21 @@ export class Skills {
     return hit.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0] ?? null;
   }
 
+  // Where a cast's sigil lies: under a single-target spell's target, or on the spot a ground
+  // spell will land (following its mark, as release() does); none for the rest.
+  sigilFor(s: SkillDef, dir: Vec2, aim: Vec2 | null, mark: Monster | null, lock: Monster | null): CastTarget | null {
+    const p = this.player;
+    if (lock) return { at: () => (lock.alive ? lock : null), size: lock.radius * 2.4 + 50 };
+    if (s.type !== "blast") return null;
+    const range = s.range ?? 500;
+    const reach = (to: Vec2): Vec2 => {
+      const d = Math.min(range, Math.hypot(to.x - p.x, to.y - p.y)), u = toward(p, to) ?? dir;
+      return { x: p.x + u.x * d, y: p.y + u.y * d };
+    };
+    const fixed = reach(aim ?? { x: p.x + dir.x * range * 0.6, y: p.y + dir.y * range * 0.6 });
+    return { at: () => (mark?.alive ? reach(mark) : fixed), size: (s.radius ?? 150) * 2 };
+  }
+
   // The monsters a spell is aimed at: what its area would catch as it stands.
   noticed(s: SkillDef, dir: Vec2, aim: Vec2 | null): Monster[] {
     const p = this.player, me = { x: p.x, y: p.y };
@@ -260,6 +286,7 @@ export class Skills {
   // Let a cast go (walked off, fell, changed map): nothing is spent.
   interrupt(why: string | null = "ยกเลิกการร่าย"): void {
     if (!this.pending) return;
+    this.pending.circle.cancel();
     this.pending = null;
     const c = this.player.cast;
     if (c && c.t < c.duration) this.player.cast = null;
@@ -270,6 +297,7 @@ export class Skills {
   // is still there; a single-target spell whose target is gone comes to nothing.
   release(c: Casting): void {
     this.pending = null;
+    c.circle.release();
     const p = this.player, m = c.mark?.alive && this.monsters.includes(c.mark) ? c.mark : null;
     if (c.locked && !m) return void this.floaters.add(p.x, p.y, 150, "เป้าหมายหายไป", "info");
     if (!this.hero.spend(c.s.mp)) return void this.floaters.add(p.x, p.y, 150, "MP ไม่พอ", "info");
