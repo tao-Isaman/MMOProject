@@ -528,6 +528,7 @@ export class Looks {
       p = Promise.all(clips.map((c) => loadImage(`assets/chars/${body}_${c}.png`)))
         .then((imgs) => Object.fromEntries(clips.map((c, i) => [c, st ? stretchSheet(imgs[i], st) : imgs[i]])));
       this.sheets.set(id, p);
+      p.catch(() => this.sheets.delete(id)); // a failed load is tried again next time
     }
     return p;
   }
@@ -537,6 +538,7 @@ export class Looks {
     if (!p) {
       p = loadImage(`assets/chars/hair_${style}.png`);
       this.heads.set(style, p);
+      p.catch(() => this.heads.delete(style));
     }
     return p;
   }

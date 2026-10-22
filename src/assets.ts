@@ -2,12 +2,26 @@
 
 import type { Atlas, Img } from "./types";
 
-export function loadImage(src: string): Promise<HTMLImageElement> {
+// One image. A request that fails or hangs (STALL ms; a first visit fetches a lot at once) is
+// tried once more, past any cache, before giving up: a stalled file used to leave the loading
+// screen waiting for good.
+const STALL = 20000;
+export function loadImage(src: string, tries = 2): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.decoding = "async";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`failed to load ${src}`));
+    const fail = (why: string) => {
+      clearTimeout(timer);
+      img.onload = img.onerror = null;
+      if (tries > 1) loadImage(`${src}${src.includes("?") ? "&" : "?"}retry=${Date.now()}`, tries - 1).then(resolve, reject);
+      else reject(new Error(`failed to load ${src} (${why})`));
+    };
+    const timer = setTimeout(() => fail("timed out"), STALL);
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(img);
+    };
+    img.onerror = () => fail("error");
     img.src = src;
   });
 }

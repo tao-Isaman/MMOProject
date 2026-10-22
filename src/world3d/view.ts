@@ -12,6 +12,8 @@
 import * as THREE from "three";
 import { wind } from "./trees";
 import { groundFromMap, heightAt, mapX, mapY } from "../projection";
+
+const COMPILE_WAIT = 8000; // ms the loading screen waits for shaders at most
 import type { View } from "../types";
 
 const DIST = 6000; // camera distance from what it looks at, cm
@@ -352,9 +354,12 @@ export class World3D {
 
   // Compile every material in the scene now (behind the loading screen) rather than on the
   // frames that first show it.
+  // Compile every material's shaders ahead of the first frame. Some graphics drivers take very
+  // long over a first visit's shaders (or never report one done), so the wait is cut short: the
+  // rest finish while it plays.
   async compile(): Promise<void> {
     this.camera.updateMatrixWorld();
-    await this.renderer.compileAsync(this.scene, this.camera);
+    await Promise.race([this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined), new Promise((r) => setTimeout(r, COMPILE_WAIT))]);
   }
 
   // The scenery inside `b` seen from straight above, north (+X) up, `long` pixels along its
