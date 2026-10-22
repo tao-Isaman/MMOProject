@@ -37,8 +37,6 @@ export class Npc {
   radius = 30;
   time = 0;
   said = 0;               // which line comes next
-  bubble: { text: string; t: number } | null = null;
-  mark: "offer" | "ready" | "busy" | null = null; // a quest to take (!), to hand in (?), under way
 
   constructor(spec: NpcSpec) {
     this.spec = spec;
@@ -57,16 +55,12 @@ export class Npc {
     this.time += dt;
     const dx = player.x - this.x, dy = player.y - this.y;
     this.dir = Math.hypot(dx, dy) < 600 ? directionIndex(dx, dy) : this.home;
-    if (this.bubble && (this.bubble.t -= dt) <= 0) this.bubble = null;
   }
 
-  // The next line, shown in a balloon over the head.
-  talk(): string {
+  // What they say next (the talk window opens with it), in turn.
+  nextLine(): string {
     const lines = this.spec.lines;
-    const text = lines[this.said % lines.length] ?? "";
-    this.said++;
-    this.bubble = { text, t: 3 + text.length * 0.06 };
-    return text;
+    return lines[this.said++ % Math.max(1, lines.length)] ?? "";
   }
 
   distance(p: Vec2): number {
@@ -109,59 +103,6 @@ export class Npc {
     ctx.strokeText(label, gx, top - 17 * k);
     ctx.fillStyle = near ? "#9df0b4" : "#d8d2bf";
     ctx.fillText(label, gx, top - 17 * k);
-    if (this.mark) drawMark(ctx, gx, top - 34 * k, this.mark, this.time, k);
-    if (this.bubble) drawBubble(ctx, gx, top - (this.mark ? 76 : 40) * k, this.bubble.text, k);
     ctx.textAlign = "start";
   }
-}
-
-// The quest mark over a head: a gold "!" for a quest to take, a gold "?" for one to hand in, a
-// grey "?" for one under way; the gold ones bob.
-function drawMark(ctx: CanvasRenderingContext2D, x: number, bottom: number, mark: "offer" | "ready" | "busy", t: number, k: number): void {
-  const bob = mark === "busy" ? 0 : Math.sin(t * 4) * 3 * k;
-  ctx.font = `800 ${30 * k}px Kanit, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.lineWidth = 6 * k;
-  ctx.strokeStyle = "rgba(40, 24, 4, 0.9)";
-  const text = mark === "offer" ? "!" : "?";
-  ctx.strokeText(text, x, bottom + bob);
-  ctx.fillStyle = mark === "busy" ? "#b9b4a4" : "#ffd23a";
-  ctx.fillText(text, x, bottom + bob);
-}
-
-// A white speech balloon, wrapped to about 16 em, its tail pointing down at the speaker.
-function drawBubble(ctx: CanvasRenderingContext2D, x: number, bottom: number, text: string, k: number): void {
-  ctx.font = `${13 * k}px Kanit, sans-serif`;
-  const maxW = 220 * k, lines: string[] = [];
-  let line = "";
-  for (const ch of [...text]) {
-    const next = line + ch;
-    if (ctx.measureText(next).width > maxW && line) {
-      // break after a space when there is one nearby
-      const cut = line.lastIndexOf(" ");
-      if (cut > line.length * 0.5) {
-        lines.push(line.slice(0, cut));
-        line = line.slice(cut + 1) + ch;
-      } else {
-        lines.push(line);
-        line = ch;
-      }
-    } else line = next;
-  }
-  if (line) lines.push(line);
-  const lh = 18 * k, pad = 9 * k;
-  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2, h = lines.length * lh + pad * 1.4;
-  const x0 = x - w / 2, y0 = bottom - h - 8 * k;
-  ctx.fillStyle = "rgba(255, 253, 244, 0.96)";
-  ctx.strokeStyle = "rgba(60, 50, 30, 0.75)";
-  ctx.lineWidth = 1.5 * k;
-  ctx.beginPath();
-  ctx.roundRect(x0, y0, w, h, 8 * k);
-  ctx.moveTo(x - 7 * k, y0 + h);
-  ctx.lineTo(x, y0 + h + 8 * k);
-  ctx.lineTo(x + 7 * k, y0 + h);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#3a2f1e";
-  lines.forEach((l, i) => ctx.fillText(l, x, y0 + pad + lh * (i + 0.72)));
 }

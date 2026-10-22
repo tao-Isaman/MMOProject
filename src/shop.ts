@@ -71,6 +71,12 @@ export class ShopUI {
     }
   }
 
+  // Opened from the talk window on buying or selling.
+  show(tab: "buy" | "sell"): void {
+    this.tab = tab;
+    this.toggle(true);
+  }
+
   say(msg: string, good = false): void {
     this.status.textContent = msg;
     this.status.classList.toggle("good", good);

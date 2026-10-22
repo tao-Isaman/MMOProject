@@ -45,7 +45,8 @@ import { garmentIcon } from "./garments";
 import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touch";
 import type { Spell } from "./spell";
 import { Quests } from "./quests";
-import { QuestDialog, QuestLog, QuestTracker } from "./questui";
+import { TalkDialog, QuestLog, QuestTracker } from "./questui";
+import type { Speaker } from "./questui";
 import { LOOKS, circleTextures } from "./circles";
 import type { Atlas, Img, Textures, View } from "./types";
 
@@ -710,7 +711,7 @@ async function boot(): Promise<void> {
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
   const shopUI = new ShopUI(inv, iconFor);
-  const questDialog = new QuestDialog(quests);
+  const talkDialog = new TalkDialog(quests);
   const questLog = new QuestLog(quests);
   new QuestTracker(quests, () => questLog.toggle(true));
   inv.onChange(() => quests.onBag()); // collect steps count the bag
@@ -733,7 +734,7 @@ async function boot(): Promise<void> {
   const spawnKey = saveKey("respawn.v1");
   let savePoint = readJson<{ map: MapId; x: number; y: number }>(spawnKey);
   if (savePoint && !(savePoint.map in MAP_NAMES)) savePoint = null;
-  mapUI.onSaveSpawn = () => {
+  const saveSpawn = (): string => {
     savePoint = { map: current.id, x: Math.round(player.x), y: Math.round(player.y) };
     try {
       localStorage.setItem(spawnKey, JSON.stringify(savePoint));
@@ -760,36 +761,34 @@ async function boot(): Promise<void> {
   // them), or to a spot picked on the map window; `stuck` counts the seconds without moving
   let walkTo: { path: { x: number; y: number }[]; npc?: Npc; stuck: number } | null = null;
   let shopKeeper: Npc | null = null;
-  let questWith: Npc | null = null; // whom the quest talk window is with
+  let talkingTo: Npc | null = null; // whom the talk window is with
+  // Anyone spoken to opens the talk window: what they say, their business (buying and selling,
+  // healing, travel, keeping the save point) and their quests.
   function act(npc: Npc): void {
     walkTo = null;
-    // their own business: the shop, healing, the world map to travel
-    const business = (): void => {
-      if (npc.spec.role === "shop") {
-        shopKeeper = npc;
-        shopUI.keeper(npc.name, npc.spec.title);
-        shopUI.toggle(true);
-        return;
-      }
-      if (npc.spec.role === "travel") mapUI.travel(npc.spec.ports);
-      if (npc.spec.role === "heal" && hero.alive) {
-        hero.refill();
-        floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
-        skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe9a8"), 24);
-      }
+    const shop = (tab: "buy" | "sell") => () => {
+      shopKeeper = npc;
+      shopUI.keeper(npc.name, npc.spec.title);
+      shopUI.show(tab);
     };
-    // someone with a quest to give, to take in, or under way opens the talk window, with their
-    // business as a button in it
-    if (quests.markFor(current.id, npc.spec.id)) {
-      const label = { shop: "ซื้อขายของ", heal: "รักษา", travel: "เดินทาง", talk: "" }[npc.spec.role];
-      const line = npc.spec.lines[npc.said++ % Math.max(1, npc.spec.lines.length)] ?? "";
-      questDialog.show({ name: npc.name, title: npc.spec.title, map: current.id, npc: npc.spec.id, line,
-        action: label ? { label, run: business } : undefined });
-      questWith = npc;
-      return;
+    const heal = (): string => {
+      if (!hero.alive) return "ฟื้นขึ้นมาก่อนนะ แล้วค่อยมาให้รักษา";
+      hero.refill();
+      floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe9a8"), 24);
+      return "เรียบร้อย HP และ MP ของเจ้าเต็มแล้ว ขอให้เดินทางปลอดภัย";
+    };
+    const actions: Speaker["actions"] = [];
+    const role = npc.spec.role;
+    if (role === "shop") actions.push({ label: "ซื้อของ", run: shop("buy") }, { label: "ขายของ", run: shop("sell") });
+    if (role === "heal") actions.push({ label: "รักษา (HP และ MP เต็ม)", run: heal });
+    if (role === "travel" && npc.spec.ports) actions.push({ label: "ขึ้นเรือ", run: () => mapUI.travel(npc.spec.ports) });
+    if (role === "travel" && !npc.spec.ports) {
+      actions.push({ label: "เซฟจุดเกิด", run: saveSpawn });
+      actions.push({ label: "วาร์ป", run: () => mapUI.travel() });
     }
-    if (npc.spec.role !== "shop") npc.talk();
-    business();
+    talkDialog.show({ name: npc.name, title: npc.spec.title, map: current.id, npc: npc.spec.id, line: npc.nextLine(), actions });
+    talkingTo = npc;
   }
   function talkTo(npc: Npc): void {
     if (npc.distance(player) <= TALK_RANGE) return act(npc);
@@ -1015,6 +1014,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
+      else if (talkDialog.open) talkDialog.close();
       else {
         const n = nearestNpc(TALK_RANGE * 1.6);
         if (n) talkTo(n);
@@ -1030,7 +1030,7 @@ async function boot(): Promise<void> {
       shopUI.toggle(false);
       mapUI.toggle(false);
       questLog.toggle(false);
-      questDialog.close();
+      talkDialog.close();
     }
     if (e.code === "Backquote") showDebug = !showDebug;
   });
@@ -1376,7 +1376,7 @@ async function boot(): Promise<void> {
     }
     for (const n of npcs) n.update(dt, player);
     if (shopUI.open && shopKeeper && shopKeeper.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
-    if (questDialog.open && (!questWith || !npcs.includes(questWith) || questWith.distance(player) > TALK_RANGE * 2.5)) questDialog.close();
+    if (talkDialog.open && (!talkingTo || !npcs.includes(talkingTo) || talkingTo.distance(player) > TALK_RANGE * 2.5)) talkDialog.close();
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
@@ -1486,10 +1486,8 @@ async function boot(): Promise<void> {
     }
     for (const n of npcs) {
       if (!onScreen(n.x, n.y, 300)) continue;
-      n.mark = quests.markFor(current.id, n.spec.id);
       const near = n.distance(player) <= TALK_RANGE * 1.6;
-      // talking ones need room above the head for the balloon
-      w3d.actor(n, { x: n.x, y: n.y, w: 300, h: n.bubble ? 360 : 240, foot: 30 }, vw, (c, v) => n.draw(c, v, near));
+      w3d.actor(n, { x: n.x, y: n.y, w: 300, h: 240, foot: 30 }, vw, (c, v) => n.draw(c, v, near));
     }
     for (const l of ground.items) {
       if (onScreen(l.x, l.y, 100)) w3d.actor(l, Ground.box(l), vw, (c, v) => ground.draw(c, v, l, iconFor(l.id)));
@@ -1536,7 +1534,7 @@ async function boot(): Promise<void> {
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand
     circles: { LOOKS, circleTextures }, // and looking at the cast circles
-    quests, questDialog, questLog, talk: (id: string) => { const n = npcs.find((x) => x.spec.id === id); if (n) act(n); } };
+    quests, talkDialog, questLog, talk: (id: string) => { const n = npcs.find((x) => x.spec.id === id); if (n) act(n); } };
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).

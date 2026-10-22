@@ -281,9 +281,6 @@ export interface QuestDeps {
   note(text: string): void; // a line over the player ("สไลม์เขียว 3/5")
 }
 
-// A townsperson's mark: a quest to take (!), one to hand in (?), one under way (… grey ?).
-export type Mark = "offer" | "ready" | "busy" | null;
-
 export class Quests {
   s: QuestSave = { active: {}, done: {}, next: {} };
   deps: QuestDeps;
@@ -376,11 +373,6 @@ export class Quests {
     return { offers, ready, busy };
   }
 
-  markFor(map: MapId, npc: string): Mark {
-    const o = this.optionsFor(map, npc);
-    return o.ready.length ? "ready" : o.offers.length ? "offer" : o.busy.length ? "busy" : null;
-  }
-
   // ---- doing them ----
   accept(id: string): boolean {
     const q = QUEST_BY_ID[id];
@@ -465,7 +457,7 @@ export class Quests {
     if (any) this.changed();
   }
 
-  // An item picked up or used: the marks may change (collect steps count the bag).
+  // An item picked up or used: the log and tracker may change (collect steps count the bag).
   onBag(): void {
     for (const fn of this.listeners) fn();
   }

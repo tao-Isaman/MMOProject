@@ -1,7 +1,7 @@
-// The quests on screen (src/quests.ts): the talk window a townsperson with a quest opens (offer,
-// hand in, or a reminder, and their own business: the shop, healing, travel), the quest log (J)
-// with what is on, what can be taken and what is done, and the tracker under HP/MP that shows
-// the steps under way.
+// Talking to the townsfolk, and the quests on screen (src/quests.ts): the talk window anyone
+// opens when spoken to (what they say, their business: buying and selling, healing, travel, and
+// their quests to take, hand in or be reminded of), the quest log (J) with what is on, what can
+// be taken and what is done, and the tracker under HP/MP that shows the steps under way.
 
 import { el, makeWindow } from "./ui";
 import { ITEMS } from "./items";
@@ -29,17 +29,19 @@ function handInLine(quests: Quests, q: QuestDef): string {
   return `ส่งได้ที่ ${st.to.name} (${townName(st.to.map)})`;
 }
 
-// ---- talking to someone with a quest ----
+// ---- talking to someone ----
 export interface Speaker {
   name: string;
   title: string;
   map: MapId;
   npc: string;
-  line: string;                                  // what they say first
-  action?: { label: string; run: () => void };   // their own business (the shop, healing, travel)
+  line: string;                                     // what they say first
+  // their business (buy, sell, heal, travel...): one that answers with a line keeps the window
+  // open on it, the others close it (the shop, the map)
+  actions: { label: string; run: () => string | void }[];
 }
 
-export class QuestDialog {
+export class TalkDialog {
   quests: Quests;
   box: HTMLElement;
   head: HTMLElement;
@@ -67,7 +69,7 @@ export class QuestDialog {
     this.who = null;
   }
 
-  // Their greeting and the quests they have; a quest picked shows its page.
+  // What they say, their business and their quests; a quest picked shows its page.
   show(who: Speaker): void {
     this.who = who;
     this.box.classList.remove("hidden");
@@ -96,28 +98,27 @@ export class QuestDialog {
     const w = this.who;
     if (!w) return;
     const o = this.quests.optionsFor(w.map, w.npc);
-    // nothing left to say about quests: their business at once, or goodbye
-    if (!o.offers.length && !o.ready.length && !o.busy.length) {
-      if (w.action) {
-        this.close();
-        return w.action.run();
-      }
-    }
     this.header();
     this.text.textContent = w.line;
     this.list.replaceChildren();
-    const row = (q: QuestDef, tag: string, cls: string) => {
+    const row = (tag: string, text: string, cls: string, run: () => void) => {
       const b = el("button", `qd-quest ${cls}`, this.list);
       b.type = "button";
       el("span", "qd-tag", b).textContent = tag;
-      el("span", "", b).textContent = q.name;
-      b.addEventListener("click", () => this.page(q));
+      el("span", "", b).textContent = text;
+      b.addEventListener("click", run);
     };
-    for (const q of o.ready) row(q, "?", "ready");
-    for (const q of o.offers) row(q, "!", "offer");
-    for (const q of o.busy) row(q, "…", "busy");
+    // their business first, then their quests: to hand in, to take, under way
+    for (const a of w.actions) row("▸", a.label, "biz", () => {
+      const said = a.run();
+      if (!said) return this.close();
+      w.line = said;
+      this.home();
+    });
+    for (const q of o.ready) row("ส่งเควส", q.name, "ready", () => this.page(q));
+    for (const q of o.offers) row("เควส", q.name, "offer", () => this.page(q));
+    for (const q of o.busy) row("กำลังทำ", q.name, "busy", () => this.page(q));
     this.buttons.replaceChildren();
-    if (w.action) this.button(w.action.label, () => { this.close(); w.action!.run(); }, "main");
     this.button("ลาก่อน", () => this.close());
   }
 
@@ -215,7 +216,7 @@ export class QuestLog {
     };
     if (this.tab === "on") {
       const on = QUESTS.filter((q) => quests.isActive(q.id));
-      if (!on.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่ทำอยู่ ลองคุยกับชาวเมืองที่มีเครื่องหมาย ! เหนือหัว";
+      if (!on.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่ทำอยู่ ดูเควสที่รับได้ในแท็บ \"รับได้\" แล้วไปคุยกับคนให้เควส";
       for (const q of on) {
         const c = card(q), a = quests.s.active[q.id];
         el("p", `ql-step${quests.ready(q.id) ? " ready" : ""}`, c).textContent = `ขั้น ${a.step + 1}/${q.steps.length}: ${stepLine(quests, q)}`;

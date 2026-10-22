@@ -399,7 +399,8 @@ export function waysOut(ways: ReturnType<typeof gateWay>[]): { warps: Town["warp
 }
 
 // ---- townsfolk every town has ----
-// The travel guide by the way in: talking to her opens the world map to pick a town to go to.
+// The travel guide by the way in: her talk window offers two things, keeping this town as the
+// save point and a warp to another town (picked on the world map).
 export function travelGuide(town: string, at: XY, face: number, name = "เอลซ่า"): NpcSpec {
   return {
     id: `${town}_travel`, x: at[0], y: at[1], face, name, title: "ผู้นำทาง · เดินทางข้ามเมือง", role: "travel",

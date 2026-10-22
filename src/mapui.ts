@@ -49,7 +49,6 @@ export class MapUI {
   tabs: Record<View, HTMLButtonElement>;
   canvas: HTMLCanvasElement;
   info: HTMLElement;
-  actions: HTMLElement;
   mini: HTMLCanvasElement;
   miniName: HTMLElement;
   view: View = "local";
@@ -64,7 +63,6 @@ export class MapUI {
   time = 0;
   onWalk: (to: Vec2, npc?: Npc) => string | null;
   onTravel: (id: string, byShip: boolean) => string | null;
-  onSaveSpawn: (() => string) | null = null; // a travel guide keeps this town as where you get up
   guide = false; // opened by a travel guide: a click on a town goes there
   ports: string[] | null = null; // opened by a ship's captain: the towns the ship sails to
 
@@ -91,12 +89,6 @@ export class MapUI {
     const stage = el("div", "mp-stage", this.win);
     this.canvas = el("canvas", "mp-canvas", stage);
     this.info = el("div", "mp-info", stage);
-    // a travel guide also keeps the town as your save point
-    this.actions = el("div", "mp-actions hidden", stage);
-    const save = el("button", "title-btn", this.actions);
-    save.type = "button";
-    save.textContent = "บันทึกจุดเกิดที่นี่";
-    save.addEventListener("click", () => this.onSaveSpawn && this.say(this.onSaveSpawn()));
     this.canvas.addEventListener("pointermove", (e) => (this.hover = { x: e.offsetX, y: e.offsetY }));
     this.canvas.addEventListener("pointerleave", () => (this.hover = null));
     this.canvas.addEventListener("pointerdown", (e) => {
@@ -163,8 +155,7 @@ export class MapUI {
   fit(): void {
     for (const v of ["local", "world"] as View[]) this.tabs[v].classList.toggle("on", v === this.view);
     this.tabs.local.textContent = this.map ? this.map.name : "แผนที่นี้";
-    this.title.textContent = this.guide && this.ports ? "ขึ้นเรือ · เลือกท่าเรือ" : this.guide ? "เดินทาง · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
-    this.actions.classList.toggle("hidden", !(this.guide && !this.ports && this.view === "world"));
+    this.title.textContent = this.guide && this.ports ? "ขึ้นเรือ · เลือกท่าเรือ" : this.guide ? "วาร์ป · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
     const [w, h] = this.view === "world" || !this.pic ? [WORLD_W, WORLD_H] : [this.pic.width, this.pic.height];
     const touch = isTouch();
     const maxW = Math.min(touch ? 2000 : 900, innerWidth - (touch ? 28 : 56));

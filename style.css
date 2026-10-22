@@ -702,9 +702,6 @@ body.touch .title-form { max-height: calc(100dvh - 150px); }
 .mp-stage { position: relative; padding: 8px; }
 .mp-canvas { display: block; border-radius: 10px; touch-action: none; }
 .mp-info { margin-top: 6px; min-height: 2.8em; padding: 0 4px; font-size: 13px; line-height: 1.4; color: var(--muted); }
-.mp-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
-.mp-actions.hidden { display: none; }
-.mp-actions .title-btn { margin: 0; padding: 6px 14px; font-size: 13px; }
 .minimap { position: fixed; z-index: 3; top: 14px; right: 14px; cursor: pointer; }
 .minimap canvas {
   display: block; width: 168px; height: 168px; border-radius: 12px; border: 1px solid var(--rim);
@@ -742,7 +739,7 @@ body.touch .mp-info:empty { display: none; }
 .sk-tnode.planned .sk-rank { color: #10160d; background: #9df0b4; white-space: nowrap; }
 .sk-line.planned { border-color: rgba(157, 240, 180, 0.6); }
 
-/* ---- quests (src/questui.ts): the talk window, the log (J), the tracker under HP/MP ---- */
+/* ---- talking and quests (src/questui.ts): the talk window, the log (J), the tracker under HP/MP ---- */
 .qd {
   position: fixed; left: 50%; bottom: 118px; transform: translateX(-50%); z-index: 6; width: min(470px, calc(100vw - 32px));
   max-height: calc(100vh - 200px); overflow: auto; padding-bottom: 12px; border-radius: 14px;
@@ -759,8 +756,9 @@ body.touch .mp-info:empty { display: none; }
   background: rgba(255, 255, 255, 0.04); color: var(--text); font: 600 14px var(--font); cursor: pointer; text-align: left;
 }
 .qd-quest:hover { border-color: var(--gold); }
-.qd-tag { width: 18px; text-align: center; font-weight: 800; font-size: 18px; color: #ffd23a; }
-.qd-quest.busy .qd-tag { color: #b9b4a4; }
+.qd-tag { flex: none; min-width: 18px; padding: 1px 7px; border-radius: 6px; text-align: center; font-weight: 700; font-size: 12px; color: #2a1d05; background: #ffd23a; }
+.qd-quest.busy .qd-tag { background: #b9b4a4; }
+.qd-quest.biz .qd-tag { padding: 0; background: none; color: var(--gold); font-size: 14px; }
 .qd-steps { margin: 2px 0 0; padding-left: 22px; font-size: 13px; color: var(--muted); line-height: 1.5; }
 .qd-reward { margin: 6px 0 0; font-size: 13px; color: #9df0b4; font-weight: 600; }
 .qd-buttons { display: flex; gap: 8px; justify-content: flex-end; margin: 12px 14px 0; flex-wrap: wrap; }
