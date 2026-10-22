@@ -1,8 +1,57 @@
 {
+ "fang_squirrel": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "grass_hyena": {
+  "cell": 96,
+  "foot": 0,
+  "top": 94,
+  "walk": 4,
+  "attack": 4
+ },
+ "oak_boar": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "pharaoh_shade": {
+  "cell": 128,
+  "foot": 0,
+  "top": 121,
+  "walk": 4,
+  "attack": 4
+ },
+ "sand_cobra": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "saw_beaver": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
  "spore_mushroom": {
   "cell": 96,
   "foot": 0,
   "top": 88,
+  "walk": 4,
+  "attack": 4
+ },
+ "swift_ostrich": {
+  "cell": 128,
+  "foot": 0,
+  "top": 125,
   "walk": 4,
   "attack": 4
  }
