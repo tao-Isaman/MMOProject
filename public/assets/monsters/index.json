@@ -34,6 +34,13 @@
   "walk": 4,
   "attack": 4
  },
+ "ghost_pirate": {
+  "cell": 128,
+  "foot": 0,
+  "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
  "ghost_rancher": {
   "cell": 128,
   "foot": 0,
@@ -213,6 +220,13 @@
   "cell": 128,
   "foot": 0,
   "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "tiger_frog": {
+  "cell": 96,
+  "foot": 0,
+  "top": 90,
   "walk": 4,
   "attack": 4
  },
