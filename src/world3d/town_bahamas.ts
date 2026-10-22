@@ -475,6 +475,9 @@ export function buildBahamas(quality: { flowers: number }): Town {
       { id: "bh_water", ...spot(298, 226), face: toward(298, 226, ...POOL), name: "อามีนา", title: "สาวตักน้ำ", role: "talk",
         look: { gender: "female", hair: "hime", hairColor: "ink", eyes: "teal", top: "top_adventurer_teal", bottom: "bottom_adventurer_sand" },
         lines: ["โอเอซิสนี้ไม่เคยแห้งเลย ต่อให้หน้าร้อนที่สุดก็ตาม", "ต้นปาล์มรอบสระให้ทั้งร่มเงาและอินทผลัมกับคนทั้งเมือง"] },
+      { id: "job_wizard", ...spot(334, 198), face: toward(334, 198, ...POOL), name: "จอมเวทซาฮาร่า", title: "จอมเวทแห่งทะเลทราย · เปลี่ยนอาชีพจอมเวท", role: "talk",
+        look: { gender: "female", hair: "twintail", hairColor: "ink", eyes: "amber", top: "top_priestess_black", bottom: "bottom_priestess_black" },
+        lines: ["ผืนทรายนี้เก็บเวทโบราณไว้มาก นักเวทหรือนักบวชเลเวล 30 มาเรียนกับข้าได้", "เวทธาตุหลากสี หรือเวทมืดและคำสาป ทั้งสองทางล้วนทรงพลัง"] },
       { id: "bh_story", ...spot(318, 198), face: toward(318, 198, ...POOL), name: "ท่านนาดีม", title: "นักเล่านิทาน", role: "talk", look: guard("top_warrior", "silver"),
         lines: ["เมื่อก่อนที่นี่เป็นแค่บ่อน้ำกลางทราย กองคาราวานแวะพักกันจนกลายเป็นเมือง", "เสาโอเบลิสก์กลางเมืองจารึกชื่อเส้นทางคาราวานไว้ทุกสาย", "ทางเหนือคืออีเดนเมืองหลวง ทางใต้คือป่าแดนใต้กับโยเดียเมืองท่า"] },
       // the caravan camp

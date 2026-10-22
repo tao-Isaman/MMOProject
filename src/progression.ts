@@ -11,6 +11,12 @@
 import { saveKey } from "./save";
 import { ITEMS } from "./items";
 import type { WeaponId } from "./items";
+import { pct, lin } from "./trees/util";
+import { RANGER_TREES } from "./trees/ranger";
+import { BLADE_TREES } from "./trees/blades";
+import { CASTER_TREES } from "./trees/casters";
+import { BATTLEMAGE_TREES } from "./trees/battlemage";
+import { BOOK_TREES } from "./trees/books";
 
 export const MAX_LEVEL = 200;
 
@@ -18,16 +24,38 @@ export const MAX_LEVEL = 200;
 export type StatBag = Partial<Record<string, number>>;
 type ByRank<T> = (rank: number) => T;
 
-// Every element: the first five came first, the rest with element attack and defence.
-export const ELEMENT_IDS = ["earth", "water", "wind", "fire", "lightning", "ice", "light", "dark", "plant", "stone", "mud", "lava", "metal"] as const;
+// Every element: the first five came first, the rest with element attack and defence, poison
+// with the second jobs.
+export const ELEMENT_IDS = ["earth", "water", "wind", "fire", "lightning", "ice", "light", "dark", "plant", "stone", "mud", "lava", "metal", "poison"] as const;
 export type ElementId = (typeof ELEMENT_IDS)[number];
 
-export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower";
+// What a monster is (bestiary.ts): some skills and passives hit one kind harder.
+export const RACES = ["formless", "undead", "brute", "plant", "insect", "fish", "demon", "human", "angel", "dragon"] as const;
+export type Race = (typeof RACES)[number];
+export const RACE_NAMES: Record<Race, string> = {
+  formless: "ไร้รูป", undead: "อันเดด", brute: "สัตว์", plant: "พืช", insect: "แมลง",
+  fish: "สัตว์น้ำ", demon: "ปีศาจ", human: "มนุษย์", angel: "เทวะ", dragon: "มังกร",
+};
+
+// What a skill or passive needs in hand: `weapons` one of these in the main hand; `dual` a
+// one-handed weapon in each hand (true: any, a list: each one of those). A passive counts only
+// while it is met; an active can't be used without it.
+export interface Need {
+  weapons?: WeaponId[];
+  dual?: true | WeaponId[];
+}
+
+export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon";
 
 // An active skill's numbers; which fields matter depends on `type` (skills.ts).
+//   trap    laid at the aimed spot (`range` at most, `radius` wide); the first monster to step in
+//           sets it off (its hit, with stun, slow, poison...). It waits `duration` s (default
+//           20); three at most at a time, the oldest goes.
+//   falcon  the falcon dives at the locked target `hits` times.
+// stat "both": attack and magic attack together (0.6 of each), a spell's sure hit.
 export interface SkillDef {
   type: SkillType;
-  stat?: "atk" | "matk";
+  stat?: "atk" | "matk" | "both";
   element?: ElementId; // what its hits are made of (none: no element)
   mult?: ByRank<number>;
   mp: number;
@@ -65,6 +93,12 @@ export interface SkillDef {
   expose?: ByRank<number>;   // the target takes this much more damage for `debuff` s
   blind?: ByRank<number>;    // s the target misses half its bites
   debuff?: number;           // how long weaken and expose last (s, default 6)
+  vs?: Partial<Record<Race, number>>; // this much more damage to these kinds of monster (0.5: +50%)
+  drain?: ByRank<number>;    // heals this share of the damage done
+  masteryScale?: number;     // +this much damage per level of the held weapon's mastery
+  detonate?: ByRank<number>; // sets off the poison on the target: this much of what it had left at once
+  enchant?: ElementId;       // buff: the weapon hits in this element for the buff's time (normal attacks
+                             // and physical skills without an element of their own)
 }
 
 export interface TreeNode {
@@ -78,11 +112,13 @@ export interface TreeNode {
   desc: ByRank<string>;
   stats?: ByRank<StatBag>;
   skill?: SkillDef;
+  need?: Need;
 }
 
 export interface Tree {
   name: string;
   cls: ClassId | null;
+  job?: JobId;      // a second job's branch: learned on taking the job, no book
   book?: string;
   color: string;
   glyph: string;
@@ -134,6 +170,29 @@ export interface ElementDef {
 }
 
 export type ClassId = "mage" | "warrior" | "archer" | "priest";
+export type JobId = "ranger" | "swordsman" | "wizard" | "bishop" | "battlemage" | "warlord";
+
+// Whether the hands hold what `need` asks for (main: the main-hand weapon type, off: the off
+// hand's, null when empty or not a weapon).
+export function needMet(need: Need | undefined, main: string | null, off: string | null): boolean {
+  if (!need) return true;
+  if (need.weapons && !need.weapons.includes(main as WeaponId)) return false;
+  if (need.dual) {
+    const ok = (w: string | null) => !!w && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
+    if (!ok(main) || !ok(off)) return false;
+  }
+  return true;
+}
+
+// "ดาบมือเดียว หรือ ดาบสองมือ", "ดาบมือเดียวทั้งสองมือ", for the skill window and the bar.
+export function needText(need: Need | undefined, weaponName: (w: WeaponId) => string): string {
+  if (!need) return "";
+  const parts: string[] = [];
+  if (need.weapons) parts.push(need.weapons.map(weaponName).join(" หรือ "));
+  if (need.dual === true) parts.push("อาวุธมือเดียวทั้งสองมือ");
+  else if (need.dual) parts.push(`${need.dual.map(weaponName).join(" หรือ ")} ทั้งสองมือ`);
+  return parts.join(" และ ");
+}
 
 export interface ClassDef {
   name: string;
@@ -152,7 +211,8 @@ export interface Active {
   max: number;
   skill: SkillDef;
   desc: string | ByRank<string>;
-  source: { tree?: string; mastery?: string; at?: number; weapons?: WeaponId[] };
+  source: { tree?: string; mastery?: string; at?: number };
+  need?: Need;
 }
 
 // Experience to go from `level` to the next.
@@ -171,7 +231,7 @@ export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", 
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
-    name: "จอมเวท",
+    name: "นักเวท",
     note: "พลังเวทสูง ตีจากระยะไกล HP น้อย",
     trees: ["arcane", "flora", "ward"],
     base: { maxHp: 80, maxMp: 110, atk: 6, matk: 16, def: 3, mdef: 8, hit: 10, flee: 8, crit: 0.05, critDmg: 0.5, hpRegen: 1, mpRegen: 3 },
@@ -204,6 +264,62 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
 };
 
+// ---- second jobs ----
+// At level 30 (JOB_LEVEL; a job every 30 levels) a character can take a second job from that
+// job's master, by the master's quest (quests.ts). Before handing it in they pick one of the
+// job's branches: a skill tree learned on the spot, with JOB_POINTS skill points. A job adds
+// its bonus at once and its growth on every level after JOB_LEVEL; `from` is the classes that
+// may take it (null: any).
+export const JOB_LEVEL = 30;
+export const JOB_POINTS = 5;
+
+export interface JobDef {
+  name: string;
+  from: ClassId[] | null;
+  branches: string[];
+  note: string;
+  bonus: StatBag;
+  growth: StatBag;
+}
+
+export const JOBS: Record<JobId, JobDef> = {
+  ranger: {
+    name: "นายพราน", from: ["archer", "warrior"], branches: ["falconer", "trapper", "venomer"],
+    note: "นักล่าแห่งป่า ใช้เหยี่ยว กับดัก และยาพิษ",
+    bonus: { atk: 12, hit: 15, flee: 10, crit: 0.03 }, growth: { atk: 0.8, hit: 0.6, flee: 0.5, maxHp: 4 },
+  },
+  swordsman: {
+    name: "นักดาบ", from: null, branches: ["twin_blade", "greatsword"],
+    note: "ผู้ใช้ดาบ ถือดาบคู่หรือดาบสองมือ",
+    bonus: { atk: 15, maxHp: 150, def: 8 }, growth: { atk: 1, maxHp: 8, def: 0.4 },
+  },
+  wizard: {
+    name: "จอมเวท", from: ["mage", "priest"], branches: ["elementalist", "shadowcraft"],
+    note: "ผู้ใช้เวทขั้นสูง เวทธาตุหรือเวทมืด",
+    bonus: { matk: 20, maxMp: 80, mdef: 6 }, growth: { matk: 1.2, maxMp: 4, mdef: 0.3 },
+  },
+  bishop: {
+    name: "บาทหลวง", from: ["priest"], branches: ["radiance", "mercy"],
+    note: "ผู้รับใช้แสงศักดิ์สิทธิ์ ขับไล่อันเดดหรือรักษาและสนับสนุน",
+    bonus: { matk: 12, maxMp: 60, mdef: 10, healPct: 0.1 }, growth: { matk: 0.8, maxMp: 3, mdef: 0.5, maxHp: 4 },
+  },
+  battlemage: {
+    name: "จอมเวทนักสู้", from: null, branches: ["equilibrium", "arcanist", "runeblade"],
+    note: "นักสู้ที่ใช้ทั้งดาบและเวท",
+    bonus: { atk: 10, matk: 10, maxHp: 80, maxMp: 40 }, growth: { atk: 0.6, matk: 0.6, maxHp: 5, maxMp: 2 },
+  },
+  warlord: {
+    name: "นักรบคลั่ง", from: ["warrior"], branches: ["armsmaster", "bloodrage"],
+    note: "นักรบที่บ้าคลั่งในสนามรบ ชำนาญอาวุธหรือเลือดเดือด",
+    bonus: { atk: 15, maxHp: 200, hpRegen: 2 }, growth: { atk: 1, maxHp: 10, hpRegen: 0.05 },
+  },
+};
+
+// What to call a character: its job, else its class.
+export function jobName(p: { cls: ClassId | null; job: JobId | null }): string {
+  return p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
+}
+
 // The four elements a new character picks one of (the rest are found in the game).
 export const FIRST_ELEMENTS = ["earth", "water", "wind", "fire"];
 
@@ -212,8 +328,6 @@ export const FIRST_ELEMENTS = ["earth", "water", "wind", "fire"];
 //         req (nodes and ranks it needs first), glyph, desc(rank), stats(rank) for
 //         passives, skill for actives (skills.ts) }
 // skill: { type, stat: atk|matk, mult(rank), mp, cd, motion, cast?, ... } — see skills.js.
-const pct = (v: number) => `${Math.round(v * 100)}%`;
-const lin = (a: number, b: number) => (r: number) => a + b * (r - 1);
 
 // Laid out like Ragnarok's skill windows: several starting skills per tree, each opening its own
 // line, lines that need points in a neighbour, and levels of 1, 5 or 10.
@@ -959,6 +1073,17 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   // opened by an element book
+  poison: {
+    name: "พิษ", color: "#8fdc4a", glyph: "drop", max: 50, side: "ติดพิษ", book: "book_poison",
+    per: { ...ea("poison"), poisonPct: 0.01, atk: 0.2, matk: 0.2 },
+    skill: "การโจมตีธาตุพิษทำให้ติดพิษ 30% +1% ต่อระดับของดาเมจ ใน 4 วิ (ติดซ้อนได้)",
+    marks: [
+      { at: 10, name: "พิษซึม", desc: "พิษจากธาตุพิษนานขึ้นเป็น 6 วิ" },
+      { at: 20, name: "ภูมิต้านพิษ", desc: "ป้องกันธาตุพิษ +15 พิษแรงขึ้น 10%", stats: { poisonDef: 15, poisonPct: 0.1 } },
+      { at: 35, name: "พิษสองชั้น", desc: "การโจมตีธาตุพิษติดพิษสองชั้นในครั้งเดียว" },
+      { at: 50, name: "พิษร้ายแรง", desc: "พิษทุกอย่างแรงขึ้นเท่าตัว" },
+    ],
+  },
   lightning: {
     name: "สายฟ้า", color: "#fff27a", glyph: "bolt", max: 50, side: "คริติคอล", book: "book_lightning",
     per: { ...ea("lightning"), crit: 0.002, critDmg: 0.006, aspd: 0.002, atk: 0.25, matk: 0.25 },
@@ -978,7 +1103,8 @@ const SKILL_ELEMENTS: Record<string, ElementId> = {
   fire_bolt: "fire", fire_ball: "fire", magnum_break: "fire",
   cold_bolt: "ice", frost_nova: "ice", ice_lance: "ice",
   meteor: "lava",
-  soul_volley: "dark", singularity: "dark", poison_arrow: "dark", toxic_cloud: "dark", plague_rain: "dark", blind_arrow: "dark", doom_arrow: "dark",
+  soul_volley: "dark", singularity: "dark", blind_arrow: "dark", doom_arrow: "dark",
+  poison_arrow: "poison", toxic_cloud: "poison", plague_rain: "poison",
   seed_shot: "plant", flower_field: "plant", thorn_bind: "plant", vine_whip: "plant", petal_storm: "plant",
   repulse: "wind", sonic_blade: "wind",
   ground_slam: "stone", pin_arrow: "stone",
@@ -994,9 +1120,22 @@ export const ELEMENT_STAT_NAMES: Record<string, string> = Object.fromEntries(
   ELEMENT_IDS.flatMap((e) => [[`${e}Atk`, `พลังโจมตีธาตุ${ELEMENTS[e].name}`], [`${e}Def`, `ป้องกันธาตุ${ELEMENTS[e].name}`]]),
 );
 
+// The second jobs' branches and the later books (src/trees/).
+for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, BOOK_TREES]) {
+  for (const [id, t] of Object.entries(more)) {
+    if (TREES[id]) throw new Error(`tree ${id} twice`);
+    TREES[id] = t;
+  }
+}
+
 // Every tree node by id, with its tree.
 export const NODES: Record<string, { tree: string; node: TreeNode }> = {};
-for (const [tree, t] of Object.entries(TREES)) for (const node of t.nodes) NODES[node.id] = { tree, node };
+for (const [tree, t] of Object.entries(TREES)) {
+  for (const node of t.nodes) {
+    if (NODES[node.id]) throw new Error(`skill ${node.id} in ${NODES[node.id].tree} and ${tree}`);
+    NODES[node.id] = { tree, node };
+  }
+}
 for (const [id, element] of Object.entries(SKILL_ELEMENTS)) {
   const skill = NODES[id]?.node.skill;
   if (!skill) throw new Error(`SKILL_ELEMENTS: no skill ${id}`);
@@ -1015,11 +1154,11 @@ function addBook(kind: BookKind, id: string, own: string | undefined, name: stri
   BOOKS[bookId] = { kind, id };
   const who = cls ? `เฉพาะ${CLASSES[cls].name}` : "ใช้ได้ทุกอาชีพ";
   ITEMS[bookId] = {
-    kind: "book", name: `${BOOK_WORD[kind]}: ${name}`, stack: 5, price: kind === "tree" ? 2400 : 3000, icon: { glyph, color },
-    note: `อ่านเพื่อเรียน${BOOK_WORD[kind]}${name} (${who})`,
+    kind: "book", name: name.startsWith("ตำรา") ? name : `${BOOK_WORD[kind]}: ${name}`, stack: 5, price: kind === "tree" ? 2400 : 3000, icon: { glyph, color, art: `${kind}_${id}` },
+    note: `อ่านเพื่อเรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[kind] + name} (${who})`,
   };
 }
-for (const [id, t] of Object.entries(TREES)) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
+for (const [id, t] of Object.entries(TREES)) if (!t.job) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
 for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.name, m.glyph, "#e8c98a", null);
 for (const [id, e] of Object.entries(ELEMENTS)) addBook("element", id, e.book, e.name, e.glyph, e.color, null);
 
@@ -1038,7 +1177,7 @@ for (const [treeId, tree] of Object.entries(TREES)) {
 for (const [mid, m] of Object.entries(MASTERIES)) {
   for (const r of m.rewards) {
     if (r.kind === "active" && r.id && r.skill) {
-      ACTIVES[r.id] = { id: r.id, name: r.name, glyph: r.glyph ?? "star", skill: r.skill, max: 1, source: { mastery: mid, at: r.at, weapons: m.weapons }, color: "#ffe6a8", desc: r.desc };
+      ACTIVES[r.id] = { id: r.id, name: r.name, glyph: r.glyph ?? "star", skill: r.skill, max: 1, source: { mastery: mid, at: r.at }, need: m.weapons && { weapons: m.weapons }, color: "#ffe6a8", desc: r.desc };
     }
   }
 }
@@ -1054,6 +1193,8 @@ interface SaveData {
   unlocked?: { trees?: string[]; masteries?: string[]; elements?: string[] };
   hotbar?: (string | null)[];
   bonus?: number;
+  job?: JobId | null;
+  branch?: string | null;
   treesV?: number;
   learnV?: number;
 }
@@ -1074,7 +1215,9 @@ export class Progress {
   elements: Record<string, number> = {}; // element id -> level
   unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // learned: picked at the start, or from books
   hotbar: (string | null)[] = new Array(10).fill(null);
-  bonus = 0;                             // skill points from quests, on top of one a level
+  bonus = 0;                             // skill points from quests and jobs, on top of one a level
+  job: JobId | null = null;              // the second job, and the branch picked with it
+  branch: string | null = null;
 
   constructor() {
     if (!this.load()) this.reset(null);
@@ -1091,7 +1234,30 @@ export class Progress {
     this.unlocked = { trees: [], masteries: [], elements: [] };
     this.hotbar = new Array(10).fill(null);
     this.bonus = 0;
+    this.job = null;
+    this.branch = null;
     this.changed();
+  }
+
+  // Why it can't take a job yet, or null.
+  jobBlock(id: JobId): string | null {
+    const j = JOBS[id];
+    if (this.job) return `เปลี่ยนเป็น${JOBS[this.job].name}ไปแล้ว`;
+    if (j.from && !j.from.includes(this.cls as ClassId)) return `ต้องเป็น${j.from.map((c) => CLASSES[c].name).join(" หรือ ")}`;
+    if (this.level < JOB_LEVEL) return `ต้องเลเวล ${JOB_LEVEL} ขึ้นไป`;
+    return null;
+  }
+
+  // Take a job with one of its branches: the branch's tree, JOB_POINTS points and its first
+  // skill on the bar. False when it can't.
+  takeJob(id: JobId, branch: string): boolean {
+    if (this.jobBlock(id) || !JOBS[id].branches.includes(branch) || !TREES[branch]) return false;
+    this.job = id;
+    this.branch = branch;
+    if (!this.unlocked.trees.includes(branch)) this.unlocked.trees.push(branch);
+    this.bonus += JOB_POINTS;
+    this.changed();
+    return true;
   }
 
   // What a new character knows: one of its class's trees, one element and one weapon mastery;
@@ -1121,6 +1287,7 @@ export class Progress {
     Object.assign(d, structuredClone({
       cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
       elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus,
+      job: this.job, branch: this.branch,
     }));
     d.listeners = new Set();
     d.save = () => {};
@@ -1242,7 +1409,7 @@ export class Progress {
     list.push(b.id);
     this.changed();
     const name = tree ? tree.name : b.kind === "mastery" ? MASTERIES[b.id].name : ELEMENTS[b.id].name;
-    return { ok: true, text: `เรียน${BOOK_WORD[b.kind]}${name}แล้ว` };
+    return { ok: true, text: `เรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[b.kind] + name}แล้ว` };
   }
 
   autoSlot(skillId: string): void {
@@ -1270,7 +1437,8 @@ export class Progress {
     try {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
-        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus, treesV: TREES_VERSION, learnV: LEARN_VERSION,
+        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus, job: this.job, branch: this.branch,
+        treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
       // not persisted
@@ -1290,6 +1458,8 @@ export class Progress {
     this.level = Math.max(1, Math.min(MAX_LEVEL, (d.level ?? 1) | 0 || 1));
     this.xp = Math.max(0, Number(d.xp) || 0);
     this.bonus = Math.max(0, Number(d.bonus) || 0) | 0;
+    this.job = d.job && JOBS[d.job] ? d.job : null;
+    this.branch = this.job && d.branch && JOBS[this.job].branches.includes(d.branch) ? d.branch : null;
     const known = (o: Record<string, number> | undefined, ok: (k: string) => boolean) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
     const nodes = new Set(Object.values(TREES).flatMap((t) => t.nodes.map((n) => n.id)));
     this.ranks = known(d.ranks, (k) => nodes.has(k));

@@ -524,6 +524,8 @@ function osakiNpcs(shop: [number, number]): NpcSpec[] {
     { id: "osaki_healer", ...at(855, 500), face: 180, name: "มิโกะยูกิ", title: "มิโกะ · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "hime", hairColor: "ink", eyes: "teal", top: "top_priestess_white", bottom: "bottom_priestess_wine" },
       lines: ["ขอเทพแห่งท้องทะเลคุ้มครองท่าน", "ล้างมือที่บ่อน้ำก่อนไหว้ แล้วเดินลอดโทริอิกลับไปอย่างสงบนะคะ"] },
+    { id: "job_battlemage", ...at(744, 250), face: -90, name: "อาจารย์เคนชิน", title: "ปรมาจารย์ดาบเวท · เปลี่ยนอาชีพจอมเวทนักสู้", role: "talk", look: samurai("top_warrior_navy", "silver"),
+      lines: ["ดาบกับเวทคือหนึ่งเดียวกัน ใครก็ตามที่เลเวล 30 มาฝึกกับข้าได้", "สมดุล เวทมนตร์ หรือคมดาบที่อาบธาตุ เลือกทางของเจ้าเอง"] },
     { id: "osaki_monk", ...at(760, 250), face: -90, name: "หลวงพี่เรียวคัง", title: "พระประจำวัดเจดีย์", role: "talk", look: samurai("top_warrior_navy", "ink"),
       lines: ["เจดีย์ห้าชั้นนี้ตั้งอยู่บนที่สูงของเมือง มองเห็นทะเลได้ทั้งสามด้าน", "สวนหินเซนข้างเจดีย์ คลื่นหินนั้นคือทะเลรอบเกาะของเรา", "ได้ยินว่าทางตะวันตกเฉียงเหนือ ป้อมคราเดียยังต้านพวกอสูรไม่หยุด"] },
     { id: "osaki_teahouse", ...at(640, 712), face: 90, name: "ชิโยะ", title: "เจ้าของโรงน้ำชา", role: "talk",

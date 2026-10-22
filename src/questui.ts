@@ -7,6 +7,7 @@ import { el, makeWindow } from "./ui";
 import { ITEMS } from "./items";
 import { MAP_NAMES } from "./maps";
 import { QUESTS, QUEST_BY_ID, rewardText } from "./quests";
+import { JOBS, JOB_POINTS, TREES } from "./progression";
 import type { QuestDef, Quests } from "./quests";
 import type { MapId } from "./maps";
 
@@ -118,6 +119,7 @@ export class TalkDialog {
     for (const q of o.ready) row("ส่งเควส", q.name, "ready", () => this.page(q));
     for (const q of o.offers) row("เควส", q.name, "offer", () => this.page(q));
     for (const q of o.busy) row("กำลังทำ", q.name, "busy", () => this.page(q));
+    for (const q of o.locked) row("ยังรับไม่ได้", q.name, "busy", () => this.page(q));
     this.buttons.replaceChildren();
     this.button("ลาก่อน", () => this.close());
   }
@@ -134,6 +136,13 @@ export class TalkDialog {
     const forMe = st && st.to.map === w.map && st.to.npc === w.npc;
     if (!quests.isActive(q.id)) {
       this.text.textContent = q.offer;
+      const why = quests.why(q);
+      if (why) {
+        // a job quest it can't take yet: what it takes
+        el("p", "qd-reward qd-why", this.list).textContent = `ยังรับไม่ได้: ${why}`;
+        this.button("กลับ", () => this.home());
+        return;
+      }
       const steps = el("ol", "qd-steps", this.list);
       for (const s of q.steps) el("li", "", steps).textContent = s.task;
       el("p", "qd-reward", this.list).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
@@ -141,6 +150,9 @@ export class TalkDialog {
         quests.accept(q.id);
         this.home();
       }, "main");
+    } else if (forMe && quests.ready(q.id) && q.job && quests.s.active[q.id].step === q.steps.length - 1) {
+      this.branches(q);
+      return;
     } else if (forMe && quests.ready(q.id)) {
       const last = quests.s.active[q.id].step === q.steps.length - 1;
       this.text.textContent = st!.goal.kind === "talk" ? st!.say : `${st!.task} — ครบแล้ว`;
@@ -160,6 +172,41 @@ export class TalkDialog {
       const at = handInLine(quests, q);
       if (at) el("p", "qd-reward", this.list).textContent = at;
     }
+    this.button("กลับ", () => this.home());
+  }
+
+  // The last hand-in of a job quest: the master tells of the job's branches; the player picks one
+  // (a second press on it confirms) and takes the job.
+  branches(q: QuestDef, picked: string | null = null): void {
+    const job = JOBS[q.job!], quests = this.quests;
+    this.header(`${job.name} · เลือกสาย`);
+    this.text.textContent = `${job.name}มี ${job.branches.length} สาย เลือกได้เพียงสายเดียว และเปลี่ยนภายหลังไม่ได้ เลือกแล้วได้ต้นสกิลของสายนั้นพร้อมแต้มสกิล ${JOB_POINTS} แต้ม`;
+    this.list.replaceChildren();
+    this.buttons.replaceChildren();
+    for (const id of job.branches) {
+      const t = TREES[id];
+      const b = el("button", `qd-branch${picked === id ? " on" : ""}`, this.list);
+      b.type = "button";
+      b.style.setProperty("--tree", t.color);
+      el("b", "", b).textContent = t.name;
+      el("span", "qd-branch-note", b).textContent = t.note;
+      const skills = t.nodes.filter((n) => n.kind === "active").slice(0, 5).map((n) => n.name).join(" · ");
+      el("span", "qd-branch-skills", b).textContent = `สกิล: ${skills} ...`;
+      b.addEventListener("click", () => {
+        if (picked !== id) return this.branches(q, id);
+        const said = quests.handIn(q.id, id);
+        if (!said) {
+          this.text.textContent = quests.why(q) ?? "ยังเปลี่ยนอาชีพไม่ได้";
+          return;
+        }
+        this.text.textContent = said;
+        this.list.replaceChildren();
+        el("p", "qd-reward", this.list).textContent = `เปลี่ยนอาชีพเป็น${job.name} · ${t.name} แล้ว`;
+        this.buttons.replaceChildren();
+        this.button("ตกลง", () => this.home(), "main");
+      });
+    }
+    if (picked) el("p", "qd-reward", this.list).textContent = `กดที่ "${TREES[picked].name}" อีกครั้งเพื่อยืนยัน`;
     this.button("กลับ", () => this.home());
   }
 }

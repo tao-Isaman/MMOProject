@@ -7,7 +7,8 @@
 import { el } from "./ui";
 import { GENDERS, HAIR_COLORS, EYE_COLORS, swatchColor } from "./ui";
 import type { Look, ColorChoice } from "./ui";
-import { CLASSES, Progress } from "./progression";
+import { CLASSES, JOBS, Progress, jobName } from "./progression";
+import type { JobId } from "./progression";
 import { SHAPES, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
 import { starterForm, defaultStart, startGear } from "./starter";
@@ -84,7 +85,8 @@ export class Title {
       const eq = { ...NO_GEAR, ...readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped };
       this.portrait(cv, look, eq);
       el("strong", "", card).textContent = c.name;
-      el("span", "", card).textContent = `${CLASSES[c.cls]?.name ?? "-"} · Lv ${c.level}`;
+      const job = readJson<{ job?: JobId | null }>(saveKey("character.v1", c.id))?.job ?? null;
+      el("span", "", card).textContent = `${CLASSES[c.cls] ? jobName({ cls: c.cls, job: job && JOBS[job] ? job : null }) : "-"} · Lv ${c.level}`;
       card.addEventListener("click", () => {
         // a second tap soon after the first starts (phones don't always send dblclick)
         if (this.selected === c.id && performance.now() - this.tapped < 450) return this.start(c.id);

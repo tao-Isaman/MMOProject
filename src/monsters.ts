@@ -28,7 +28,8 @@ import type { Hands } from "./look";
 import type { WeaponArt } from "./weapons";
 import type { Img, Vec2, View } from "./types";
 import type { Hero } from "./hero";
-import type { ElementId } from "./progression";
+import { RACE_NAMES } from "./progression";
+import type { ElementId, Race } from "./progression";
 
 export interface Variant {
   id: string;
@@ -366,6 +367,7 @@ export class Monster {
   burst = false;
   person: Person | null;
   body: Player | null = null; // a person is drawn as the player is
+  race: Race = "formless";    // what it is (bestiary.ts; slimes are formless)
 
   constructor(variant: Variant, home: Vec2, look: Look, person: Person | null = null) {
     this.variant = variant;
@@ -379,6 +381,7 @@ export class Monster {
     const d = (this.entry = variant.entry ?? null);
     if (d) {
       const has = (b: string) => behaviour(d, b) !== null;
+      this.race = d.race ?? "brute";
       this.radius = Math.min(110, Math.max(24, d.size * 0.3));
       this.height = d.size;
       this.speed = KINDS[d.kind].speed * (has("slowwalk") ? 0.55 : 1);
@@ -916,7 +919,7 @@ export class Monster {
     ctx.lineWidth = 4.5 * k;
     ctx.strokeStyle = "rgba(10, 12, 8, 0.9)";
     ctx.fillStyle = gold ? "#ffd27a" : this.focus ? "#fff6d8" : "#e8e2cc";
-    const label = `Lv ${this.level} ${this.variant.name}`;
+    const label = `Lv ${this.level} ${this.variant.name} · ${RACE_NAMES[this.race]}`;
     const ty = feet + 27 * k;
     ctx.strokeText(label, cx, ty);
     ctx.fillText(label, cx, ty);

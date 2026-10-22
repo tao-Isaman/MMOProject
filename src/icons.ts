@@ -28,6 +28,10 @@ export async function loadSkillArt(): Promise<void> {
   }));
 }
 
+export function hasArt(id: string): boolean {
+  return art.has(id);
+}
+
 export function skillIcon(id: string | null | undefined, glyph: string, color: string): HTMLCanvasElement {
   return (id && art.get(id)) || icon(glyph, color);
 }

@@ -17,7 +17,7 @@ import type { Hero } from "./hero";
 import type { Skills } from "./skills";
 import type { Monster } from "./monsters";
 import type { Inventory } from "./inventory";
-import type { WeaponType, WeaponId } from "./items";
+import type { WeaponType } from "./items";
 import type { Vec2 } from "./types";
 
 const MANUAL_PAUSE = 2.5;  // s the bot waits after the player takes over
@@ -462,8 +462,7 @@ export class Bot {
   usable(id: string): boolean {
     const { hero, progress } = this.d;
     if (!progress.skillRank(id) || hero.cooldowns.has(id)) return false;
-    const a = ACTIVES[id];
-    return !a.source.weapons || a.source.weapons.includes(this.d.weaponId() as WeaponId);
+    return this.d.skills.wields(id);
   }
 
   // offensive skills leave saveMp % of MP for the support ones

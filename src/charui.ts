@@ -3,9 +3,9 @@
 
 import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
 import type { Look } from "./ui";
-import { skillIcon } from "./icons";
+import { skillIcon, hasArt } from "./icons";
 import {
-  CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
+  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName,
 } from "./progression";
 import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
 import type { WeaponId } from "./items";
@@ -81,7 +81,7 @@ export class Vitals {
     if (key === this.last) return;
     this.last = key;
     this.lv.textContent = `Lv ${p.level}`;
-    this.cls.textContent = p.cls ? CLASSES[p.cls].name : "ยังไม่เลือกคลาส";
+    this.cls.textContent = p.cls ? jobName(p) : "ยังไม่เลือกคลาส";
     this.sp.textContent = p.free > 0 ? `แต้มสกิล ${p.free}` : "";
     this.hp.fill.style.width = `${(100 * h.hp) / s.maxHp}%`;
     this.hp.extra.style.width = `${Math.min(100, (100 * (h.shield?.amount ?? 0)) / s.maxHp)}%`;
@@ -180,7 +180,7 @@ export class ProfileUI {
   render(): void {
     if (this.win.classList.contains("hidden")) return;
     const p = this.progress, s = this.hero.stats, inv = this.d.inv;
-    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${p.cls ? CLASSES[p.cls].name : "-"} · Lv ${p.level} / ${MAX_LEVEL}` +
+    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${jobName(p)} · Lv ${p.level} / ${MAX_LEVEL}` +
       `<br>EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed} · แต้มสกิล ${p.free} / ${p.points} · ทอง ${inv.gold}`;
     // what it wears, slot by slot
     this.gear.replaceChildren(...EQUIP_SLOTS.map(({ slot, name }) => {
@@ -306,14 +306,16 @@ const BAG_NAMES: Record<string, string> = {
   maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", pierce: "เจาะเกราะ", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ",
   dmg: "ดาเมจ", reach: "ระยะโจมตี", stunHit: "โอกาสตีให้มึน",
   healPct: "พลังรักษา", multiShot: "โอกาสยิงซ้อน", poisonHit: "โอกาสตีติดพิษ", huntDmg: "ดาเมจใส่ศัตรูติดสถานะ", buffTime: "เวลาบัฟ",
+  lifesteal: "ดูดเลือด", lowHpDmg: "ดาเมจเมื่อเลือดน้อย", falconChance: "โอกาสเหยี่ยวโจมตี", falconPower: "พลังเหยี่ยว", poisonPct: "พลังพิษ",
+  ...Object.fromEntries(RACES.map((r) => [`${r}Dmg`, `ดาเมจใส่${RACE_NAMES[r]}`])),
 };
-const isPct = (k: string) => k.endsWith("Pct") || PERCENT_STATS.has(k)
-  || ["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime"].includes(k);
+const isPct = (k: string) => k.endsWith("Pct") || k.endsWith("Dmg") && k !== "critDmg" && !k.endsWith("Atk") || PERCENT_STATS.has(k)
+  || ["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower"].includes(k);
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const num = (v: number) => `${+v.toFixed(1)}`;
 const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct(Math.abs(v)) : num(Math.abs(v))}`;
 const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => `${BAG_NAMES[k] ?? k} ${signed(k, v)}`).join(" · ");
-const statName = (s: SkillDef) => (s.stat === "matk" ? "พลังเวท" : "พลังโจมตี");
+const statName = (s: SkillDef) => (s.stat === "matk" ? "พลังเวท" : s.stat === "both" ? "พลังผสม (60% พลังโจมตี + 60% พลังเวท)" : "พลังโจมตี");
 
 // The element a skill's hits are made of, for a skill that does damage: its words and colour.
 function hitElement(s: SkillDef | undefined): { text: string; color: string } | null {
@@ -471,6 +473,12 @@ export class SkillUI {
   }
 
   // `id`: the skill whose picture to show if it has one (null for trees, masteries, elements)
+  // The weapon type in the off hand (null: empty, or not a weapon).
+  offWeapon(): string | null {
+    const off = this.hero.offhand();
+    return off ? ITEMS[off]?.weapon ?? null : null;
+  }
+
   skillIcon(parent: HTMLElement, id: string | null, glyph: string, color: string, activeId: string | null | undefined, learned: boolean): HTMLElement {
     const wrap = el("span", `sk-icon${learned ? "" : " dim"}`, parent);
     const c = skillIcon(id, glyph, color);
@@ -594,7 +602,7 @@ export class SkillUI {
       const b = el("button", `sk-treetab${treeId === this.tree ? " on" : ""}`, list);
       b.type = "button";
       b.style.setProperty("--tree", t.color);
-      this.skillIcon(b, null, t.glyph, t.color, null, true);
+      this.skillIcon(b, `tree_${treeId}`, t.glyph, t.color, null, true);
       const txt = el("span", "", b);
       el("strong", "", txt).textContent = t.name;
       el("small", "", txt).textContent = `ลงแล้ว ${p.pointsIn(treeId)} แต้ม`;
@@ -705,6 +713,10 @@ export class SkillUI {
       tag.style.color = hits.color;
     }
     el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
+    if (n.need) {
+      const ok = needMet(n.need, this.hero.weapon(), this.offWeapon());
+      el("p", ok ? "sk-ok" : "sk-miss", panel).textContent = `${ok ? "✓" : "✗"} ${n.kind === "active" ? "ใช้ได้เมื่อถือ" : "ได้ผลเมื่อถือ"}${needText(n.need, (w) => WEAPON_TYPES[w].name)}`;
+    }
     if (n.kind === "active" && n.skill) {
       const s = n.skill;
       // the cast time as this hero reads it out (its castRed), and the plain one beside it
@@ -749,7 +761,7 @@ export class SkillUI {
       if (n.kind === "active" && n.skill?.mult) el("td", "num", tr).textContent = `≈ ${Math.round(skillPower(this.hero.stats, p.elements, n.skill, r, w))}`;
     }
     if (n.kind === "active" && n.skill?.mult) {
-      el("p", "sk-meta", tableWrap).textContent = `*ต่อครั้งที่โดน จาก${statName(n.skill)}ตอนนี้ ${Math.round(n.skill.stat === "matk" ? this.hero.stats.matk : this.hero.stats.atk)} รวมอาวุธ ธาตุไฟ ก่อนหักการป้องกัน`;
+      el("p", "sk-meta", tableWrap).textContent = `*ต่อครั้งที่โดน จาก${statName(n.skill)}ตอนนี้ ${Math.round(n.skill.stat === "matk" ? this.hero.stats.matk : n.skill.stat === "both" ? 0.6 * (this.hero.stats.atk + this.hero.stats.matk) : this.hero.stats.atk)} รวมอาวุธ ธาตุไฟ ก่อนหักการป้องกัน`;
     }
 
     // actions
@@ -808,7 +820,7 @@ export class SkillUI {
       const row = el("div", `sk-line${m.weapons?.includes(holding as WeaponId) ? " holding" : ""}`, list);
       const top = el("div", "sk-line-top", row);
       const art = el("span", "sk-icon", top);
-      const img = m.weapons ? this.weaponImg(m.weapons[0]) : null;
+      const img = m.weapons && !hasArt(`mastery_${id}`) ? this.weaponImg(m.weapons[0]) : null;
       if (img) {
         const c = el("canvas", "sk-weapon", art);
         c.width = c.height = 64;
@@ -819,7 +831,7 @@ export class SkillUI {
         if (img.height > img.width * 1.6) g.rotate(Math.PI / 4);
         g.drawImage(img, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
       } else {
-        art.replaceWith(this.skillIcon(top, null, m.glyph, "#8fbf6a", null, true));
+        art.replaceWith(this.skillIcon(top, `mastery_${id}`, m.glyph, "#8fbf6a", null, true));
       }
       const info = el("div", "sk-info", top);
       el("strong", "", info).textContent = `${m.name} · ระดับ ${lv}/${m.max}${this.planned("mastery", id) ? ` (+${this.planned("mastery", id)})` : ""}${m.weapons?.includes(holding as WeaponId) ? " · ถืออยู่" : ""}`;
@@ -850,7 +862,7 @@ export class SkillUI {
       const row = el("div", "sk-line", list);
       row.style.setProperty("--fill", e.color);
       const top = el("div", "sk-line-top", row);
-      this.skillIcon(top, null, e.glyph, e.color, null, true);
+      this.skillIcon(top, `element_${id}`, e.glyph, e.color, null, true);
       const info = el("div", "sk-info", top);
       el("strong", "", info).textContent = `ธาตุ${e.name} · เด่นด้าน${e.side} · ระดับ ${lv}/${e.max}${this.planned("element", id) ? ` (+${this.planned("element", id)})` : ""}`;
       el("span", "sk-sub", info).textContent = `ต่อระดับ: ${bagText(e.per)} · ${e.skill}`;

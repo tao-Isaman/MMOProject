@@ -378,6 +378,8 @@ function kradiaNpcs(): NpcSpec[] {
     { id: "kradia_apprentice", ...at(476, 360), face: look([476, 360], TOWER), name: "ลีเรีย", title: "ศิษย์หอคอยจอมเวท", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "violet", eyes: "violet", top: "top_lilac", bottom: "bottom_navy" },
       lines: ["หอคอยจอมเวทกลางเมืองคือหัวใจของคราเดีย ท่านอาร์คเมจเฝ้าม่านเวทอยู่บนยอดทุกคืน", "ผลึกบนยอดหอคอยส่งพลังไปยังเสาผลึกรอบลาน ค้ำม่านเวทไว้ทั้งเมือง", "สักวันฉันจะสอบเป็นจอมเวทให้ได้!"] },
+    { id: "job_swordsman", ...at(299, 390), face: look([299, 390], TOWER), name: "ปรมาจารย์ลีออน", title: "ปรมาจารย์ดาบ · เปลี่ยนอาชีพนักดาบ", role: "talk", look: guard("top_warrior_navy", "ink"),
+      lines: ["ดาบไม่เลือกว่าเจ้ามาจากไหน เลเวล 30 เมื่อไรมาหาข้า", "ดาบคู่เร็วดั่งลม ดาบสองมือหนักดั่งภูผา เจ้าจะเลือกทางไหน"] },
     { id: "kradia_knight", ...at(283, 390), face: look([283, 390], TOWER), name: "เซอร์ไรน์ฮาร์ท", title: "อัศวินแห่งป้อมคราเดีย", role: "talk", look: guard("top_warrior_navy", "silver"),
       lines: ["คราเดียไม่เคยแตกมาสามร้อยปี ด้วยกำแพงหินกับเวทมนตร์", "อสูรกลัวแสงผลึก เราจึงจุดโคมผลึกไว้ทุกถนนทั้งคืน"] },
     { id: "kradia_scout", ...at(326, 390), face: look([326, 390], TOWER), name: "นาเดีย", title: "หน่วยสอดแนมชายแดน", role: "talk",

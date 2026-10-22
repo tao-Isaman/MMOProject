@@ -6,11 +6,12 @@ import { WEAPON_TYPES, OFFHAND_DAMAGE } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
-import { basicDamage } from "./stats";
+import { basicDamage, elemental, poisonScale } from "./stats";
 import type { Hit, Stats } from "./stats";
 import type { Hero } from "./hero";
 import type { Monster } from "./monsters";
 import type { Target } from "./player";
+import type { ElementId } from "./progression";
 import type { Img, Textures, Vec2, View } from "./types";
 
 export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
@@ -193,6 +194,8 @@ export class Combat {
   hero: Hero;
   onKill: (m: Monster) => void;
   onReflect?: (m: Monster, dmg: number) => void;
+  onElement?: (m: Monster, el: ElementId, dmg: number) => void; // an enchanted normal hit's element riders
+  onFalcon?: (m: Monster) => void;                              // the falcon dives in after a normal hit
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
   offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2 }[] = []; // off-hand follow-ups
@@ -281,14 +284,24 @@ export class Combat {
     });
   }
 
-  // A normal attack lands on a monster (scale < 1 for the off hand).
+  // A normal attack lands on a monster (scale < 1 for the off hand). An enchanted weapon hits in
+  // its element (with that element's riders); the falcon may dive in after it.
   damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1): void {
-    const r = basicDamage(this.hero.stats, w, m);
+    const st = this.hero.stats, r = basicDamage(st, w, m);
     if (r.miss) return void this.apply(m, r, dir);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
-    if (this.hero.stats.stunHit && Math.random() < this.hero.stats.stunHit) m.stun = Math.max(m.stun, 1);
-    if (this.hero.stats.poisonHit && Math.random() < this.hero.stats.poisonHit) m.burns.push({ dps: (r.dmg * 0.4) / 3, t: 3, poison: true });
+    const el = r.magic ? null : this.hero.enchant;
+    if (el) {
+      r.element = el;
+      r.dmg = Math.max(1, Math.round(elemental(r.dmg, st[`${el}Atk`], m.eleDef?.[el] ?? 0)));
+    }
+    if (st.stunHit && Math.random() < st.stunHit) m.stun = Math.max(m.stun, 1);
+    if (st.poisonHit && Math.random() < st.poisonHit) {
+      m.burns.push({ dps: (r.dmg * 0.4 * poisonScale(st, this.hero.progress.elements)) / 3, t: 3, poison: true });
+    }
     this.apply(m, r, dir);
+    if (el) this.onElement?.(m, el, r.dmg);
+    if (st.falconChance && m.alive && Math.random() < st.falconChance) this.onFalcon?.(m);
   }
 
   // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it. Only a
@@ -301,11 +314,15 @@ export class Combat {
       this.floaters.add(m.x, m.y, m.height, "พลาด", "miss");
       return false;
     }
-    // an exposed monster takes more; the hunter's instinct, more on any status
-    const stone = this.hero.progress.elements.stone ?? 0;
-    const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + this.hero.stats.huntDmg : 1) * (m.petrify > 0 && stone >= 50 ? 1.25 : 1);
+    // an exposed monster takes more; the hunter's instinct, more on any status; more on its kind;
+    // more the lower the player's HP (blood rage)
+    const st = this.hero.stats, stone = this.hero.progress.elements.stone ?? 0;
+    const low = st.lowHpDmg ? 1 + st.lowHpDmg * Math.max(0, 1 - this.hero.hp / st.maxHp) : 1;
+    const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + st.huntDmg : 1) * (m.petrify > 0 && stone >= 50 ? 1.25 : 1)
+      * (1 + st[`${m.race}Dmg`]) * low;
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
+    if (st.lifesteal > 0 && this.hero.alive) this.hero.heal(r.dmg * st.lifesteal);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
       size: [[0, 24], [1, 60]], alpha: [[0, 0.8], [1, 0]] });

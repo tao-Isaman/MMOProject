@@ -1,9 +1,9 @@
 // Stats and damage. computeStats folds class, level, passives, masteries, elements, the weapon
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
-import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS } from "./progression";
+import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet } from "./progression";
 import { ITEMS } from "./items";
-import type { ElementId, Progress, SkillDef, StatBag } from "./progression";
+import type { ElementId, Progress, Race, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
 import { rand } from "./particles";
 
@@ -19,13 +19,18 @@ const ZERO = {
   healPct: 0, multiShot: 0, poisonHit: 0, huntDmg: 0, buffTime: 0,
   // a share of the damage a bite does sent back at the biter
   reflect: 0,
+  // a share of the damage done healed back; up to this much more damage as HP runs low (all of
+  // it at 0 HP); the falcon's chance to dive in after a normal hit and its strength (of attack);
+  // poison damage
+  lifesteal: 0, lowHpDmg: 0, falconChance: 0, falconPower: 0, poisonPct: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };
 
-// Attack and defence in each element (fireAtk, fireDef, ...), a point each a percent.
-type ElementStats = Record<`${ElementId}Atk` | `${ElementId}Def`, number>;
-const ELEMENT_ZERO = Object.fromEntries(ELEMENT_IDS.flatMap((e) => [[`${e}Atk`, 0], [`${e}Def`, 0]])) as ElementStats;
+// Attack and defence in each element (fireAtk, fireDef, ...), a point each a percent; more damage
+// to each kind of monster (undeadDmg, ...), a fraction.
+type ElementStats = Record<`${ElementId}Atk` | `${ElementId}Def`, number> & Record<`${Race}Dmg`, number>;
+const ELEMENT_ZERO = Object.fromEntries([...ELEMENT_IDS.flatMap((e) => [[`${e}Atk`, 0], [`${e}Def`, 0]]), ...RACES.map((r) => [`${r}Dmg`, 0])]) as ElementStats;
 
 export type Stats = typeof ZERO & ElementStats;
 
@@ -35,6 +40,7 @@ export interface Defender {
   mdef: number;
   flee: number;
   eleDef?: Partial<Record<ElementId, number>>;
+  race?: Race;
 }
 
 export interface Hit {
@@ -58,6 +64,13 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   const bag = s as unknown as Record<string, number>;
   add(bag, cls.base);
   add(bag, cls.growth, progress.level - 1);
+  // a second job: its bonus, and its growth on every level since it could be taken
+  const job = progress.job ? JOBS[progress.job] : null;
+  if (job) {
+    add(bag, job.bonus);
+    add(bag, job.growth, Math.max(0, progress.level - JOB_LEVEL));
+  }
+  const offWeapon = offhandId ? ITEMS[offhandId]?.weapon ?? null : null;
   for (const [id, lv] of Object.entries(progress.elements)) {
     add(bag, ELEMENTS[id].per, lv);
     for (const m of ELEMENTS[id].marks) if (m.stats && lv >= m.at) add(bag, m.stats);
@@ -65,13 +78,12 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   for (const treeId of progress.trees()) {
     for (const n of TREES[treeId].nodes) {
       const r = progress.ranks[n.id];
-      if (r && n.kind === "passive" && n.stats) add(bag, n.stats(r));
+      if (r && n.kind === "passive" && n.stats && needMet(n.need, weaponId, offWeapon)) add(bag, n.stats(r));
     }
   }
   for (const [id, lv] of Object.entries(progress.mastery)) {
     const m = MASTERIES[id];
     // weapon masteries count while that weapon is in either hand
-    const offWeapon = offhandId ? ITEMS[offhandId]?.weapon : undefined;
     if (m.kind === "weapon" && !m.weapons?.includes(weaponId as never) && !m.weapons?.includes(offWeapon as never)) continue;
     add(bag, m.per, lv);
     for (const r of m.rewards) if (r.kind === "passive" && r.stats && lv >= r.at) add(bag, r.stats);
@@ -100,6 +112,11 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   s.poisonHit = Math.min(0.6, s.poisonHit);
   s.reflect = Math.min(0.6, s.reflect);
   return s;
+}
+
+// How strong the player's poison is: poison damage stats, doubled at poison element 50.
+export function poisonScale(stats: Stats, elements: Record<string, number>): number {
+  return (1 + stats.poisonPct) * ((elements.poison ?? 0) >= 50 ? 2 : 1);
 }
 
 // Defence curve: 100 defence halves the damage.
@@ -165,9 +182,12 @@ export function weaponPower(w: WeaponType | null | undefined, magic: boolean): n
 
 // What a skill hit does before defence, crits and the random spread: the skill's multiplier
 // of attack stat plus weapon power, with fire on top (+1% a level, +15% more at 50).
+// A skill on attack and magic attack together ("both") takes 0.6 of each and any weapon's power.
 export function skillPower(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, weapon: WeaponType | null = null): number {
   const magic = skill.stat === "matk", fire = elements.fire ?? 0;
-  const base = (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic);
+  const base = skill.stat === "both"
+    ? 0.6 * (stats.atk + stats.matk) + (weapon ? (weapon.damage[0] + weapon.damage[1]) / 2 : 0)
+    : (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic);
   return base * (skill.mult?.(rank) ?? 1) * (1 + stats.dmg) * (1 + 0.01 * fire) * (fire >= 50 ? 1.15 : 1);
 }
 
@@ -178,7 +198,7 @@ export function skillDamage(stats: Stats, elements: Record<string, number>, skil
   const lightning = elements.lightning ?? 0, el = skill.element;
   const through = el === "light" ? lightPierce(elements.light ?? 0) : 0;
   const raw = skillPower(stats, elements, skill, rank, weapon) * rand(0.92, 1.08);
-  const hit = skill.stat === "matk"
+  const hit = skill.stat === "matk" || skill.stat === "both"
     ? spellHit(raw * (1 + 0.003 * lightning), stats, target, through)
     : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target, through);
   if (el && !hit.miss) {

@@ -759,6 +759,16 @@ body.touch .mp-info:empty { display: none; }
 .qd-tag { flex: none; min-width: 18px; padding: 1px 7px; border-radius: 6px; text-align: center; font-weight: 700; font-size: 12px; color: #2a1d05; background: #ffd23a; }
 .qd-quest.busy .qd-tag { background: #b9b4a4; }
 .qd-quest.biz .qd-tag { padding: 0; background: none; color: var(--gold); font-size: 14px; }
+.qd-why { color: #ffb38a; }
+.qd-branch {
+  display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; border-radius: 10px; text-align: left; cursor: pointer;
+  border: 1px solid var(--rim); border-left: 4px solid var(--tree, var(--gold)); background: rgba(255, 255, 255, 0.04); color: var(--text); font: 14px var(--font);
+}
+.qd-branch:hover { border-color: var(--tree, var(--gold)); }
+.qd-branch.on { background: rgba(244, 210, 122, 0.16); border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.qd-branch b { color: var(--gold); font-size: 15px; }
+.qd-branch-note { font-size: 13px; line-height: 1.45; }
+.qd-branch-skills { font-size: 12px; color: var(--muted); }
 .qd-steps { margin: 2px 0 0; padding-left: 22px; font-size: 13px; color: var(--muted); line-height: 1.5; }
 .qd-reward { margin: 6px 0 0; font-size: 13px; color: #9df0b4; font-weight: 600; }
 .qd-buttons { display: flex; gap: 8px; justify-content: flex-end; margin: 12px 14px 0; flex-wrap: wrap; }

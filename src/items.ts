@@ -167,7 +167,7 @@ export interface Item {
   stats?: Partial<Record<string, number>>; // off-hand gear while held
   art?: OffhandArt;
   style?: string;                       // a hairstyle item: the hairstyle it teaches
-  icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string };
+  icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string; art?: string };
 }
 
 const weapon = (type: WeaponId): Item => ({

@@ -2,7 +2,7 @@
 
 import { computeStats } from "./stats";
 import type { Stats } from "./stats";
-import type { Progress, StatBag } from "./progression";
+import type { ElementId, Progress, StatBag } from "./progression";
 
 export interface Buff {
   id: string;
@@ -10,6 +10,7 @@ export interface Buff {
   stats: StatBag;
   t: number;
   duration: number;
+  enchant?: ElementId; // the weapon hits in this element while it lasts
 }
 
 export const RESPAWN_TIME = 4;
@@ -114,10 +115,16 @@ export class Hero {
     return true;
   }
 
-  addBuff(id: string, name: string, stats: StatBag, duration: number): void {
-    this.buffs = this.buffs.filter((b) => b.id !== id);
-    this.buffs.push({ id, name, stats, t: duration, duration });
+  // A buff (the same one again starts over); an enchant replaces any other enchant.
+  addBuff(id: string, name: string, stats: StatBag, duration: number, enchant?: ElementId): void {
+    this.buffs = this.buffs.filter((b) => b.id !== id && !(enchant && b.enchant));
+    this.buffs.push({ id, name, stats, t: duration, duration, enchant });
     this.recompute();
+  }
+
+  // The element the weapon hits in (an enchant buff), or null.
+  get enchant(): ElementId | null {
+    return this.buffs.find((b) => b.enchant)?.enchant ?? null;
   }
 
   // Ailments are buffs whose id starts with "ail_" (stats that hurt, from elemental bites).

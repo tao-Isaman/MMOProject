@@ -9,12 +9,15 @@
 //   level    reach a level
 // Rewards come at the end: gold, experience, skill points (on top of a point a level) and items.
 // A step can also hand the player something to carry (`gives`, a letter) and take it back.
+// Job quests (`job`) come from each second job's master; the master tells what it takes (the
+// level, the classes) and, at the last hand-in, lets the player pick a branch of the job.
 //
 // The state is per character (save.ts saveKey): the quests on, their step and count, how many
 // times each was finished, and when a repeatable one may be taken again.
 
 import { saveKey } from "./save";
 import type { MapId } from "./maps";
+import type { JobId } from "./progression";
 
 export interface Who {
   map: MapId;
@@ -55,6 +58,8 @@ export interface QuestDef {
   offer: string;     // what the giver says
   steps: Step[];
   reward: Reward;
+  job?: JobId;       // a job change: offered only to who may take that job; on the last hand-in
+                     // the player picks one of its branches and takes the job (progression.ts)
 }
 
 // Who's who (the townsfolk the quests go through).
@@ -72,6 +77,10 @@ const SALIM = W("bahamas", "bh_caravan", "ซาลิม"), AMINA = W("bahamas"
 const UMAR = W("bahamas", "bh_potter", "อุมัร");
 const TALEK = W("yodia", "yodia_elder", "ตาเหล็ก"), PRATEEP = W("yodia", "yodia_keeper", "ลุงประทีป"), JAMPEE = W("yodia", "yodia_fishwife", "ป้าจำปี");
 const RYOKAN = W("osaki", "osaki_monk", "หลวงพี่เรียวคัง"), AOI = W("osaki", "osaki_aoi", "อาโออิ"), TOKUBE = W("osaki", "osaki_brewer", "โทคุเบ");
+// the job masters
+const TEMUR = W("trunrada", "job_ranger", "นายพรานเตมูร์"), LEON = W("kradia", "job_swordsman", "ปรมาจารย์ลีออน");
+const ZAHARA = W("bahamas", "job_wizard", "จอมเวทซาฮาร่า"), CELESTE = W("eden", "job_bishop", "มารดาเซเลสต์");
+const KENSHIN = W("osaki", "job_battlemage", "อาจารย์เคนชิน"), RAGNAR = W("iceberg", "job_warlord", "ราโกนาร์ผู้คลั่ง");
 
 const kill = (what: string | string[], count: number): Goal => ({ kind: "kill", what: typeof what === "string" ? [what] : what, count });
 const collect = (item: string, count: number, from?: string, chance = 0.5): Goal => ({ kind: "collect", item, count, from: from ? [from] : undefined, chance });
@@ -256,6 +265,56 @@ export const QUESTS: QuestDef[] = [
     offer: "ทานุกิแปลงกายมาขโมยสาเกในโรงเหล้าทุกคืน! ไล่มันไปสัก 8 ตัวเถอะ",
     steps: [{ goal: kill("tanuki", 8), to: TOKUBE, task: "ปราบทานุกิแปลงกายที่เนินซากุระ", say: "ไหสาเกปลอดภัยแล้ว นี่ค่าจ้าง กับสาเกหนึ่งจอก... ล้อเล่น เงินดีกว่า" }],
     reward: { gold: 3000, xp: 11000 } },
+
+  // ---- second jobs: one master each, level 30; the last hand-in picks the branch ----
+  { id: "job_ranger", name: "บททดสอบนายพราน", giver: TEMUR, level: 30, job: "ranger",
+    offer: "อยากเป็นนายพรานงั้นหรือ ต้องเป็นนักธนูหรือนักรบ เลเวล 30 ขึ้นไป แล้วพิสูจน์ฝีมือการล่าให้ข้าดู",
+    steps: [
+      { goal: kill("horned_hare", 10), to: TEMUR, task: "ล่ากระต่ายเขาเดียว 10 ตัวที่สเตปป์ตะวันตก", say: "ไวพอใช้ได้ ไปขอพรจากหัวหน้าเผ่าบาตูก่อน นายพรานทุกคนต้องได้รับพรจากเขา" },
+      { goal: talk, to: BATU, task: "ไปรับพรจากหัวหน้าเผ่าบาตู", say: "เตมูร์ส่งเจ้ามาหรือ ขอให้สายลมแห่งทุ่งหญ้านำทางเจ้า กลับไปหาเขาได้แล้ว" },
+      { goal: talk, to: TEMUR, task: "กลับไปหานายพรานเตมูร์ แล้วเลือกสายของนายพราน", say: "ตั้งแต่วันนี้ เจ้าคือนายพรานแห่งทรุนราดา" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 10]] } },
+  { id: "job_swordsman", name: "บททดสอบนักดาบ", giver: LEON, level: 30, job: "swordsman",
+    offer: "ดาบไม่เลือกว่าเจ้ามาจากอาชีพไหน ขอแค่เลเวล 30 ขึ้นไป ไปพิสูจน์คมดาบของเจ้าที่เชิงเขาหิมะ",
+    steps: [
+      { goal: kill("snow_wolf", 10), to: LEON, task: "ปราบหมาป่าหิมะ 10 ตัวที่เชิงเขาหิมะ", say: "ไม่เลว ไปหาเซอร์ไรน์ฮาร์ทที่ป้อม เขาจะรับรองฝีมือเจ้า" },
+      { goal: talk, to: REINHARDT, task: "ไปให้เซอร์ไรน์ฮาร์ทรับรองฝีมือ", say: "ข้าเห็นแววตาของนักดาบในตัวเจ้า กลับไปบอกลีออนว่าข้ารับรอง" },
+      { goal: talk, to: LEON, task: "กลับไปหาปรมาจารย์ลีออน แล้วเลือกสายของนักดาบ", say: "จงใช้ดาบปกป้องผู้อื่น ไม่ใช่เพื่อโอ้อวด" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 10]] } },
+  { id: "job_wizard", name: "บททดสอบจอมเวท", giver: ZAHARA, level: 30, job: "wizard",
+    offer: "เวทขั้นสูงไม่ใช่ของทุกคน ต้องเป็นนักเวทหรือนักบวช เลเวล 30 ขึ้นไป ไปปราบมัมมี่ในทะเลทรายใหญ่ให้ข้าดูก่อน",
+    steps: [
+      { goal: kill("mummy_slave", 10), to: ZAHARA, task: "ปราบมัมมี่ทาส 10 ตัวที่ทะเลทรายใหญ่", say: "พลังเวทของเจ้าใช้ได้ ไปฟังเรื่องเล่าเวทโบราณจากท่านนาดีมก่อน" },
+      { goal: talk, to: NADEEM, task: "ไปฟังตำนานเวทโบราณจากท่านนาดีม", say: "ครั้งหนึ่งจอมเวทเคยหยุดพายุทรายได้ด้วยมือเปล่า... ไปเถิด ซาฮาร่ารอเจ้าอยู่" },
+      { goal: talk, to: ZAHARA, task: "กลับไปหาจอมเวทซาฮาร่า แล้วเลือกสายของจอมเวท", say: "ยินดีต้อนรับสู่วงจอมเวท จงใช้พลังด้วยปัญญา" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_blue", 10]] } },
+  { id: "job_bishop", name: "บททดสอบบาทหลวง", giver: CELESTE, level: 30, job: "bishop",
+    offer: "บาทหลวงต้องเป็นนักบวชที่เลเวล 30 ขึ้นไป ไปชำระวิญญาณมัมมี่ที่ทะเลทรายใหญ่ให้สงบเสียก่อน",
+    steps: [
+      { goal: kill("mummy_slave", 8), to: CELESTE, task: "ชำระมัมมี่ทาส 8 ตัวที่ทะเลทรายใหญ่", say: "วิญญาณเหล่านั้นสงบแล้ว ไปรับพรจากซิสเตอร์มาเรียที่สี่แยกกลางเมือง" },
+      { goal: talk, to: MARIA, task: "ไปรับพรจากซิสเตอร์มาเรีย", say: "แสงศักดิ์สิทธิ์จงอยู่กับท่าน กลับไปหามารดาเซเลสต์เถิด" },
+      { goal: talk, to: CELESTE, task: "กลับไปหามารดาเซเลสต์ แล้วเลือกสายของบาทหลวง", say: "จงเป็นแสงสว่างให้ผู้ที่หลงทาง" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_blue", 10]] } },
+  { id: "job_battlemage", name: "บททดสอบจอมเวทนักสู้", giver: KENSHIN, level: 30, job: "battlemage",
+    offer: "ดาบและเวทเรียนได้ทุกคน ขอแค่เลเวล 30 ขึ้นไป ไปปราบปูก้ามเหล็กที่ชายฝั่งป่าชายเลน เปลือกแข็งของมันจะสอนให้เจ้าใช้ทั้งดาบและเวท",
+    steps: [
+      { goal: kill("iron_crab", 10), to: KENSHIN, task: "ปราบปูก้ามเหล็ก 10 ตัวที่ชายฝั่งป่าชายเลน", say: "เจ้าเริ่มเข้าใจแล้ว ไปนั่งสมาธิกับหลวงพี่เรียวคังที่วัดสักครู่" },
+      { goal: talk, to: RYOKAN, task: "ไปนั่งสมาธิกับหลวงพี่เรียวคัง", say: "ใจนิ่ง ดาบจึงนิ่ง เวทจึงคม กลับไปหาอาจารย์เคนชินเถิด" },
+      { goal: talk, to: KENSHIN, task: "กลับไปหาอาจารย์เคนชิน แล้วเลือกสายของจอมเวทนักสู้", say: "ดาบในมือ เวทในใจ เจ้าคือจอมเวทนักสู้แล้ว" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 5], ["potion_blue", 5]] } },
+  { id: "job_warlord", name: "บททดสอบนักรบคลั่ง", giver: RAGNAR, level: 30, job: "warlord",
+    offer: "ความคลั่งเป็นของนักรบเท่านั้น เลเวล 30 ขึ้นไป ไปล้มแพะภูเขาที่เชิงเขาหิมะให้ข้าดูว่าเลือดเจ้าร้อนพอ",
+    steps: [
+      { goal: kill("ram_goat", 12), to: RAGNAR, task: "ล้มแพะภูเขาเขาวง 12 ตัวที่เชิงเขาหิมะ", say: "ฮ่า! เลือดเจ้าร้อนดี ไปให้ผู้เฒ่าทอร์วัลด์ดูหน้าก่อน เขาไม่ชอบคนบ้าเลือดนัก" },
+      { goal: talk, to: TORVALD, task: "ไปพบผู้เฒ่าทอร์วัลด์ที่โถงใหญ่", say: "ความคลั่งที่ไร้ใจคุมคือหายนะ จำไว้ แล้วกลับไปหาราโกนาร์เถิด" },
+      { goal: talk, to: RAGNAR, task: "กลับไปหาราโกนาร์ แล้วเลือกสายของนักรบคลั่ง", say: "สนามรบรอเจ้าอยู่ นักรบคลั่ง!" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 10]] } },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
@@ -279,6 +338,8 @@ export interface QuestDeps {
   level(): number;
   reward(r: Reward, q: QuestDef): void;
   note(text: string): void; // a line over the player ("สไลม์เขียว 3/5")
+  jobBlock(job: JobId): string | null;            // why the player can't take a job, or null
+  takeJob(job: JobId, branch: string): boolean;   // take it with that branch
 }
 
 export class Quests {
@@ -321,6 +382,10 @@ export class Quests {
     if (!q.repeat && this.timesDone(q.id)) return "ทำสำเร็จแล้ว";
     if (q.repeat && this.wait(q.id) > 0) return `รับได้อีกใน ${Math.ceil(this.wait(q.id) / 60000)} นาที`;
     if ((q.level ?? 1) > this.deps.level()) return `ต้องเลเวล ${q.level}`;
+    if (q.job) {
+      const no = this.deps.jobBlock(q.job);
+      if (no) return no;
+    }
     const missing = (q.after ?? []).filter((a) => !this.timesDone(a));
     if (missing.length) return `ต้องทำ "${missing.map((a) => QUEST_BY_ID[a]?.name ?? a).join(", ")}" ก่อน`;
     return null;
@@ -360,9 +425,11 @@ export class Quests {
     return w.map === map && w.npc === npc;
   }
 
-  // What a townsperson has: quests to offer, steps to hand in to them, ones under way they gave.
-  optionsFor(map: MapId, npc: string): { offers: QuestDef[]; ready: QuestDef[]; busy: QuestDef[] } {
+  // What a townsperson has: quests to offer, steps to hand in to them, ones under way they gave,
+  // and the job quests they would give once the player qualifies (to tell what it takes).
+  optionsFor(map: MapId, npc: string): { offers: QuestDef[]; ready: QuestDef[]; busy: QuestDef[]; locked: QuestDef[] } {
     const offers = QUESTS.filter((q) => this.is(q.giver, map, npc) && this.available(q));
+    const locked = QUESTS.filter((q) => q.job && this.is(q.giver, map, npc) && !this.isActive(q.id) && !this.timesDone(q.id) && !this.available(q));
     const ready: QuestDef[] = [], busy: QuestDef[] = [];
     for (const id of Object.keys(this.s.active)) {
       const q = QUEST_BY_ID[id], st = this.step(id);
@@ -370,7 +437,7 @@ export class Quests {
       if (this.is(st.to, map, npc) && st.goal.kind !== "visit") (this.ready(id) ? ready : busy).push(q);
       else if (this.is(q.giver, map, npc)) busy.push(q);
     }
-    return { offers, ready, busy };
+    return { offers, ready, busy, locked };
   }
 
   // ---- doing them ----
@@ -393,9 +460,13 @@ export class Quests {
 
   // Hand the current step in to its `to` (the caller checked who it is): the next step, or the
   // reward at the end. Returns what they say.
-  handIn(id: string): string | null {
+  // Hand in the current step; the last step of a job quest takes the branch picked (null when it
+  // can't be handed in, or the job can't be taken).
+  handIn(id: string, branch?: string): string | null {
     const q = QUEST_BY_ID[id], a = this.s.active[id], st = this.step(id);
     if (!q || !a || !st || !this.ready(id)) return null;
+    const last = a.step === q.steps.length - 1;
+    if (q.job && last && (!branch || this.deps.jobBlock(q.job) || !this.deps.takeJob(q.job, branch))) return null;
     if (st.goal.kind === "collect") this.deps.take(st.goal.item, st.goal.count);
     for (const [item, n] of st.takes ?? []) this.deps.take(item, Math.min(n, this.deps.count(item)));
     this.advance(q, a);

@@ -21,7 +21,7 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS } from "./progression";
+import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
 import { monsterDamage } from "./stats";
@@ -399,7 +399,7 @@ async function boot(): Promise<void> {
       // books, hairstyles, hats, shoes, rings, trinkets: a glyph on a gem
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
-      c.getContext("2d")!.drawImage(icon(item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
+      c.getContext("2d")!.drawImage(skillIcon(item.icon.art, item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
     } else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
     icons.set(id, c);
     return c;
@@ -483,6 +483,17 @@ async function boot(): Promise<void> {
       for (let i = 0; i < left; i++) ground.drop(id, player); // a full bag: at the feet
     },
     level: () => progress.level,
+    jobBlock: (job) => progress.jobBlock(job),
+    takeJob(job, branch) {
+      if (!progress.takeJob(job, branch)) return false;
+      // the new job: its name over the player, its branch's tree in the skill window
+      floaters.add(player.x, player.y, 200, `เปลี่ยนอาชีพเป็น${JOBS[job].name}!`, "level");
+      floaters.add(player.x, player.y, 185, `${TREES[branch].name} · แต้มสกิล +${JOB_POINTS}`, "level");
+      hero.recompute();
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 60);
+      skills.ring(player.x, player.y, "#ffe27a", 260, 0.9);
+      return true;
+    },
     reward(r, q) {
       floaters.add(player.x, player.y, 175, `สำเร็จเควส: ${q.name}`, "level");
       if (r.gold) {
@@ -549,6 +560,9 @@ async function boot(): Promise<void> {
     },
   });
   const skills = new Skills({ progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => inv.equipped.weapon });
+  // an enchanted weapon's element riders and the falcon after a normal hit
+  combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
+  combat.onFalcon = (m) => skills.falconStrike(m);
 
   function levelUp() {
     hero.refill();
@@ -567,9 +581,11 @@ async function boot(): Promise<void> {
       const a = id && ACTIVES[id];
       if (!a) return hud.set(i, null);
       const rank = progress.skillRank(id);
-      hud.set(i, { id, name: a.name, icon: skillIcon(id, a.glyph, a.color), tip: skillTip(id, rank), missing: !rank });
+      // greyed out until learned, or while the hands don't hold what it needs
+      hud.set(i, { id, name: a.name, icon: skillIcon(id, a.glyph, a.color), tip: skillTip(id, rank), missing: !rank || !skills.wields(id) });
     });
   }
+  inv.onChange(refreshBar);
   let rosterLine = `${progress.level}|${progress.cls}`;
   progress.onChange(() => {
     refreshBar();

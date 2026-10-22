@@ -429,6 +429,8 @@ function icebergNpcs(): NpcSpec[] {
     { id: "ice_healer", ...at(MAIN[0] + 7, HALL_V + 12), face: toward(MAIN[0] + 7, HALL_V + 12, cu, cv), name: "แม่ชีซิกรุน", title: "นักบวช · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal", top: "top_priestess_white", bottom: "bottom_priestess_white" },
       lines: ["ขอให้ไฟในเตาผิงอบอุ่นหัวใจท่าน", "หายหนาวหายเหนื่อยแล้วนะ ระวังน้ำแข็งลื่นตอนเดินริมท่าเรือด้วย"] },
+    { id: "job_warlord", ...at(MAIN[0] + 23, HALL_V - 12), face: toward(MAIN[0] + 23, HALL_V - 12, cu, cv), name: "ราโกนาร์ผู้คลั่ง", title: "ขุนศึกเหนือ · เปลี่ยนอาชีพนักรบคลั่ง", role: "talk", look: guard("top_warrior_forest", "crimson"),
+      lines: ["นักรบเลเวล 30 ที่อยากรู้รสความคลั่ง มาหาข้า", "ศาสตราวุธสองมือ หรือเลือดที่เดือดพล่าน ทางไหนก็ไม่มีถอย"] },
     { id: "ice_elder", ...at(MAIN[0] + 7, HALL_V - 12), face: toward(MAIN[0] + 7, HALL_V - 12, cu, cv), name: "ผู้เฒ่าทอร์วัลด์", title: "ผู้อาวุโสแห่งโถงใหญ่", role: "talk", look: guard("top_warrior_forest", "silver"),
       lines: ["โถงใหญ่นั่นสร้างมาตั้งแต่รุ่นทวด หัวมังกรบนหน้าจั่วคอยไล่วิญญาณพายุหิมะ", "คืนกลางฤดูหนาว ชาวไอซ์เบิร์กมาร่วมงานเลี้ยงในโถง ดื่มน้ำผึ้งหมัก เล่านิทานกันจนรุ่งเช้า", "ไกลลงไปทางใต้คือที่ราบภาคกลางกับเมืองหลวงอีเดน ส่วนตะวันออกคือทุ่งสเตปป์ของทรุนราดา"] },
     { id: "ice_shop", ...at(MAIN[0] + 6, CROSS[1] - 6), face: toward(MAIN[0] + 6, CROSS[1] - 6, cu, cv), name: "แอสทริด", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",

@@ -16,7 +16,7 @@ export const STOCK = [
   "top_priestess_white", "bottom_priestess_white", "top_adventurer_teal", "bottom_adventurer_sand",
   "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
   "hat_straw", "hat_leather", "shoes_sandals", "shoes_boots", "ring_power", "ring_mind", "ring_chant", "trinket_moon",
-  "book_survivor", "book_gathering", "book_lightning",
+  "book_survivor", "book_gathering", "book_lightning", "book_tree_basic_magic", "book_tree_basic_body", "book_tree_basic_combat",
 ];
 
 // ---- shop window ----

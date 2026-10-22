@@ -22,7 +22,7 @@
 //   human         a person: dressed from the wardrobe instead of a sprite
 //   boss          one of a field's bosses: one at a time, back an hour after it falls
 
-import type { ElementId } from "./progression";
+import type { ElementId, Race } from "./progression";
 import type { MapId } from "./maps";
 import type { WeaponId } from "./items";
 
@@ -40,6 +40,7 @@ export interface MonsterDef {
   size: number;   // how tall it stands, cm
   behave: string[];
   look: string;
+  race?: Race;    // what it is (RACE_OF below)
 }
 
 export const MONSTERS: MonsterDef[] = [
@@ -293,5 +294,34 @@ export const PEOPLE: Record<string, { look: { gender: string; hair: string; hair
   cursed_deserter: { look: { gender: "male", hair: "", hairColor: "ink", eyes: "crimson", top: "top_warrior_navy", bottom: "bottom_warrior_black" }, weapon: "sword_1h", motion: "swing" },
   bamboo_ninja: { look: { gender: "female", hair: "twintail", hairColor: "ink", eyes: "teal", top: "top_adventurer_teal", bottom: "bottom_adventurer_black" }, weapon: "dagger", motion: "thrust" },
 };
+
+// What each monster is, for the skills that hit a kind harder (holy light on the undead...).
+// The undead and the formless shrug off some poison.
+const RACE_OF: Record<string, Race> = {
+  spore_mushroom: "plant", fang_squirrel: "brute", oak_boar: "brute", oak_sprite: "plant", grove_guardian: "plant",
+  wheat_locust: "insect", mill_rat: "brute", haunted_scarecrow: "undead", highway_bandit: "human",
+  swift_ostrich: "brute", grass_hyena: "brute", dung_beetle: "insect",
+  saw_beaver: "brute", pine_wolf: "brute", brook_spirit: "formless", pine_bear: "brute",
+  ram_goat: "brute", snow_wolf: "brute", snowman: "formless",
+  ice_bat: "brute", ice_golem: "formless", yeti: "brute",
+  war_penguin: "brute", sabre_seal: "fish", polar_bear: "brute", frozen_explorer: "undead", frost_dragon: "dragon",
+  horned_hare: "brute", shaggy_bison: "brute", steppe_eagle: "brute", nomad_raider: "human",
+  flame_mane: "brute", giant_gull: "brute", ghost_rancher: "undead",
+  canyon_wolf: "brute", menhir_warden: "formless", druid_shade: "undead", thunder_steed: "brute",
+  crimson_stag: "brute", shadow_imp: "demon", cursed_deserter: "undead",
+  skeleton_soldier: "undead", goat_demon: "demon", siege_golem: "formless",
+  dark_crystal_fiend: "demon", hellhound: "demon", demon_knight: "demon", demon_king: "demon",
+  red_scorpion: "insect", walking_cactus: "plant", desert_vulture: "brute",
+  mummy_slave: "undead", sand_cobra: "brute", sandstone_golem: "formless", pharaoh_shade: "undead", risen_pharaoh: "undead",
+  tiger_frog: "fish", vine_monkey: "brute", mud_crocodile: "brute",
+  iron_crab: "fish", mudskipper: "fish", ghost_pirate: "undead", ghost_captain: "undead",
+  tanuki: "brute", bamboo_ninja: "human", paper_lantern: "demon", nine_tail_fox: "angel",
+  lava_salamander: "dragon", basalt_golem: "formless", sulfur_wisp: "formless", lava_lord: "demon",
+};
+for (const m of MONSTERS) {
+  m.race = RACE_OF[m.id] ?? "brute";
+  if (m.race === "undead") m.eleDef.poison ??= 40;
+  if (m.race === "formless") m.eleDef.poison ??= 25;
+}
 
 export const MONSTER_BY_ID: Record<string, MonsterDef> = Object.fromEntries(MONSTERS.map((m) => [m.id, m]));

@@ -20,6 +20,15 @@
 //   lava   burns 15% + 0.7%/level of the hit over 3 s [20: 5 s; 50: twice]
 //   plant  (any skill) heals 0.1% max HP a level [35: twice]; [10: clears the player's ailments]
 //   metal  (bitten) sends part of the bite back (stats reflect; main.ts)
+//   poison poisons for 30% + 1%/level of the hit over 4 s [10: 6 s; 35: twice; 50: all poison
+//          twice as strong, stats.ts poisonScale]
+//
+// Second-job riders on a skill's hit (progression.ts SkillDef): `vs` more on some kinds of
+// monster, `masteryScale` more per level of the held weapon's mastery, `detonate` sets off the
+// poison already on the target, `drain` heals from the damage; a physical skill without an
+// element of its own hits in the element an enchant buff gave the weapon. trap: laid on the ground,
+// set off by the first monster in it (Trap below). falcon: the falcon dives at the target (and
+// after a normal hit now and then, falconChance: falconStrike).
 //
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point, `hits` times) · nova, storm
 // (around the caster) · cone (in front) · beam (a line) · dash (no `mult`: a teleport) · heal ·
@@ -31,9 +40,9 @@
 // is aimed at feel it coming and turn on the caster, so the heavy spells cost a risk as well; a
 // spell aimed at a monster (or at a spot with monsters in it) follows that one when it moves.
 
-import { ACTIVES, MASTERIES } from "./progression";
+import { ACTIVES, MASTERIES, needMet, needText } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
-import { skillDamage } from "./stats";
+import { mitigate, poisonScale, skillDamage } from "./stats";
 import { shapeTargets } from "./combat";
 import type { Combat, Floaters } from "./combat";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
@@ -43,7 +52,7 @@ import type { Spell } from "./spell";
 import { CastCircle } from "./castfx";
 import type { CastTarget } from "./castfx";
 import { lookFor } from "./circles";
-import { WEAPON_TYPES } from "./items";
+import { ITEMS, WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
 import type { Hero } from "./hero";
 import type { Player, AttackWeapon } from "./player";
@@ -91,12 +100,53 @@ interface Casting {
 // One target, locked on (a shot that homes in, a blow at the one in front); the other damage
 // skills reach an area (aimed at a spot on the ground, along a line or round the player).
 export function singleTarget(s: SkillDef): boolean {
-  return (s.type === "bolt" && !s.pierce) || (s.type === "cone" && (s.arc ?? 90) <= 50);
+  return (s.type === "bolt" && !s.pierce) || (s.type === "cone" && (s.arc ?? 90) <= 50) || s.type === "falcon";
 }
 // Skills placed on a spot of the ground (aimed with a disc before they go, src/main.ts); the
 // rest of the area skills go round the player or along the line it faces.
 export function groundTarget(s: SkillDef): boolean {
-  return s.type === "blast";
+  return s.type === "blast" || s.type === "trap";
+}
+
+// A trap waiting on the ground: the skill it goes off with, armed after half a second.
+interface Trap {
+  x: number;
+  y: number;
+  s: SkillDef;
+  rank: number;
+  left: number;
+  armed: number;
+  pulse: number;
+}
+const MAX_TRAPS = 3;
+
+// The falcon as it dives: a dark bird with its wings spread, drawn once.
+let falconTex: HTMLCanvasElement | null = null;
+function falconArt(): HTMLCanvasElement {
+  if (falconTex) return falconTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d")!;
+  g.translate(32, 34);
+  g.fillStyle = "#3b2a1c";
+  g.strokeStyle = "#f2d9a0";
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(0, -6);
+  g.quadraticCurveTo(-14, -18, -30, -10);
+  g.quadraticCurveTo(-16, -6, -8, 4);
+  g.lineTo(-4, 16);
+  g.lineTo(0, 12);
+  g.lineTo(4, 16);
+  g.lineTo(8, 4);
+  g.quadraticCurveTo(16, -6, 30, -10);
+  g.quadraticCurveTo(14, -18, 0, -6);
+  g.closePath();
+  g.fill();
+  g.stroke();
+  g.fillStyle = "#f2c94c";
+  g.fillRect(-1.5, -10, 3, 4);
+  return (falconTex = c);
 }
 
 export class Skills {
@@ -112,6 +162,7 @@ export class Skills {
   weapon: () => string | null;
   timers: { t: number; fn: () => void }[] = [];
   pending: Casting | null = null;
+  traps: Trap[] = [];
 
   constructor(deps: SkillDeps) {
     this.progress = deps.progress;
@@ -130,14 +181,24 @@ export class Skills {
     return this.progress.elements;
   }
 
+  // The weapon type in the off hand (null: empty, or not a weapon).
+  offWeapon(): string | null {
+    const off = this.hero.offhand();
+    return off ? ITEMS[off]?.weapon ?? null : null;
+  }
+
+  // Whether the hands hold what a skill needs.
+  wields(id: string): boolean {
+    return needMet(ACTIVES[id]?.need, this.weapon(), this.offWeapon());
+  }
+
   // Why a skill can't go off now, or null.
   why(id: string): string | null {
     const a = ACTIVES[id];
     if (!a) return "ช่องว่าง";
     if (!this.progress.skillRank(id)) return "ยังไม่ได้เรียนสกิลนี้";
     if (!this.hero.alive) return "ล้มอยู่";
-    const weapons = a.source.weapons;
-    if (weapons && !weapons.includes(this.weapon() as WeaponId)) return `ต้องถือ${MASTERIES[a.source.mastery!].name}`;
+    if (!this.wields(id)) return `ต้องถือ${needText(a.need, (w) => WEAPON_TYPES[w].name)}`;
     if (this.pending || this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
     if (this.hero.mp < a.skill.mp) return "MP ไม่พอ";
@@ -147,7 +208,7 @@ export class Skills {
   // The monster a single-target skill locks on to: the player's target, else the one nearest
   // the aimed spot, else the nearest in front, within its reach.
   lockFor(s: SkillDef, aim: Vec2 | null, dir: Vec2): Monster | null {
-    const p = this.player, reach = s.type === "bolt" ? s.range ?? 500 : (s.reach ?? 150) + 40;
+    const p = this.player, reach = s.type === "bolt" ? s.range ?? 500 : s.type === "falcon" ? s.range ?? 600 : (s.reach ?? 150) + 40;
     const t = p.target as Monster | null;
     if (t?.alive && this.monsters.includes(t) && Math.hypot(t.x - p.x, t.y - p.y) - t.radius <= reach) return t;
     if (aim) {
@@ -239,7 +300,7 @@ export class Skills {
   sigilFor(s: SkillDef, dir: Vec2, aim: Vec2 | null, mark: Monster | null, lock: Monster | null): CastTarget | null {
     const p = this.player;
     if (lock) return { at: () => (lock.alive ? lock : null), size: lock.radius * 2.4 + 50 };
-    if (s.type !== "blast") return null;
+    if (s.type !== "blast" && s.type !== "trap") return null;
     const range = s.range ?? 500;
     const reach = (to: Vec2): Vec2 => {
       const d = Math.min(range, Math.hypot(to.x - p.x, to.y - p.y)), u = toward(p, to) ?? dir;
@@ -324,6 +385,7 @@ export class Skills {
       else if (!this.player.cast) this.interrupt();
       else if ((c.left -= dt) <= 0) this.release(c);
     }
+    this.updateTraps(dt);
     for (let i = this.timers.length - 1; i >= 0; i--) {
       const tm = this.timers[i];
       tm.t -= dt;
@@ -351,12 +413,27 @@ export class Skills {
   }
 
   // Damage a monster with a skill, then the element riders.
-  hit(m: Monster, s: SkillDef, rank: number, dir: Vec2, knock = 0, chained = false): void {
+  hit(m: Monster, skill: SkillDef, rank: number, dir: Vec2, knock = 0, chained = false): void {
     if (!m.alive) return;
+    // an enchanted weapon lends its element to a physical skill that has none
+    const ench = this.hero.enchant;
+    const s = ench && !skill.element && (skill.stat ?? "atk") === "atk" ? { ...skill, element: ench } : skill;
     const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon() as WeaponId]);
     // a physical skill that misses does nothing but anger it: no status, no riders
     if (r.miss) return void this.combat.apply(m, r, dir);
     if (chained) r.dmg = Math.max(1, Math.round(r.dmg * ((this.el.lightning ?? 0) >= 50 ? 0.6 : 0.3)));
+    let more = 1 + (s.vs?.[m.race] ?? 0);
+    if (s.masteryScale) more *= 1 + s.masteryScale * this.masteryLevel();
+    if (s.detonate) {
+      // the poison it carries goes off at once
+      const left = m.burns.filter((b) => b.poison).reduce((a, b) => a + b.dps * b.t, 0);
+      if (left > 0) {
+        m.burns = m.burns.filter((b) => !b.poison);
+        r.dmg += left * s.detonate(rank);
+        this.burst(m.x, m.y, "#8fdc4a", 70);
+      }
+    }
+    r.dmg = Math.max(1, Math.round(r.dmg * more));
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);
     if (s.freeze) m.freeze = Math.max(m.freeze, s.freeze(rank) * earth);
@@ -364,8 +441,12 @@ export class Skills {
     if (s.blind) m.blind = Math.max(m.blind, s.blind(rank) * earth);
     if (s.weaken) m.weaken((s.debuff ?? 6) * earth, s.weaken(rank));
     if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
-    if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank)) / 4, t: 4, poison: true });
+    if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank) * poisonScale(this.hero.stats, this.el)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock);
+    if (s.drain && this.hero.alive) {
+      const got = this.hero.heal(r.dmg * s.drain(rank));
+      if (got >= 1) this.floaters.add(this.player.x, this.player.y, 130, `+${Math.round(got)}`, "heal");
+    }
     if (s.element) this.elementHit(m, s.element, r.dmg, earth);
     const fire = this.el.fire ?? 0, water = this.el.water ?? 0, lightning = this.el.lightning ?? 0;
     if (fire >= 10) m.burns.push({ dps: (r.dmg * (fire >= 35 ? 0.4 : 0.2)) / 3, t: 3 });
@@ -394,7 +475,7 @@ export class Skills {
       case "dark": {
         if (Math.random() >= 0.1 + 0.006 * lv) break;
         const t = lv >= 10 ? 6 : 4;
-        const ails = [() => (m.blind = Math.max(m.blind, t)), () => m.weaken(t, 0.2), () => m.burns.push({ dps: (dmg * 0.3) / t, t, poison: true })];
+        const ails = [() => (m.blind = Math.max(m.blind, t)), () => m.weaken(t, 0.2), () => m.burns.push({ dps: (dmg * 0.3 * poisonScale(this.hero.stats, this.el)) / t, t, poison: true })];
         for (const i of [...ails.keys()].sort(() => Math.random() - 0.5).slice(0, lv >= 35 ? 2 : 1)) ails[i]();
         break;
       }
@@ -405,12 +486,23 @@ export class Skills {
         m.slowFor((lv >= 10 ? 5 : 3) * earth, Math.min(0.8, (0.2 + 0.008 * lv) * (lv >= 50 ? 1.5 : 1)));
         if (lv >= 35) m.stun = Math.max(m.stun, 0.5);
         break;
+      case "poison": {
+        const t = lv >= 10 ? 6 : 4, dps = (dmg * (0.3 + 0.01 * lv) * poisonScale(this.hero.stats, this.el)) / t;
+        for (let i = 0; i < (lv >= 35 ? 2 : 1); i++) m.burns.push({ dps, t, poison: true });
+        break;
+      }
       case "lava": {
         const t = lv >= 20 ? 5 : 3;
         m.burns.push({ dps: (dmg * (0.15 + 0.007 * lv) * (lv >= 50 ? 2 : 1)) / t, t });
         break;
       }
     }
+  }
+
+  // The attack stat a skill's numbers are on (both: 0.6 of attack and magic attack each).
+  power(s: SkillDef): number {
+    const st = this.hero.stats;
+    return s.stat === "both" ? 0.6 * (st.atk + st.matk) : st[s.stat ?? "matk"];
   }
 
   healAmount(raw: number): number {
@@ -516,7 +608,7 @@ export class Skills {
       }
       case "heal":
         this.later(LEAD, () => {
-          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank) + this.hero.stats[s.stat ?? "matk"] * at(s.mult, rank)));
+          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank) + this.power(s) * at(s.mult, rank)));
           this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
           this.sparkleUp(p.x, p.y, this.tex.mint, 26);
         });
@@ -531,7 +623,7 @@ export class Skills {
         break;
       case "buff":
         this.later(LEAD, () => {
-          this.hero.addBuff(id, ACTIVES[id].name, s.buff?.(rank) ?? {}, (s.duration ?? 8) * (1 + this.hero.stats.buffTime));
+          this.hero.addBuff(id, ACTIVES[id].name, s.buff?.(rank) ?? {}, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant);
           if (s.heal) {
             const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
             if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
@@ -540,6 +632,26 @@ export class Skills {
           this.ring(p.x, p.y, s.color, 180, 0.5);
           this.sparkleUp(p.x, p.y, this.tex.flash, 16);
         });
+        break;
+      case "trap": {
+        const range = s.range ?? 400;
+        const dist = aim ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : Math.min(range, 120);
+        const spot = { x: p.x + dir.x * dist, y: p.y + dir.y * dist };
+        this.later(LEAD, () => {
+          if (this.traps.length >= MAX_TRAPS) this.traps.shift();
+          this.traps.push({ ...spot, s, rank, left: s.duration ?? 20, armed: 0.5, pulse: 0 });
+          this.ring(spot.x, spot.y, s.color, (s.radius ?? 90) * 2, 0.5, true);
+        });
+        break;
+      }
+      case "falcon":
+        if (!lock) break;
+        for (let i = 0; i < (s.hits ?? 1); i++) {
+          this.later(LEAD + i * 0.25, () => {
+            if (!lock.alive) return;
+            this.dive(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir));
+          });
+        }
         break;
       case "flower": {
         const spot = { x: p.x, y: p.y };
@@ -560,6 +672,59 @@ export class Skills {
         break;
       }
     }
+  }
+
+  // The level of the mastery of the weapon in the main hand (0 without one).
+  masteryLevel(): number {
+    const w = this.weapon();
+    const id = Object.keys(MASTERIES).find((k) => MASTERIES[k].weapons?.includes(w as WeaponId));
+    return id ? this.progress.mastery[id] ?? 0 : 0;
+  }
+
+  // Traps tick down and pulse; the first monster to step into an armed one sets it off.
+  updateTraps(dt: number): void {
+    for (let i = this.traps.length - 1; i >= 0; i--) {
+      const t = this.traps[i], radius = t.s.radius ?? 90;
+      t.left -= dt;
+      t.armed -= dt;
+      if ((t.pulse -= dt) <= 0) {
+        t.pulse = 0.6;
+        this.ring(t.x, t.y, t.s.color, radius * 2, 0.7, true);
+      }
+      const caught = t.armed <= 0 ? shapeTargets(t, { x: 1, y: 0 }, { hit: "circle", reach: radius }, this.monsters) : [];
+      if (caught.length) {
+        for (const m of caught) {
+          const dx = m.x - t.x, dy = m.y - t.y, d = Math.hypot(dx, dy) || 1;
+          this.hit(m, t.s, t.rank, { x: dx / d, y: dy / d }, t.s.knock);
+        }
+        this.burst(t.x, t.y, t.s.color, radius);
+      }
+      if (caught.length || t.left <= 0 || !this.hero.alive) this.traps.splice(i, 1);
+    }
+  }
+
+  // The falcon swoops from high behind the player onto a monster; `then` when it strikes.
+  dive(m: Monster, then: () => void): void {
+    const p = this.player, from = { x: p.x - 60, y: p.y - 40 }, time = 0.25;
+    this.fx.add({ x: from.x, y: from.y, z: 260, layer: AIR_GLOW, tex: falconArt(), life: time,
+      vx: (m.x - from.x) / time, vy: (m.y - from.y) / time, vz: (m.height * 0.6 - 260) / time,
+      size: [[0, 46], [1, 58]], alpha: [[0, 0.2], [0.2, 1], [1, 1]] });
+    this.later(time, () => {
+      if (!m.alive) return;
+      then();
+      this.burst(m.x, m.y, "#f2d9a0", 40);
+    });
+  }
+
+  // The falcon dives in after a normal hit (falconChance): falconPower x attack, through the
+  // armour as a blow, never missing.
+  falconStrike(m: Monster): void {
+    const st = this.hero.stats;
+    this.dive(m, () => {
+      const dmg = Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), m.def)));
+      const dx = m.x - this.player.x, dy = m.y - this.player.y, d = Math.hypot(dx, dy) || 1;
+      this.combat.apply(m, { dmg, crit: false, magic: false, miss: false }, { x: dx / d, y: dy / d });
+    });
   }
 
   // ---- effects ----
