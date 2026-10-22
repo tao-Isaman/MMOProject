@@ -13,6 +13,13 @@
   "walk": 4,
   "attack": 4
  },
+ "dung_beetle": {
+  "cell": 96,
+  "foot": 0,
+  "top": 88,
+  "walk": 4,
+  "attack": 4
+ },
  "fang_squirrel": {
   "cell": 96,
   "foot": 0,
@@ -55,6 +62,13 @@
   "walk": 4,
   "attack": 4
  },
+ "haunted_scarecrow": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
  "horned_hare": {
   "cell": 96,
   "foot": 0,
@@ -73,6 +87,27 @@
   "cell": 96,
   "foot": 0,
   "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "mud_crocodile": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "mudskipper": {
+  "cell": 96,
+  "foot": 0,
+  "top": 90,
+  "walk": 4,
+  "attack": 4
+ },
+ "mummy_slave": {
+  "cell": 128,
+  "foot": 0,
+  "top": 125,
   "walk": 4,
   "attack": 4
  },
@@ -157,6 +192,13 @@
   "cell": 96,
   "foot": 0,
   "top": 88,
+  "walk": 4,
+  "attack": 4
+ },
+ "steppe_eagle": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
   "walk": 4,
   "attack": 4
  },
