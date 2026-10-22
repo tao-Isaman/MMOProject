@@ -21,6 +21,9 @@ export interface PavedSpec {
   plaza?: [number, number, number];
   height?: (x: number, y: number) => number; // ground that is not flat (src/world3d/terrain.ts)
   cell?: number;                             // its mesh's grid, cm
+  // where each of the grid's points goes (x, y, height), given where it would be and the grid's
+  // cell: moved onto the top and the foot of the cliffs (src/world3d/terrain.ts `place`)
+  place?: (x: number, y: number, cell: number) => [number, number, number];
 }
 
 export interface Paved {
@@ -130,7 +133,13 @@ export function buildPaved(spec: PavedSpec): Paved {
   geo.rotateX(-Math.PI / 2);
   if (spec.height) {
     const pos = geo.getAttribute("position") as THREE.BufferAttribute, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    for (let i = 0; i < pos.count; i++) pos.setY(i, spec.height(cx + pos.getX(i), cy - pos.getZ(i)));
+    for (let i = 0; i < pos.count; i++) {
+      const x = cx + pos.getX(i), y = cy - pos.getZ(i);
+      if (spec.place) {
+        const [px, py, h] = spec.place(x, y, cell);
+        pos.setXYZ(i, px - cx, h, cy - py);
+      } else pos.setY(i, spec.height(x, y));
+    }
     geo.computeVertexNormals();
   }
   const mesh = new THREE.Mesh(geo, mat);

@@ -215,7 +215,7 @@ export function gableWall(x: number, half: number, z0: number, h: number, mat: s
   return [{ geo, mat }];
 }
 
-// ---- rocks: a squashed icosphere with seeded bumps, flat-shaded ----
+// ---- rocks: a squashed icosphere with seeded bumps, flat-shaded (detail 0: 20 faces, a pebble) ----
 function seeded(seed: number): () => number {
   let s = seed * 9301 + 49297;
   return () => {
@@ -223,9 +223,9 @@ function seeded(seed: number): () => number {
     return s / 233280;
   };
 }
-export function rock(size: V3, roughness: number, seed: number, mat: string, flat = false): Geo {
+export function rock(size: V3, roughness: number, seed: number, mat: string, flat = false, detail = 1): Geo {
   const rnd = seeded(seed);
-  const geo = new THREE.IcosahedronGeometry(1, 1);
+  const geo = new THREE.IcosahedronGeometry(1, detail);
   const pos = geo.getAttribute("position");
   const moved = new Map<string, number>();
   for (let i = 0; i < pos.count; i++) {
