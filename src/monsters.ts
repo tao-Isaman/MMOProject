@@ -1,4 +1,5 @@
-// The monsters: they wander round their spot, flinch when hit (a skill made to push knocks them back), chase and
+// The monsters: they wander round their spot, shake when hit without stopping (a skill made to
+// push knocks them back), chase and
 // strike back once angered (some attack on sight), fall when defeated, drop loot and come back
 // after a while. Skills can stun, freeze, slow and burn them.
 //
@@ -69,7 +70,7 @@ export interface Look {
   attackFps: number;
   strike: number;    // s into its attack that the blow lands
   swing: number;     // s its attack takes
-  hurtT: number;     // s it flinches
+  hurtT: number;     // s it shakes when hit
   dieT: number;      // s it takes to fall and fade
   hop: boolean;      // moves only in the air (the slimes)
   idle: Clip;
@@ -232,7 +233,8 @@ export class MonsterLooks {
     this.meta ??= fetch("assets/monsters/index.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
     await Promise.all(defs.filter((d) => PEOPLE[d.id] && this.dress && !this.people.has(d.id)).map(async (d) => {
       try {
-        const person = await this.dress!(d);
+        // (a person whose clothes don't arrive within 10 s stands in as a slime)
+        const person = await Promise.race([this.dress!(d), new Promise<null>((r) => setTimeout(() => r(null), 10000))]);
         if (person) this.people.set(d.id, { person, look: personLook(person) });
       } catch (err) {
         console.warn(err);
@@ -267,7 +269,7 @@ export class MonsterLooks {
   }
 }
 
-type State = "idle" | "hop" | "hurt" | "die" | "gone" | "bite";
+type State = "idle" | "hop" | "die" | "gone" | "bite";
 type Blow = "bite" | "shot" | "slam";
 
 // Status badges: when each shows, its glyph and colour.
@@ -329,6 +331,7 @@ export class Monster {
   vx = 0;
   vy = 0;
   flash = 0;
+  shake = 0; // s left of the shake a hit gives it (a hit doesn't stop it)
   respawn = 0;
   respawnT = 9;
   spawnFade = 0;
@@ -477,11 +480,8 @@ export class Monster {
       this.t = 0;
       return true;
     }
-    // bosses don't flinch
-    if (this.state !== "bite" && !this.boss) {
-      this.state = "hurt";
-      this.t = 0;
-    }
+    // it shakes but keeps going: a monster stopped by every blow would never reach anyone
+    this.shake = this.look.hurtT;
     return false;
   }
 
@@ -555,6 +555,7 @@ export class Monster {
     this.t += dt;
     this.age += dt;
     this.flash = Math.max(0, this.flash - dt);
+    this.shake = Math.max(0, this.shake - dt);
     this.stun = Math.max(0, this.stun - dt);
     this.freeze = Math.max(0, this.freeze - dt);
     this.slow = Math.max(0, this.slow - dt);
@@ -738,13 +739,6 @@ export class Monster {
           this.respawn = this.temp ? Infinity : this.respawnT;
         }
         break;
-      case "hurt":
-        if (this.t >= L.hurtT) {
-          this.state = "idle";
-          this.t = 0;
-          this.wait = rand(0.2, 0.8);
-        }
-        break;
       case "idle":
         this.wait -= dt;
         if (this.wait <= 0 && this.angry <= 0) {
@@ -800,7 +794,6 @@ export class Monster {
     switch (this.state) {
       case "hop": return { clip: L.move, col: Math.floor(this.t * L.fps * (this.rush > 0 ? 1.8 : 1)) % L.move.frames };
       case "bite": return { clip: L.attack, col: Math.min(L.attack.frames - 1, Math.floor(this.t * L.attackFps)) };
-      case "hurt": return { clip: L.hurt, col: Math.min(L.hurt.frames - 1, Math.floor(this.t * L.fps)) };
       case "die": return { clip: L.die, col: Math.min(L.die.frames - 1, Math.floor(this.t * L.fps)) };
       default: return { clip: L.idle, col: 0 };
     }
@@ -841,7 +834,7 @@ export class Monster {
     const s = L.scale * k, c = L.cell, lift = this.lift() * k;
     // walkers breathe while they stand and shake when hit
     const breathe = !L.hop && this.state === "idle" ? 1 + 0.018 * Math.sin(this.age * 2.4) : 1;
-    const shake = !L.hop && this.state === "hurt" ? Math.sin(this.t * 70) * 3 * k * (1 - this.t / L.hurtT) : 0;
+    const shake = !L.hop && this.shake > 0 ? Math.sin(this.age * 70) * 3 * k * (this.shake / L.hurtT) : 0;
     const sx = (clip.at + col) * c, sy = ((this.row + Math.round(yaw / (Math.PI / 2))) % 4) * c;
     const dw = c * s, dh = c * s * breathe;
     const dx = gx - dw / 2 + shake, dy = gy - (c - L.foot) * s * breathe - lift;
