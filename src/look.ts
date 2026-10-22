@@ -79,6 +79,7 @@ export interface BodyDef {
 export interface HairStyle {
   anchor: [number, number][];
   neck: number;
+  from?: string; // the body this head was cut from (it fits that body as it is, with no lift)
 }
 
 export interface HairData {
@@ -520,7 +521,8 @@ export class Looks {
     const moved = (clip: string, dir: number, f: number) => shift(clip, dir, f, this.bottomFrame(upper[clip], lower[lowClip(clip)], f));
     if (hair && def.head) {
       const head = recolor({ head: await this.loadHead(hair) }, this.hair.regions, { hair: hairDye, eyes: eyeDye }).head;
-      sheets = this.attachHead(sheets, def.head, head, this.hair.styles[hair], moved, def.lift);
+      const style = this.hair.styles[hair];
+      sheets = this.attachHead(sheets, def.head, head, style, moved, style.from === topBody ? 0 : def.lift);
     }
     return { sheets, hands: shiftHands(def.hands, moved), builtin: topBody === bottomBody ? def.builtin ?? {} : {} };
   }
