@@ -1,4 +1,4 @@
-// The monsters: they wander round their spot, flinch and get knocked back when hit, chase and
+// The monsters: they wander round their spot, flinch when hit (a skill made to push knocks them back), chase and
 // strike back once angered (some attack on sight), fall when defeated, drop loot and come back
 // after a while. Skills can stun, freeze, slow and burn them.
 //
@@ -463,10 +463,13 @@ export class Monster {
     this.hp -= damage;
     this.flash = 0.12;
     this.anger();
-    // the big ones barely budge
-    const heavy = Math.min(1, 40 / this.radius);
-    this.vx = dir.x * knock * 6 * heavy;
-    this.vy = dir.y * knock * 6 * heavy;
+    // pushed (only some skills push): the big ones barely budge; a blow that doesn't push
+    // leaves a push already sliding it alone
+    if (knock > 0) {
+      const heavy = Math.min(1, 40 / this.radius);
+      this.vx = dir.x * knock * 6 * heavy;
+      this.vy = dir.y * knock * 6 * heavy;
+    }
     this.face(-dir.x, -dir.y); // turn to face the attacker
     if (this.hp <= 0) {
       this.alive = false;

@@ -288,11 +288,13 @@ export class Combat {
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
     if (this.hero.stats.stunHit && Math.random() < this.hero.stats.stunHit) m.stun = Math.max(m.stun, 1);
     if (this.hero.stats.poisonHit && Math.random() < this.hero.stats.poisonHit) m.burns.push({ dps: (r.dmg * 0.4) / 3, t: 3, poison: true });
-    this.apply(m, r, dir, w.knock ?? 25);
+    this.apply(m, r, dir);
   }
 
-  // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it.
-  apply(m: Monster, r: Hit, dir: Vec2, knock = 25): boolean {
+  // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it. Only a
+  // skill made to push (knock) moves it; normal attacks don't, or a ranged fighter would keep
+  // everything off for ever.
+  apply(m: Monster, r: Hit, dir: Vec2, knock = 0): boolean {
     if (!m.alive) return false;
     if (r.miss) {
       m.provoke(dir);

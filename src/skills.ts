@@ -203,7 +203,7 @@ export class Skills {
   }
 
   // Damage a monster with a skill, then the element riders.
-  hit(m: Monster, s: SkillDef, rank: number, dir: Vec2, knock = 20, chained = false): void {
+  hit(m: Monster, s: SkillDef, rank: number, dir: Vec2, knock = 0, chained = false): void {
     if (!m.alive) return;
     const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon() as WeaponId]);
     // a physical skill that misses does nothing but anger it: no status, no riders
@@ -271,14 +271,14 @@ export class Skills {
 
   effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null, lock: Monster | null = null): void {
     const p = this.player, origin = { x: p.x, y: p.y };
-    const hitAll = (list: Monster[], knock: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
+    const hitAll = (list: Monster[], knock?: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
     switch (s.type) {
       case "bolt":
         // `hits` shots one after another (a volley of arrows)
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
             kind: s.arrow ? "arrow" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
-            target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock ?? 20),
+            target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock),
           }));
         }
         break;
@@ -302,7 +302,7 @@ export class Skills {
         this.ring(spot.x, spot.y, s.color, radius * 2, delay + LEAD + (strikes - 1) * (s.every ?? 0.3), true);
         for (let i = 0; i < strikes; i++) {
           this.later(delay + LEAD + i * (s.every ?? 0.3), () => {
-            hitAll(shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters), 30);
+            hitAll(shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters), s.knock);
             this.burst(spot.x, spot.y, s.color, radius);
           });
         }
@@ -313,7 +313,7 @@ export class Skills {
         this.later(LEAD * 0.8, () => {
           for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
             const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
-            this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock ?? 20);
+            this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock);
           }
           this.ring(p.x, p.y, s.color, radius * 2, 0.45);
           this.burst(p.x, p.y, s.color, radius * 0.7);
@@ -326,7 +326,7 @@ export class Skills {
           this.later(LEAD * 0.5 + i * (s.every ?? 0.2), () => {
             for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
               const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
-              this.hit(m, s, rank, { x: dx / d, y: dy / d }, 10);
+              this.hit(m, s, rank, { x: dx / d, y: dy / d });
             }
             this.ring(p.x, p.y, s.color, radius * 2, 0.25);
             if (i < pulses - 1) p.startMotion(i % 2 ? "swing" : "thrust", dir, this.weaponStats(), 0.2);
@@ -339,8 +339,8 @@ export class Skills {
           this.later(LEAD + i * 0.16, () => {
             // a narrow blow lands on its locked target only (if it is still in reach)
             if (lock) {
-              if (lock.alive && Math.hypot(lock.x - p.x, lock.y - p.y) - lock.radius <= (s.reach ?? 150) + 40) hitAll([lock], s.knock ?? 30);
-            } else hitAll(shapeTargets(origin, dir, { hit: "arc", reach: s.reach ?? 150, arc: s.arc }, this.monsters), s.knock ?? 30);
+              if (lock.alive && Math.hypot(lock.x - p.x, lock.y - p.y) - lock.radius <= (s.reach ?? 150) + 40) hitAll([lock], s.knock);
+            } else hitAll(shapeTargets(origin, dir, { hit: "arc", reach: s.reach ?? 150, arc: s.arc }, this.monsters), s.knock);
             this.fan(origin, dir, s.reach ?? 150, s.arc ?? 90, s.color);
             if (i > 0) p.startMotion(s.motion, dir, this.weaponStats(), 0.25);
           });

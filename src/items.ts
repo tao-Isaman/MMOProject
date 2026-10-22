@@ -20,7 +20,6 @@ export interface WeaponType {
   interval: number;   // s between attacks
   damage: [number, number];
   crit?: number;
-  knock?: number;
   pierce?: boolean;
   hits?: number;
   projectile?: { kind: "bolt" | "arrow"; speed: number; range: number; radius: number };
@@ -46,7 +45,7 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "ฟันเป็นแนวโค้งหน้าตัว",
   },
   sword_2h: {
-    name: "ดาบสองมือ", motion: "swing", builtin: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], knock: 60, twoHanded: true,
+    name: "ดาบสองมือ", motion: "swing", builtin: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], twoHanded: true,
     note: "ฟันกว้าง ช้าแต่แรง",
   },
   axe: {
@@ -54,8 +53,8 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "โอกาสคริติคอลสูง",
   },
   mace: {
-    name: "ค้อน", motion: "thrust", chop: true, hit: "arc", reach: 110, arc: 90, interval: 0.9, damage: [28, 36], knock: 110,
-    note: "กระแทกจนกระเด็น",
+    name: "ค้อน", motion: "thrust", chop: true, hit: "arc", reach: 110, arc: 90, interval: 0.9, damage: [28, 36],
+    note: "ตีหนัก",
   },
   spear_1h: {
     name: "หอกมือเดียว", motion: "thrust", hit: "line", reach: 185, width: 46, interval: 0.7, damage: [20, 26],
