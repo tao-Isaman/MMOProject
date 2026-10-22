@@ -38,6 +38,7 @@ export class Npc {
   time = 0;
   said = 0;               // which line comes next
   bubble: { text: string; t: number } | null = null;
+  mark: "offer" | "ready" | "busy" | null = null; // a quest to take (!), to hand in (?), under way
 
   constructor(spec: NpcSpec) {
     this.spec = spec;
@@ -108,9 +109,24 @@ export class Npc {
     ctx.strokeText(label, gx, top - 17 * k);
     ctx.fillStyle = near ? "#9df0b4" : "#d8d2bf";
     ctx.fillText(label, gx, top - 17 * k);
-    if (this.bubble) drawBubble(ctx, gx, top - 40 * k, this.bubble.text, k);
+    if (this.mark) drawMark(ctx, gx, top - 34 * k, this.mark, this.time, k);
+    if (this.bubble) drawBubble(ctx, gx, top - (this.mark ? 76 : 40) * k, this.bubble.text, k);
     ctx.textAlign = "start";
   }
+}
+
+// The quest mark over a head: a gold "!" for a quest to take, a gold "?" for one to hand in, a
+// grey "?" for one under way; the gold ones bob.
+function drawMark(ctx: CanvasRenderingContext2D, x: number, bottom: number, mark: "offer" | "ready" | "busy", t: number, k: number): void {
+  const bob = mark === "busy" ? 0 : Math.sin(t * 4) * 3 * k;
+  ctx.font = `800 ${30 * k}px Kanit, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.lineWidth = 6 * k;
+  ctx.strokeStyle = "rgba(40, 24, 4, 0.9)";
+  const text = mark === "offer" ? "!" : "?";
+  ctx.strokeText(text, x, bottom + bob);
+  ctx.fillStyle = mark === "busy" ? "#b9b4a4" : "#ffd23a";
+  ctx.fillText(text, x, bottom + bob);
 }
 
 // A white speech balloon, wrapped to about 16 em, its tail pointing down at the speaker.

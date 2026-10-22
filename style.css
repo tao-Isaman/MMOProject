@@ -741,3 +741,58 @@ body.touch .mp-info:empty { display: none; }
 .sk-plus.mini.minus { left: auto; right: calc(50% + 22px); box-shadow: 0 0 8px rgba(243, 193, 157, 0.7); }
 .sk-tnode.planned .sk-rank { color: #10160d; background: #9df0b4; white-space: nowrap; }
 .sk-line.planned { border-color: rgba(157, 240, 180, 0.6); }
+
+/* ---- quests (src/questui.ts): the talk window, the log (J), the tracker under HP/MP ---- */
+.qd {
+  position: fixed; left: 50%; bottom: 118px; transform: translateX(-50%); z-index: 6; width: min(470px, calc(100vw - 32px));
+  max-height: calc(100vh - 200px); overflow: auto; padding-bottom: 12px; border-radius: 14px;
+  background: rgba(18, 24, 16, 0.95); border: 1px solid var(--rim); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.qd.hidden { display: none; }
+.qd-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--rim); background: rgba(255, 255, 255, 0.04); }
+.qd-name { color: var(--gold); font-size: 16px; }
+.qd-title { flex: 1; color: var(--muted); font-size: 13px; }
+.qd-text { margin: 10px 14px 8px; font-size: 14px; line-height: 1.55; }
+.qd-list { display: flex; flex-direction: column; gap: 6px; margin: 0 14px; }
+.qd-quest {
+  display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--rim);
+  background: rgba(255, 255, 255, 0.04); color: var(--text); font: 600 14px var(--font); cursor: pointer; text-align: left;
+}
+.qd-quest:hover { border-color: var(--gold); }
+.qd-tag { width: 18px; text-align: center; font-weight: 800; font-size: 18px; color: #ffd23a; }
+.qd-quest.busy .qd-tag { color: #b9b4a4; }
+.qd-steps { margin: 2px 0 0; padding-left: 22px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.qd-reward { margin: 6px 0 0; font-size: 13px; color: #9df0b4; font-weight: 600; }
+.qd-buttons { display: flex; gap: 8px; justify-content: flex-end; margin: 12px 14px 0; flex-wrap: wrap; }
+.qd-btn { padding: 7px 14px; border-radius: 9px; border: 1px solid var(--rim); background: transparent; color: var(--text); font: 600 14px var(--font); cursor: pointer; }
+.qd-btn:hover { border-color: var(--gold); }
+.qd-btn.main { border-color: var(--gold); background: rgba(244, 210, 122, 0.16); color: var(--gold); }
+#quests { width: 430px; }
+.ql-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
+.ql-card { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--rim); background: rgba(255, 255, 255, 0.03); }
+.ql-card.locked { opacity: 0.6; }
+.ql-head { display: flex; align-items: baseline; gap: 8px; }
+.ql-head b { flex: 1; color: var(--gold); font-size: 15px; }
+.ql-kind { font-size: 11px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--rim); color: var(--muted); white-space: nowrap; }
+.ql-kind.repeat { color: #8fd4ff; border-color: rgba(143, 212, 255, 0.5); }
+.ql-who { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.ql-step { margin: 6px 0 0; font-size: 13px; line-height: 1.5; }
+.ql-step.ready { color: #9df0b4; }
+.ql-at { margin: 2px 0 0; font-size: 12px; color: #9df0b4; }
+.ql-reward { margin: 4px 0 0; font-size: 12px; color: #ffe27a; }
+.ql-drop { margin-top: 6px; padding: 3px 9px; border-radius: 7px; border: 1px solid rgba(255, 120, 100, 0.5); background: transparent; color: #ffb3a6; font: 12px var(--font); cursor: pointer; }
+.ql-empty { margin: 4px 0; color: var(--muted); font-size: 13px; }
+.qt {
+  position: fixed; left: 14px; top: 200px; width: 250px; padding: 8px 11px; border-radius: 12px; z-index: 3;
+  background: var(--panel); border: 1px solid var(--rim); display: flex; flex-direction: column; gap: 5px; cursor: pointer;
+}
+.qt.hidden { display: none; }
+.qt:hover { border-color: var(--gold); }
+.qt-title { font-size: 12px; color: var(--gold); }
+.qt-row { display: flex; flex-direction: column; }
+.qt-name { font-size: 13px; font-weight: 600; }
+.qt-step { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.qt-row.ready .qt-step { color: #9df0b4; }
+.qt-more { font-size: 11px; color: var(--muted); }
+body.touch .qt { left: calc(6px + env(safe-area-inset-left)); top: calc(112px + env(safe-area-inset-top)); width: 196px; padding: 6px 8px; }
+body.touch .qt-step { font-size: 11px; }

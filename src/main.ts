@@ -44,6 +44,8 @@ import { BotUI } from "./botui";
 import { garmentIcon } from "./garments";
 import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touch";
 import type { Spell } from "./spell";
+import { Quests } from "./quests";
+import { QuestDialog, QuestLog, QuestTracker } from "./questui";
 import { LOOKS, circleTextures } from "./circles";
 import type { Atlas, Img, Textures, View } from "./types";
 
@@ -468,6 +470,46 @@ async function boot(): Promise<void> {
   const monsters: Monster[] = await populate(current);
   // what they drop lies on the ground until it is picked up (src/loot.ts)
   const ground = new Ground();
+  // quests (src/quests.ts): the bag, the level, and the rewards paid here
+  const quests = new Quests({
+    count: (id) => inv.count(id),
+    take: (id, n) => {
+      if (n > 0) inv.take(id, n);
+    },
+    give: (id, n) => {
+      const left = inv.add(id, n);
+      for (let i = 0; i < left; i++) ground.drop(id, player); // a full bag: at the feet
+    },
+    level: () => progress.level,
+    reward(r, q) {
+      floaters.add(player.x, player.y, 175, `สำเร็จเควส: ${q.name}`, "level");
+      if (r.gold) {
+        inv.gold += r.gold;
+        floaters.add(player.x, player.y, 150, `+${r.gold.toLocaleString()} ทอง`, "loot");
+      }
+      for (const [id, n] of r.items ?? []) {
+        const left = inv.add(id, n);
+        for (let i = 0; i < left; i++) ground.drop(id, player);
+      }
+      inv.changed();
+      if (r.points) {
+        progress.bonus += r.points;
+        floaters.add(player.x, player.y, 130, `แต้มสกิล +${r.points}`, "level");
+      }
+      if (r.xp) {
+        floaters.add(player.x, player.y, 112, `+${r.xp.toLocaleString()} EXP`, "info");
+        if (progress.addXp(r.xp) > 0) levelUp();
+        else progress.changed();
+      } else if (r.points) progress.changed();
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 30);
+      noteClock = 1.6; // the reward's lines first
+    },
+    note: (text) => questNotes.push(text),
+  });
+  // quest lines over the player one at a time (several can come at once: a step handed in, the
+  // next one, a level)
+  const questNotes: string[] = [];
+  let noteClock = 0;
   const combat = new Combat({
     fx, tex, floaters, monsters, hero,
     onReflect(_m, dmg) {
@@ -480,6 +522,10 @@ async function boot(): Promise<void> {
       // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
       for (const id of rollDrops(m.variant, hero.stats.drop)) ground.drop(id, m);
+      // what the quests count, and what they want dropped
+      const kind = m.entry?.id ?? m.variant.id;
+      quests.onKill(kind, m.variant.name);
+      for (const [id, chance] of quests.drops(kind)) if (Math.random() < chance) ground.drop(id, m);
       // a field monster now and then leaves a book the player can still learn, a hat, shoes, a
       // ring or a trinket, or a hairstyle; a rare one more often, a boss always a book
       if (m.entry) {
@@ -664,6 +710,10 @@ async function boot(): Promise<void> {
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
   const shopUI = new ShopUI(inv, iconFor);
+  const questDialog = new QuestDialog(quests);
+  const questLog = new QuestLog(quests);
+  new QuestTracker(quests, () => questLog.toggle(true));
+  inv.onChange(() => quests.onBag()); // collect steps count the bag
   // the minimap and the map window (M); each map's picture from above is taken while it loads
   // and kept
   // a guide's trip costs gold (a ship's passage doesn't)
@@ -710,22 +760,36 @@ async function boot(): Promise<void> {
   // them), or to a spot picked on the map window; `stuck` counts the seconds without moving
   let walkTo: { path: { x: number; y: number }[]; npc?: Npc; stuck: number } | null = null;
   let shopKeeper: Npc | null = null;
+  let questWith: Npc | null = null; // whom the quest talk window is with
   function act(npc: Npc): void {
     walkTo = null;
-    if (npc.spec.role === "shop") {
-      shopKeeper = npc;
-      shopUI.keeper(npc.name, npc.spec.title);
-      shopUI.toggle(true);
+    // their own business: the shop, healing, the world map to travel
+    const business = (): void => {
+      if (npc.spec.role === "shop") {
+        shopKeeper = npc;
+        shopUI.keeper(npc.name, npc.spec.title);
+        shopUI.toggle(true);
+        return;
+      }
+      if (npc.spec.role === "travel") mapUI.travel(npc.spec.ports);
+      if (npc.spec.role === "heal" && hero.alive) {
+        hero.refill();
+        floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
+        skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe9a8"), 24);
+      }
+    };
+    // someone with a quest to give, to take in, or under way opens the talk window, with their
+    // business as a button in it
+    if (quests.markFor(current.id, npc.spec.id)) {
+      const label = { shop: "ซื้อขายของ", heal: "รักษา", travel: "เดินทาง", talk: "" }[npc.spec.role];
+      const line = npc.spec.lines[npc.said++ % Math.max(1, npc.spec.lines.length)] ?? "";
+      questDialog.show({ name: npc.name, title: npc.spec.title, map: current.id, npc: npc.spec.id, line,
+        action: label ? { label, run: business } : undefined });
+      questWith = npc;
       return;
     }
-    npc.talk();
-    // a travel guide: the world map, to pick a town to go to
-    if (npc.spec.role === "travel") mapUI.travel(npc.spec.ports);
-    if (npc.spec.role === "heal" && hero.alive) {
-      hero.refill();
-      floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
-      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe9a8"), 24);
-    }
+    if (npc.spec.role !== "shop") npc.talk();
+    business();
   }
   function talkTo(npc: Npc): void {
     if (npc.distance(player) <= TALK_RANGE) return act(npc);
@@ -792,6 +856,7 @@ async function boot(): Promise<void> {
     await settle(current);
     loaded();
     travelling = false;
+    quests.onEnter(current.id);
     savePlace(); // the new map at once, in case the page closes right away
     banner.textContent = current.name;
     banner.classList.add("show");
@@ -946,6 +1011,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyO" && !e.repeat) settingsUI.toggle();
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
+    if (e.code === "KeyJ" && !e.repeat) questLog.toggle();
     if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
@@ -963,12 +1029,14 @@ async function boot(): Promise<void> {
       botUI.toggle(false);
       shopUI.toggle(false);
       mapUI.toggle(false);
+      questLog.toggle(false);
+      questDialog.close();
     }
     if (e.code === "Backquote") showDebug = !showDebug;
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()], ["btn-settings", () => settingsUI.toggle()],
-    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()]];
+    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()], ["btn-quests", () => questLog.toggle()]];
   for (const [id, fn] of buttons) {
     document.getElementById(id)?.addEventListener("click", (e) => {
       (e.currentTarget as HTMLElement).blur();
@@ -1285,6 +1353,10 @@ async function boot(): Promise<void> {
       walkTo = null;
     }
     potionCd = Math.max(0, potionCd - dt);
+    if ((noteClock -= dt) <= 0 && questNotes.length) {
+      floaters.add(player.x, player.y, 165, questNotes.shift()!, "info");
+      noteClock = 0.8;
+    }
     // (by the clock, not game time: a slow frame rate must not stretch it)
     if (now - placeSavedAt > 2000) savePlace();
     const auto = bot.update(dt);
@@ -1304,6 +1376,7 @@ async function boot(): Promise<void> {
     }
     for (const n of npcs) n.update(dt, player);
     if (shopUI.open && shopKeeper && shopKeeper.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
+    if (questDialog.open && (!questWith || !npcs.includes(questWith) || questWith.distance(player) > TALK_RANGE * 2.5)) questDialog.close();
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
@@ -1413,6 +1486,7 @@ async function boot(): Promise<void> {
     }
     for (const n of npcs) {
       if (!onScreen(n.x, n.y, 300)) continue;
+      n.mark = quests.markFor(current.id, n.spec.id);
       const near = n.distance(player) <= TALK_RANGE * 1.6;
       // talking ones need room above the head for the balloon
       w3d.actor(n, { x: n.x, y: n.y, w: 300, h: n.bubble ? 360 : 240, foot: 30 }, vw, (c, v) => n.draw(c, v, near));
@@ -1461,7 +1535,8 @@ async function boot(): Promise<void> {
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand
-    circles: { LOOKS, circleTextures } }; // and looking at the cast circles
+    circles: { LOOKS, circleTextures }, // and looking at the cast circles
+    quests, questDialog, questLog, talk: (id: string) => { const n = npcs.find((x) => x.spec.id === id); if (n) act(n); } };
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).
@@ -1483,6 +1558,7 @@ async function boot(): Promise<void> {
 
   await settle(current);
   loaded();
+  quests.onEnter(current.id);
   requestAnimationFrame((t) => {
     last = t;
     frame(t);

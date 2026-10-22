@@ -179,6 +179,8 @@ const garment = (kind: "top" | "bottom", shape: string, dye: string | null = nul
 const offhand = (name: string, art: OffhandArt, stats: Partial<Record<string, number>>, price: number, note: string): Item =>
   ({ kind: "offhand", name, art, stats, price, icon: {}, note });
 // Hats, shoes, rings and trinkets: stats while worn.
+const quest = (name: string, glyph: string, color: string, note: string): Item =>
+  ({ kind: "material", name, stack: 99, sell: 1, icon: { glyph, color }, note: `${note}<br>ของเควส` });
 const gear = (kind: "hat" | "shoes" | "ring" | "trinket", name: string, stats: Partial<Record<string, number>>, price: number, color: string, note: string): Item =>
   ({ kind, name, stats, price, icon: { glyph: kind, color }, note });
 // A hairstyle: read to learn it, then pick it in the profile window.
@@ -256,6 +258,16 @@ export const ITEMS: Record<string, Item> = {
   trinket_charm: gear("trinket", "เครื่องรางกันภัย", { mdef: 6, dmgRed: 0.02 }, 950, "#e89a6a", "ผ้ายันต์ห่อหินศักดิ์สิทธิ์"),
   jelly: { kind: "material", name: "เยลลี่", stack: 99, sell: 3, icon: { sheet: "jelly" }, note: "หยดเยลลี่จากสไลม์ ขายให้ร้านค้าได้" },
   sprout: { kind: "material", name: "ใบอ่อน", stack: 99, sell: 20, icon: { sheet: "sprout" }, note: "ใบไม้บนหัวสไลม์ หายาก ขายให้ร้านค้าได้" },
+  // things carried or gathered for quests (src/quests.ts); the monster ones drop only while a
+  // quest wants them
+  quest_letter: quest("จดหมายปิดผนึก", "letter", "#e8d7a8", "จดหมายจากทอม ส่งให้กัปตันมาร์โกที่ท่าเรืออีเดน"),
+  boar_tusk: quest("งาหมูป่า", "pierce", "#efe4c8", "งาโค้งของหมูป่าโอ๊ก ซิสเตอร์มาเรียใช้ทำยาสมานแผล"),
+  ice_core: quest("แกนน้ำแข็ง", "freeze", "#8fd4ff", "แกนน้ำแข็งที่ไม่ยอมละลาย จากโกเลมน้ำแข็ง"),
+  polar_pelt: quest("ขนหมีขั้วโลก", "shield", "#f2f6fa", "ขนหนานุ่มของหมีขั้วโลก อิงกริดใช้ถักเสื้อกันหนาว"),
+  bison_hide: quest("หนังควายป่า", "shield", "#9a6a3e", "หนังหนาของควายป่าขนยาว ใช้ทำผ้ากระโจม"),
+  dark_shard: quest("เศษผลึกมืด", "star", "#7a52b8", "เศษผลึกที่เต้นตุบเหมือนหัวใจ จากอสูรผลึกมืด"),
+  old_bandage: quest("ผ้าพันศพเก่า", "wave", "#d8c9a0", "ผ้าพันแผลเก่าแก่ของมัมมี่ทาส"),
+  fox_tail: quest("หางจิ้งจอกเก้าหาง", "flame", "#ffb060", "หางที่เรืองแสงอุ่น ๆ ของจิ้งจอกเก้าหาง"),
 };
 
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [

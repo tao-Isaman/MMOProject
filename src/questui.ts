@@ -1,0 +1,285 @@
+// The quests on screen (src/quests.ts): the talk window a townsperson with a quest opens (offer,
+// hand in, or a reminder, and their own business: the shop, healing, travel), the quest log (J)
+// with what is on, what can be taken and what is done, and the tracker under HP/MP that shows
+// the steps under way.
+
+import { el, makeWindow } from "./ui";
+import { ITEMS } from "./items";
+import { MAP_NAMES } from "./maps";
+import { QUESTS, QUEST_BY_ID, rewardText } from "./quests";
+import type { QuestDef, Quests } from "./quests";
+import type { MapId } from "./maps";
+
+const itemName = (id: string) => ITEMS[id]?.name ?? id;
+const townName = (map: MapId) => (MAP_NAMES as Record<string, string>)[map] ?? map;
+
+// What a step needs, with how far it has got ("ปราบสไลม์เขียว 3/5").
+function stepLine(quests: Quests, q: QuestDef): string {
+  const st = quests.step(q.id);
+  if (!st) return "";
+  const p = quests.progress(q.id);
+  const count = st.goal.kind === "kill" || st.goal.kind === "collect" ? ` ${p.have}/${p.need}` : "";
+  return `${st.task}${count}`;
+}
+
+// What the step is waiting on once its goal is met.
+function handInLine(quests: Quests, q: QuestDef): string {
+  const st = quests.step(q.id);
+  if (!st || !quests.ready(q.id) || st.goal.kind === "talk") return "";
+  return `ส่งได้ที่ ${st.to.name} (${townName(st.to.map)})`;
+}
+
+// ---- talking to someone with a quest ----
+export interface Speaker {
+  name: string;
+  title: string;
+  map: MapId;
+  npc: string;
+  line: string;                                  // what they say first
+  action?: { label: string; run: () => void };   // their own business (the shop, healing, travel)
+}
+
+export class QuestDialog {
+  quests: Quests;
+  box: HTMLElement;
+  head: HTMLElement;
+  text: HTMLElement;
+  list: HTMLElement;
+  buttons: HTMLElement;
+  who: Speaker | null = null;
+
+  constructor(quests: Quests) {
+    this.quests = quests;
+    this.box = el("section", "qd hidden", document.body);
+    this.box.setAttribute("role", "dialog");
+    this.head = el("header", "qd-head", this.box);
+    this.text = el("p", "qd-text", this.box);
+    this.list = el("div", "qd-list", this.box);
+    this.buttons = el("div", "qd-buttons", this.box);
+  }
+
+  get open(): boolean {
+    return !this.box.classList.contains("hidden");
+  }
+
+  close(): void {
+    this.box.classList.add("hidden");
+    this.who = null;
+  }
+
+  // Their greeting and the quests they have; a quest picked shows its page.
+  show(who: Speaker): void {
+    this.who = who;
+    this.box.classList.remove("hidden");
+    this.home();
+  }
+
+  private header(sub = ""): void {
+    const w = this.who!;
+    this.head.replaceChildren();
+    el("b", "qd-name", this.head).textContent = w.name;
+    el("span", "qd-title", this.head).textContent = sub || w.title;
+    const x = el("button", "window-close", this.head);
+    x.type = "button";
+    x.textContent = "×";
+    x.addEventListener("click", () => this.close());
+  }
+
+  private button(label: string, run: () => void, cls = ""): void {
+    const b = el("button", `qd-btn ${cls}`, this.buttons);
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", run);
+  }
+
+  home(): void {
+    const w = this.who;
+    if (!w) return;
+    const o = this.quests.optionsFor(w.map, w.npc);
+    // nothing left to say about quests: their business at once, or goodbye
+    if (!o.offers.length && !o.ready.length && !o.busy.length) {
+      if (w.action) {
+        this.close();
+        return w.action.run();
+      }
+    }
+    this.header();
+    this.text.textContent = w.line;
+    this.list.replaceChildren();
+    const row = (q: QuestDef, tag: string, cls: string) => {
+      const b = el("button", `qd-quest ${cls}`, this.list);
+      b.type = "button";
+      el("span", "qd-tag", b).textContent = tag;
+      el("span", "", b).textContent = q.name;
+      b.addEventListener("click", () => this.page(q));
+    };
+    for (const q of o.ready) row(q, "?", "ready");
+    for (const q of o.offers) row(q, "!", "offer");
+    for (const q of o.busy) row(q, "…", "busy");
+    this.buttons.replaceChildren();
+    if (w.action) this.button(w.action.label, () => { this.close(); w.action!.run(); }, "main");
+    this.button("ลาก่อน", () => this.close());
+  }
+
+  // One quest: the offer and its reward, or the step to hand in, or a reminder.
+  page(q: QuestDef): void {
+    const w = this.who;
+    if (!w) return;
+    const quests = this.quests;
+    this.header(q.repeat ? `${q.name} · ทำซ้ำได้` : q.name);
+    this.list.replaceChildren();
+    this.buttons.replaceChildren();
+    const st = quests.step(q.id);
+    const forMe = st && st.to.map === w.map && st.to.npc === w.npc;
+    if (!quests.isActive(q.id)) {
+      this.text.textContent = q.offer;
+      const steps = el("ol", "qd-steps", this.list);
+      for (const s of q.steps) el("li", "", steps).textContent = s.task;
+      el("p", "qd-reward", this.list).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
+      this.button("รับเควส", () => {
+        quests.accept(q.id);
+        this.home();
+      }, "main");
+    } else if (forMe && quests.ready(q.id)) {
+      const last = quests.s.active[q.id].step === q.steps.length - 1;
+      this.text.textContent = st!.goal.kind === "talk" ? st!.say : `${st!.task} — ครบแล้ว`;
+      if (last) el("p", "qd-reward", this.list).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
+      this.button(st!.goal.kind === "talk" ? "ตกลง" : "ส่งเควส", () => {
+        const said = quests.handIn(q.id);
+        if (said && st!.goal.kind !== "talk") {
+          // what they say on taking it, then back to the list
+          this.text.textContent = said;
+          this.list.replaceChildren();
+          this.buttons.replaceChildren();
+          this.button("ตกลง", () => this.home(), "main");
+        } else this.home();
+      }, "main");
+    } else {
+      this.text.textContent = `ยังไม่เสร็จ: ${stepLine(quests, q)}`;
+      const at = handInLine(quests, q);
+      if (at) el("p", "qd-reward", this.list).textContent = at;
+    }
+    this.button("กลับ", () => this.home());
+  }
+}
+
+// ---- the quest log (J) ----
+export class QuestLog {
+  quests: Quests;
+  win: HTMLElement;
+  tabs: HTMLElement;
+  list: HTMLElement;
+  tab: "on" | "open" | "done" = "on";
+
+  constructor(quests: Quests) {
+    this.quests = quests;
+    this.win = makeWindow("quests", "เควส", "J");
+    const top = el("div", "shop-top", this.win);
+    this.tabs = el("div", "sk-tabs", top);
+    for (const [id, name] of [["on", "กำลังทำ"], ["open", "รับได้"], ["done", "สำเร็จแล้ว"]] as const) {
+      const b = el("button", "sk-tab", this.tabs);
+      b.type = "button";
+      b.dataset.tab = id;
+      b.textContent = name;
+      b.addEventListener("click", () => {
+        this.tab = id;
+        this.render();
+      });
+    }
+    this.list = el("div", "ql-list", this.win);
+    quests.onChange(() => this.render());
+    this.render();
+  }
+
+  get open(): boolean {
+    return !this.win.classList.contains("hidden");
+  }
+
+  toggle(show = !this.open): void {
+    this.win.classList.toggle("hidden", !show);
+    if (show) this.render();
+  }
+
+  render(): void {
+    if (!this.open) return;
+    const quests = this.quests;
+    for (const b of this.tabs.children) (b as HTMLElement).classList.toggle("on", (b as HTMLElement).dataset.tab === this.tab);
+    this.list.replaceChildren();
+    const card = (q: QuestDef) => {
+      const c = el("div", "ql-card", this.list);
+      const h = el("div", "ql-head", c);
+      el("b", "", h).textContent = q.name;
+      el("span", `ql-kind${q.repeat ? " repeat" : ""}`, h).textContent = q.repeat ? "ทำซ้ำได้" : q.steps.length > 1 ? `${q.steps.length} ขั้น` : "ครั้งเดียว";
+      el("p", "ql-who", c).textContent = `${q.giver.name} · ${townName(q.giver.map)}${q.level ? ` · Lv ${q.level}+` : ""}`;
+      return c;
+    };
+    if (this.tab === "on") {
+      const on = QUESTS.filter((q) => quests.isActive(q.id));
+      if (!on.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่ทำอยู่ ลองคุยกับชาวเมืองที่มีเครื่องหมาย ! เหนือหัว";
+      for (const q of on) {
+        const c = card(q), a = quests.s.active[q.id];
+        el("p", `ql-step${quests.ready(q.id) ? " ready" : ""}`, c).textContent = `ขั้น ${a.step + 1}/${q.steps.length}: ${stepLine(quests, q)}`;
+        const at = handInLine(quests, q);
+        if (at) el("p", "ql-at", c).textContent = at;
+        el("p", "ql-reward", c).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
+        const x = el("button", "ql-drop", c);
+        x.type = "button";
+        x.textContent = "ยกเลิกเควส";
+        x.addEventListener("click", () => {
+          if (x.dataset.sure) quests.abandon(q.id);
+          else {
+            x.dataset.sure = "1";
+            x.textContent = "กดอีกครั้งเพื่อยืนยัน";
+          }
+        });
+      }
+    } else if (this.tab === "open") {
+      // the ones that can be taken now first, then the rest with why not yet
+      const all = QUESTS.filter((q) => !quests.isActive(q.id) && (q.repeat || !quests.timesDone(q.id)));
+      all.sort((a, b) => Number(!quests.available(a)) - Number(!quests.available(b)) || (a.level ?? 1) - (b.level ?? 1));
+      for (const q of all) {
+        const c = card(q), why = quests.why(q);
+        c.classList.toggle("locked", !!why);
+        el("p", "ql-step", c).textContent = why ?? q.offer;
+        el("p", "ql-reward", c).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
+      }
+    } else {
+      const done = QUESTS.filter((q) => quests.timesDone(q.id));
+      if (!done.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่สำเร็จ";
+      for (const q of done) {
+        const c = card(q);
+        el("p", "ql-step", c).textContent = q.repeat ? `สำเร็จแล้ว ${quests.timesDone(q.id)} ครั้ง` : "สำเร็จแล้ว";
+      }
+    }
+  }
+}
+
+// ---- the tracker under HP/MP: the steps under way ----
+export class QuestTracker {
+  quests: Quests;
+  box: HTMLElement;
+
+  constructor(quests: Quests, onOpen: () => void) {
+    this.quests = quests;
+    this.box = el("aside", "qt hidden", document.body);
+    this.box.addEventListener("click", onOpen);
+    quests.onChange(() => this.render());
+    this.render();
+  }
+
+  render(): void {
+    const quests = this.quests;
+    const on = QUESTS.filter((q) => quests.isActive(q.id));
+    this.box.classList.toggle("hidden", !on.length);
+    this.box.replaceChildren();
+    el("b", "qt-title", this.box).textContent = "เควส";
+    for (const q of on.slice(0, 4)) {
+      const r = el("div", `qt-row${quests.ready(q.id) ? " ready" : ""}`, this.box);
+      el("span", "qt-name", r).textContent = q.name;
+      el("span", "qt-step", r).textContent = quests.ready(q.id) && quests.step(q.id)?.goal.kind !== "talk" ? `✓ ${handInLine(quests, q)}` : stepLine(quests, q);
+    }
+    if (on.length > 4) el("span", "qt-more", this.box).textContent = `และอีก ${on.length - 4} เควส`;
+  }
+}
+
+export { QUEST_BY_ID };

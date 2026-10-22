@@ -1053,6 +1053,7 @@ interface SaveData {
   elements?: Record<string, number>;
   unlocked?: { trees?: string[]; masteries?: string[]; elements?: string[] };
   hotbar?: (string | null)[];
+  bonus?: number;
   treesV?: number;
   learnV?: number;
 }
@@ -1073,6 +1074,7 @@ export class Progress {
   elements: Record<string, number> = {}; // element id -> level
   unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // learned: picked at the start, or from books
   hotbar: (string | null)[] = new Array(10).fill(null);
+  bonus = 0;                             // skill points from quests, on top of one a level
 
   constructor() {
     if (!this.load()) this.reset(null);
@@ -1088,6 +1090,7 @@ export class Progress {
     this.elements = {};
     this.unlocked = { trees: [], masteries: [], elements: [] };
     this.hotbar = new Array(10).fill(null);
+    this.bonus = 0;
     this.changed();
   }
 
@@ -1117,7 +1120,7 @@ export class Progress {
     const d = Object.create(Progress.prototype) as Progress;
     Object.assign(d, structuredClone({
       cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
-      elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar,
+      elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus,
     }));
     d.listeners = new Set();
     d.save = () => {};
@@ -1130,7 +1133,7 @@ export class Progress {
   }
 
   get points() {
-    return this.level;
+    return this.level + this.bonus;
   }
 
   get spent() {
@@ -1267,7 +1270,7 @@ export class Progress {
     try {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
-        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, treesV: TREES_VERSION, learnV: LEARN_VERSION,
+        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus, treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
       // not persisted
@@ -1286,6 +1289,7 @@ export class Progress {
     this.cls = d.cls ?? null;
     this.level = Math.max(1, Math.min(MAX_LEVEL, (d.level ?? 1) | 0 || 1));
     this.xp = Math.max(0, Number(d.xp) || 0);
+    this.bonus = Math.max(0, Number(d.bonus) || 0) | 0;
     const known = (o: Record<string, number> | undefined, ok: (k: string) => boolean) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
     const nodes = new Set(Object.values(TREES).flatMap((t) => t.nodes.map((n) => n.id)));
     this.ranks = known(d.ranks, (k) => nodes.has(k));

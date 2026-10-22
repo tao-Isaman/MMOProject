@@ -103,6 +103,30 @@ const GLYPHS: Record<string, (g: G, under: boolean) => void> = {
     const k = u ? 3 : 0;
     poly(g, [[-14 - k, -26 - k], [6 + k, -26 - k], [6 + k, 4], [26 + k, 10], [26 + k, 22 + k], [-14 - k, 22 + k]]);
   },
+  // a sealed envelope (quest letters)
+  letter: (g) => {
+    g.beginPath();
+    g.rect(-26, -17, 52, 34);
+    g.moveTo(-26, -17);
+    g.lineTo(0, 4);
+    g.lineTo(26, -17);
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 4, 6, 0, Math.PI * 2);
+    g.fill();
+  },
+  // the quest log: a scroll
+  scroll: (g) => {
+    g.beginPath();
+    g.rect(-18, -24, 36, 48);
+    g.moveTo(-10, -12);
+    g.lineTo(10, -12);
+    g.moveTo(-10, 0);
+    g.lineTo(10, 0);
+    g.moveTo(-10, 12);
+    g.lineTo(4, 12);
+    g.stroke();
+  },
   ring: (g, u) => {
     g.beginPath();
     g.arc(0, 6, 18, 0, Math.PI * 2);
