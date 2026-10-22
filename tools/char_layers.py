@@ -104,11 +104,13 @@ def is_skin(rgb):
 
 def find_neck(cell):
     """Top row of the red clothes near the middle of the body: the first of three rows that
-    each have at least 5 clothes pixels across the middle (a red hair tie or ribbon has fewer)."""
+    each have at least 5 clothes pixels across the middle (a red hair tie or ribbon has fewer;
+    the pink of the face isn't clothes)."""
     a = cell[..., 3] > 0
     xs = np.nonzero(a.any(0))[0]
     mid = int((xs.min() + xs.max()) / 2)
-    band = [sum(1 for x in range(mid - 6, mid + 7) if a[y, x] and is_cloth(cell[y, x, :3])) for y in range(CELL)]
+    band = [sum(1 for x in range(mid - 6, mid + 7) if a[y, x] and is_cloth(cell[y, x, :3]) and not is_skin(cell[y, x, :3]))
+            for y in range(CELL)]
     for y in range(CELL - 2):
         if min(band[y:y + 3]) >= 5:
             return y
@@ -119,6 +121,33 @@ def head_anchor(cell, neck):
     """Where the head joins the body. Oriverse centres every character on the same pivot, so
     heads from different sprites line up by canvas column; only the neck height differs."""
     return [CELL / 2, neck]
+
+
+TIE = 40        # px: a red patch this small below the neck is a hair tie, not clothes
+TIE_BELOW = 8   # rows under the neck where a hair tie can start
+COLLAR = 4      # rows above the neck where red is the collar seen from behind
+
+
+def patches(mask):
+    """8-connected patches of a mask, as lists of (x, y)."""
+    seen = np.zeros_like(mask)
+    out = []
+    for y0, x0 in zip(*np.nonzero(mask)):
+        if seen[y0, x0]:
+            continue
+        stack, patch = [(x0, y0)], []
+        seen[y0, x0] = True
+        while stack:
+            x, y = stack.pop()
+            patch.append((x, y))
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < CELL and 0 <= ny < CELL and mask[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        stack.append((nx, ny))
+        out.append(patch)
+    return out
 
 
 def split_hair(cell, neck, front_all):
@@ -140,6 +169,16 @@ def split_hair(cell, neck, front_all):
         for dx in (-1, 0, 1):
             near |= np.roll(np.roll(colour, dy, 0), dx, 1)
     hairy = colour | (dark & near)
+    # a hair tie: a small patch of the clothes' red apart from the clothes themselves, well below
+    # the neck (bits of the collar showing between the hair are small patches too)
+    red = np.zeros_like(a)
+    for y in range(neck, CELL):
+        for x in range(CELL):
+            red[y, x] = a[y, x] and is_cloth(cell[y, x, :3]) and not is_skin(cell[y, x, :3])
+    for patch in patches(red):
+        if len(patch) <= TIE and min(y for _, y in patch) > neck + TIE_BELOW:
+            for x, y in patch:
+                hairy[y, x] = True
     below = np.zeros_like(a)
     stack = [(x, neck) for x in range(CELL) if hairy[neck, x] and a[neck - 1, x]]
     for x, y in stack:
@@ -154,6 +193,11 @@ def split_hair(cell, neck, front_all):
                     stack.append((nx, ny))
     head = a.copy()
     head[neck:] = False
+    # the collar is higher at the back: its red just above the neck row isn't head
+    for y in range(max(0, neck - COLLAR), neck):
+        for x in range(CELL):
+            if head[y, x] and is_cloth(cell[y, x, :3]) and not is_skin(cell[y, x, :3]):
+                head[y, x] = False
     back = np.zeros_like(cell)
     front = np.zeros_like(cell)
     front[head] = cell[head]
