@@ -18,7 +18,7 @@ import {
 } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, material, frondTexture, leafClump } from "../textures";
-import { leaves, leafMaterials } from "../trees";
+import { leaves, leafMaterials, shrub, SHRUB_JUNGLE } from "../trees";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -1040,7 +1040,8 @@ function seaStack(): THREE.Object3D {
     const a = (i / 26) * Math.PI * 2, r = 270 + ((i * 7) % 5) * 12;
     g.push(sphereCenter(9 + (i % 3) * 3, [Math.cos(a) * r, Math.sin(a) * r * 0.9, -4 + (i % 4) * 6], i % 3 ? "Jungle_Barnacle" : "Jungle_Weed", 5));
   }
-  return group(merge(...g), crownMesh([[0, 0, 860, 130, 110, 50], [-90, 60, 830, 70, 70, 40], [90, -40, 840, 80, 70, 40]], 60, 277, "jungle", 1.2));
+  g.push(shrub({ seed: 277, leaf: 48, look: SHRUB_JUNGLE, ragged: 0.7, lobes: [[0, 0, 860, 90, 80, 44], [60, 30, 850, 60, 56, 38], [-50, -40, 848, 62, 56, 36], [-90, 60, 832, 62, 60, 36], [90, -40, 840, 66, 60, 36], [20, -10, 890, 60, 54, 32]] }));
+  return group(merge(...g));
 }
 
 // Fish-trap stakes (a V of bamboo with nets between, a pen at its apex, 8.4 m along X): the

@@ -21,9 +21,10 @@ export interface PavedSpec {
   plaza?: [number, number, number];
   height?: (x: number, y: number) => number; // ground that is not flat (src/world3d/terrain.ts)
   cell?: number;                             // its mesh's grid, cm
-  // where each of the grid's points goes (x, y, height), given where it would be and the grid's
-  // cell: moved onto the top and the foot of the cliffs (src/world3d/terrain.ts `place`)
-  place?: (x: number, y: number, cell: number) => [number, number, number];
+  // where each of the grid's points goes (x, y, height, and how stony: scree at a cliff's foot),
+  // given where it would be and the grid's cell: moved onto the top and the foot of the cliffs
+  // (src/world3d/terrain.ts `place`)
+  place?: (x: number, y: number, cell: number) => [number, number, number, number];
 }
 
 export interface Paved {
@@ -96,12 +97,14 @@ export function buildPaved(spec: PavedSpec): Paved {
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      // the ground's own coordinates (the polygons'), whatever the level is scaled to in the world
-      .replace("#include <common>", "#include <common>\nvarying vec3 vGround;\nuniform vec3 uOrigin;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGround = transformed + uOrigin;");
+      // the ground's own coordinates (the polygons'), whatever the level is scaled to in the world;
+      // how stony it is (scree, steep banks)
+      .replace("#include <common>", "#include <common>\nvarying vec3 vGround;\nuniform vec3 uOrigin;\nattribute float scree;\nvarying float vStony;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGround = transformed + uOrigin;\nvStony = max(scree, 1.0 - smoothstep(0.6, 0.86, normal.y));");
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>
         varying vec3 vGround;
+        varying float vStony;
         uniform sampler2D uGrass, uCobble, uFlag, uMask;
         uniform vec2 uMin, uSize, uTexel;
         uniform vec3 uRoad, uPlaza;
@@ -110,6 +113,8 @@ export function buildPaved(spec: PavedSpec): Paved {
         vec2 w = vec2(vGround.x, -vGround.z);
         vec3 grass = mix(texture2D(uGrass, w / 260.0).rgb, texture2D(uGrass, w / 1130.0 + 0.37).rgb, 0.45);
         grass = pow(grass * uBase, vec3(2.2));
+        // scree and steep banks: the ground greyed and warmed toward stone and earth
+        grass = mix(grass, vec3(dot(grass, vec3(0.3, 0.55, 0.15))) * vec3(1.08, 0.96, 0.8), vStony * 0.6);
         // cobbles (1.2 m tiles) a warm grey; flagstones (3 m tiles, big slabs) pale
         vec3 cobble = texture2D(uCobble, w / uTile).rgb * uRoad;
         vec3 flag = texture2D(uFlag, w.yx / 300.0).rgb * uPlaza;
@@ -133,13 +138,16 @@ export function buildPaved(spec: PavedSpec): Paved {
   geo.rotateX(-Math.PI / 2);
   if (spec.height) {
     const pos = geo.getAttribute("position") as THREE.BufferAttribute, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const stony = new Float32Array(pos.count);
     for (let i = 0; i < pos.count; i++) {
       const x = cx + pos.getX(i), y = cy - pos.getZ(i);
       if (spec.place) {
-        const [px, py, h] = spec.place(x, y, cell);
+        const [px, py, h, s] = spec.place(x, y, cell);
         pos.setXYZ(i, px - cx, h, cy - py);
+        stony[i] = s;
       } else pos.setY(i, spec.height(x, y));
     }
+    geo.setAttribute("scree", new THREE.BufferAttribute(stony, 1));
     geo.computeVertexNormals();
   }
   const mesh = new THREE.Mesh(geo, mat);

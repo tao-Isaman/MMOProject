@@ -49,7 +49,8 @@ const EDEN_MATS: Record<string, Recipe> = {
   // the city quarter
   Eden_PlasterYellow: { map: "plaster", tint: "#f6e2a2", bump: 0.6 },
   Eden_PlasterRose: { map: "plaster", tint: "#f2cbc2", bump: 0.6 },
-  Eden_Hedge: { map: "foliage", tint: "#6aa64a", rough: 0.95, bump: 1.5 },
+  Eden_Hedge: { map: "foliage", tint: "#6cae4c", rough: 0.95, bump: 1.5 },
+  Eden_HedgeTop: { map: "foliage", tint: "#a0d468", rough: 0.9, bump: 1.5 },
   Eden_ShopGlass: { tint: "#d8eef8", rough: 0.05, opacity: 0.22 },
   Eden_PotionRed: { tint: "#ff5a78", rough: 0.15, glow: "#ff2f55", glowI: 0.9 },
   Eden_PotionBlue: { tint: "#5ab4ff", rough: 0.15, glow: "#2f84ff", glowI: 0.9 },
@@ -231,6 +232,13 @@ function blooms(len: number, n: number, seed: number, r = 7): Geo {
     const y = -len / 2 + (len * (i + 0.5)) / n;
     flowerClump(cards, [1, y + (rnd() - 0.5) * 3, 0], r * 3.6, r * 3, [i % 3 === 1 ? alt : main], 2, rnd, [-0.7, 0]);
   }
+  return cards.geo();
+}
+// A single rose in a bud vase: two leaves and the flower card on top.
+function vaseRose(at: V3): Geo {
+  const cards = new Cards();
+  for (const a of [0, Math.PI / 2]) cards.add("TuftCard", at, new THREE.Vector3(Math.cos(a), Math.sin(a), 0), SKY, 9, 9, SKY, [0, 0, 1, 1], true);
+  cards.facing("FlowerCards", [at[0], at[1], at[2] + 8], new THREE.Vector3(0.3, 0.2, 1), 0.4, 12, 12, SKY, flowerCell(FC.roseRed));
   return cards.geo();
 }
 // A painted window box of flowers that hangs under a sill (its top at z = 0, facing -X).
@@ -1878,7 +1886,7 @@ function toolShop(): Geo {
   ));
   on(hangingSign(translate(flask, [0, 0, -12]), { len: 130, bw: 90, bh: 100 }), "-x", -300, 330);
   out.push(translate(barrel(), [-HX - 46, -300, 0]));
-  for (const [y, r] of [[-312, 16], [-286, 14], [-300, 12]] as const) out.push(sphereCenter(r, [-HX - 46 + (y + 300) * 0.5, y, 84 + r * 0.5], "LeafGreen", 6));
+  out.push(shrub({ seed: 47, leaf: 13, ragged: 0.5, core: 0.8, lobes: [[-HX - 52, -312, 90, 16, 16, 13], [-HX - 39, -286, 88, 14, 14, 11], [-HX - 46, -300, 98, 12, 12, 10]], flowers: { cells: [FC.marigold], n: 4, size: 10 } }));
   // upper storey and the back
   for (const u of [-210, 210]) on(windowGeo(80, 160, { shutters: true, flowers: u < 0 ? 0 : 3 }), "-x", u, G + 56);
   on(windowGeo(90, 180, { arch: true, flowers: 4 }), "-x", 0, G + 50);
@@ -2146,7 +2154,7 @@ function cafeTable(): Geo {
     cylinderAt({ radius: 7, height: 1, segments: 8, bottom: [-12, 16, 76] }, "Eden_PaintWhite"),
     cylinderAt({ rBot: 3.5, rTop: 4.5, height: 7, segments: 8, bottom: [-12, 16, 77] }, "Eden_PaintWhite"),
     cylinderAt({ rBot: 3, rTop: 2, height: 10, segments: 6, bottom: [-16, -16, 76] }, "GlassBlue"),
-    sphereCenter(4, [-16, -16, 89], "Eden_FlowerRed", 5),
+    vaseRose([-16, -16, 85]),
   ];
   const n = 8, R = 125, zr = 214, zt = 250;
   for (let i = 0; i < n; i++) {
@@ -2175,7 +2183,7 @@ function hedge(): Geo {
   const L = 200, rnd = rng(23);
   const prism = (pts: [number, number][], mat: string): Geo => hullGeo(pts.flatMap(([x, z]): V3[] => [[x, -L, z], [x, L, z]]), mat);
   const out: Geo[] = [prism([[-50, 0], [50, 0], [50, 14], [45, 20], [-45, 20], [-50, 14]], "StoneLight")];
-  const prof: [number, number][] = [[-41, 18], [-43, 48], [-43, 78], [-41, 102], [-35, 118], [-22, 128], [0, 131], [22, 128], [35, 118], [41, 102], [43, 78], [43, 48], [41, 18]];
+  const prof: [number, number][] = [[-39, 18], [-40, 48], [-40, 78], [-38, 102], [-33, 118], [-21, 127], [0, 129], [21, 127], [33, 118], [38, 102], [40, 78], [40, 48], [39, 18]];
   const nrm = prof.map((_, j) => {
     const a = prof[Math.max(0, j - 1)], b = prof[Math.min(prof.length - 1, j + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
     return [dz / l, -dx / l];
@@ -2198,10 +2206,11 @@ function hedge(): Geo {
       pos.push(...at(y, j));
       uv.push(y / 70, arcs[j] / 70);
     }
+  const topIdx: number[] = [];
   for (let i = 0; i < NY; i++)
     for (let j = 0; j < NP - 1; j++) {
       const a = i * NP + j, b = a + NP;
-      idx.push(a, a + 1, b + 1, a, b + 1, b);
+      (j >= 4 && j < 8 ? topIdx : idx).push(a, a + 1, b + 1, a, b + 1, b);
     }
   // the ends, closed with a fan
   for (const [i, flip] of [[0, true], [NY, false]] as const) {
@@ -2210,20 +2219,24 @@ function hedge(): Geo {
     uv.push(0, 0);
     for (let j = 0; j < NP - 1; j++) idx.push(...(flip ? [c, i * NP + j + 1, i * NP + j] : [c, i * NP + j, i * NP + j + 1]));
   }
-  const body = new THREE.BufferGeometry();
-  body.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  body.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-  body.setIndex(idx);
-  body.computeVertexNormals();
-  out.push([{ geo: body.toNonIndexed(), mat: "Eden_Hedge" }]);
+  // (the sunlit top a lighter green than the sides)
+  for (const [list, mat] of [[idx, "Eden_Hedge"], [topIdx, "Eden_HedgeTop"]] as const) {
+    const body = new THREE.BufferGeometry();
+    body.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    body.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    body.setIndex([...idx, ...topIdx]);
+    body.computeVertexNormals();
+    body.setIndex(list);
+    out.push([{ geo: body.toNonIndexed(), mat }]);
+  }
   // leaf sprays standing out of it, thickest along the top (inside the kerb's footprint)
   const cards = new Cards();
   cards.clip = { min: [-50, -L, 0], max: [50, L, 136] };
-  for (let k = 0; k < 230; k++) {
+  for (let k = 0; k < 250; k++) {
     const y = -L + 6 + rnd() * (2 * L - 12);
-    const t = rnd() < 0.55 ? 3 + rnd() * 6 : 1 + rnd() * 10, j = Math.floor(t), f = t - j;
+    const t = rnd() < 0.6 ? 3.5 + rnd() * 5 : 1 + rnd() * 10, j = Math.floor(t), f = t - j;
     const p0 = at(y, j), p1 = at(y, j + 1), n = new THREE.Vector3(nrm[j][0] * (1 - f) + nrm[j + 1][0] * f, 0, nrm[j][1] * (1 - f) + nrm[j + 1][1] * f).normalize();
-    const lift = 1 + rnd() * 4;
+    const lift = 2 + rnd() * 5;
     const c: V3 = [p0[0] + (p1[0] - p0[0]) * f + n.x * lift, y, p0[2] + (p1[2] - p0[2]) * f + n.z * lift];
     const face = n.clone().add(new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(0.9)).normalize();
     const sun = 0.55 * (n.z * 0.5 + 0.5) + 0.4 * (c[2] / 131) + 0.25 * (rnd() - 0.5);
@@ -2301,10 +2314,11 @@ function pergola(): Geo {
     for (let j = 0; j < 7; j++) {
       const y = -184 + i * 46 + ((j * 7) % 3) * 8 - 8, x = -138 + j * 46 + ((i * 11) % 5) * 5 - 10;
       if ((i * 2 + j) % 5 !== 0)
-        for (let k = 0; k < 2; k++) {
-          const face = new THREE.Vector3((rnd() - 0.5) * 1.1, (rnd() - 0.5) * 1.1, 1);
+        for (let k = 0; k < 3; k++) {
+          const face = new THREE.Vector3((rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2, 1);
           const edge = Math.max(Math.abs(x) / 150, Math.abs(y) / 200);
-          cards.facing(k && rnd() < 0.45 ? "LeafCardLight" : edge > 0.85 || rnd() < 0.3 ? "LeafCardDark" : "LeafCard", [x + (rnd() - 0.5) * 30, y + (rnd() - 0.5) * 30, 299 + k * 7 + rnd() * 5], face, rnd() * 6.28, 44 + rnd() * 14, 44 + rnd() * 14, SKY);
+          const m = k === 2 && rnd() < 0.55 ? "LeafCardLight" : k === 0 || edge > 0.85 ? "LeafCardDark" : "LeafCard";
+          cards.facing(m, [x + (rnd() - 0.5) * 34, y + (rnd() - 0.5) * 34, 297 + k * 6 + rnd() * 4], face, rnd() * 6.28, 32 + rnd() * 10, 32 + rnd() * 10, SKY);
         }
       if ((i * 3 + j) % 3 === 1) {
         const h = 50 + ((i + j) % 3) * 9, cell = flowerCell((i + j) % 5 ? FC.wisteria : FC.blossom);

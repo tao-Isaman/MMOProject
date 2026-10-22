@@ -8,10 +8,14 @@
 import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial } from "../textures";
+import { defineMaterial, flowerCell, FLOWER_CELLS } from "../textures";
+import { Cards, shrub } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the town's own colours ----
+defineMaterial("Osaki_NeedleDark", { card: "needles", tint: "#2f5a36", rough: 0.9 });
+defineMaterial("Osaki_Needle", { card: "needles", tint: "#4a7c48", rough: 0.85 });
+defineMaterial("Osaki_NeedleLight", { card: "needles", tint: "#78a85e", rough: 0.8 });
 defineMaterial("Osaki_Shikkui", { map: "plaster", tint: "#f4f1e8", bump: 0.6 }); // white lime plaster
 defineMaterial("Osaki_Ridge", { map: "plaster", tint: "#6d7584", rough: 0.6, bump: 0.8 }); // ridge tiles
 defineMaterial("Osaki_TileEnd", { map: "tiles", tint: "#8d95a3", bump: 1.5 }); // round eave-tile ends
@@ -645,9 +649,8 @@ function pottedPine(at: V3, s = 1): Geo {
     cylinderAt({ radius: 15, height: 2, segments: 10, bottom: [0, 0, 20] }, "WoodDark"),
     cylinderBetween([0, 0, 20], [6, 2, 48], 3.5, 6, "BarkWarm", 2.6),
     cylinderBetween([6, 2, 48], [-8, 4, 70], 2.6, 6, "BarkWarm", 1.8),
-    ellipsoid([22, 18, 9], [10, 2, 52], "PineNeedle", 8),
-    ellipsoid([18, 15, 8], [-10, 4, 70], "PineNeedle", 8),
-    ellipsoid([12, 10, 7], [0, 0, 84], "PineNeedle", 8),
+    // the clipped pads: tufts of needles over dark cores
+    shrub({ seed: 641, leaf: 12, density: 0.45, ragged: 0.3, core: 0.8, sun: 0.05, look: { core: "PineCore", dark: "Osaki_NeedleDark", mid: "Osaki_Needle", light: "Osaki_NeedleLight" }, lobes: [[10, 2, 53, 22, 18, 8], [-10, 4, 71, 18, 15, 7], [0, 0, 85, 12, 10, 6]] }),
   );
   return translate(scale(g, [s, s, s]), at);
 }
@@ -1123,18 +1126,21 @@ function koi(at: V3, heading: number, kind: number): Geo {
   return translate(rotateZ(g, heading), at);
 }
 
+// Irises by the water: sword leaves fanning up in crossed cards, violet flowers on stalks.
 function iris(at: V3, seed: number): Geo {
-  const rnd = seeded(seed);
+  const rnd = seeded(seed), cards = new Cards(), up = new THREE.Vector3(0, 0, 1);
   const P: Geo[] = [];
-  for (let i = 0; i < 9; i++) {
-    const a = rnd() * 360, tilt = 6 + rnd() * 16, h = 55 + rnd() * 35;
-    P.push(rotateZ(rotateY(boxAt([2, 7, h], [0, 0, 0], "LeafGreen"), tilt), a));
+  const a0 = rnd() * Math.PI;
+  for (let k = 0; k < 3; k++) {
+    const a = a0 + (k * Math.PI) / 3 + (rnd() - 0.5) * 0.3;
+    cards.add(k % 2 ? "TuftCard" : "TuftCardDark", [0, 0, 0], new THREE.Vector3(Math.cos(a), Math.sin(a), 0), up, 46 + rnd() * 10, 80 + rnd() * 16, up, [0, 0, 1, 1], true);
   }
   for (let i = 0; i < 3; i++) {
-    const a = rnd() * Math.PI * 2, r = 8 + rnd() * 8;
-    P.push(cylinderBetween([0, 0, 0], [Math.cos(a) * r, Math.sin(a) * r, 80 + i * 8], 0.8, 4, "LeafGreen"), ellipsoid([6, 6, 5], [Math.cos(a) * r, Math.sin(a) * r, 84 + i * 8], "FabricPurple", 6));
+    const a = rnd() * Math.PI * 2, r = 8 + rnd() * 8, z = 80 + i * 8;
+    P.push(cylinderBetween([0, 0, 0], [Math.cos(a) * r, Math.sin(a) * r, z], 0.8, 4, "LeafGreen"));
+    cards.facing("FlowerCards", [Math.cos(a) * r, Math.sin(a) * r, z + 3], new THREE.Vector3(Math.cos(a) * 0.6, Math.sin(a) * 0.6, 1), rnd() * 6.28, 22, 22, up, flowerCell(FLOWER_CELLS.pansy));
   }
-  return translate(merge(...P), at);
+  return translate(merge(...P, cards.geo()), at);
 }
 
 function koiPond(): Geo {

@@ -1,7 +1,8 @@
-// Trees and bushes after the courtyard's #tree recipes: a trunk through its trunk points, a
-// branch into every crown ellipsoid with a few twigs, and the crowns filled with leaf cards
-// painted with the LeafClump texture. The cards' normals point out of their crown so a crown
-// shades like one soft ball; they sway a little in the wind (a shader tweak).
+// Trees after the courtyard's #tree recipes: a trunk through its trunk points, a branch into
+// every crown ellipsoid with a few twigs, and the crowns filled with leaf cards painted with the
+// LeafClump texture. The cards' normals point out of their crown so a crown shades like one soft
+// ball; they sway a little in the wind (a shader tweak). Bushes (SHRUBS, and `shrub` for the
+// kits' own) are built differently, as lobes of leaf sprays round leafy cores: see below.
 
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -37,6 +38,7 @@ export const TREES: Record<string, TreeSpec> = {
     seed: 21, trunkHeight: 170, trunkRadius: 16, leafSize: 80, twigs: 4,
     crowns: [[0, 0, 300, 170, 160, 150]],
   },
+  // (Bush and JungleBush are listed here for their names; SHRUBS below builds them)
   Bush: {
     seed: 3, trunkHeight: 10, trunkRadius: 4, leafSize: 30, density: 1.6, twigs: 0,
     crowns: [[0, 0, 32, 38, 38, 28]],

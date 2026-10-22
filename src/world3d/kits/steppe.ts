@@ -61,8 +61,8 @@ defineMaterial("Steppe_Bloom", { map: "felt", tint: "#e6c443", rough: 0.9 });
 // the sage scrub: small grey-green leaves round a leafy core
 defineMaterial("Steppe_SageCore", { map: "foliage", tint: "#6e7c52", rough: 1, bump: 1.5 });
 defineMaterial("Steppe_SageCardDark", { card: "leaves", tint: "#6c7c50", rough: 0.95 });
-defineMaterial("Steppe_SageCard", { card: "leaves", tint: "#98a678", rough: 0.9 });
-defineMaterial("Steppe_SageCardLight", { card: "leaves", tint: "#c4cca0", rough: 0.85 });
+defineMaterial("Steppe_SageCard", { card: "leaves", tint: "#8a9a68", rough: 0.9 });
+defineMaterial("Steppe_SageCardLight", { card: "leaves", tint: "#b2bc8a", rough: 0.85 });
 defineMaterial("Steppe_Shadow", { tint: "#231c16", rough: 1 });
 defineMaterial("Steppe_Paint", { map: "wood", tint: "#3e2d22", bump: 0.6 });
 defineMaterial("Steppe_Rune", { tint: "#9fe8ff", rough: 0.4, glow: "#36b9ff", glowI: 1.2 });
@@ -325,8 +325,8 @@ function scrub(): Geo {
     const r = 34 + rnd() * 18;
     for (let k = 0; k < 3; k++) rnd();
     lobes.push([t[0], t[1], t[2] + 4, r * 0.92, r * 0.84, r * 0.6]);
-    lo[0] = Math.min(lo[0], t[0] - r); lo[1] = Math.min(lo[1], t[1] - r * 0.9);
-    hi[0] = Math.max(hi[0], t[0] + r); hi[1] = Math.max(hi[1], t[1] + r * 0.9); hi[2] = Math.max(hi[2], t[2] + 4 + r * 0.62 + 6);
+    lo[0] = Math.min(lo[0], t[0] - r * 0.95); lo[1] = Math.min(lo[1], t[1] - r * 0.86);
+    hi[0] = Math.max(hi[0], t[0] + r * 0.95); hi[1] = Math.max(hi[1], t[1] + r * 0.86); hi[2] = Math.max(hi[2], t[2] + 4 + r * 0.62 + 6);
   });
   const cards = new Cards();
   cards.clip = { min: lo, max: hi };

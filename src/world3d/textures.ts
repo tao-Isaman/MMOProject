@@ -474,13 +474,32 @@ function foliage(): HTMLCanvasElement {
 // Leaf cards (alpha-cut, grey for the tint): "leaves" a round spray of small leaves, "broad" a
 // few big glossy jungle leaves, "lance" narrow bamboo leaves fanning out, "tuft" strap leaves
 // rising from the card's bottom edge (the foliage of a flower clump).
-export type CardKind = "leaves" | "broad" | "lance" | "tuft" | "flowers";
-export function leafCard(kind: "leaves" | "broad" | "lance" | "tuft"): HTMLCanvasElement {
+export type CardKind = "leaves" | "broad" | "lance" | "tuft" | "needles" | "flowers";
+export function leafCard(kind: Exclude<CardKind, "flowers">): HTMLCanvasElement {
   const size = 256, c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d")!;
-  let s = { leaves: 17, broad: 23, lance: 29, tuft: 31 }[kind];
+  let s = { leaves: 17, broad: 23, lance: 29, tuft: 31, needles: 37 }[kind];
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  if (kind === "needles") {
+    // a pine tuft from above: needles bursting out of the middle, darker underneath
+    g.lineCap = "round";
+    const list = Array.from({ length: 90 }, () => ({ a: rnd() * Math.PI * 2, l: size * (0.24 + rnd() * 0.22), v: 0.5 + rnd() * 0.5, o: rnd() * size * 0.08 }));
+    list.sort((p, q) => p.v - q.v);
+    for (const n of list) {
+      const x0 = size / 2 + Math.cos(n.a + 1.3) * n.o, y0 = size / 2 + Math.sin(n.a + 1.3) * n.o;
+      const grad = g.createLinearGradient(x0, y0, x0 + Math.cos(n.a) * n.l, y0 + Math.sin(n.a) * n.l);
+      grad.addColorStop(0, shade(n.v * 0.5));
+      grad.addColorStop(1, shade(n.v));
+      g.strokeStyle = grad;
+      g.lineWidth = 3.2;
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(x0 + Math.cos(n.a) * n.l, y0 + Math.sin(n.a) * n.l);
+      g.stroke();
+    }
+    return c;
+  }
   if (kind === "tuft") {
     // tapering blades from the bottom middle, curving out, darker at the foot
     const blades = Array.from({ length: 15 }, (_, i) => {

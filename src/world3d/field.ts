@@ -14,6 +14,7 @@ import { material } from "./textures";
 import { buildPaved } from "./paved";
 import type { Paved, PavedSpec, Poly } from "./paved";
 import { Terrain } from "./terrain";
+import { Terrain as LegacyTerrain } from "./terrain_legacy"; // TEMP
 import type { TerrainSpec } from "./terrain";
 import { TownBuilder, protoOf, solidsOf } from "./town";
 import type { Town } from "./town";
@@ -35,10 +36,11 @@ export class FieldBuilder extends TownBuilder {
     this.terrain = new Terrain(terrain);
   }
 
-  // The ground: a plane over `area` raised to the terrain, with tracks of bare earth (`roads`,
-  // unless `track: false` makes them cobbles) and `water` cut out of it.
-  ground(spec: Omit<PavedSpec, "height">): Paved {
-    return buildPaved({ track: true, ...spec, height: (x, y) => this.terrain.height(x, y) });
+  // The ground: a plane over `area` raised to the terrain (its points moved onto the tops and
+  // feet of the cliffs), with tracks of bare earth (`roads`, unless `track: false` makes them
+  // cobbles) and `water` cut out of it.
+  ground(spec: Omit<PavedSpec, "height" | "place">): Paved {
+    return buildPaved({ track: true, ...spec, height: (x, y) => this.terrain.height(x, y), place: (x, y, cell) => this.terrain.place(x, y, cell) });
   }
 
   // The ground's height at a point (full size, before the scale).
@@ -137,6 +139,12 @@ export class FieldBuilder extends TownBuilder {
     closed?: Town["closed"];
     labels: MapLabel[];
   }): Town {
+    { // TEMP
+      const legacy = new LegacyTerrain(this.terrain.spec);
+      (window as unknown as { __terrainDiff: unknown }).__terrainDiff = this.puts
+        .map((pl) => ({ ref: pl.ref, at: [Math.round(pl.x), Math.round(pl.y)], d: Math.round(this.terrain.height(pl.x, pl.y) - legacy.height(pl.x, pl.y)) }))
+        .filter((p) => Math.abs(p.d) > 25);
+    }
     return this.finish({ ...o, npcs: o.npcs ?? [], closed: o.closed ?? [], warps: this.warps, gates: this.gates, spots: this.spots });
   }
 }

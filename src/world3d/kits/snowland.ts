@@ -362,7 +362,7 @@ function frostShrub(): Geo {
     const r = 26 + rnd() * 14;
     lobes.push([tip[0], tip[1], tip[2], r, r * 0.95, r * 0.72]);
     // the snow cap, and white sprays round its edge
-    parts.push(lump([tip[0] + 2, tip[1] - 2, tip[2] + r * 0.4], [r * 0.8, r * 0.76, r * 0.3], 300 + i, "Snow", 1, 0.18));
+    parts.push(lump([tip[0] + 2, tip[1] - 2, tip[2] + r * 0.44], [r * 0.7, r * 0.66, r * 0.24], 300 + i, "Snow", 1, 0.22));
     for (let k = 0; k < 5; k++) {
       const b = r2() * Math.PI * 2, e = 0.5 + r2() * 0.35;
       const dir = new THREE.Vector3(Math.cos(b) * Math.cos(e), Math.sin(b) * Math.cos(e), Math.sin(e));

@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, gableWall, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial } from "../textures";
+import { shrub, Cards } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the town's own colours ----
@@ -697,7 +698,7 @@ function orangeTree(at: V3): Geo {
   const fruit: Geo[] = [];
   for (let k = 0; k < 9; k++) {
     const a = k * 2.4, e = 0.2 + (k % 3) * 0.3;
-    fruit.push(sphereCenter(6, [Math.cos(a) * Math.cos(e) * 56, Math.sin(a) * Math.cos(e) * 56, 205 + Math.sin(e) * 50], "Bahamas_Orange", 6));
+    fruit.push(sphereCenter(6, [Math.cos(a) * Math.cos(e) * 59, Math.sin(a) * Math.cos(e) * 59, 205 + Math.sin(e) * 52], "Bahamas_Orange", 6));
   }
   return translate(merge(
     sboxAt([96, 96, 56], [0, 0, 0], "SandstoneWarm", 3),
@@ -705,7 +706,8 @@ function orangeTree(at: V3): Geo {
     sboxAt([104, 104, 8], [0, 0, 56], "SandstonePale", 2),
     cyl(42, 2, 10, [0, 0, 62], "WoodDark"),
     cylinderBetween([0, 0, 60], [0, 0, 170], 7, 8, "BarkWarm", 5),
-    scale(sphereCenter(60, [0, 0, 0], "LeafGreen", 12), [1, 1, 0.9]).map((p) => ({ geo: p.geo.clone().translate(0, 0, 205), mat: p.mat })),
+    // the clipped crown: a ball of leafy lobes
+    shrub({ seed: 701, leaf: 22, ragged: 0.3, core: 0.86, lobes: [[0, 0, 206, 50, 50, 44], [24, -16, 194, 34, 32, 30], [-24, 18, 196, 34, 32, 30], [6, 26, 222, 30, 28, 26], [-8, -24, 224, 30, 28, 24], [20, 18, 186, 30, 28, 24], [-20, -20, 186, 30, 28, 24]] }),
     ...fruit,
   ), at);
 }
@@ -1042,8 +1044,14 @@ function oasisPool(): Geo {
     if (k % 2 === 0) parts.push(cylinderBetween([t[0] - Math.cos(a) * 6, t[1] - Math.sin(a) * 6, h - 22], [t[0] - Math.cos(a) * 3, t[1] - Math.sin(a) * 3, h - 6], 3, 6, "Bahamas_Date"));
   }
   for (const [x, y, r] of [[60, -60, 22], [100, -20, 16], [-60, 90, 20], [180, 60, 14], [-120, -110, 18]]) parts.push(cyl(r, 1, 10, [x, y, 15], "LeafGreen"));
-  for (const [x, y] of [[-40, -230], [210, 210], [-260, -130]]) parts.push(translate(scale(sphereCenter(26, [0, 0, 0], "Bahamas_OasisGrass", 8), [1.3, 1, 0.55]), [x * 1.25, y * 1.25, 4]));
-  return merge(...parts);
+  // lush grass clumps by the water: tufts of strap leaves in crossed cards
+  const cards = new Cards(), up = new THREE.Vector3(0, 0, 1);
+  for (const [x, y] of [[-40, -230], [210, 210], [-260, -130]])
+    for (let k = 0; k < 4; k++) {
+      const a = (k * Math.PI) / 4 + x * 0.01, lean = new THREE.Vector3(Math.cos(a + 1.6) * 0.15, Math.sin(a + 1.6) * 0.15, 1).normalize();
+      cards.add(k % 2 ? "TuftCard" : "TuftCardDark", [x * 1.25 + Math.cos(a) * 6, y * 1.25 + Math.sin(a) * 6, 0], new THREE.Vector3(Math.cos(a), Math.sin(a), 0), lean, 68 - k * 4, 44 + k * 3, up, [0, 0, 1, 1], true);
+    }
+  return merge(...parts, cards.geo());
 }
 
 // บ่อน้ำรอกดึง: a round stone well with a wooden frame, a pulley, a rope and a bucket.
