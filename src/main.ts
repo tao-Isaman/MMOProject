@@ -1,4 +1,4 @@
-import { mapX, mapY, groundAt, fromView, setYaw, yaw } from "./projection";
+import { mapX, mapY, groundAt, fromView, setYaw, yaw, heightAt } from "./projection";
 import { loadAll, mipChain, bakeGround, glow, tint } from "./assets";
 import { World3D } from "./world3d/view";
 import { SPAWN, debugShapes } from "./world";
@@ -1444,6 +1444,10 @@ async function boot(): Promise<void> {
     fx.draw(ctx, vw, fx.layer(AIR_GLOW));
     ctx.globalCompositeOperation = "source-over";
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // monsters' names and HP under their feet, over the scene (in their billboards the ground
+    // in front of them would hide what hangs below the feet)
+    for (const m of monsters)
+      if (m.state !== "gone" && onScreen(m.x, m.y, 200)) m.drawPlate(ctx, mapX(m.x, m.y) * k + vw.ox, mapY(m.x, m.y) * k + vw.oy, k);
     floaters.draw(ctx, vw);
 
     mapUI.frame(dt, { player, facing: player.facing(), yaw, npcs, monsters, route: walkTo?.path.length ? [player, ...walkTo.path] : null });
@@ -1456,7 +1460,7 @@ async function boot(): Promise<void> {
     progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
-    draw: { mapX, mapY, viewRow, WEAPON_ART }, // for test scripts drawing the player by hand
+    draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand
     circles: { LOOKS, circleTextures } }; // and looking at the cast circles
 
   // Where the character stands, for the next session: every couple of seconds while alive, and

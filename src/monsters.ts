@@ -119,7 +119,6 @@ const BITE_TIME = 1.6;   // s between bites
 const CHASE_LEASH = 900; // gives up past this far from home
 const ANGER = 12;        // s it stays angry after being hit
 const SHOWN = 8;         // s its name and HP stay under it after the player last hurt it
-const PLATE = 68;        // map px under its feet for its name and HP
 const RARE_SPOTS = 2;
 const RANGE = 480;       // cm a shooter shoots from
 const SHOT_SPEED = 560;  // cm/s
@@ -810,15 +809,14 @@ export class Monster {
     return this.fly ? 40 + Math.sin(this.age * 2.6) * 7 : 0;
   }
 
-  // The billboard it is drawn into (map px): room for its sheet, the badges over it and its
-  // name and HP under its feet.
+  // The billboard it is drawn into (map px): room for its sheet and the badges over it (its name
+  // and HP are drawn over the scene, main.ts: under its feet they would sink into the ground).
   get board(): { w: number; h: number; foot: number } {
     const L = this.look;
-    const foot = Math.max(PLATE, L.foot * L.scale + 12);
     return {
-      w: Math.max(280, L.cell * L.scale * 1.3),
-      h: Math.max(170, (L.cell - L.foot) * L.scale + (this.fly ? 130 : 80)) + foot - 30,
-      foot,
+      w: Math.max(210, L.cell * L.scale * 1.3),
+      h: Math.max(170, (L.cell - L.foot) * L.scale + (this.fly ? 130 : 80)),
+      foot: Math.max(30, L.foot * L.scale + 12),
     };
   }
 
@@ -830,7 +828,6 @@ export class Monster {
     if (this.body && this.person) {
       this.drawPerson(ctx, view, this.body, this.person, fade);
       this.drawOver(ctx, gx, gy - L.top * L.scale * k - 8 * k, k);
-      this.drawPlate(ctx, gx, gy, k);
       return;
     }
     ctx.globalAlpha = fade;
@@ -858,7 +855,6 @@ export class Monster {
     }
     ctx.globalAlpha = 1;
     this.drawOver(ctx, gx, gy - L.top * s - lift - 8 * k, k);
-    this.drawPlate(ctx, gx, gy, k);
   }
 
   // Stars and status badges over its head (top: where its head ends on the canvas).

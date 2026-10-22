@@ -18,6 +18,12 @@ import type { View } from "../types";
 
 const DIST = 6000; // camera distance from what it looks at, cm
 const BIAS = 14;
+const GROUND_TILE = 60; // cm: the most a ground effect's tile spans (it follows the ground at its corners)
+// cm ground effects are moved toward the camera along its view: with an orthographic camera
+// that leaves them where they are on screen but in front of the ground's own little bumps
+// between its points, which would otherwise cover parts of them
+const NUDGE = 70;
+const AIM_GRID = 16;    // the aim disc's grid, so it lies on the ground too
 const AREA_N = 96; // points round the bot's hunting circle   // billboards sit this much toward the camera (their ground shadow clears the ground)
 
 interface Billboard {
@@ -121,11 +127,11 @@ export class World3D {
     this.area.frustumCulled = false;
     this.area.visible = false;
     s.add(this.area);
-    this.aim = new THREE.Mesh(new THREE.CircleGeometry(1, AREA_N).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+    this.aim = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, AIM_GRID, AIM_GRID).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: { uColor: { value: new THREE.Color("#ffd27a") } },
       vertexShader: "varying vec2 vP; void main() { vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-      fragmentShader: "uniform vec3 uColor; varying vec2 vP; void main() { float r = length(vP); float a = 0.16 + 0.55 * smoothstep(0.86, 0.97, r) * (1.0 - smoothstep(0.97, 1.0, r)); gl_FragColor = vec4(uColor, a); }",
+      fragmentShader: "uniform vec3 uColor; varying vec2 vP; void main() { float r = length(vP); if (r > 1.0) discard; float a = 0.16 + 0.55 * smoothstep(0.86, 0.97, r) * (1.0 - smoothstep(0.97, 1.0, r)); gl_FragColor = vec4(uColor, a); }",
     }));
     this.aim.frustumCulled = false;
     this.aim.visible = false;
@@ -259,8 +265,12 @@ export class World3D {
     for (const [key, set] of this.groundSets) if (!groups.has(key)) set.mesh.visible = false;
     for (const [key, sprites] of groups) {
       let set = this.groundSets.get(key);
-      if (!set || set.cap < sprites.length) {
-        const cap = Math.max(64, 2 ** Math.ceil(Math.log2(sprites.length)));
+      // a big one (a spell's circle) is laid in tiles, each corner on the ground under it, so it
+      // follows the bumps instead of sinking into them
+      const tiles = sprites.map((sp) => Math.min(8, Math.max(1, Math.ceil(sp.size / GROUND_TILE))));
+      const quads = tiles.reduce((n, t) => n + t * t, 0);
+      if (!set || set.cap < quads) {
+        const cap = Math.max(64, 2 ** Math.ceil(Math.log2(quads)));
         const geo = new THREE.BufferGeometry();
         geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(cap * 12), 3).setUsage(THREE.DynamicDrawUsage));
         geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(cap * 8), 2).setUsage(THREE.DynamicDrawUsage));
@@ -287,19 +297,28 @@ export class World3D {
       const pos = set.geo.getAttribute("position") as THREE.BufferAttribute, uv = set.geo.getAttribute("uv") as THREE.BufferAttribute;
       const col = set.geo.getAttribute("color") as THREE.BufferAttribute;
       const P = pos.array as Float32Array, U = uv.array as Float32Array, C = col.array as Float32Array;
+      let q = 0;
+      const nx = -this.dir.x * NUDGE, ny = -this.dir.y * NUDGE, nz = -this.dir.z * NUDGE;
       sprites.forEach((sp, i) => {
-        const h = sp.size / 2, c = Math.cos(sp.rot) * h, s = Math.sin(sp.rot) * h;
+        const h = sp.size / 2, c = Math.cos(sp.rot) * h, s = Math.sin(sp.rot) * h, n = tiles[i];
         const [u0, v0, u1, v1] = sp.uv;
-        // corners: the image's top towards north (+X), its left towards west (+Y); 3 cm off the ground
-        const corners: [number, number, number, number][] = [[-1, -1, u0, 1 - v0], [1, -1, u1, 1 - v0], [-1, 1, u0, 1 - v1], [1, 1, u1, 1 - v1]];
-        corners.forEach(([a, b, u, v], j) => {
-          const wx = sp.x - b * c - a * s, wy = sp.y - a * c + b * s;
-          P.set([wx, heightAt(wx, wy) + 3 + (sp.add ? 0 : 0.5), -wy], (i * 4 + j) * 3);
-          U.set([u, v], (i * 4 + j) * 2);
-          C.set(sp.add ? [sp.alpha, sp.alpha, sp.alpha, 1] : [1, 1, 1, sp.alpha], (i * 4 + j) * 4);
-        });
+        const tint = sp.add ? [sp.alpha, sp.alpha, sp.alpha, 1] : [1, 1, 1, sp.alpha];
+        // corners in -1..1: the image's top towards north (+X), its left towards west (+Y); 3 cm
+        // off the ground
+        for (let ti = 0; ti < n; ti++) {
+          for (let tj = 0; tj < n; tj++, q++) {
+            const corners: [number, number][] = [[ti, tj], [ti + 1, tj], [ti, tj + 1], [ti + 1, tj + 1]];
+            corners.forEach(([ci, cj], j) => {
+              const a = (2 * ci) / n - 1, b = (2 * cj) / n - 1;
+              const wx = sp.x - b * c - a * s, wy = sp.y - a * c + b * s;
+              P.set([wx + nx, heightAt(wx, wy) + 3 + (sp.add ? 0 : 0.5) + ny, -wy + nz], (q * 4 + j) * 3);
+              U.set([u0 + ((u1 - u0) * ci) / n, 1 - (v0 + ((v1 - v0) * cj) / n)], (q * 4 + j) * 2);
+              C.set(tint, (q * 4 + j) * 4);
+            });
+          }
+        }
       });
-      set.geo.setDrawRange(0, sprites.length * 6);
+      set.geo.setDrawRange(0, q * 6);
       pos.needsUpdate = uv.needsUpdate = col.needsUpdate = true;
     }
   }
@@ -328,8 +347,13 @@ export class World3D {
   setAim(at: { x: number; y: number } | null, radius = 0, color = "#ffd27a"): void {
     this.aim.visible = !!at;
     if (!at) return;
-    this.aim.position.set(at.x, heightAt(at.x, at.y) + 4, -at.y);
+    const base = heightAt(at.x, at.y);
+    this.aim.position.set(at.x, base, -at.y).addScaledVector(this.dir, -NUDGE);
     this.aim.scale.set(radius, 1, radius);
+    // each point of its grid on the ground under it, 4 cm up
+    const pos = this.aim.geometry.getAttribute("position") as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(at.x + pos.getX(i) * radius, at.y - pos.getZ(i) * radius) - base + 4);
+    pos.needsUpdate = true;
     (this.aim.material as THREE.ShaderMaterial).uniforms.uColor.value.set(color);
   }
 
