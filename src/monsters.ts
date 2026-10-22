@@ -15,7 +15,7 @@
 // wardrobe (src/look.ts) and drawn like the player, weapon in hand.
 
 import { icon } from "./icons";
-import { mapX, mapY, yaw } from "./projection";
+import { mapX, mapY, yaw, heightAt } from "./projection";
 import { resolve, SOLIDS, BOUNDS } from "./world";
 import { hueShift, silhouette } from "./recolor";
 import { loadImage } from "./assets";
@@ -120,6 +120,7 @@ const ANGER = 12;        // s it stays angry after being hit
 const RARE_SPOTS = 2;
 const RANGE = 480;       // cm a shooter shoots from
 const SHOT_SPEED = 560;  // cm/s
+const STEP_UP = 30;      // cm the ground may rise or fall over a 20 cm step (more: a cliff)
 
 // How often each kind turns up on its field (a rare one: on RARE_SPOTS spots, a boss on one),
 // how fast it walks (cm/s) and how long it stays gone after it falls (s).
@@ -407,8 +408,17 @@ export class Monster {
   }
 
   spawn(): void {
-    const p = { x: this.home.x + rand(-120, 120), y: this.home.y + rand(-120, 120) };
-    resolve(p, this.radius);
+    // a spot by its home on the same level as home (not up on a ledge beside it)
+    const h0 = heightAt(this.home.x, this.home.y);
+    let p = { x: this.home.x, y: this.home.y };
+    for (let i = 0; i < 6; i++) {
+      const q = { x: this.home.x + rand(-120, 120), y: this.home.y + rand(-120, 120) };
+      resolve(q, this.radius);
+      if (Math.abs(heightAt(q.x, q.y) - h0) < STEP_UP) {
+        p = q;
+        break;
+      }
+    }
     this.x = p.x;
     this.y = p.y;
     this.hp = this.variant.hp;
@@ -660,10 +670,7 @@ export class Monster {
     const L = this.look, pl = ctx.player;
     if (L.hop && this.blow === "bite" && this.t < 0.3 && toPlayer > 60) {
       const d = toPlayer || 1;
-      const p = { x: this.x + ((pl.x - this.x) / d) * 160 * dt, y: this.y + ((pl.y - this.y) / d) * 160 * dt };
-      resolve(p, this.radius);
-      this.x = p.x;
-      this.y = p.y;
+      this.moveBy(((pl.x - this.x) / d) * 160 * dt, ((pl.y - this.y) / d) * 160 * dt);
     }
     if (!this.bitten && this.t >= L.strike) {
       this.bitten = true;
@@ -688,14 +695,26 @@ export class Monster {
     }
   }
 
+  // Move by (dx, dy) in short steps, each pushed out of the solids, and never onto ground much
+  // higher or lower than where it stands (a cliff: up on a ledge or down off one; a ramp rises
+  // gently and is fine). Returns false when it was stopped short.
+  moveBy(dx: number, dy: number): boolean {
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 20));
+    for (let i = 0; i < n; i++) {
+      const p = { x: this.x + dx / n, y: this.y + dy / n };
+      resolve(p, this.radius);
+      if (Math.abs(heightAt(p.x, p.y) - heightAt(this.x, this.y)) > STEP_UP * Math.max(1, Math.hypot(p.x - this.x, p.y - this.y) / 20)) return false;
+      this.x = p.x;
+      this.y = p.y;
+    }
+    return true;
+  }
+
   // knockback slides and decays
   slide(dt: number): void {
     this.spawnFade = Math.max(0, this.spawnFade - dt);
     if (this.vx || this.vy) {
-      const p = { x: this.x + this.vx * dt, y: this.y + this.vy * dt };
-      resolve(p, this.radius);
-      this.x = p.x;
-      this.y = p.y;
+      if (!this.moveBy(this.vx * dt, this.vy * dt)) this.vx = this.vy = 0; // knocked against a cliff: it stops
       const decay = Math.exp(-dt * 9);
       this.vx *= decay;
       this.vy *= decay;
@@ -754,11 +773,16 @@ export class Monster {
         } else {
           v = this.speed * slowed * (this.rush > 0 ? 2.6 : this.fleeT > 0 ? 1.2 : this.angry > 0 ? 1.3 : 1);
         }
-        const p = { x: this.x + (dx / d) * v * dt, y: this.y + (dy / d) * v * dt };
-        resolve(p, this.radius);
-        this.walked += Math.hypot(p.x - this.x, p.y - this.y);
-        this.x = p.x;
-        this.y = p.y;
+        const was = { x: this.x, y: this.y };
+        if (!this.moveBy((dx / d) * v * dt, (dy / d) * v * dt)) {
+          // a cliff in the way: give up this walk (a chase picks a new line next frame)
+          this.rush = 0;
+          if (this.angry <= 0) {
+            this.state = "idle";
+            this.wait = rand(0.5, 1.5);
+          }
+        }
+        this.walked += Math.hypot(this.x - was.x, this.y - was.y);
         break;
       }
     }

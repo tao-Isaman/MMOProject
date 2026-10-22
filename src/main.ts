@@ -6,11 +6,11 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./parti
 import { Player, directionIndex } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, offhandWeapon } from "./items";
+import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon } from "./items";
 import type { OffhandArt } from "./items";
 import type { WeaponId } from "./items";
-import { Inventory } from "./inventory";
-import { InventoryUI, loadLook } from "./ui";
+import { Inventory, NO_GEAR } from "./inventory";
+import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
 import type { MonsterCtx, Person } from "./monsters";
@@ -20,13 +20,14 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, CLASSES } from "./progression";
+import { Progress, ACTIVES, BOOKS } from "./progression";
 import { Hero } from "./hero";
-import { Skills } from "./skills";
+import { Skills, groundTarget } from "./skills";
 import { monsterDamage } from "./stats";
 import type { ElementId, StatBag } from "./progression";
 
-import { Vitals, ClassPicker, StatusUI, SkillUI, skillTip } from "./charui";
+import { Vitals, ClassPicker, ProfileUI, SettingsUI, SkillUI, skillTip } from "./charui";
+import { startGear } from "./starter";
 import { icon } from "./icons";
 import { Bot } from "./bot";
 import { Title } from "./title";
@@ -318,7 +319,8 @@ async function boot(): Promise<void> {
   // ---- inventory, character, looks, icons ----
   const inv = new Inventory();
   const progress = new Progress();
-  const hero = new Hero(progress, () => inv.equipped.weapon, () => inv.equipped.offhand);
+  const GEAR_DROPS = Object.keys(ITEMS).filter((i) => ["hat", "shoes", "ring", "trinket"].includes(ITEMS[i].kind));
+  const hero = new Hero(progress, () => inv.equipped.weapon, () => inv.equipped.offhand, () => GEAR_SLOTS.map((g) => inv.equipped[g]));
   const look = loadLook(looks.hairstyles);
   // Rebuild the player's sheets when the look or the clothes change; a newer change wins
   // over one still loading.
@@ -375,7 +377,8 @@ async function boot(): Promise<void> {
       c = makeIcon(offhandArt[item.art!].img);
     } else if (item.kind === "potion") {
       c = potionIcon(item.icon.color ?? "#ff6a5a", (item.restore?.hp ?? item.restore?.mp ?? 0) > 0.3);
-    } else if (item.kind === "book") {
+    } else if (item.icon.glyph) {
+      // books, hairstyles, hats, shoes, rings, trinkets: a glyph on a gem
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
       c.getContext("2d")!.drawImage(icon(item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
@@ -412,7 +415,7 @@ async function boot(): Promise<void> {
       if (spec.sprite === "merchant") npc.sheet = images.merchant;
       else if (spec.look) {
         const { top, bottom, ...l } = spec.look;
-        sheets.push(looks.build(l, { weapon: null, offhand: null, top, bottom }, ["idle"]).then((b) => (npc.sheet = b.sheets.idle)).catch(console.error));
+        sheets.push(looks.build(l, { ...NO_GEAR, top, bottom }, ["idle"]).then((b) => (npc.sheet = b.sheets.idle)).catch(console.error));
       }
       return npc;
     });
@@ -431,7 +434,7 @@ async function boot(): Promise<void> {
     const p = PEOPLE[d.id];
     if (!p) return null;
     const { top, bottom, ...l } = p.look;
-    const built = await looks.build(l, { weapon: p.weapon, offhand: null, top, bottom }, ["idle", "walk", p.motion]);
+    const built = await looks.build(l, { ...NO_GEAR, weapon: p.weapon, top, bottom }, ["idle", "walk", p.motion]);
     return { sheets: built.sheets, hands: built.hands, builtin: built.builtin, weapon: weapons[p.weapon] ?? null, motion: p.motion };
   };
   const monLooks = new MonsterLooks(slimeSheets({
@@ -462,6 +465,17 @@ async function boot(): Promise<void> {
       // gold, loot and experience go straight in, with no words over the body
       inv.gold += gold;
       for (const id of rollDrops(m.variant, hero.stats.drop)) if (!inv.add(id, 1)) got++;
+      // a field monster now and then leaves a book the player can still learn, a hat, shoes, a
+      // ring or a trinket, or a hairstyle; a rare one more often, a boss always a book
+      if (m.entry) {
+        const k = m.entry.kind, more = 1 + hero.stats.drop;
+        const roll = (chance: number, pool: string[]) => {
+          if (pool.length && Math.random() < chance * more && !inv.add(pool[Math.floor(Math.random() * pool.length)], 1)) got++;
+        };
+        roll(k === "boss" ? 1 : k === "rare" ? 0.12 : 0.006, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b)));
+        roll(k === "boss" ? 0.6 : k === "rare" ? 0.25 : 0.012, GEAR_DROPS);
+        if (look.gender === "female") roll(k === "boss" ? 0.3 : k === "rare" ? 0.05 : 0.002, Object.keys(ITEMS).filter((i) => ITEMS[i].kind === "style" && !look.styles?.includes(ITEMS[i].style!)));
+      }
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
@@ -554,14 +568,28 @@ async function boot(): Promise<void> {
     const stack = inv.slots[i];
     if (!stack) return "";
     if (ITEMS[stack.id].kind === "potion") return drinkAt(i) ?? `ดื่ม${ITEMS[stack.id].name}แล้ว`;
-    const msg = progress.readBook(stack.id);
-    if (!msg) return "อ่านเล่มนี้ไปแล้ว";
+    if (ITEMS[stack.id].kind === "style") {
+      // a hairstyle: learned, and worn at once
+      const id = ITEMS[stack.id].style!, styles = (look.styles ??= ["bob"]);
+      if (styles.includes(id)) return "เรียนทรงผมนี้ไปแล้ว";
+      styles.push(id);
+      look.hair = id;
+      saveLook(look);
+      void applyLook();
+      stack.count -= 1;
+      if (stack.count <= 0) inv.slots[i] = null;
+      inv.changed();
+      statusUI.render();
+      return `เรียนทรงผม${HAIRSTYLES.find((h) => h.id === id)?.name ?? ""}แล้ว เปลี่ยนทรงได้ที่หน้าโปรไฟล์`;
+    }
+    const read = progress.readBook(stack.id);
+    if (!read.ok) return read.text;
     stack.count -= 1;
     if (stack.count <= 0) inv.slots[i] = null;
     inv.changed();
     statusUI.render();
     skillUI.render();
-    return `ปลดล็อค${msg}แล้ว`;
+    return read.text;
   }, (id) => {
     // clothes whose body has no animations yet, or that are for the other build
     const item = ITEMS[id];
@@ -574,21 +602,40 @@ async function boot(): Promise<void> {
 
   // ---- character windows ----
   const vitals = new Vitals(document.getElementById("vitals")!, progress, hero, entry?.name ?? "");
-  const picker = new ClassPicker((cls) => {
-    const first = !progress.cls;
-    const level = progress.level, xp = progress.xp, unlocked = progress.unlocked;
-    progress.reset(cls);
-    if (!first) Object.assign(progress, { level, xp, unlocked });
-    progress.changed();
+  // (a character from before classes were picked at its making picks one now, keeping its level)
+  const picker = new ClassPicker((start) => {
+    const level = progress.level, xp = progress.xp;
+    progress.reset(start.cls);
+    Object.assign(progress, { level, xp });
+    progress.start(start.tree, start.element, start.mastery);
     hero.refill();
-    // a new character starts with the class's weapon in hand
-    if (first && inv.equipped.weapon !== CLASSES[cls].weapon) {
-      if (!inv.has(CLASSES[cls].weapon)) inv.add(CLASSES[cls].weapon, 1, { silent: true });
-      const i = inv.slots.findIndex((s) => s?.id === CLASSES[cls].weapon);
+    const { weapon } = startGear(start);
+    if (inv.equipped.weapon !== weapon) {
+      if (!inv.has(weapon)) inv.add(weapon, 1, { silent: true });
+      const i = inv.slots.findIndex((s) => s?.id === weapon);
       if (i >= 0) inv.equip(i);
     }
   });
-  const statusUI = new StatusUI(progress, hero, () => picker.show(), () => location.reload());
+  const statusUI = new ProfileUI(progress, hero, {
+    name: entry?.name ?? "", inv, look, icon: iconFor,
+    onLook: () => {
+      saveLook(look);
+      void applyLook();
+    },
+  });
+  // settings: back to the character list (the title screen comes up on a fresh load), or out
+  const settingsUI = new SettingsUI(() => {
+    savePlace();
+    location.reload();
+  }, () => {
+    savePlace();
+    const bye = document.createElement("div");
+    bye.className = "goodbye";
+    bye.innerHTML = `<div class="goodbye-box"><h2>ออกจากเกมแล้ว</h2><p>เซฟเรียบร้อย ปิดแท็บนี้ได้เลย</p><button type="button" class="title-btn primary">กลับเข้าเกม</button></div>`;
+    bye.querySelector("button")!.addEventListener("click", () => location.reload());
+    document.body.append(bye);
+    travelling = true; // the game stops underneath
+  });
   const skillUI = new SkillUI(progress, hero, {
     weapon: () => inv.equipped.weapon,
     weaponImg: (t) => weapons[t]?.img,
@@ -735,11 +782,8 @@ async function boot(): Promise<void> {
     return best;
   }
 
-  function useSlot(i: number): void {
-    const id = progress.hotbar[i];
-    // aim: the mouse, else the target, else (touch) the nearest monster in sight
-    const aim = aimPoint() ?? (player.target?.alive ? player.target : null) ?? nearestMonster(900);
-    const why = id ? skills.use(id, aim) : "ช่องว่าง";
+  // A skill went off (why: null) or didn't, on the bar's slot i.
+  function report(i: number, id: string | null, why: string | null): void {
     if (why) {
       hud.pulse(i, "denied");
       if (id && performance.now() - denyText > 600) {
@@ -751,14 +795,63 @@ async function boot(): Promise<void> {
     hud.pulse(i, "flash");
   }
 
-  // Space: attack toward the mouse pointer; without one (touch), the nearest slime in reach.
+  // An area skill placed on the ground is aimed first: a disc under the mouse (no farther than
+  // the skill reaches); a click or its key again casts it there, a right click or Escape lets
+  // it go. Single-target skills lock on to the target (src/skills.ts).
+  let aiming: { slot: number; id: string } | null = null;
+  function aimSpot(id: string): { x: number; y: number } | null {
+    const at = aimPoint();
+    if (!at) return null;
+    const range = ACTIVES[id].skill.range ?? 500, dx = at.x - player.x, dy = at.y - player.y, d = Math.hypot(dx, dy);
+    return d <= range ? at : { x: player.x + (dx / d) * range, y: player.y + (dy / d) * range };
+  }
+  function stopAiming(): void {
+    aiming = null;
+    w3d.setAim(null);
+  }
+  function castAim(): void {
+    if (!aiming) return;
+    const { slot, id } = aiming;
+    const spot = aimSpot(id);
+    stopAiming();
+    report(slot, id, spot ? skills.use(id, spot) : "เล็งไม่ได้");
+  }
+
+  function useSlot(i: number): void {
+    const id = progress.hotbar[i];
+    const a = id ? ACTIVES[id] : null;
+    if (a && groundTarget(a.skill) && pointer && !isTouch()) {
+      if (aiming?.id === id) return castAim();
+      const no = skills.why(id!);
+      if (no) return report(i, id, no);
+      aiming = { slot: i, id: id! };
+      return;
+    }
+    stopAiming();
+    // aim: the mouse, else the target, else (touch) the nearest monster in sight
+    const aim = aimPoint() ?? (player.target?.alive ? player.target : null) ?? nearestMonster(900);
+    report(i, id, id ? skills.use(id, aim) : "ช่องว่าง");
+  }
+
+  // Space: lock on to the monster by the mouse pointer and keep attacking it (none there: a
+  // swing that way); without a pointer (touch), the nearest one in reach.
   function quickAttack() {
     if (!hero.alive) return;
     const w = weaponStats(inv.equipped.weapon, hero.stats);
     if (pointer && view) {
-      const p = toMap(pointer);
+      const p = toMap(pointer), at = groundAt(p.x, p.y);
+      let near: Monster | null = null, best = 260;
+      for (const m of monsters) {
+        const d = m.alive ? Math.hypot(m.x - at.x, m.y - at.y) - m.radius : Infinity;
+        if (d < best) [near, best] = [m, d];
+      }
+      if (near) {
+        player.target = near;
+        walkTo = null;
+        return;
+      }
       player.target = null;
-      player.startAttack(w, groundAt(p.x, p.y));
+      player.startAttack(w, at);
       return;
     }
     player.target = null;
@@ -805,6 +898,7 @@ async function boot(): Promise<void> {
     }
     if (e.code === "KeyI" && !e.repeat) invUI.toggle();
     if (e.code === "KeyP" && !e.repeat) statusUI.toggle();
+    if (e.code === "KeyO" && !e.repeat) settingsUI.toggle();
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
     if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
@@ -816,8 +910,10 @@ async function boot(): Promise<void> {
       }
     }
     if (e.code === "Escape") {
+      stopAiming();
       invUI.toggle(false);
       statusUI.toggle(false);
+      settingsUI.toggle(false);
       skillUI.toggle(false);
       botUI.toggle(false);
       shopUI.toggle(false);
@@ -826,7 +922,7 @@ async function boot(): Promise<void> {
     if (e.code === "Backquote") showDebug = !showDebug;
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
-    ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()],
+    ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()], ["btn-settings", () => settingsUI.toggle()],
     ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()]];
   for (const [id, fn] of buttons) {
     document.getElementById(id)?.addEventListener("click", (e) => {
@@ -878,6 +974,12 @@ async function boot(): Promise<void> {
   // holding the button down keeps walking toward the pointer, like Ragnarok
   let holdWalk = false, holdClock = 0;
   canvas.addEventListener("pointerdown", (e) => {
+    if (aiming && e.pointerType !== "touch") {
+      // aiming an area skill: a click casts it, a right click lets it go
+      if (e.button === 0) castAim();
+      else if (e.button === 2) stopAiming();
+      return;
+    }
     if (e.pointerType !== "touch" && e.button === 0) holdWalk = tapAt(e, !e.shiftKey);
   });
   window.addEventListener("pointerup", (e) => {
@@ -1198,6 +1300,11 @@ async function boot(): Promise<void> {
     // the bot's hunting area and the ring under the slime being attacked lie on the ground
     w3d.setArea((bot.on || botUI.open) && !bot.settings.wholeMap ? (bot.on ? bot.anchor : player) : null, bot.settings.radius);
     // (or, walking to a spot picked on the map, under that spot)
+    // the disc of an area skill being aimed
+    if (aiming) {
+      const sk = ACTIVES[aiming.id].skill, spot = aimSpot(aiming.id);
+      w3d.setAim(spot, sk.radius ?? 150, sk.color ?? "#ffd27a");
+    }
     w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target
       : walkTo && !walkTo.npc ? walkTo.path[walkTo.path.length - 1] ?? null : null);
     const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon as WeaponId] : null;

@@ -58,6 +58,17 @@ const at = (f: ((r: number) => number) | undefined, rank: number) => f?.(rank) ?
 
 const LEAD = 0.22; // s from the start of the animation to the hit
 
+// One target, locked on (a shot that homes in, a blow at the one in front); the other damage
+// skills reach an area (aimed at a spot on the ground, along a line or round the player).
+export function singleTarget(s: SkillDef): boolean {
+  return (s.type === "bolt" && !s.pierce) || (s.type === "cone" && (s.arc ?? 90) <= 50);
+}
+// Skills placed on a spot of the ground (aimed with a disc before they go, src/main.ts); the
+// rest of the area skills go round the player or along the line it faces.
+export function groundTarget(s: SkillDef): boolean {
+  return s.type === "blast";
+}
+
 export class Skills {
   progress: Progress;
   hero: Hero;
@@ -88,18 +99,51 @@ export class Skills {
     return this.progress.elements;
   }
 
-  // Try a skill toward a world point. Returns null when it goes off, or why not.
-  use(id: string, aim: Vec2 | null): string | null {
+  // Why a skill can't go off now, or null.
+  why(id: string): string | null {
     const a = ACTIVES[id];
     if (!a) return "ช่องว่าง";
-    const rank = this.progress.skillRank(id);
-    if (!rank) return "ยังไม่ได้เรียนสกิลนี้";
+    if (!this.progress.skillRank(id)) return "ยังไม่ได้เรียนสกิลนี้";
     if (!this.hero.alive) return "ล้มอยู่";
     const weapons = a.source.weapons;
     if (weapons && !weapons.includes(this.weapon() as WeaponId)) return `ต้องถือ${MASTERIES[a.source.mastery!].name}`;
     if (this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
-    const s = a.skill;
+    if (this.hero.mp < a.skill.mp) return "MP ไม่พอ";
+    return null;
+  }
+
+  // The monster a single-target skill locks on to: the player's target, else the one nearest
+  // the aimed spot, else the nearest in front, within its reach.
+  lockFor(s: SkillDef, aim: Vec2 | null, dir: Vec2): Monster | null {
+    const p = this.player, reach = s.type === "bolt" ? s.range ?? 500 : (s.reach ?? 150) + 40;
+    const t = p.target as Monster | null;
+    if (t?.alive && this.monsters.includes(t) && Math.hypot(t.x - p.x, t.y - p.y) - t.radius <= reach) return t;
+    if (aim) {
+      let best: Monster | null = null, bd = 240;
+      for (const m of this.monsters) {
+        if (!m.alive || Math.hypot(m.x - p.x, m.y - p.y) - m.radius > reach) continue;
+        const d = Math.hypot(m.x - aim.x, m.y - aim.y) - m.radius;
+        if (d < bd) [best, bd] = [m, d];
+      }
+      if (best) return best;
+    }
+    return this.combat.lockOn({ x: p.x, y: p.y, target: null }, dir, reach);
+  }
+
+  // Try a skill toward a world point. Returns null when it goes off, or why not.
+  use(id: string, aim: Vec2 | null): string | null {
+    const no = this.why(id);
+    if (no) return no;
+    const a = ACTIVES[id], rank = this.progress.skillRank(id), s = a.skill;
+    // a single-target skill needs one in reach (before any MP goes)
+    let dir0 = this.player.facing();
+    if (aim) {
+      const dx = aim.x - this.player.x, dy = aim.y - this.player.y, d = Math.hypot(dx, dy);
+      if (d > 1) dir0 = { x: dx / d, y: dy / d };
+    }
+    const lock = singleTarget(s) ? this.lockFor(s, aim, dir0) : null;
+    if (singleTarget(s) && !lock) return "ไม่มีเป้าหมายในระยะ";
     if (!this.hero.spend(s.mp)) return "MP ไม่พอ";
     this.hero.cooldowns.set(id, s.cd * (1 - this.hero.stats.cdr));
     this.hero.cdTotal.set(id, s.cd * (1 - this.hero.stats.cdr));
@@ -109,15 +153,16 @@ export class Skills {
     }
 
     const p = this.player;
-    let dir = p.facing();
-    if (aim) {
-      const dx = aim.x - p.x, dy = aim.y - p.y, d = Math.hypot(dx, dy);
-      if (d > 1) dir = { x: dx / d, y: dy / d };
+    let dir = dir0;
+    if (lock) {
+      const dx = lock.x - p.x, dy = lock.y - p.y, d = Math.hypot(dx, dy) || 1;
+      dir = { x: dx / d, y: dy / d };
     }
-    p.target = null;
+    // a locked skill keeps its target for the attacks after it
+    p.target = lock;
     if (s.cast) p.startCast(s.cast, s.type === "flower" ? HOVER_END : s.cast);
     else p.startMotion(s.motion, dir, this.weaponStats());
-    this.effect(id, s, rank, dir, aim);
+    this.effect(id, s, rank, dir, aim, lock);
     this.afterCast();
     return null;
   }
@@ -224,7 +269,7 @@ export class Skills {
     return raw * (1 + 0.02 * (this.el.water ?? 0)) * (1 + this.hero.stats.healPct);
   }
 
-  effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null): void {
+  effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null, lock: Monster | null = null): void {
     const p = this.player, origin = { x: p.x, y: p.y };
     const hitAll = (list: Monster[], knock: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
     switch (s.type) {
@@ -233,7 +278,7 @@ export class Skills {
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
             kind: s.arrow ? "arrow" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
-            onHit: (m, d) => this.hit(m, s, rank, d, s.knock ?? 20),
+            target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock ?? 20),
           }));
         }
         break;
@@ -292,7 +337,10 @@ export class Skills {
       case "cone":
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * 0.16, () => {
-            hitAll(shapeTargets(origin, dir, { hit: "arc", reach: s.reach ?? 150, arc: s.arc }, this.monsters), s.knock ?? 30);
+            // a narrow blow lands on its locked target only (if it is still in reach)
+            if (lock) {
+              if (lock.alive && Math.hypot(lock.x - p.x, lock.y - p.y) - lock.radius <= (s.reach ?? 150) + 40) hitAll([lock], s.knock ?? 30);
+            } else hitAll(shapeTargets(origin, dir, { hit: "arc", reach: s.reach ?? 150, arc: s.arc }, this.monsters), s.knock ?? 30);
             this.fan(origin, dir, s.reach ?? 150, s.arc ?? 90, s.color);
             if (i > 0) p.startMotion(s.motion, dir, this.weaponStats(), 0.25);
           });

@@ -9,6 +9,7 @@
 // stats.js turns this into numbers, skills.js runs the actives.
 
 import { saveKey } from "./save";
+import { ITEMS } from "./items";
 import type { WeaponId } from "./items";
 
 export const MAX_LEVEL = 200;
@@ -203,8 +204,8 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
 };
 
-// The skill a new character of each class finds in the first slot of the skill bar.
-const FIRST_SKILL: Record<ClassId, string> = { mage: "magic_bolt", warrior: "bash", archer: "double_strafe", priest: "holy_heal" };
+// The four elements a new character picks one of (the rest are found in the game).
+export const FIRST_ELEMENTS = ["earth", "water", "wind", "fire"];
 
 // ---- skill trees ----
 // node: { id, name, kind: active|passive, max, pos (where it sits in the tree drawing),
@@ -952,12 +953,30 @@ for (const [id, element] of Object.entries(SKILL_ELEMENTS)) {
   skill.element = element;
 }
 
-// Books are items (items.js) that open a tree, mastery or element when read.
-export const BOOKS: Record<string, { kind: "tree" | "mastery" | "element"; id: string }> = {
-  book_survivor: { kind: "tree", id: "survivor" },
-  book_gathering: { kind: "mastery", id: "gathering" },
-  book_lightning: { kind: "element", id: "lightning" },
-};
+// Books are items (items.ts) that teach a tree, mastery or element when read: a new character
+// knows one of each (picked when it was made, see Progress.start); the rest are books found in
+// the game. Every tree, mastery and element has one: its own `book` id if it names one, else
+// book_<kind>_<id>, added to ITEMS here.
+export type BookKind = "tree" | "mastery" | "element";
+export const BOOKS: Record<string, { kind: BookKind; id: string }> = {};
+const BOOK_WORD: Record<BookKind, string> = { tree: "ตำราสกิล", mastery: "ตำราความเชี่ยวชาญ", element: "ตำราธาตุ" };
+function addBook(kind: BookKind, id: string, own: string | undefined, name: string, glyph: string, color: string, cls: ClassId | null): void {
+  const bookId = own ?? `book_${kind}_${id}`;
+  BOOKS[bookId] = { kind, id };
+  const who = cls ? `เฉพาะ${CLASSES[cls].name}` : "ใช้ได้ทุกอาชีพ";
+  ITEMS[bookId] = {
+    kind: "book", name: `${BOOK_WORD[kind]}: ${name}`, stack: 5, price: kind === "tree" ? 2400 : 3000, icon: { glyph, color },
+    note: `อ่านเพื่อเรียน${BOOK_WORD[kind]}${name} (${who})`,
+  };
+}
+for (const [id, t] of Object.entries(TREES)) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
+for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.name, m.glyph, "#e8c98a", null);
+for (const [id, e] of Object.entries(ELEMENTS)) addBook("element", id, e.book, e.name, e.glyph, e.color, null);
+
+// The first active skill of a tree (one that needs nothing before it).
+export function firstActive(treeId: string): string | null {
+  return TREES[treeId].nodes.find((n) => n.kind === "active" && !n.req?.length)?.id ?? null;
+}
 
 // Every active skill by id: { name, glyph, color, skill, rankOf(progress) }.
 export const ACTIVES: Record<string, Active> = {};
@@ -985,10 +1004,14 @@ interface SaveData {
   unlocked?: { trees?: string[]; masteries?: string[]; elements?: string[] };
   hotbar?: (string | null)[];
   treesV?: number;
+  learnV?: number;
 }
 
 // Bumped when the trees are redrawn: older saves get their tree points back once.
 const TREES_VERSION = 2;
+// Saves from before characters learned their trees, masteries and elements one at a time knew
+// their class's three trees, every weapon mastery and every element without a book.
+const LEARN_VERSION = 1;
 
 export class Progress {
   listeners = new Set<(p: Progress) => void>();
@@ -998,7 +1021,7 @@ export class Progress {
   ranks: Record<string, number> = {};    // tree node id -> rank
   mastery: Record<string, number> = {};  // mastery id -> level
   elements: Record<string, number> = {}; // element id -> level
-  unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // from books
+  unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // learned: picked at the start, or from books
   hotbar: (string | null)[] = new Array(10).fill(null);
 
   constructor() {
@@ -1015,7 +1038,15 @@ export class Progress {
     this.elements = {};
     this.unlocked = { trees: [], masteries: [], elements: [] };
     this.hotbar = new Array(10).fill(null);
-    if (cls) this.hotbar[0] = FIRST_SKILL[cls];
+    this.changed();
+  }
+
+  // What a new character knows: one of its class's trees, one element and one weapon mastery;
+  // the tree's first skill waits in the first slot of the skill bar.
+  start(tree: string, element: string, mastery: string): void {
+    this.unlocked = { trees: [tree], masteries: [mastery], elements: [element] };
+    this.hotbar = new Array(10).fill(null);
+    this.hotbar[0] = firstActive(tree);
     this.changed();
   }
 
@@ -1068,17 +1099,17 @@ export class Progress {
     return gained;
   }
 
+  // What it has learned (the windows show nothing else).
   trees(): string[] {
-    const own = this.cls ? CLASSES[this.cls].trees : [];
-    return [...own, ...this.unlocked.trees.filter((t) => !own.includes(t))];
+    return this.unlocked.trees;
   }
 
   masteries(): string[] {
-    return Object.keys(MASTERIES).filter((m) => MASTERIES[m].kind === "weapon" || this.unlocked.masteries.includes(m));
+    return this.unlocked.masteries;
   }
 
   elementsOpen(): string[] {
-    return Object.keys(ELEMENTS).filter((e) => !ELEMENTS[e].book || this.unlocked.elements.includes(e));
+    return this.unlocked.elements;
   }
 
   pointsIn(treeId: string): number {
@@ -1087,7 +1118,7 @@ export class Progress {
 
   // Why a node can't take a point, or null when it can.
   blockNode(treeId: string, node: TreeNode): string | null {
-    if (!this.trees().includes(treeId)) return "ยังไม่ได้ปลดล็อคต้นสกิลนี้";
+    if (!this.trees().includes(treeId)) return "ยังไม่ได้เรียนตำราสกิลนี้";
     if ((this.ranks[node.id] ?? 0) >= node.max) return "เต็มแล้ว";
     const miss = this.missing(node);
     if (miss.length) return `ต้องอัพ ${miss.map(([id, n]) => `${NODES[id].node.name} ถึงระดับ ${n}`).join(" และ ")} ก่อน`;
@@ -1127,16 +1158,26 @@ export class Progress {
     return true;
   }
 
-  // Read a book item: returns a message, or null if it was already known.
-  readBook(bookId: string): string | null {
+  // Whether a book teaches something new it can learn (another class's tree it can't).
+  canRead(bookId: string): boolean {
     const b = BOOKS[bookId];
-    if (!b) return null;
+    if (!b) return false;
+    if (b.kind === "tree" && TREES[b.id].cls && TREES[b.id].cls !== this.cls) return false;
+    return !{ tree: this.unlocked.trees, mastery: this.unlocked.masteries, element: this.unlocked.elements }[b.kind].includes(b.id);
+  }
+
+  // Read a book item: returns what it taught, or why it taught nothing (ok: false).
+  readBook(bookId: string): { ok: boolean; text: string } {
+    const b = BOOKS[bookId];
+    if (!b) return { ok: false, text: "อ่านไม่ได้" };
+    const tree = b.kind === "tree" ? TREES[b.id] : null;
+    if (tree?.cls && tree.cls !== this.cls) return { ok: false, text: `ตำรานี้สำหรับ${CLASSES[tree.cls].name}เท่านั้น` };
     const list = { tree: this.unlocked.trees, mastery: this.unlocked.masteries, element: this.unlocked.elements }[b.kind];
-    if (list.includes(b.id)) return null;
+    if (list.includes(b.id)) return { ok: false, text: "เรียนตำรานี้ไปแล้ว" };
     list.push(b.id);
     this.changed();
-    const name = b.kind === "tree" ? TREES[b.id].name : b.kind === "mastery" ? MASTERIES[b.id].name : ELEMENTS[b.id].name;
-    return { tree: "ต้นสกิล", mastery: "ความเชี่ยวชาญ", element: "ธาตุ" }[b.kind] + name;
+    const name = tree ? tree.name : b.kind === "mastery" ? MASTERIES[b.id].name : ELEMENTS[b.id].name;
+    return { ok: true, text: `เรียน${BOOK_WORD[b.kind]}${name}แล้ว` };
   }
 
   autoSlot(skillId: string): void {
@@ -1164,7 +1205,7 @@ export class Progress {
     try {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
-        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, treesV: TREES_VERSION,
+        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
       // not persisted
@@ -1193,6 +1234,13 @@ export class Progress {
       masteries: (d.unlocked?.masteries ?? []).filter((m) => MASTERIES[m]),
       elements: (d.unlocked?.elements ?? []).filter((e) => ELEMENTS[e]),
     };
+    // an older character keeps everything it could use before
+    if (d.learnV !== LEARN_VERSION) {
+      const add = (list: string[], more: string[]) => list.push(...more.filter((x) => !list.includes(x)));
+      add(this.unlocked.trees, this.cls ? CLASSES[this.cls].trees : []);
+      add(this.unlocked.masteries, Object.keys(MASTERIES).filter((m) => MASTERIES[m].kind === "weapon"));
+      add(this.unlocked.elements, Object.keys(ELEMENTS).filter((e) => !ELEMENTS[e].book));
+    }
     this.hotbar = Array.from({ length: 10 }, (_, i) => {
       const id = saved.hotbar?.[i];
       return id && ACTIVES[id] ? id : null;

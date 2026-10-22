@@ -154,6 +154,7 @@ export interface ShotSpec {
   radius: number;
   pierce?: boolean;
   color?: string;
+  target?: Monster | null; // locked on: it homes in on this one and hits nothing else
   onHit: (m: Monster, dir: Vec2) => void;
 }
 
@@ -171,6 +172,7 @@ interface Projectile {
   onHit: ShotSpec["onHit"];
   hitSet: Set<Monster>;
   age: number;
+  target: Monster | null;
 }
 
 interface CombatDeps {
@@ -192,7 +194,7 @@ export class Combat {
   onKill: (m: Monster) => void;
   onReflect?: (m: Monster, dmg: number) => void;
   projectiles: Projectile[] = [];
-  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType }[] = []; // delayed second hits (weapons with hits > 1)
+  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
   offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2 }[] = []; // off-hand follow-ups
   burnClock = 0;
 
@@ -207,9 +209,26 @@ export class Combat {
     this.onReflect = onReflect;
   }
 
-  // The player's weapon lands: resolve a melee hit or launch a projectile.
-  // A normal attack with the main-hand weapon; a weapon in the off hand follows up on every
-  // monster the main hand hit for OFFHAND_DAMAGE of its own damage.
+  // The monster an attack locks on to: the player's target while it lives, else the one nearest
+  // in front within `reach` (cm edge to edge).
+  lockOn(player: { x: number; y: number; target: Target | null }, dir: Vec2, reach: number): Monster | null {
+    const t = player.target as Monster | null;
+    if (t?.alive && this.monsters.includes(t)) return t;
+    let best: Monster | null = null, score = Infinity;
+    for (const m of this.monsters) {
+      if (!m.alive) continue;
+      const dx = m.x - player.x, dy = m.y - player.y, d = Math.hypot(dx, dy) || 1;
+      const edge = d - m.radius, ahead = (dx * dir.x + dy * dir.y) / d;
+      if (edge > reach || ahead < 0.25) continue;
+      const sc = edge * (2 - ahead);
+      if (sc < score) [best, score] = [m, sc];
+    }
+    return best;
+  }
+
+  // The player's weapon lands: one monster, locked on (src/combat.ts lockOn). A bow or a staff
+  // shoots a shot that homes in on it; a melee weapon hits it if it is within reach. A weapon
+  // in the off hand follows up for OFFHAND_DAMAGE of its own damage.
   strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, weaponId: string | null, offhand: WeaponId | null = null): void {
     const w = weaponStats(weaponId, this.hero.stats);
     const off = offhand ? weaponStats(offhand, this.hero.stats) : null;
@@ -220,32 +239,36 @@ export class Combat {
     const origin = { x: player.x, y: player.y };
     if (w.projectile) {
       const p = w.projectile;
-      // aim at the target if there is one, else where the attack was aimed
+      const target = this.lockOn(player, dir, p.range);
       let aim = dir;
-      if (player.target && player.target.alive) {
-        const dx = player.target.x - origin.x, dy = player.target.y - origin.y, d = Math.hypot(dx, dy) || 1;
+      if (target) {
+        const dx = target.x - origin.x, dy = target.y - origin.y, d = Math.hypot(dx, dy) || 1;
         aim = { x: dx / d, y: dy / d };
       }
       const onHit = (m: Monster, d: Vec2) => {
         this.damage(m, w, d);
         follow(m, d);
       };
-      this.shoot(origin, aim, { ...p, onHit });
-      // a second arrow beside the first, now and then (the archer's double shot)
+      this.shoot(origin, aim, { ...p, onHit, target });
+      // a second arrow after the first, now and then (the archer's double shot)
       if (p.kind === "arrow" && Math.random() < this.hero.stats.multiShot) {
         const a = Math.atan2(aim.y, aim.x) + 0.07;
-        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit });
+        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit, target });
       }
       return;
     }
-    const hits = shapeTargets(origin, dir, w, this.monsters);
-    const targets = w.pierce || w.hit !== "line" ? hits : hits.slice(0, 1);
-    for (const m of targets) {
-      this.damage(m, w, dir);
-      follow(m, dir);
+    const target = this.lockOn(player, dir, w.reach + 40);
+    const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
+    const at = near ? (() => {
+      const dx = target.x - origin.x, dy = target.y - origin.y, d = Math.hypot(dx, dy) || 1;
+      return { x: dx / d, y: dy / d };
+    })() : dir;
+    if (near) {
+      this.damage(target, w, at);
+      follow(target, at);
     }
-    this.slashFx(origin, dir, w);
-    if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir, w });
+    this.slashFx(origin, at, w);
+    if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir: at, w, m: near ? target : null });
   }
 
   // Launch a projectile from `origin` along unit `aim`: { kind, speed, range, radius, pierce,
@@ -254,7 +277,7 @@ export class Combat {
     this.projectiles.push({
       x: origin.x + aim.x * 40, y: origin.y + aim.y * 40, z: 60,
       vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
-      color: p.color, pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0,
+      color: p.color, pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
     });
   }
 
@@ -325,11 +348,18 @@ export class Combat {
       p.t -= dt;
       if (p.t > 0) continue;
       this.pending.splice(i, 1);
-      for (const m of shapeTargets(p.origin, p.dir, p.w, this.monsters).slice(0, 1)) this.damage(m, p.w, p.dir);
+      if (p.m?.alive) this.damage(p.m, p.w, p.dir);
       this.slashFx(p.origin, p.dir, p.w);
     }
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
+      // locked on: it turns to its target wherever that goes (and flies on if it fell)
+      if (p.target?.alive) {
+        const dx = p.target.x - p.x, dy = p.target.y - p.y, d = Math.hypot(dx, dy) || 1, v = Math.hypot(p.vx, p.vy);
+        p.vx = (dx / d) * v;
+        p.vy = (dy / d) * v;
+        p.left = Math.max(p.left, d + 60);
+      }
       const step = Math.hypot(p.vx, p.vy) * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
@@ -341,7 +371,7 @@ export class Combat {
       }
       let gone = p.left <= 0;
       for (const m of this.monsters) {
-        if (gone || !m.alive || p.hitSet.has(m)) continue;
+        if (gone || !m.alive || p.hitSet.has(m) || (p.target && m !== p.target)) continue;
         if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius * 0.5) {
           const d = Math.hypot(p.vx, p.vy) || 1;
           p.onHit(m, { x: p.vx / d, y: p.vy / d });

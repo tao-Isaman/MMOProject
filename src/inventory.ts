@@ -1,5 +1,6 @@
-// Inventory: a grid of slots plus what is worn (main hand, off hand, top, bottom) and gold,
-// saved in the browser. A two-handed weapon in the main hand keeps the off hand empty.
+// Inventory: a grid of slots plus what is worn (main hand, off hand, hat, top, bottom, shoes,
+// two rings, two trinkets) and gold, saved in the browser. A two-handed weapon in the main hand
+// keeps the off hand empty.
 
 import { ITEMS, itemSlot, stackLimit, sortKey, fitsSlot, isTwoHanded } from "./items";
 import { saveKey } from "./save";
@@ -10,6 +11,8 @@ export interface Stack {
   count: number;
 }
 export type Equipped = Record<EquipSlot, string | null>;
+// Nothing worn.
+export const NO_GEAR: Equipped = { weapon: null, offhand: null, top: null, bottom: null, hat: null, shoes: null, ring1: null, ring2: null, trinket1: null, trinket2: null };
 
 export const COLS = 8;
 export const ROWS = 5;
@@ -42,12 +45,12 @@ const COSTUME_TO_CLOTHES: Record<string, [string, string]> = {
 // and a few potions; other weapons and clothes come from the shop and from monsters. Nothing
 // on top or bottom is the plain brown T-shirt and trousers (items.ts DEFAULT_SHAPE).
 export const STARTER: { equipped: Equipped } = {
-  equipped: { weapon: "staff", offhand: null, top: null, bottom: null },
+  equipped: { ...NO_GEAR, weapon: "staff" },
 };
 
 export class Inventory {
   slots: (Stack | null)[] = new Array(COLS * ROWS).fill(null);
-  equipped: Equipped = { weapon: null, offhand: null, top: null, bottom: null };
+  equipped: Equipped = { ...NO_GEAR };
   gold = 0;
   listeners = new Set<(inv: Inventory) => void>();
 
@@ -173,7 +176,12 @@ export class Inventory {
   equipTo(index: number, slot?: EquipSlot): string | null {
     const s = this.slots[index];
     if (!s) return "ช่องว่าง";
-    const to = slot ?? itemSlot(s.id);
+    let to = slot ?? itemSlot(s.id);
+    // a second ring or trinket goes in the other of its two slots while that one is free
+    if (!slot && (to === "ring1" || to === "trinket1") && this.equipped[to]) {
+      const other = to === "ring1" ? "ring2" : "trinket2";
+      if (!this.equipped[other]) to = other;
+    }
     if (!to || !fitsSlot(s.id, to)) return "ใส่ช่องนี้ไม่ได้";
     if (to === "offhand" && isTwoHanded(this.equipped.weapon)) return "ถืออาวุธสองมืออยู่ ถอดอาวุธก่อนจึงใส่มือรองได้";
     // a two-handed weapon needs the off hand free: what's there goes to the bag

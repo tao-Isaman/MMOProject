@@ -94,6 +94,31 @@ const star = (g: G, x: number, y: number, r: number, under: boolean) => {
 };
 
 const GLYPHS: Record<string, (g: G, under: boolean) => void> = {
+  // gear: a hat, a boot, a ring, a pendant; a comb for hairstyles
+  hat: (g, u) => {
+    poly(g, [[-30 - (u ? 3 : 0), 14], [30 + (u ? 3 : 0), 14], [22, 4], [-22, 4]]);
+    poly(g, [[-16, 6], [16, 6], [8, -24 - (u ? 3 : 0)], [-6, -26 - (u ? 3 : 0)]]);
+  },
+  shoes: (g, u) => {
+    const k = u ? 3 : 0;
+    poly(g, [[-14 - k, -26 - k], [6 + k, -26 - k], [6 + k, 4], [26 + k, 10], [26 + k, 22 + k], [-14 - k, 22 + k]]);
+  },
+  ring: (g, u) => {
+    g.beginPath();
+    g.arc(0, 6, 18, 0, Math.PI * 2);
+    g.stroke();
+    star(g, 0, -16, 10, u);
+  },
+  trinket: (g, u) => {
+    g.beginPath();
+    g.arc(0, -6, 22, Math.PI * 1.1, Math.PI * 1.9, true);
+    g.stroke();
+    star(g, 0, 14, 14, u);
+  },
+  style: (g) => {
+    line(g, [[-22, -10], [22, -10]]);
+    for (let x = -18; x <= 18; x += 9) line(g, [[x, -10], [x, 18]]);
+  },
   star: (g, u) => star(g, 0, 0, 26, u),
   bolt: (g, u) => {
     line(g, [[-24, 22], [10, -12]]);

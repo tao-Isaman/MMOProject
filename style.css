@@ -127,7 +127,7 @@ kbd {
 .window-close:hover { border-color: var(--gold); }
 
 .inv-body { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
-.inv-equip { display: flex; flex-direction: column; gap: 8px; }
+.inv-equip { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 8px; }
 .inv-equip-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .inv-equip-label { font-size: 12px; color: var(--muted); }
 .inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; }
@@ -250,6 +250,29 @@ kbd {
 .st-elements { display: grid; gap: 3px; margin-top: 8px; }
 .st-sub { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
 .st-actions { display: flex; gap: 6px; margin-top: 10px; }
+.st-body { width: 340px; }
+.st-gear { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+.st-gear-row { display: flex; gap: 6px; align-items: center; padding: 3px 5px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); min-width: 0; }
+.st-gear-row.empty { opacity: 0.55; }
+.st-gear-icon { width: 34px; height: 34px; flex: none; border-radius: 6px; background: rgba(0, 0, 0, 0.25); }
+.st-gear-icon canvas { width: 100%; height: 100%; display: block; }
+.st-gear-text { display: flex; flex-direction: column; min-width: 0; font-size: 11px; line-height: 1.25; }
+.st-gear-text small { color: var(--muted); }
+.st-gear-text b { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-gear-text span { color: var(--mint); }
+.st-looks { margin-bottom: 10px; }
+.st-looks .wr-swatches { margin-top: 6px; }
+.st-learned { display: grid; gap: 3px; margin-top: 10px; }
+.st-learn b { font-weight: 500; text-align: right; }
+.wr-choice.danger { color: #ffb4a6; }
+#settings { left: 50%; right: auto; top: 30%; transform: translateX(-50%); }
+.goodbye { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; background: rgba(8, 12, 6, 0.85); }
+.goodbye-box { padding: 24px 28px; border-radius: 16px; background: rgba(20, 28, 18, 0.96); border: 1px solid var(--rim); text-align: center; }
+.goodbye-box h2 { margin: 0 0 6px; color: var(--gold); }
+.goodbye-box p { margin: 0 0 14px; color: var(--muted); }
+.title-hnote { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--muted); }
+.picker-box { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; }
+.picker-box .title-btn { margin-top: 12px; }
 
 /* ---- skill window ---- */
 #skills { left: 50%; right: auto; top: 60px; transform: translateX(-50%); width: min(1060px, calc(100vw - 24px)); }
@@ -541,7 +564,7 @@ kbd {
   .inv-body, .wr-body { flex-direction: column; align-items: center; }
   .vitals { width: 180px; left: 8px; top: 8px; }
   #skills { top: 56px; }
-  .inv-equip { flex-direction: row; }
+  .inv-equip { grid-template-columns: repeat(5, auto); }
   .inv-grid { grid-template-columns: repeat(var(--cols), 38px); }
   .inv-cell { width: 38px; height: 38px; }
   .inv-icon { width: 32px; height: 32px; }
@@ -714,3 +737,10 @@ body.touch .mp-info {
   pointer-events: none; background: rgba(14, 20, 12, 0.82); font-size: 12px; color: var(--text);
 }
 body.touch .mp-info:empty { display: none; }
+
+/* asking before a skill point is spent */
+.sk-confirm { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; background: rgba(8, 12, 6, 0.55); }
+.sk-confirm-box { width: min(360px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 14px; background: rgba(20, 28, 18, 0.97); border: 1px solid var(--rim); text-align: center; }
+.sk-confirm-box strong { display: block; color: var(--gold); font-size: 16px; }
+.sk-confirm-box p { margin: 6px 0 12px; color: var(--muted); font-size: 13px; }
+.sk-confirm-row { display: flex; gap: 8px; justify-content: center; }

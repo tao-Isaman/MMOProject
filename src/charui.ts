@@ -1,14 +1,18 @@
-// Character UI: the HP/MP/EXP panel, the class picker, the status window (P) and the skill
-// window (K) with its three tabs: skill trees, masteries and elements.
+// Character UI: the HP/MP/EXP panel, the class picker, the profile window (P), the settings
+// window (O) and the skill window (K) with its three tabs: skill books, masteries and elements.
 
-import { el, makeWindow } from "./ui";
+import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
+import type { Look } from "./ui";
 import { icon } from "./icons";
 import {
   CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
 } from "./progression";
-import { WEAPON_TYPES } from "./items";
+import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
 import type { WeaponId } from "./items";
-import type { ClassId, Progress, SkillDef, StatBag, TreeNode } from "./progression";
+import type { Inventory } from "./inventory";
+import { starterForm, defaultStart } from "./starter";
+import type { Start } from "./starter";
+import type { Progress, SkillDef, StatBag, TreeNode } from "./progression";
 import type { Hero } from "./hero";
 import { skillPower } from "./stats";
 import type { Stats } from "./stats";
@@ -96,28 +100,25 @@ export class Vitals {
 }
 
 // ---- class picker ----
+// For a character made before classes were picked when it was created: its class, first skill
+// book, element and weapon (src/starter.ts).
 export class ClassPicker {
   root: HTMLElement;
 
-  // onPick(cls)
-  constructor(onPick: (cls: ClassId) => void) {
+  constructor(onPick: (s: Start) => void) {
     this.root = el("div", "picker hidden", document.body);
     const box = el("div", "picker-box", this.root);
-    el("h2", "", box).textContent = "เลือกคลาส";
-    el("p", "picker-note", box).textContent = "คลาสกำหนดค่าสเตตัสและต้นสกิลเริ่มต้น 3 ต้น เปลี่ยนได้ภายหลังที่หน้าต่างสถานะ (แต้มสกิลคืนทั้งหมด)";
-    const row = el("div", "picker-row", box);
-    for (const [id, c] of Object.entries(CLASSES) as [ClassId, (typeof CLASSES)[ClassId]][]) {
-      const b = el("button", "picker-card", row);
-      b.type = "button";
-      el("strong", "", b).textContent = c.name;
-      el("span", "", b).textContent = c.note;
-      const trees = el("span", "picker-trees", b);
-      trees.textContent = `ต้นสกิล: ${c.trees.map((t) => TREES[t].name).join(" · ")}`;
-      b.addEventListener("click", () => {
-        this.hide();
-        onPick(id);
-      });
-    }
+    el("h2", "", box).textContent = "เลือกอาชีพ";
+    el("p", "picker-note", box).textContent = "เลือกอาชีพ ตำราสกิลเริ่มต้น ธาตุ และอาวุธ ตำราอื่นหาได้ในเกม";
+    const start = defaultStart("mage");
+    starterForm(el("div", "title-start", box), start);
+    const ok = el("button", "title-btn primary", box);
+    ok.type = "button";
+    ok.textContent = "ยืนยัน";
+    ok.addEventListener("click", () => {
+      this.hide();
+      onPick(start);
+    });
   }
 
   show(): void {
@@ -129,44 +130,46 @@ export class ClassPicker {
   }
 }
 
-// ---- status window ----
-export class StatusUI {
+// ---- profile window ----
+// Who the character is: class, level, what it wears (with what each piece gives), its stats and
+// elemental attack and defence, what it has learned, and its hairstyle and hair colour.
+interface ProfileDeps {
+  name: string;
+  inv: Inventory;
+  look: Look;
+  icon: (id: string) => Img | null;
+  onLook: () => void; // the look changed: rebuild the sheets
+}
+
+export class ProfileUI {
   progress: Progress;
   hero: Hero;
+  d: ProfileDeps;
   win: HTMLElement;
   head: HTMLElement;
+  gear: HTMLElement;
+  looks: HTMLElement;
   table: HTMLElement;
   elements: HTMLElement;
+  learned: HTMLElement;
 
-  // onClassChange(): open the picker; onSwitch(): back to the title screen
-  constructor(progress: Progress, hero: Hero, onClassChange: () => void, onSwitch?: () => void) {
+  constructor(progress: Progress, hero: Hero, deps: ProfileDeps) {
     this.progress = progress;
     this.hero = hero;
-    this.win = makeWindow("status", "สถานะ", "P");
+    this.d = deps;
+    this.win = makeWindow("status", "โปรไฟล์", "P");
     const body = el("div", "st-body", this.win);
     this.head = el("div", "st-head", body);
+    el("div", "st-sub", body).textContent = "ของที่สวมใส่";
+    this.gear = el("div", "st-gear", body);
+    this.looks = el("div", "st-looks", body);
+    el("div", "st-sub", body).textContent = "ค่าสเตตัส";
     this.table = el("div", "st-table", body);
     this.elements = el("div", "st-elements", body);
-    const actions = el("div", "st-actions", body);
-    const refund = el("button", "wr-choice", actions);
-    refund.type = "button";
-    refund.textContent = "คืนแต้มสกิลทั้งหมด";
-    refund.addEventListener("click", () => {
-      progress.refund();
-      hero.recompute();
-    });
-    const change = el("button", "wr-choice", actions);
-    change.type = "button";
-    change.textContent = "เปลี่ยนคลาส";
-    change.addEventListener("click", onClassChange);
-    if (onSwitch) {
-      const sw = el("button", "wr-choice", actions);
-      sw.type = "button";
-      sw.textContent = "เปลี่ยนตัวละคร";
-      sw.title = "กลับไปหน้าเลือกตัวละคร (เซฟอัตโนมัติ)";
-      sw.addEventListener("click", onSwitch);
-    }
-    el("p", "wr-note", body).textContent = "ค่าสเตตัสมาจากคลาส เลเวล ธาตุ สกิลติดตัว ความเชี่ยวชาญของอาวุธที่ถือ และบัฟ";
+    this.learned = el("div", "st-learned", body);
+    el("p", "wr-note", body).textContent = "ค่าสเตตัสมาจากอาชีพ เลเวล ธาตุ สกิลติดตัว ความเชี่ยวชาญของอาวุธที่ถือ ของที่สวมใส่ และบัฟ";
+    deps.inv.onChange(() => this.render());
+    progress.onChange(() => this.render());
   }
 
   toggle(show = this.win.classList.contains("hidden")): void {
@@ -176,16 +179,38 @@ export class StatusUI {
 
   render(): void {
     if (this.win.classList.contains("hidden")) return;
-    const p = this.progress, s = this.hero.stats;
-    this.head.innerHTML = `<strong>${p.cls ? CLASSES[p.cls].name : "-"}</strong> · Lv ${p.level} / ${MAX_LEVEL}` +
-      `<br>EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed} · แต้มสกิล ${p.free} / ${p.points}`;
+    const p = this.progress, s = this.hero.stats, inv = this.d.inv;
+    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${p.cls ? CLASSES[p.cls].name : "-"} · Lv ${p.level} / ${MAX_LEVEL}` +
+      `<br>EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed} · แต้มสกิล ${p.free} / ${p.points} · ทอง ${inv.gold}`;
+    // what it wears, slot by slot
+    this.gear.replaceChildren(...EQUIP_SLOTS.map(({ slot, name }) => {
+      const id = inv.equipped[slot], item = id ? ITEMS[id] : null;
+      const row = el("div", `st-gear-row${item ? "" : " empty"}`);
+      const cell = el("span", "st-gear-icon", row);
+      const art = id ? this.d.icon(id) : null;
+      if (art) {
+        const c = el("canvas", "", cell);
+        c.width = art.width;
+        c.height = art.height;
+        c.getContext("2d")!.drawImage(art, 0, 0);
+      }
+      const txt = el("span", "st-gear-text", row);
+      el("small", "", txt).textContent = name;
+      el("b", "", txt).textContent = item?.name ?? (slot === "top" || slot === "bottom" ? "ชุดสีน้ำตาล" : "—");
+      const what = !item ? "" : item.kind === "weapon"
+        ? `ดาเมจ ${WEAPON_TYPES[item.weapon!].damage.join("–")} · ตีทุก ${WEAPON_TYPES[item.weapon!].interval} วิ`
+        : statText(item.stats);
+      if (what) el("span", "", txt).textContent = what;
+      return row;
+    }));
+    this.renderLooks();
     this.table.replaceChildren(...Object.entries(STAT_NAMES).map(([k, name]) => {
       const row = el("div", "st-row");
       el("span", "", row).textContent = name;
       el("b", "", row).textContent = fmt(k, s[k as keyof Stats]);
       return row;
     }));
-    // attack / defence in every element the character can level (and any other it has some of)
+    // attack / defence in every element the character knows (and any other it has some of)
     const open = new Set(p.elementsOpen());
     const shown = ELEMENT_IDS.filter((e) => open.has(e) || s[`${e}Atk`] || s[`${e}Def`]);
     const head = el("div", "st-sub");
@@ -200,6 +225,77 @@ export class StatusUI {
       return row;
     }));
     this.elements.replaceChildren(head, grid);
+    // what it has learned
+    const list = (title: string, names: string[]) => {
+      const r = el("div", "st-row st-learn");
+      el("span", "", r).textContent = title;
+      el("b", "", r).textContent = names.join(" · ") || "—";
+      return r;
+    };
+    const sub = el("div", "st-sub");
+    sub.textContent = "ที่เรียนแล้ว (ตำราอื่นหาได้จากมอนสเตอร์)";
+    this.learned.replaceChildren(sub,
+      list("ตำราสกิล", p.trees().map((t) => TREES[t].name)),
+      list("ความเชี่ยวชาญ", p.masteries().map((m) => MASTERIES[m].name)),
+      list("ธาตุ", p.elementsOpen().map((e) => ELEMENTS[e].name)));
+  }
+
+  // The hairstyles it has learned (a female character; a male one keeps his own hair) and the
+  // hair colours.
+  renderLooks(): void {
+    const look = this.d.look;
+    this.looks.replaceChildren();
+    el("div", "st-sub", this.looks).textContent = "รูปลักษณ์";
+    if (look.gender === "female") {
+      const row = el("div", "wr-choices", this.looks);
+      for (const h of HAIRSTYLES.filter((x) => look.styles?.includes(x.id))) {
+        const b = el("button", `wr-choice${look.hair === h.id ? " on" : ""}`, row);
+        b.type = "button";
+        b.textContent = h.name;
+        b.addEventListener("click", () => {
+          look.hair = h.id;
+          this.d.onLook();
+          this.renderLooks();
+        });
+      }
+    }
+    const sw = el("div", "wr-swatches", this.looks);
+    for (const c of HAIR_COLORS) {
+      const b = el("button", `wr-swatch${look.hairColor === c.id ? " on" : ""}`, sw);
+      b.type = "button";
+      b.title = `สีผม${c.name}`;
+      b.style.setProperty("--swatch", swatchColor(c, "hairColor"));
+      b.addEventListener("click", () => {
+        look.hairColor = c.id;
+        this.d.onLook();
+        this.renderLooks();
+      });
+    }
+  }
+}
+
+// ---- settings window ----
+// Back to the character list, or out of the game.
+export class SettingsUI {
+  win: HTMLElement;
+
+  constructor(onSwitch: () => void, onExit: () => void) {
+    this.win = makeWindow("settings", "ตั้งค่า", "O");
+    const body = el("div", "st-body", this.win);
+    const row = el("div", "st-actions", body);
+    const sw = el("button", "wr-choice", row);
+    sw.type = "button";
+    sw.textContent = "เลือกตัวละคร";
+    sw.addEventListener("click", onSwitch);
+    const out = el("button", "wr-choice danger", row);
+    out.type = "button";
+    out.textContent = "ออกจากเกม";
+    out.addEventListener("click", onExit);
+    el("p", "wr-note", body).textContent = "เกมเซฟให้อัตโนมัติ ทั้งเลเวล ของในกระเป๋า และตำแหน่งที่ยืน";
+  }
+
+  toggle(show = this.win.classList.contains("hidden")): void {
+    this.win.classList.toggle("hidden", !show);
   }
 }
 
@@ -298,7 +394,7 @@ export class SkillUI {
     const top = el("div", "sk-top", this.win);
     this.points = el("span", "sk-points", top);
     this.tabs = el("div", "sk-tabs", top);
-    for (const [id, name] of [["trees", "ต้นสกิล"], ["mastery", "ความเชี่ยวชาญ"], ["elements", "ธาตุ"]] as const) {
+    for (const [id, name] of [["trees", "ตำราสกิล"], ["mastery", "ความเชี่ยวชาญ"], ["elements", "ธาตุ"]] as const) {
       const b = el("button", "sk-tab", this.tabs);
       b.type = "button";
       b.dataset.tab = id;
@@ -377,8 +473,46 @@ export class SkillUI {
   }
 
   raise(treeId: string, id: string): void {
-    this.progress.raiseNode(treeId, id);
-    this.hero.recompute();
+    const n = NODES[id].node, rank = this.progress.ranks[id] ?? 0;
+    this.confirm(rank ? `อัพ${n.name}เป็นระดับ ${rank + 1}?` : `เรียนสกิล${n.name}?`, () => {
+      this.progress.raiseNode(treeId, id);
+      this.hero.recompute();
+    });
+  }
+
+  // Ask before a point is spent (points don't come back).
+  confirm(question: string, yes: () => void): void {
+    const back = el("div", "sk-confirm", document.body);
+    const box = el("div", "sk-confirm-box", back);
+    el("strong", "", box).textContent = question;
+    el("p", "", box).textContent = `ใช้ 1 แต้มสกิล (เหลือ ${this.progress.free - 1}) · ลงแล้วคืนไม่ได้`;
+    const row = el("div", "sk-confirm-row", box);
+    const close = () => {
+      back.remove();
+      window.removeEventListener("keydown", key, true);
+    };
+    const ok = el("button", "title-btn primary", row);
+    ok.type = "button";
+    ok.textContent = "ยืนยัน";
+    ok.addEventListener("click", () => {
+      close();
+      yes();
+    });
+    const no = el("button", "title-btn", row);
+    no.type = "button";
+    no.textContent = "ยกเลิก";
+    no.addEventListener("click", close);
+    back.addEventListener("pointerdown", (e) => e.target === back && close());
+    // Enter confirms, Escape cancels (and neither reaches the game)
+    const key = (e: KeyboardEvent) => {
+      if (e.code !== "Enter" && e.code !== "Escape" && e.code !== "NumpadEnter") return;
+      e.stopPropagation();
+      e.preventDefault();
+      close();
+      if (e.code !== "Escape") yes();
+    };
+    window.addEventListener("keydown", key, true);
+    ok.focus();
   }
 
   // ---- trees: a list of trees, the chosen one drawn with its links, and the picked node ----
@@ -598,10 +732,10 @@ export class SkillUI {
       el("strong", "", info).textContent = `${m.name} · ระดับ ${lv}/${m.max}${m.weapons?.includes(holding as WeaponId) ? " · ถืออยู่" : ""}`;
       el("span", "sk-sub", info).textContent = `${m.perDesc}${lv ? ` · ตอนนี้ ${bagText(Object.fromEntries(Object.entries(m.per).map(([k, v = 0]) => [k, v * lv])))}` : ""}`;
       const full = lv >= m.max;
-      this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => {
+      this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => this.confirm(`อัพความเชี่ยวชาญ${m.name}เป็นระดับ ${lv + 1}?`, () => {
         p.raiseMastery(id);
         this.hero.recompute();
-      });
+      }));
       this.track(row, {
         lv, max: m.max, color: "#f4d27a",
         marks: m.rewards.map((r) => ({
@@ -629,10 +763,10 @@ export class SkillUI {
       el("span", "sk-sub", info).textContent = `ต่อระดับ: ${bagText(e.per)} · ${e.skill}`;
       if (lv) el("span", "sk-sub now", info).textContent = `ตอนนี้: ${bagText(Object.fromEntries(Object.entries(e.per).map(([k, v = 0]) => [k, v * lv])))}`;
       const full = lv >= e.max;
-      this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => {
+      this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? null : "แต้มสกิลไม่พอ", () => this.confirm(`อัพธาตุ${e.name}เป็นระดับ ${lv + 1}?`, () => {
         p.raiseElement(id);
         this.hero.recompute();
-      });
+      }));
       this.track(row, {
         lv, max: e.max, color: e.color,
         marks: e.marks.map((m) => ({

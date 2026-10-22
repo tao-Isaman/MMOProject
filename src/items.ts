@@ -145,8 +145,10 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
 export const DEFAULT_SHAPE: Record<Gender, string> = { female: "plain", male: "plain_m" };
 export const FALLBACK_SHAPE: Record<Gender, string> = { female: "mage", male: "warrior" };
 
-export type ItemKind = "weapon" | "offhand" | "top" | "bottom" | "potion" | "book" | "material";
-export type EquipSlot = "weapon" | "offhand" | "top" | "bottom";
+export type ItemKind = "weapon" | "offhand" | "top" | "bottom" | "hat" | "shoes" | "ring" | "trinket" | "potion" | "book" | "style" | "material";
+export type EquipSlot = "weapon" | "offhand" | "top" | "bottom" | "hat" | "shoes" | "ring1" | "ring2" | "trinket1" | "trinket2";
+// The slots that only add stats (nothing of them is drawn on the character).
+export const GEAR_SLOTS: EquipSlot[] = ["hat", "shoes", "ring1", "ring2", "trinket1", "trinket2"];
 
 // Off-hand gear (shields, flasks, tomes): stats while held, and how it is drawn (src/main.ts
 // paints the art). The stat bag uses the same keys as passives (stats.ts).
@@ -165,6 +167,7 @@ export interface Item {
   restore?: { hp?: number; mp?: number }; // potions: fraction of max HP / MP
   stats?: Partial<Record<string, number>>; // off-hand gear while held
   art?: OffhandArt;
+  style?: string;                       // a hairstyle item: the hairstyle it teaches
   icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string };
 }
 
@@ -176,6 +179,12 @@ const garment = (kind: "top" | "bottom", shape: string, dye: string | null = nul
   ({ kind, shape, dye, name: `${SHAPES[kind][shape].name}${dye ? `สี${DYES[dye].name}` : ""}`, icon: {}, price: dye ? 240 : 160 });
 const offhand = (name: string, art: OffhandArt, stats: Partial<Record<string, number>>, price: number, note: string): Item =>
   ({ kind: "offhand", name, art, stats, price, icon: {}, note });
+// Hats, shoes, rings and trinkets: stats while worn.
+const gear = (kind: "hat" | "shoes" | "ring" | "trinket", name: string, stats: Partial<Record<string, number>>, price: number, color: string, note: string): Item =>
+  ({ kind, name, stats, price, icon: { glyph: kind, color }, note });
+// A hairstyle: read to learn it, then pick it in the profile window.
+const style = (id: string, name: string, price: number): Item =>
+  ({ kind: "style", name: `ตำราทำผม: ${name}`, style: id, stack: 5, price, icon: { glyph: "style", color: "#d9b3e8" }, note: `อ่านเพื่อเรียนทรงผม${name} แล้วเปลี่ยนทรงได้ที่หน้าโปรไฟล์ (เฉพาะตัวละครหญิง)` });
 const potion = (name: string, restore: { hp?: number; mp?: number }, color: string, price: number, note: string): Item =>
   ({ kind: "potion", name, restore, stack: 50, price, icon: { glyph: "drop", color }, note });
 
@@ -227,9 +236,24 @@ export const ITEMS: Record<string, Item> = {
   potion_red_big: potion("ยาแดงเข้มข้น", { hp: 0.5 }, "#d8343a", 80, "ฟื้น HP 50% ของ HP สูงสุด"),
   potion_blue: potion("ยาฟ้า", { mp: 0.25 }, "#6ab4ff", 30, "ฟื้น MP 25% ของ MP สูงสุด"),
   potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 0.5 }, "#2f6fd0", 90, "ฟื้น MP 50% ของ MP สูงสุด"),
-  book_survivor: { kind: "book", name: "คัมภีร์สกิล: ผู้รอดชีวิต", stack: 5, price: 2400, icon: { glyph: "heart", color: "#c9a86a" }, note: "อ่านเพื่อปลดล็อคต้นสกิลผู้รอดชีวิต (ใช้ได้ทุกคลาส)" },
-  book_gathering: { kind: "book", name: "คัมภีร์ความเชี่ยวชาญ: เก็บเกี่ยว", stack: 5, price: 2400, icon: { glyph: "leaf", color: "#8fbf6a" }, note: "อ่านเพื่อปลดล็อคความเชี่ยวชาญเก็บเกี่ยว" },
-  book_lightning: { kind: "book", name: "คัมภีร์ธาตุ: สายฟ้า", stack: 5, price: 3600, icon: { glyph: "bolt", color: "#d9c24a" }, note: "อ่านเพื่อปลดล็อคธาตุสายฟ้า" },
+  // (the books, one per skill tree, mastery and element, are added by src/progression.ts)
+  style_twintail: style("twintail", "ทวินเทลยาว", 1500),
+  style_hime: style("hime", "ยาวหน้าม้าตรง", 1500),
+  hat_straw: gear("hat", "หมวกฟาง", { def: 3, mdef: 1 }, 180, "#e2c46a", "หมวกสานกันแดด"),
+  hat_leather: gear("hat", "หมวกหนัง", { def: 6, maxHp: 20 }, 520, "#a8743f", "หมวกหนังสัตว์บุนวม"),
+  hat_wizard: gear("hat", "หมวกพ่อมด", { matk: 6, maxMp: 20 }, 680, "#6a5acd", "หมวกปลายแหลมของนักเวท"),
+  hat_feather: gear("hat", "หมวกขนนก", { hit: 6, flee: 6 }, 640, "#5fb08a", "หมวกประดับขนนกของนักล่า"),
+  shoes_sandals: gear("shoes", "รองเท้าแตะ", { move: 0.03 }, 150, "#c99a5b", "เดินเร็วขึ้นนิดหน่อย"),
+  shoes_boots: gear("shoes", "รองเท้าบูทหนัง", { def: 4, move: 0.04 }, 480, "#7b5232", "บูทหนังทนทาน"),
+  shoes_swift: gear("shoes", "รองเท้าลมเร็ว", { move: 0.08, flee: 5 }, 1400, "#7ad0e8", "เบาราวกับขนนก"),
+  ring_power: gear("ring", "แหวนพลัง", { atk: 5 }, 600, "#e86a5a", "แหวนทองแดงฝังทับทิม"),
+  ring_mind: gear("ring", "แหวนปัญญา", { matk: 5 }, 600, "#6a9ae8", "แหวนเงินฝังไพลิน"),
+  ring_life: gear("ring", "แหวนชีวิต", { maxHp: 40, hpRegen: 0.5 }, 700, "#6fcf6a", "แหวนไม้หอมจากป่าใหญ่"),
+  ring_focus: gear("ring", "แหวนแม่นยำ", { hit: 8, crit: 0.02 }, 800, "#e8d06a", "แหวนตาเหยี่ยว"),
+  trinket_clover: gear("trinket", "จี้ใบโคลเวอร์", { drop: 0.05 }, 900, "#5fbf5a", "นำโชค ของตกบ่อยขึ้น"),
+  trinket_fang: gear("trinket", "สร้อยเขี้ยวสัตว์", { atk: 3, critDmg: 0.1 }, 750, "#e8e0c8", "เขี้ยวสัตว์ร้อยเชือก"),
+  trinket_moon: gear("trinket", "จี้พระจันทร์", { maxMp: 25, mpRegen: 0.5 }, 750, "#c8d8ff", "จี้เงินรูปจันทร์เสี้ยว"),
+  trinket_charm: gear("trinket", "เครื่องรางกันภัย", { mdef: 6, dmgRed: 0.02 }, 950, "#e89a6a", "ผ้ายันต์ห่อหินศักดิ์สิทธิ์"),
   jelly: { kind: "material", name: "เยลลี่", stack: 99, sell: 3, icon: { sheet: "jelly" }, note: "หยดเยลลี่จากสไลม์ ขายให้ร้านค้าได้" },
   sprout: { kind: "material", name: "ใบอ่อน", stack: 99, sell: 20, icon: { sheet: "sprout" }, note: "ใบไม้บนหัวสไลม์ หายาก ขายให้ร้านค้าได้" },
 };
@@ -237,13 +261,22 @@ export const ITEMS: Record<string, Item> = {
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [
   { slot: "weapon", name: "มือหลัก" },
   { slot: "offhand", name: "มือรอง" },
+  { slot: "hat", name: "หมวก" },
   { slot: "top", name: "เสื้อ" },
   { slot: "bottom", name: "กางเกง" },
+  { slot: "shoes", name: "รองเท้า" },
+  { slot: "ring1", name: "แหวน" },
+  { slot: "ring2", name: "แหวน" },
+  { slot: "trinket1", name: "ประดับ" },
+  { slot: "trinket2", name: "ประดับ" },
 ];
 
+// Where an item usually goes (a ring or a trinket: the first of its two slots).
 export function itemSlot(id: string | null | undefined): EquipSlot | null {
   const kind = id ? ITEMS[id]?.kind : undefined;
-  return kind === "weapon" || kind === "offhand" || kind === "top" || kind === "bottom" ? kind : null;
+  if (kind === "ring") return "ring1";
+  if (kind === "trinket") return "trinket1";
+  return kind === "weapon" || kind === "offhand" || kind === "top" || kind === "bottom" || kind === "hat" || kind === "shoes" ? kind : null;
 }
 
 // Whether an item may go in a slot: one-handed weapons fit the off hand too.
@@ -251,6 +284,8 @@ export function fitsSlot(id: string | null | undefined, slot: EquipSlot): boolea
   const item = id ? ITEMS[id] : undefined;
   if (!item) return false;
   if (slot === "offhand") return item.kind === "offhand" || (item.kind === "weapon" && !WEAPON_TYPES[item.weapon!].twoHanded);
+  if (slot === "ring1" || slot === "ring2") return item.kind === "ring";
+  if (slot === "trinket1" || slot === "trinket2") return item.kind === "trinket";
   return itemSlot(id) === slot;
 }
 
@@ -280,20 +315,29 @@ export function describe(id: string): string {
     const hands = w.twoHanded ? "อาวุธสองมือ (ใช้มือรองด้วย)" : "มือเดียว · ใส่มือรองได้ (ตีซ้ำ 50%)";
     return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}<br>${hands}`;
   }
-  if (item.kind === "book") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
-  if (item.kind === "offhand") {
-    const names: Record<string, string> = { def: "ป้องกัน", mdef: "ต้านเวท", maxHpPct: "HP สูงสุด", maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน",
-      potion: "ยาฟื้นแรงขึ้น", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท", cdr: "ลดคูลดาวน์" };
-    const pct = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr"]);
-    const st = Object.entries(item.stats ?? {}).map(([k, v = 0]) => `${names[k] ?? k} ${v < 0 ? "" : "+"}${pct.has(k) ? `${Math.round(v * 100)}%` : v}`).join(" · ");
-    return `${item.note}<br>${st}<br>ใส่มือรอง (ใช้กับอาวุธสองมือไม่ได้)`;
-  }
+  if (item.kind === "book" || item.kind === "style") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
+  if (item.kind === "offhand") return `${item.note}<br>${statText(item.stats)}<br>ใส่มือรอง (ใช้กับอาวุธสองมือไม่ได้)`;
+  if (GEAR_WHERE[item.kind]) return `${item.note}<br>${statText(item.stats)}<br>${GEAR_WHERE[item.kind]}`;
   if (item.kind === "potion") return `${item.note}<br>ดับเบิลคลิกเพื่อดื่ม (บอทดื่มเองได้)`;
   if (item.kind === "top" || item.kind === "bottom") {
     const sh = SHAPES[item.kind][item.shape!];
     return `${sh.note}<br>${sh.gender === "male" ? "สำหรับตัวละครชาย" : "สำหรับตัวละครหญิง"} · ใส่คู่กับ${item.kind === "top" ? "กางเกงหรือกระโปรง" : "เสื้อ"}ทรงไหนก็ได้`;
   }
   return item.note ?? "";
+}
+
+// Where a hat, shoes, ring or trinket goes.
+const GEAR_WHERE: Partial<Record<ItemKind, string>> = { hat: "ใส่ช่องหมวก", shoes: "ใส่ช่องรองเท้า", ring: "ใส่ช่องแหวน (มี 2 ช่อง)", trinket: "ใส่ช่องประดับ (มี 2 ช่อง)" };
+
+// A stat bag as the player reads it ("ป้องกัน +6 · ความเร็วเดิน +4%").
+const STAT_WORDS: Record<string, string> = {
+  def: "ป้องกัน", mdef: "ต้านเวท", atk: "พลังโจมตี", matk: "พลังเวท", maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", maxHpPct: "HP สูงสุด",
+  maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน", potion: "ยาฟื้นแรงขึ้น", hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท",
+  cdr: "ลดคูลดาวน์", hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", drop: "โอกาสได้ของ", dmgRed: "ลดความเสียหาย",
+};
+const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "crit", "critDmg", "drop", "dmgRed"]);
+export function statText(stats: Partial<Record<string, number>> | undefined): string {
+  return Object.entries(stats ?? {}).map(([k, v = 0]) => `${STAT_WORDS[k] ?? k} ${v < 0 ? "" : "+"}${STAT_PCT.has(k) ? `${Math.round(v * 100)}%` : v}`).join(" · ");
 }
 
 // What the shop pays for one.
@@ -303,7 +347,7 @@ export function sellPrice(id: string): number {
 }
 
 // Bag order for sorting: kind first, then shape, colour and name.
-const KIND_ORDER: ItemKind[] = ["weapon", "offhand", "top", "bottom", "potion", "book", "material"];
+const KIND_ORDER: ItemKind[] = ["weapon", "offhand", "hat", "top", "bottom", "shoes", "ring", "trinket", "potion", "book", "style", "material"];
 export function sortKey(id: string): string {
   const item = ITEMS[id];
   return `${KIND_ORDER.indexOf(item.kind)}|${item.shape ?? ""}|${item.dye ? 1 : 0}|${id}`;

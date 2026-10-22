@@ -65,6 +65,7 @@ export class World3D {
   boards = new Map<object, Billboard>();
   ring: THREE.Mesh;
   area: THREE.LineLoop;
+  aim: THREE.Mesh; // where an area skill is being aimed: a soft disc with a rim
   areaAt = { x: NaN, y: NaN, r: 0 };
   time = 0;
   quality: { flowers: number; shadow: number };
@@ -118,6 +119,16 @@ export class World3D {
     this.area.frustumCulled = false;
     this.area.visible = false;
     s.add(this.area);
+    this.aim = new THREE.Mesh(new THREE.CircleGeometry(1, AREA_N).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: { uColor: { value: new THREE.Color("#ffd27a") } },
+      vertexShader: "varying vec2 vP; void main() { vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: "uniform vec3 uColor; varying vec2 vP; void main() { float r = length(vP); float a = 0.16 + 0.55 * smoothstep(0.86, 0.97, r) * (1.0 - smoothstep(0.97, 1.0, r)); gl_FragColor = vec4(uColor, a); }",
+    }));
+    this.aim.frustumCulled = false;
+    this.aim.visible = false;
+    this.aim.renderOrder = 5;
+    s.add(this.aim);
   }
 
   // Show a map's scenery instead of the last one's.
@@ -311,6 +322,15 @@ export class World3D {
     this.area.computeLineDistances();
   }
 
+  // The aim of an area skill: a disc `radius` across at a ground point (null: none).
+  setAim(at: { x: number; y: number } | null, radius = 0, color = "#ffd27a"): void {
+    this.aim.visible = !!at;
+    if (!at) return;
+    this.aim.position.set(at.x, heightAt(at.x, at.y) + 4, -at.y);
+    this.aim.scale.set(radius, 1, radius);
+    (this.aim.material as THREE.ShaderMaterial).uniforms.uColor.value.set(color);
+  }
+
   render(dt: number): void {
     this.time += dt;
     wind.value = this.time;
@@ -352,7 +372,7 @@ export class World3D {
     const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
 
     // put away what is not scenery: the characters, the target ring, the fog
-    const hidden: THREE.Object3D[] = [this.ring, this.area, ...[...this.boards.values()].flatMap((bb) => (bb.ghost ? [bb.sprite, bb.ghost] : [bb.sprite]))].filter((o) => o.visible);
+    const hidden: THREE.Object3D[] = [this.ring, this.area, this.aim, ...[...this.boards.values()].flatMap((bb) => (bb.ghost ? [bb.sprite, bb.ghost] : [bb.sprite]))].filter((o) => o.visible);
     for (const o of hidden) o.visible = false;
     const fog = this.scene.fog as THREE.Fog | null, fogWas = fog ? [fog.near, fog.far] : null;
     if (fog) [fog.near, fog.far] = [1e7, 2e7];

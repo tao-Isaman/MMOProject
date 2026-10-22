@@ -18,6 +18,7 @@ export class Hero {
   progress: Progress;
   weapon: () => string | null;
   offhand: () => string | null;
+  worn: () => (string | null)[];
   buffs: Buff[] = [];
   shield: { amount: number; max: number; t: number } | null = null;
   cooldowns = new Map<string, number>();  // skill id -> seconds left
@@ -28,11 +29,12 @@ export class Hero {
   hp = Infinity;
   mp = Infinity;
 
-  // weapon(), offhand(): what each hand holds
-  constructor(progress: Progress, weapon: () => string | null, offhand: () => string | null = () => null) {
+  // weapon(), offhand(): what each hand holds; worn(): the hat, shoes, rings and trinkets
+  constructor(progress: Progress, weapon: () => string | null, offhand: () => string | null = () => null, worn: () => (string | null)[] = () => []) {
     this.progress = progress;
     this.weapon = weapon;
     this.offhand = offhand;
+    this.worn = worn;
     this.recompute();
     this.hp = this.stats.maxHp;
     this.mp = this.stats.maxMp;
@@ -43,7 +45,7 @@ export class Hero {
   }
 
   recompute(): void {
-    this.stats = computeStats(this.progress, this.weapon(), this.buffs, this.offhand());
+    this.stats = computeStats(this.progress, this.weapon(), this.buffs, this.offhand(), this.worn());
     this.hp = Math.min(this.hp, this.stats.maxHp);
     this.mp = Math.min(this.mp, this.stats.maxMp);
   }

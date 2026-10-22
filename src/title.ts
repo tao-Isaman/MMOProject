@@ -1,15 +1,18 @@
 // Title screen: pick one of your characters (up to MAX_CHARACTERS), delete one, or make a new
-// one — name, build, class, a top and a bottom from the shapes that are ready, hairstyle, hair
-// and eye colour, with a turning preview. Resolves with the id of the character to play.
+// one — name, build, hair and eye colour, then its class, first skill book, first element and
+// first weapon mastery (src/starter.ts), with a turning preview. Everyone starts in the plain
+// brown clothes with the plain bob; other hairstyles and clothes are found in the game.
+// Resolves with the id of the character to play.
 
 import { el } from "./ui";
-import { GENDERS, HAIRSTYLES, HAIR_COLORS, EYE_COLORS } from "./ui";
+import { GENDERS, HAIR_COLORS, EYE_COLORS, swatchColor } from "./ui";
 import type { Look, ColorChoice } from "./ui";
-import { CLASSES, TREES, Progress } from "./progression";
-import type { ClassId } from "./progression";
-import { SHAPES, ITEMS, DEFAULT_SHAPE, FALLBACK_SHAPE } from "./items";
+import { CLASSES, Progress } from "./progression";
+import { SHAPES, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
-import { Inventory } from "./inventory";
+import { starterForm, defaultStart, startGear } from "./starter";
+import type { Start } from "./starter";
+import { Inventory, NO_GEAR } from "./inventory";
 import type { Equipped } from "./inventory";
 import {
   loadRoster, saveRoster, newCharacterId, deleteCharacter, useCharacter, saveKey, readJson, MAX_CHARACTERS,
@@ -18,17 +21,7 @@ import type { CharEntry, Roster } from "./save";
 import type { Looks } from "./look";
 import { isTouch, goLandscape } from "./touch";
 
-// what each class starts with in the off hand (mages and priests: a tome; archers' bows take
-// both hands)
-const CLASS_OFFHAND: Partial<Record<ClassId, string>> = { mage: "spell_tome", warrior: "buckler", priest: "spell_tome" };
 const CELL = 96;
-
-// The item id of a shape's own-colour piece.
-// The undyed item of a shape; null for the bare shape (the brown T-shirt and trousers worn with
-// the slot empty).
-function plainItem(slot: "top" | "bottom", shape: string): string | null {
-  return Object.keys(ITEMS).find((id) => ITEMS[id].kind === slot && ITEMS[id].shape === shape && !ITEMS[id].dye) ?? null;
-}
 
 export class Title {
   looks: Looks;
@@ -87,8 +80,8 @@ export class Title {
       card.type = "button";
       const cv = el("canvas", "", card);
       cv.width = cv.height = 192;
-      const look = readJson<Look>(saveKey("look.v1", c.id)) ?? { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
-      const eq = readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped ?? { weapon: null, offhand: null, top: null, bottom: null };
+      const look = readJson<Look>(saveKey("look.v1", c.id)) ?? { gender: "female", hair: "bob", hairColor: "silver", eyes: "teal" };
+      const eq = { ...NO_GEAR, ...readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped };
       this.portrait(cv, look, eq);
       el("strong", "", card).textContent = c.name;
       el("span", "", card).textContent = `${CLASSES[c.cls]?.name ?? "-"} · Lv ${c.level}`;
@@ -138,8 +131,8 @@ export class Title {
       no.addEventListener("click", () => this.list());
     });
     el("p", "title-note", this.box).textContent = isTouch()
-      ? "แตะตัวละครสองครั้งเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากหน้าต่างสถานะ"
-      : "ดับเบิลคลิกที่ตัวละครเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากหน้าต่างสถานะ (P)";
+      ? "แตะตัวละครสองครั้งเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากเมนูตั้งค่า"
+      : "ดับเบิลคลิกที่ตัวละครเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากเมนูตั้งค่า (O)";
   }
 
   start(id: string): void {
@@ -154,12 +147,9 @@ export class Title {
   // ---- a new character ----
   create(): void {
     this.box.replaceChildren();
-    this.heading("สร้างตัวละคร", "เลือกอาชีพ ชุด และทรงผม");
-    const look: Look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
-    let cls: ClassId = "mage";
-    // new characters start in the plain brown clothes (once their body is in)
-    const starter = (g: Gender) => (this.looks.ready(SHAPES.top[DEFAULT_SHAPE[g]].body) ? DEFAULT_SHAPE[g] : FALLBACK_SHAPE[g]);
-    let top = starter("female"), bottom = top;
+    this.heading("สร้างตัวละคร", "เลือกอาชีพ ตำราสกิล ธาตุ และอาวุธ");
+    const look: Look = { gender: "female", hair: "bob", hairColor: "silver", eyes: "teal", styles: ["bob"] };
+    const start: Start = defaultStart("mage");
     let name = "";
     let turn = 0;
 
@@ -168,14 +158,11 @@ export class Title {
     const cv = el("canvas", "", left);
     cv.width = cv.height = 288;
     const turnRow = el("div", "wr-turn", left);
-    const note = el("p", "wr-note", left);
+    el("p", "wr-note", left).textContent = "เริ่มด้วยชุดสีน้ำตาลและผมบ็อบ ทรงผมกับชุดอื่นหาได้ในเกม";
     const right = el("div", "title-form", body);
 
-    const equipped = (): Equipped => ({ weapon: null, offhand: null, top: plainItem("top", top), bottom: plainItem("bottom", bottom) });
-    const draw = () => {
-      this.portrait(cv, look, equipped(), turn);
-      note.textContent = this.looks.note(look, equipped());
-    };
+    // the preview holds the weapon it will start with
+    const draw = () => this.portrait(cv, look, { ...NO_GEAR, ...startGear(start) }, turn);
     for (const [d, text] of [[1, "◀"], [-1, "▶"]] as const) {
       const b = el("button", "wr-btn", turnRow);
       b.type = "button";
@@ -186,10 +173,6 @@ export class Title {
       });
     }
 
-    const section = (title: string) => {
-      el("h3", "title-h", right).textContent = title;
-      return el("div", "wr-choices", right);
-    };
     // name
     el("h3", "title-h", right).textContent = "ชื่อตัวละคร";
     const input = el("input", "title-name", right);
@@ -200,36 +183,21 @@ export class Title {
       make.disabled = name.length < 2;
     });
 
-    // choices redraw themselves when the build changes
-    const genderRow = section("เพศ");
-    const clsRow = section("อาชีพ");
-    clsRow.classList.add("title-classes");
-    const topRow = section("เสื้อ");
-    const bottomRow = section("กางเกง / กระโปรง");
-    const hairRow = section("ทรงผม");
+    el("h3", "title-h", right).textContent = "เพศ";
+    const genderRow = el("div", "wr-choices", right);
     el("h3", "title-h", right).textContent = "สีผม";
     const hairColors = el("div", "wr-swatches", right);
     el("h3", "title-h", right).textContent = "สีตา";
     const eyeColors = el("div", "wr-swatches", right);
+    starterForm(el("div", "title-start", right), start, draw);
 
-    const choice = (parent: HTMLElement, text: string, on: boolean, ok: boolean, pick: () => void, sub = "") => {
-      const b = el("button", `wr-choice${on ? " on" : ""}`, parent);
-      b.type = "button";
-      b.disabled = !ok;
-      b.textContent = text;
-      if (sub) el("small", "", b).textContent = sub;
-      b.addEventListener("click", () => {
-        pick();
-        refresh();
-      });
-    };
     const swatches = (parent: HTMLElement, list: ColorChoice[], key: "hairColor" | "eyes") => {
       parent.replaceChildren();
       for (const c of list) {
         const b = el("button", `wr-swatch${look[key] === c.id ? " on" : ""}`, parent);
         b.type = "button";
         b.title = c.name;
-        b.style.setProperty("--swatch", c.hue === null || c.hue === undefined ? (key === "eyes" ? "#3fb7a6" : "#d9d6e8") : `hsl(${c.hue} ${Math.round(c.sat * 100)}% ${key === "eyes" ? 50 : 62 + (c.light ?? 0) * 40}%)`);
+        b.style.setProperty("--swatch", swatchColor(c, key));
         b.addEventListener("click", () => {
           look[key] = c.id;
           refresh();
@@ -239,31 +207,14 @@ export class Title {
     const refresh = () => {
       genderRow.replaceChildren();
       for (const g of GENDERS) {
-        const ready = this.looks.ready(SHAPES.top[FALLBACK_SHAPE[g.id as Gender]].body);
-        choice(genderRow, g.name, look.gender === g.id, ready, () => {
+        if (!this.looks.ready(SHAPES.top[FALLBACK_SHAPE[g.id as Gender]].body)) continue; // a build whose body isn't in yet
+        const b = el("button", `wr-choice${look.gender === g.id ? " on" : ""}`, genderRow);
+        b.type = "button";
+        b.textContent = g.name;
+        b.addEventListener("click", () => {
           look.gender = g.id;
-          top = bottom = starter(g.id as Gender);
-        }, ready ? "" : "รอสร้างตัวละคร");
-      }
-      clsRow.replaceChildren();
-      for (const [id, c] of Object.entries(CLASSES) as [ClassId, (typeof CLASSES)[ClassId]][]) {
-        choice(clsRow, c.name, cls === id, true, () => (cls = id), `${c.note} · ${c.trees.map((t) => TREES[t].name).join(" · ")}`);
-      }
-      for (const [row, slot] of [[topRow, "top"], [bottomRow, "bottom"]] as const) {
-        row.replaceChildren();
-        for (const [id, sh] of Object.entries(SHAPES[slot])) {
-          if (sh.gender !== look.gender) continue;
-          const ready = this.looks.ready(sh.body);
-          if (sh.bare && !ready) continue; // the plain clothes show up once their body is in
-          const on = (slot === "top" ? top : bottom) === id;
-          choice(row, sh.name, on, ready, () => (slot === "top" ? (top = id) : (bottom = id)), ready ? "" : "รอท่าทางจาก Oriverse");
-        }
-      }
-      hairRow.replaceChildren();
-      const own = !this.looks.bodies[SHAPES.top[top].body]?.hairless;
-      for (const h of HAIRSTYLES) {
-        const ready = this.looks.hairstyles.has(h.id) || (h.id === "twintail" && own);
-        choice(hairRow, h.name, look.hair === h.id, ready && !own, () => (look.hair = h.id), ready ? "" : "กำลังสร้าง");
+          refresh();
+        });
       }
       swatches(hairColors, HAIR_COLORS, "hairColor");
       swatches(eyeColors, EYE_COLORS, "eyes");
@@ -277,7 +228,7 @@ export class Title {
     make.disabled = true;
     make.addEventListener("click", () => {
       if (name.length < 2) return;
-      this.start(this.makeCharacter(name, cls, look, plainItem("top", top), plainItem("bottom", bottom)));
+      this.start(this.makeCharacter(name, start, look));
     });
     if (this.roster.chars.length) {
       const back = el("button", "title-btn", actions);
@@ -289,22 +240,25 @@ export class Title {
     if (!isTouch()) input.focus(); // on a phone the keyboard would cover the form
   }
 
-  // Write a new character's saves: class progress, the class weapon and off-hand item and the
-  // chosen clothes worn (the bag holds only potions), and the look.
-  makeCharacter(name: string, cls: ClassId, look: Look, top: string | null, bottom: string | null): string {
+  // Write a new character's saves: its class and what it knows (src/starter.ts), its first
+  // weapon and off-hand item (no clothes: the plain brown ones; the bag holds only potions), and
+  // the look.
+  makeCharacter(name: string, s: Start, look: Look): string {
     const id = newCharacterId(this.roster);
     useCharacter(id);
     const progress = new Progress();
-    progress.reset(cls);
-    new Inventory().outfit({ weapon: CLASSES[cls].weapon, offhand: CLASS_OFFHAND[cls] ?? null, top, bottom });
+    progress.reset(s.cls);
+    progress.start(s.tree, s.element, s.mastery);
+    new Inventory().outfit({ ...startGear(s), top: null, bottom: null });
     try {
       localStorage.setItem(saveKey("look.v1"), JSON.stringify(look));
     } catch {
       // not persisted
     }
-    const entry: CharEntry = { id, name, cls, level: 1, created: Date.now(), played: Date.now() };
+    const entry: CharEntry = { id, name, cls: s.cls, level: 1, created: Date.now(), played: Date.now() };
     this.roster.chars.push(entry);
     saveRoster(this.roster);
     return id;
   }
 }
+

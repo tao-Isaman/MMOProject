@@ -188,7 +188,7 @@ export class InventoryUI {
     if (confirm) ask(s.count);
     else {
       this.menuHead(s.id, info);
-      if (item.kind === "potion" || item.kind === "book") button(item.kind === "potion" ? "ดื่ม" : "อ่าน", () => this.flash(this.use(index), true));
+      if (item.kind === "potion" || item.kind === "book" || item.kind === "style") button(item.kind === "potion" ? "ดื่ม" : "อ่าน", () => this.flash(this.use(index), true));
       else if (itemSlot(s.id)) {
         button(item.kind === "weapon" ? "ใส่มือหลัก" : "สวมใส่", () => this.wear(index));
         if (item.kind === "weapon" && fitsSlot(s.id, "offhand")) button("ใส่มือรอง", () => this.wear(index, "offhand"));
@@ -246,7 +246,8 @@ export class InventoryUI {
       return;
     }
     const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", potion: "ยา", material: "วัตถุดิบ", book: "คัมภีร์" }[item.kind];
+    const kind = { weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", hat: "หมวก", shoes: "รองเท้า", ring: "แหวน",
+      trinket: "เครื่องประดับ", potion: "ยา", material: "วัตถุดิบ", book: "ตำรา", style: "ตำราทำผม" }[item.kind];
     const why = itemSlot(id) ? this.wearable(id) : null;
     this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
     this.tip.classList.remove("hidden");
@@ -274,7 +275,7 @@ export class InventoryUI {
       else if (this.inv.slots[Number(c.dataset.index)]) {
         const i = Number(c.dataset.index);
         const kind = ITEMS[this.inv.slots[i]!.id].kind;
-        if (kind === "book" || kind === "potion") this.flash(this.use(i), true);
+        if (kind === "book" || kind === "potion" || kind === "style") this.flash(this.use(i), true);
         else this.wear(i);
       }
       this.tip.classList.add("hidden");
@@ -396,7 +397,7 @@ export const GENDERS: Choice[] = [
 export const HAIRSTYLES: Choice[] = [
   { id: "twintail", name: "ทวินเทลยาว" },
   { id: "hime", name: "ยาวหน้าม้าตรง" },
-  { id: "bob", name: "บ็อบสั้น" },
+  { id: "bob", name: "บ็อบธรรมดา" },
   { id: "ponytail", name: "หางม้าสูง" },
   { id: "sidebraid", name: "เปียข้างพาดไหล่" },
   { id: "buns", name: "ซาลาเปาคู่" },
@@ -430,18 +431,35 @@ export interface Look {
   hair: string;
   hairColor: string;
   eyes: string;
+  styles?: string[]; // the hairstyles it has learned (the plain bob always)
 }
 
+// Everyone has the plain bob; an older character also keeps the hairstyle it wore.
 export function loadLook(available: Set<string>): Look {
-  const look: Look = { gender: "female", hair: "twintail", hairColor: "silver", eyes: "teal" };
+  const look: Look = { gender: "female", hair: "bob", hairColor: "silver", eyes: "teal" };
   try {
     Object.assign(look, JSON.parse(localStorage.getItem(saveKey("look.v1")) || "{}"));
   } catch {
     // keep the defaults
   }
   if (!GENDERS.some((g) => g.id === look.gender)) look.gender = "female";
-  if (look.hair !== "twintail" && !available.has(look.hair)) look.hair = "twintail";
+  if (look.hair !== "twintail" && !available.has(look.hair)) look.hair = "bob";
+  look.styles = [...new Set(["bob", ...(look.styles ?? []), look.hair])];
   if (!HAIR_COLORS.some((c) => c.id === look.hairColor)) look.hairColor = "silver";
   if (!EYE_COLORS.some((c) => c.id === look.eyes)) look.eyes = "teal";
   return look;
+}
+
+// A swatch's colour for a hair or eye dye.
+export function swatchColor(c: ColorChoice, key: "hairColor" | "eyes"): string {
+  if (c.hue === null || c.hue === undefined) return key === "eyes" ? "#3fb7a6" : "#d9d6e8";
+  return `hsl(${c.hue} ${Math.round(c.sat * 100)}% ${key === "eyes" ? 50 : 62 + (c.light ?? 0) * 40}%)`;
+}
+
+export function saveLook(look: Look): void {
+  try {
+    localStorage.setItem(saveKey("look.v1"), JSON.stringify(look));
+  } catch {
+    // not persisted
+  }
 }

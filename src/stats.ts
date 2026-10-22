@@ -48,8 +48,9 @@ function add(into: Record<string, number>, from: StatBag, k = 1): void {
 }
 
 // progress: Progress; weaponId: main-hand weapon or null; buffs: [{ stats }]; offhandId: what
-// the off hand holds (a weapon counts for its mastery, gear adds its stats)
-export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null): Stats {
+// the off hand holds (a weapon counts for its mastery, gear adds its stats); worn: the hat,
+// shoes, rings and trinkets worn (their stats)
+export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null, worn: (string | null)[] = []): Stats {
   const cls = CLASSES[progress.cls ?? "mage"];
   const s: Stats = { ...ZERO, ...ELEMENT_ZERO };
   const bag = s as unknown as Record<string, number>;
@@ -75,6 +76,10 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   }
   const gear = offhandId ? ITEMS[offhandId] : undefined;
   if (gear?.kind === "offhand" && gear.stats) add(bag, gear.stats as StatBag);
+  for (const id of worn) {
+    const item = id ? ITEMS[id] : undefined;
+    if (item?.stats) add(bag, item.stats as StatBag);
+  }
   for (const b of buffs) add(bag, b.stats);
   s.maxHp *= 1 + s.maxHpPct;
   s.maxMp *= 1 + s.maxMpPct;
