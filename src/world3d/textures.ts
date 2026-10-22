@@ -548,6 +548,284 @@ export function leafCard(kind: Exclude<CardKind, "flowers">): HTMLCanvasElement 
   return c;
 }
 
+// ---- tree canopies (src/world3d/trees.ts: foliage) ----
+// Leaf cards for tree crowns, alpha-cut. All but "blossom" are grey: each card's vertex colour
+// tints it, so one texture serves every palette (green oak, red maple, autumn, frost...).
+// "canopy" a clump of small leaves round a few twigs, "maple" palmate leaves, "fine" sprays of
+// tiny leaflets (acacia, birch), "glossy" big jungle leaves, "lance" bamboo leaves, "blossom"
+// cherry flowers (in colour), "bough"/"boughSnow" a fir spray along U (256 x 128), "frond" a
+// palm frond along U with its rib across the middle (256 x 64).
+export type CanopyCard = "canopy" | "maple" | "blossom" | "fine" | "glossy" | "lance" | "bough" | "boughSnow" | "frond";
+export function canopyCard(kind: CanopyCard): HTMLCanvasElement {
+  if (kind === "lance") return leafCard("lance");
+  if (kind === "bough" || kind === "boughSnow") return boughCard(kind === "boughSnow");
+  if (kind === "frond") return frondCard();
+  const size = 256, c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d")!;
+  let s = { canopy: 211, maple: 223, blossom: 227, fine: 229, glossy: 233 }[kind];
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const mid = size / 2;
+  // an irregular outline, so the cards don't read as discs
+  const p1 = rnd() * 6.28, p2 = rnd() * 6.28;
+  const R = (a: number) => size * (0.4 + 0.045 * Math.sin(3 * a + p1) + 0.03 * Math.sin(5 * a + p2));
+  // twigs under the leaves (showing in the gaps)
+  const twigs = Array.from({ length: kind === "fine" ? 7 : 5 }, (_, k) => ({ a: (k / (kind === "fine" ? 7 : 5)) * Math.PI * 2 + rnd() * 0.6, bend: (rnd() - 0.5) * 0.5 }));
+  const twigAt = (tw: { a: number; bend: number }, t: number): [number, number] => {
+    const a = tw.a + tw.bend * t, d = R(tw.a) * 0.86 * t;
+    return [mid + Math.cos(a) * d, mid + Math.sin(a) * d];
+  };
+  g.lineCap = "round";
+  for (const tw of twigs) {
+    g.strokeStyle = kind === "blossom" ? "rgb(74,52,44)" : shade(0.32);
+    g.lineWidth = kind === "fine" ? 2 : 3;
+    g.beginPath();
+    for (let k = 0; k <= 8; k++) {
+      const [x, y] = twigAt(tw, k / 8);
+      if (k) g.lineTo(x, y);
+      else g.moveTo(x, y);
+    }
+    g.stroke();
+  }
+  type L = { x: number; y: number; a: number; len: number; v: number };
+  const list: L[] = [];
+  // a leaf from (x, y) heading a, no longer than the outline allows
+  const push = (x: number, y: number, a: number, len: number, v: number) => {
+    const tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, ta = Math.atan2(ty - mid, tx - mid);
+    const over = Math.hypot(tx - mid, ty - mid) - R(ta) * 1.04;
+    if (over > 0) len -= over;
+    len = Math.min(len, size * 0.49 - Math.max(Math.abs(x - mid), Math.abs(y - mid)));
+    if (len < size * 0.03) return;
+    const d = Math.hypot(x - mid, y - mid) / R(Math.atan2(y - mid, x - mid));
+    list.push({ x, y, a, len, v: v * (0.7 + 0.3 * Math.min(1, d)) });
+  };
+  if (kind === "canopy" || kind === "maple" || kind === "glossy") {
+    const n = { canopy: 105, maple: 44, glossy: 26 }[kind];
+    const L0 = { canopy: 0.1, maple: 0.13, glossy: 0.24 }[kind], L1 = { canopy: 0.045, maple: 0.04, glossy: 0.07 }[kind];
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2, d = R(a) * (kind === "glossy" ? 0.05 + 0.4 * Math.sqrt(rnd()) : 0.12 + 0.82 * Math.sqrt(rnd()));
+      push(mid + Math.cos(a) * d, mid + Math.sin(a) * d, a + (rnd() - 0.5) * (kind === "glossy" ? 0.7 : 1.7), size * (L0 + L1 * rnd()), 0.55 + 0.45 * rnd());
+    }
+  } else if (kind === "fine") {
+    // leaflets in pairs along each twig
+    for (const tw of twigs)
+      for (let k = 0; k < 26; k++) {
+        const t = 0.12 + 0.88 * (k / 26), [x, y] = twigAt(tw, t), a = tw.a + tw.bend * t;
+        for (const sd of [-1, 1]) if (rnd() < 0.92) push(x, y, a + sd * (0.7 + rnd() * 0.5), size * (0.05 + 0.025 * rnd()) * (1 - 0.35 * t), 0.55 + 0.45 * rnd());
+      }
+  }
+  list.sort((p, q) => p.v - q.v);
+  for (const f of list) {
+    if (kind === "maple") paintMaple(g, f.x, f.y, f.a, f.len, f.v);
+    else paintLeaf(g, f.x, f.y, f.a, f.len, f.len * (kind === "glossy" ? 0.36 : kind === "fine" ? 0.34 : 0.4), f.v, kind === "glossy" ? 1.5 : 1, kind === "glossy" ? 3 : 0);
+  }
+  if (kind === "blossom") {
+    // a few small leaves, then umbels of five-petalled flowers, pink to white
+    for (let i = 0; i < 16; i++) {
+      const a = rnd() * Math.PI * 2, d = R(a) * (0.2 + 0.7 * Math.sqrt(rnd()));
+      const x = mid + Math.cos(a) * d, y = mid + Math.sin(a) * d, len = size * (0.07 + 0.03 * rnd());
+      g.save();
+      g.translate(x, y);
+      g.rotate(a + (rnd() - 0.5));
+      g.fillStyle = `rgb(${96 + rnd() * 30},${132 + rnd() * 30},${70})`;
+      g.beginPath();
+      g.ellipse(len / 2, 0, len / 2, len * 0.22, 0, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+    const flowers: { x: number; y: number; r: number; t: number }[] = [];
+    for (let u = 0; u < 30; u++) {
+      const a = rnd() * Math.PI * 2, d = R(a) * (0.1 + 0.8 * Math.sqrt(rnd()));
+      const cx = mid + Math.cos(a) * d, cy = mid + Math.sin(a) * d;
+      for (let k = 0; k < 4; k++) {
+        const r = size * (0.028 + 0.014 * rnd()), b = rnd() * 6.28, e = r * (0.6 + rnd());
+        const x = cx + Math.cos(b) * e, y = cy + Math.sin(b) * e;
+        if (Math.hypot(x - mid, y - mid) < R(Math.atan2(y - mid, x - mid)) - r * 0.5) flowers.push({ x, y, r, t: rnd() });
+      }
+    }
+    flowers.sort((p, q) => p.t - q.t);
+    for (const f of flowers) {
+      const base = [226 + f.t * 26, 150 + f.t * 80, 182 + f.t * 56].map(Math.round);
+      const rot = rnd() * 6.28;
+      for (let k = 0; k < 5; k++) {
+        g.save();
+        g.translate(f.x, f.y);
+        g.rotate(rot + (k / 5) * Math.PI * 2);
+        const grad = g.createLinearGradient(0, 0, f.r, 0);
+        grad.addColorStop(0, `rgb(${base[0] - 30},${base[1] - 70},${base[2] - 50})`);
+        grad.addColorStop(1, `rgb(${Math.min(255, base[0] + 10)},${Math.min(255, base[1] + 18)},${Math.min(255, base[2] + 14)})`);
+        g.fillStyle = grad;
+        g.beginPath();
+        g.ellipse(f.r * 0.55, 0, f.r * 0.5, f.r * 0.36, 0, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+      }
+      g.fillStyle = "rgb(196,70,110)";
+      g.beginPath();
+      g.arc(f.x, f.y, f.r * 0.22, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  return c;
+}
+
+// A palmate (maple) leaf from (x, y) along `ang`, `len` from the stalk to the middle lobe's tip.
+function paintMaple(g: CanvasRenderingContext2D, x: number, y: number, ang: number, len: number, val: number): void {
+  g.save();
+  g.translate(x, y);
+  g.rotate(ang);
+  const c = len * 0.36; // the leaf's heart, the lobes round it
+  const pts: number[][] = [];
+  for (let j = 0; j < 5; j++) {
+    const a = (j - 2) * 0.68, tip = len * [0.7, 0.93, 1, 0.93, 0.7][j] - c, na = a + 0.34;
+    pts.push([c + Math.cos(a - 0.3) * tip * 0.58, Math.sin(a - 0.3) * tip * 0.58]);
+    pts.push([c + Math.cos(a - 0.09) * tip * 0.86, Math.sin(a - 0.09) * tip * 0.86]);
+    pts.push([c + Math.cos(a) * tip, Math.sin(a) * tip]);
+    pts.push([c + Math.cos(a + 0.09) * tip * 0.86, Math.sin(a + 0.09) * tip * 0.86]);
+    pts.push([c + Math.cos(a + 0.3) * tip * 0.58, Math.sin(a + 0.3) * tip * 0.58]);
+    if (j < 4) pts.push([c + Math.cos(na) * tip * 0.42, Math.sin(na) * tip * 0.42]);
+  }
+  const grad = g.createRadialGradient(c, 0, 1, c, 0, len * 0.7);
+  grad.addColorStop(0, shade(val * 0.7));
+  grad.addColorStop(1, shade(val));
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(0, 0);
+  for (const [px, py] of pts) g.lineTo(px, py);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = shade(val * 0.5);
+  g.lineWidth = 1;
+  g.stroke();
+  g.strokeStyle = shade(Math.min(1, val * 1.1));
+  for (let j = 0; j < 5; j++) {
+    const a = (j - 2) * 0.66;
+    g.beginPath();
+    g.moveTo(c * 0.6, 0);
+    g.lineTo(c + Math.cos(a) * (len - c) * 0.8, Math.sin(a) * (len - c) * 0.8);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// A fir spray from above, along U: a twig down the middle with side twigs angled forward, all
+// clad in short needles, darker at the base, fresh green at the tips; widest two thirds out.
+// In colour (the cards' vertex colours only shade it), so `snowy`'s soft snow stays white.
+function boughCard(snowy: boolean): HTMLCanvasElement {
+  const w = 256, h = 128, c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  let s = snowy ? 241 : 239;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  g.lineCap = "round";
+  const dark = snowy ? [30, 62, 48] : [24, 58, 32], light = snowy ? [96, 140, 110] : [104, 156, 74];
+  const col = (t: number) => `rgb(${dark.map((d, i) => Math.round(d + (light[i] - d) * Math.min(1, t))).join(",")})`;
+  const needles = (x0: number, y0: number, a: number, len: number, nl: number, v0: number) => {
+    const steps = Math.max(3, Math.round(len / 2.6));
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps, x = x0 + Math.cos(a) * len * t, y = y0 + Math.sin(a) * len * t;
+      for (const sd of [-1, 1]) {
+        const na = a + sd * (0.75 + rnd() * 0.45), l = nl * (1 - 0.45 * t) * (0.7 + rnd() * 0.5);
+        g.strokeStyle = col(v0 - 0.3 + 0.5 * t + rnd() * 0.4);
+        g.lineWidth = 2 + rnd();
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.cos(na) * l, y + Math.sin(na) * l);
+        g.stroke();
+      }
+    }
+  };
+  // side twigs (under), longest about two thirds along
+  for (let i = 0; i < 16; i++) {
+    const t = 0.04 + (i / 16) * 0.9, x = 6 + t * (w - 16), sd = i % 2 ? 1 : -1;
+    const L = (h * 0.46) * Math.sin(Math.PI * (0.18 + 0.75 * t)) * (0.85 + rnd() * 0.25);
+    const a = sd * (0.55 + rnd() * 0.25);
+    g.strokeStyle = "rgb(70,52,38)";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(x, h / 2);
+    g.lineTo(x + Math.cos(a) * L, h / 2 + Math.sin(a) * L);
+    g.stroke();
+    needles(x, h / 2, a, L, 13, 0.42);
+  }
+  g.strokeStyle = "rgb(76,56,40)";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(2, h / 2);
+  g.lineTo(w - 6, h / 2);
+  g.stroke();
+  needles(4, h / 2, 0, w - 12, 15, 0.5);
+  if (snowy) {
+    for (let i = 0; i < 9; i++) {
+      const x = 26 + (i / 9) * (w - 50) + rnd() * 10, y = h / 2 + (rnd() - 0.5) * 30, rx = 16 + rnd() * 14, ry = 9 + rnd() * 6;
+      const grad = g.createRadialGradient(x, y - ry * 0.3, 1, x, y, rx);
+      grad.addColorStop(0, "rgb(255,255,255)");
+      grad.addColorStop(0.6, "rgb(240,246,255)");
+      grad.addColorStop(0.85, "rgba(214,228,248,0.9)");
+      grad.addColorStop(1, "rgba(214,228,248,0)");
+      g.save();
+      g.translate(x, y);
+      g.scale(1, ry / rx);
+      g.translate(-x, -y);
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(x, y, rx, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+  }
+  return c;
+}
+
+// A palm frond from above, along U: the rib across the middle (v = 0.5), narrow leaflets angled
+// toward the tip either side, longest in the middle of the frond, grey for the tint.
+function frondCard(): HTMLCanvasElement {
+  const w = 256, h = 64, c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  let s = 251;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  g.lineCap = "round";
+  const n = 46;
+  for (let i = 0; i < n; i++) {
+    const t = i / n, x = 6 + t * (w - 14);
+    const L = (h / 2 - 2) * Math.sin(Math.PI * (0.12 + 0.86 * t)) ** 0.7;
+    for (const sd of [-1, 1]) {
+      const a = sd * (0.62 + rnd() * 0.25), v = 0.6 + rnd() * 0.4;
+      const ex = x + Math.cos(a) * L * 1.1, ey = h / 2 + Math.sin(a) * L;
+      const grad = g.createLinearGradient(x, h / 2, ex, ey);
+      grad.addColorStop(0, shade(v * 0.6));
+      grad.addColorStop(1, shade(v));
+      g.strokeStyle = grad;
+      g.lineWidth = 3.2;
+      g.beginPath();
+      g.moveTo(x, h / 2);
+      g.quadraticCurveTo(x + Math.cos(a) * L * 0.5 + 3, h / 2 + Math.sin(a) * L * 0.62, ex, ey);
+      g.stroke();
+    }
+  }
+  g.strokeStyle = shade(0.5);
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(2, h / 2);
+  g.lineTo(w - 4, h / 2);
+  g.stroke();
+  return c;
+}
+
+// Palm bark: rings round the trunk every 12.5 cm (along V), each a ridge of old leaf scars.
+function palmBark(): HTMLCanvasElement {
+  const n = fbm([[8, 1], [32, 0.5], [96, 0.3]], 257);
+  return paint((u, v) => {
+    const ring = (v * 8 + (n(u, v) - 0.5) * 0.12) % 1;
+    const ridge = ring < 0.12 ? 0.6 + ring * 2.5 : 1 - 0.18 * ring;
+    const fibre = 0.92 + 0.08 * Math.sin(u * Math.PI * 2 * 24 + n(u, v) * 4);
+    return grey((0.62 + 0.3 * n(u * 2, v)) * ridge * fibre);
+  });
+}
+
 // Flowers, in colour: a 4 x 4 atlas of 128 px cells, each a little cluster seen from above (or
 // from the side for the upright and hanging ones). FLOWER_CELLS names them.
 export const FLOWER_CELLS = {
@@ -707,7 +985,7 @@ export function flowerCell(i: number): [number, number, number, number] {
   return [col / 4 + e, 1 - (row + 1) / 4 + e, (col + 1) / 4 - e, 1 - row / 4 - e];
 }
 
-const DETAIL = { crag, wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs, foliage };
+const DETAIL = { crag, wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs, foliage, palmBark };
 export type DetailMap = keyof typeof DETAIL;
 // A fresh copy of a detail map's canvas (grey, one tile per metre).
 export const detailCanvas = (name: DetailMap): HTMLCanvasElement => DETAIL[name]();
@@ -795,7 +1073,19 @@ const RECIPES: Record<string, Recipe> = {
   JungleLeaf: { card: "broad", tint: "#4c9244", rough: 0.55 },
   JungleLeafLight: { card: "broad", tint: "#86c25a", rough: 0.5 },
   BarkBirch: { map: "bark", tint: "#e6e2d8", bump: 2 },
-  BarkPalm: { map: "bark", tint: "#9a7a52", bump: 3 },
+  BarkPalm: { map: "palmBark", tint: "#a4865e", bump: 3 },
+  Palm_Coconut: { map: "bark", tint: "#6e5030", rough: 0.7, bump: 1 },
+  // tree canopies: the leafy mass inside each lobe of a crown (src/world3d/trees.ts: foliage)
+  CanopyCore: { map: "foliage", tint: "#5a963e", rough: 0.95, bump: 1.5 },
+  CanopyCoreDeep: { map: "foliage", tint: "#3f7834", rough: 0.95, bump: 1.5 },
+  CanopyCoreBirch: { map: "foliage", tint: "#7a9c3c", rough: 0.95, bump: 1.5 },
+  CanopyCoreAutumn: { map: "foliage", tint: "#a8582a", rough: 0.95, bump: 1.5 },
+  CanopyCoreRed: { map: "foliage", tint: "#8a2a1e", rough: 0.95, bump: 1.5 },
+  CanopyCoreFrost: { map: "foliage", tint: "#6c9488", rough: 0.95, bump: 1.5 },
+  CanopyCoreBlossom: { map: "foliage", tint: "#d890ae", rough: 0.95, bump: 1.5 },
+  CanopyCoreOlive: { map: "foliage", tint: "#76823e", rough: 0.95, bump: 1.5 },
+  CanopyCoreFir: { map: "foliage", tint: "#2f5a36", rough: 1, bump: 1.5 },
+  CanopyCoreFirSnow: { map: "foliage", tint: "#4a6e58", rough: 1, bump: 1.5 },
   WaterSea: { tint: "#2f6f8f", rough: 0.08, opacity: 0.9 },
   // cliff faces (src/world3d/terrain.ts)
   CliffRock: { map: "crag", tint: "#a89c8a", bump: 4 },

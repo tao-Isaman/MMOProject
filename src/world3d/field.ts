@@ -14,8 +14,6 @@ import { material } from "./textures";
 import { buildPaved } from "./paved";
 import type { Paved, PavedSpec, Poly } from "./paved";
 import { Terrain } from "./terrain";
-import { Terrain as LegacyTerrain } from "./terrain_legacy"; // TEMP
-const LEGACY = typeof location !== "undefined" && location.search.includes("legacyTerrain"); // TEMP
 import type { TerrainSpec } from "./terrain";
 import { TownBuilder, protoOf, solidsOf } from "./town";
 import type { Town } from "./town";
@@ -34,14 +32,14 @@ export class FieldBuilder extends TownBuilder {
 
   constructor(seed: number, terrain: TerrainSpec) {
     super(seed);
-    this.terrain = (LEGACY ? new LegacyTerrain(terrain) : new Terrain(terrain)) as Terrain; // TEMP
+    this.terrain = new Terrain(terrain);
   }
 
   // The ground: a plane over `area` raised to the terrain (its points moved onto the tops and
   // feet of the cliffs), with tracks of bare earth (`roads`, unless `track: false` makes them
   // cobbles) and `water` cut out of it.
   ground(spec: Omit<PavedSpec, "height" | "place">): Paved {
-    return buildPaved({ track: true, ...spec, height: (x, y) => this.terrain.height(x, y), ...(LEGACY ? {} : { place: (x: number, y: number, cell: number) => this.terrain.place(x, y, cell) }) }); // TEMP
+    return buildPaved({ track: true, ...spec, height: (x, y) => this.terrain.height(x, y), place: (x, y, cell) => this.terrain.place(x, y, cell) });
   }
 
   // The ground's height at a point (full size, before the scale).
@@ -143,14 +141,8 @@ export class FieldBuilder extends TownBuilder {
     // a piece that ended up on a rock face (it stood at the very brink, or at the foot, of a cliff
     // as first drawn) stands on the top of the face or at its foot instead
     for (const pl of this.puts) {
-      const z = LEGACY ? null : this.terrain.standAt(pl.x, pl.y); // TEMP (LEGACY)
+      const z = this.terrain.standAt(pl.x, pl.y);
       if (z !== null) pl.z += z - this.terrain.height(pl.x, pl.y);
-    }
-    { // TEMP
-      const legacy = new LegacyTerrain(this.terrain.spec);
-      (window as unknown as { __terrainDiff: unknown }).__terrainDiff = this.puts
-        .map((pl) => ({ ref: pl.ref, at: [Math.round(pl.x), Math.round(pl.y)], d: Math.round(this.terrain.height(pl.x, pl.y) - legacy.height(pl.x, pl.y)) }))
-        .filter((p) => Math.abs(p.d) > 25);
     }
     return this.finish({ ...o, npcs: o.npcs ?? [], closed: o.closed ?? [], warps: this.warps, gates: this.gates, spots: this.spots });
   }

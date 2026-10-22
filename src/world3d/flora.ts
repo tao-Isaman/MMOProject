@@ -5,189 +5,194 @@
 // Z up; each name is built once and cloned.
 
 import * as THREE from "three";
-import { merge, cylinderAt, cylinderBetween, sphereCenter, scale, toThree } from "./geo";
+import { merge, sphereCenter, toThree } from "./geo";
 import type { Geo, V3 } from "./geo";
-import { material, frondTexture, needleTexture, LEAVES, leafClump } from "./textures";
-import { tree, TREES, leafMaterials, leaves } from "./trees";
+import { material, flowerCell, FLOWER_CELLS } from "./textures";
+import { tree, TREES, limb, along, LeafCards, foliage, CANOPY, treeObject, Cards } from "./trees";
+import type { Lobe } from "./trees";
 
 function seeded(seed: number): () => number {
   let s = (seed * 16807) % 2147483647 || 1;
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 }
+const UP = new THREE.Vector3(0, 0, 1);
+const lin = (r: number, g: number, b: number, k = 1.6) => new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiplyScalar(k);
 
-const ZUP_TO_YUP = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
-
-// zUp: the geometry is still in Oriverse axes (trees.leaves() hands it over already turned)
-function swaying(geo: THREE.BufferGeometry, key: string, canvas?: () => HTMLCanvasElement, zUp = true): THREE.Mesh {
-  if (zUp) geo.applyMatrix4(ZUP_TO_YUP);
-  const [mat, depth] = leafMaterials(key, canvas);
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.customDepthMaterial = depth;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
+// A frond (or any long leaf) as cards: a rib from `at` heading `yaw`, rising at `lift` and
+// bending down by `droop` toward its tip, its two halves folded down from the rib by `fold` (a V
+// seen end on) so it reads as leaflets hanging either side; `w` its half-width at the widest.
+// The texture runs along U with the rib across the middle (v = 0.5). Colours go from `base` at
+// the stalk to `tip`.
+export interface FrondSpec { at: V3; yaw: number; lift: number; droop: number; len: number; w: number; fold?: number; segs?: number; base: THREE.Color; tip: THREE.Color; twist?: number }
+export function frond(cards: LeafCards, f: FrondSpec): void {
+  const segs = f.segs ?? 6, fold = f.fold ?? 0.5;
+  const dir = new THREE.Vector3(Math.cos(f.yaw), Math.sin(f.yaw), 0), side = new THREE.Vector3(-Math.sin(f.yaw), Math.cos(f.yaw), 0);
+  const pts = [new THREE.Vector3(...f.at)], tans: THREE.Vector3[] = [];
+  for (let k = 0; k <= segs; k++) {
+    const ang = f.lift - f.droop * Math.pow(k / segs, 1.35);
+    const t = dir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(UP, Math.sin(ang));
+    tans.push(t);
+    if (k < segs) pts.push(pts[k].clone().addScaledVector(t, f.len / segs));
+  }
+  const width = (k: number) => f.w * Math.pow(Math.sin(Math.PI * (0.06 + 0.9 * (k / segs))), 0.8);
+  const rib: THREE.Vector3[] = [], left: THREE.Vector3[] = [], right: THREE.Vector3[] = [], nor: THREE.Vector3[] = [], col: THREE.Color[] = [];
+  for (let k = 0; k <= segs; k++) {
+    const t = tans[k], s = side.clone().applyAxisAngle(t, (f.twist ?? 0) * (k / segs));
+    const up = new THREE.Vector3().crossVectors(t, s).normalize(); // the frond's own up
+    const w = width(k);
+    rib.push(pts[k]);
+    left.push(pts[k].clone().addScaledVector(s, w * Math.cos(fold)).addScaledVector(up, -w * Math.sin(fold)));
+    right.push(pts[k].clone().addScaledVector(s, -w * Math.cos(fold)).addScaledVector(up, -w * Math.sin(fold)));
+    nor.push(up.clone().multiplyScalar(0.6).addScaledVector(UP, 0.7).normalize());
+    col.push(f.base.clone().lerp(f.tip, k / segs));
+  }
+  for (let k = 0; k < segs; k++) {
+    const u0 = k / segs, u1 = (k + 1) / segs;
+    cards.quad([rib[k], rib[k + 1], left[k + 1], left[k]], [[u0, 0.5], [u1, 0.5], [u1, 1], [u0, 1]], [nor[k], nor[k + 1], nor[k + 1], nor[k]], [col[k], col[k + 1], col[k + 1], col[k]]);
+    cards.quad([right[k], right[k + 1], rib[k + 1], rib[k]], [[u0, 0], [u1, 0], [u1, 0.5], [u0, 0.5]], [nor[k], nor[k + 1], nor[k + 1], nor[k]], [col[k], col[k + 1], col[k + 1], col[k]]);
+  }
 }
 
-// ---- palm: a leaning, ringed trunk and drooping fronds ----
+// ---- palm: a leaning ringed trunk swelling at the foot, a crown of arching fronds that droop
+// at the tips (young ones rising in the middle, old ones lower, a few dead ones hanging), a
+// cluster of coconuts under them ----
 function palm(seed: number, height: number, lean: number, fronds: number): THREE.Group {
   const rnd = seeded(seed);
-  const parts: Geo[] = [];
-  const n = 8;
-  const at = (t: number): V3 => {
-    // bends away along +X, more near the top
-    const x = lean * height * 0.01 * t * t * 1.6;
-    return [x, 0, height * t];
-  };
-  for (let i = 0; i < n; i++) {
-    const a = at(i / n), b = at((i + 1) / n), r = 16 - 6 * (i / n);
-    parts.push(cylinderBetween(a, b, r, 8, i % 2 ? "BarkPalm" : "WoodPale", r - 0.8));
+  const at = (t: number): V3 => [lean * height * 0.01 * t * t * 1.6, 0, height * t]; // bends away along +X, more near the top
+  const parts: Geo[] = [limb([0, 0.25, 0.5, 0.75, 1].map(at), 17, 11, "BarkPalm", { seg: 8, step: 55, flare: 0.5, seed, maxRings: 14 })];
+  const top = new THREE.Vector3(...at(1)), axis = new THREE.Vector3(lean * height * 0.01 * 3.2, 0, height).normalize();
+  // the crown's head and the coconuts
+  parts.push(limb([top.clone().addScaledVector(axis, -16).toArray() as V3, top.clone().addScaledVector(axis, 10).toArray() as V3], 12.5, 10, "BarkPalm", { seg: 8, dome: true }));
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + rnd();
+    parts.push(sphereCenter(8.5, [top.x + Math.cos(a) * 14, top.y + Math.sin(a) * 14, top.z - 14 - (i % 2) * 7], "Palm_Coconut", 6));
   }
-  const top = at(1);
-  parts.push(sphereCenter(18, top, "BarkPalm", 8));
-  // coconuts
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + rnd();
-    parts.push(sphereCenter(9, [top[0] + Math.cos(a) * 16, top[1] + Math.sin(a) * 16, top[2] - 12], "WoodDark", 8));
-  }
-  const group = toThree(merge(...parts), material);
-
-  // fronds: strips of quads from the crown, rising then drooping
-  const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
-  const segs = 7, len = height * 0.42, wid = 70;
+  const cards = new LeafCards();
+  const head = top.clone().addScaledVector(axis, 4);
   for (let f = 0; f < fronds; f++) {
-    const yaw = (f / fronds) * Math.PI * 2 + rnd() * 0.4;
-    const lift = 0.7 - rnd() * 0.4;
-    const dir = new THREE.Vector3(Math.cos(yaw), Math.sin(yaw), 0), side = new THREE.Vector3(-Math.sin(yaw), Math.cos(yaw), 0);
-    const pts: THREE.Vector3[] = [];
-    for (let k = 0; k <= segs; k++) {
-      const t = k / segs, ang = lift - t * 1.9; // elevation drops along the frond
-      const p = k === 0 ? new THREE.Vector3(...top) : pts[k - 1].clone().add(dir.clone().multiplyScalar((len / segs) * Math.cos(ang))).add(new THREE.Vector3(0, 0, (len / segs) * Math.sin(ang)));
-      pts.push(p);
-    }
-    const shade = 0.8 + rnd() * 0.2;
-    for (let k = 0; k < segs; k++) {
-      const w0 = (wid / 2) * Math.sin(((k + 0.3) / segs) * Math.PI * 0.95 + 0.1), w1 = (wid / 2) * Math.sin(((k + 1.3) / segs) * Math.PI * 0.95 + 0.1);
-      const a0 = pts[k].clone().addScaledVector(side, -w0), a1 = pts[k].clone().addScaledVector(side, w0);
-      const b0 = pts[k + 1].clone().addScaledVector(side, -w1), b1 = pts[k + 1].clone().addScaledVector(side, w1);
-      const u0 = k / segs, u1 = (k + 1) / segs;
-      for (const [p, u, v] of [[a0, u0, 0], [b0, u1, 0], [b1, u1, 1], [a0, u0, 0], [b1, u1, 1], [a1, u0, 1]] as [THREE.Vector3, number, number][]) {
-        pos.push(p.x, p.y, p.z);
-        nor.push(0, 0, 1);
-        uv.push(u, v);
-        col.push(shade, shade, shade);
-      }
-    }
+    const yaw = (f / fronds) * Math.PI * 2 + rnd() * 0.45, young = f % 3 === 0;
+    const lift = young ? 0.85 + rnd() * 0.3 : f % 3 === 1 ? 0.45 + rnd() * 0.2 : 0.15 + rnd() * 0.2;
+    const shade = young ? 1 : f % 3 === 1 ? 0.88 : 0.78;
+    frond(cards, {
+      at: head.clone().add(new THREE.Vector3(Math.cos(yaw) * 5, Math.sin(yaw) * 5, 0)).toArray() as V3,
+      yaw, lift, droop: (young ? 1.5 : 1.9) + rnd() * 0.3, len: height * 0.42 * (0.88 + rnd() * 0.24), w: 34 + rnd() * 6, fold: 0.42 + rnd() * 0.2, segs: 7,
+      base: lin(70 * shade, 104 * shade, 46 * shade), tip: lin(150 * shade, 196 * shade, 84 * shade), twist: (rnd() - 0.5) * 0.6,
+    });
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  group.add(swaying(geo, "frond", () => frondTexture()));
-  return group;
+  for (let f = 0; f < 3; f++) {
+    const yaw = rnd() * Math.PI * 2;
+    frond(cards, {
+      at: head.clone().add(new THREE.Vector3(Math.cos(yaw) * 6, Math.sin(yaw) * 6, -10)).toArray() as V3,
+      yaw, lift: -0.9 - rnd() * 0.3, droop: 0.5, len: height * 0.26, w: 22, fold: 1.0, segs: 4,
+      base: lin(110, 84, 46), tip: lin(168, 136, 80),
+    });
+  }
+  return treeObject(merge(...parts), [cards, "frond"]);
 }
 
-// ---- pines: a straight trunk with whorls of drooping boughs, each bough carrying sprays of
-// needles (cards, like the other trees' leaves) around a dark core that gives the tree its mass.
-// Snowy pines droop more and their sprays carry clumps of snow.
+// ---- firs: a straight trunk carrying tier on tier of drooping boughs, each a spray of needles
+// (a card bent along its length), round a dark needly core; the tiers narrow to a leader at the
+// top. Snowy firs droop more and their sprays carry snow. ----
 function pine(seed: number, height: number, snowy: boolean): THREE.Group {
   const rnd = seeded(seed);
-  const maxR = height * 0.3, base = height * 0.16;
+  const maxR = height * 0.3, base = height * 0.15;
   const parts: Geo[] = [
-    cylinderBetween([0, 0, 0], [0, 0, height * 0.96], height * 0.03, 8, "BarkWarm", height * 0.006),
-    cylinderBetween([0, 0, 0], [0, 0, height * 0.06], height * 0.045, 8, "BarkWarm", height * 0.03),
-    // the core: a dark cone inside the boughs, so no sky shows through the middle
-    cylinderAt({ rBot: maxR * 0.38, rTop: maxR * 0.03, height: height * 0.68, segments: 10, bottom: [0, 0, base + height * 0.04] }, "PineCore"),
+    limb([[0, 0, 0], [3, 2, height * 0.5], [0, 0, height * 0.97]], height * 0.032, height * 0.005, "BarkWarm", { seg: 7, step: height * 0.1, flare: 0.6, roots: 4, seed, gnarl: 0.4, taper: 0.8 }),
+    // the core: dark needles inside the tiers, so no sky shows through the middle
+    limb([[0, 0, base + height * 0.04], [0, 0, height * 0.9]], maxR * 0.4, height * 0.01, snowy ? "CanopyCoreFirSnow" : "CanopyCoreFir", { seg: 9, step: height * 0.16, gnarl: 1, seed: seed + 1 }),
   ];
-  const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
-  const card = (c: THREE.Vector3, along: THREE.Vector3, across: THREE.Vector3, len: number, wid: number, n: THREE.Vector3, shade: number) => {
-    const a = along.clone().multiplyScalar(len / 2), b = across.clone().multiplyScalar(wid / 2);
-    const p00 = c.clone().sub(a).sub(b), p10 = c.clone().add(a).sub(b), p11 = c.clone().add(a).add(b), p01 = c.clone().sub(a).add(b);
-    for (const [p, u, v] of [[p00, 0, 0], [p10, 1, 0], [p11, 1, 1], [p00, 0, 0], [p11, 1, 1], [p01, 0, 1]] as [THREE.Vector3, number, number][]) {
-      pos.push(p.x, p.y, p.z);
-      nor.push(n.x, n.y, n.z);
-      uv.push(u, v);
-      col.push(shade, shade, shade);
+  const cards = new LeafCards(), col = new THREE.Color();
+  const shade = (v: number) => col.setRGB(v, v, v, THREE.SRGBColorSpace).clone();
+  const tiers = Math.round(7 + height / 170);
+  // a bough from the trunk at height z heading yaw, `len` long and `w` wide, drooping by `droop`
+  const bough = (z: number, yaw: number, len: number, w: number, droop: number, v0: number, v1: number) => {
+    const dir = new THREE.Vector3(Math.cos(yaw), Math.sin(yaw), 0), side = new THREE.Vector3(-Math.sin(yaw), Math.cos(yaw), 0);
+    const segs = 3, pts: THREE.Vector3[] = [new THREE.Vector3(0, 0, z).addScaledVector(dir, len * 0.06)];
+    for (let k = 1; k <= segs; k++) {
+      const ang = 0.12 - droop * ((k - 0.5) / segs) ** 1.2;
+      pts.push(pts[k - 1].clone().addScaledVector(dir, (len / segs) * Math.cos(ang)).add(new THREE.Vector3(0, 0, (len / segs) * Math.sin(ang))));
+    }
+    const roll = (rnd() - 0.5) * 0.4;
+    const s = side.clone().applyAxisAngle(dir, roll).multiplyScalar(w / 2);
+    const n = dir.clone().multiplyScalar(0.45).addScaledVector(UP, 0.9).normalize();
+    for (let k = 0; k < segs; k++) {
+      const u0 = k / segs, u1 = (k + 1) / segs, c0 = shade(v0 + (v1 - v0) * u0), c1 = shade(v0 + (v1 - v0) * u1);
+      cards.quad([pts[k].clone().sub(s), pts[k + 1].clone().sub(s), pts[k + 1].clone().add(s), pts[k].clone().add(s)], [[u0, 0], [u1, 0], [u1, 1], [u0, 1]], n, [c0, c1, c1, c0]);
     }
   };
-  const whorls = Math.round(9 + height / 160);
-  for (let w = 0; w < whorls; w++) {
-    const t = w / (whorls - 1); // 0 bottom .. 1 top
-    const z = base + (height * 0.93 - base) * t;
-    const len = maxR * (1 - t) ** 0.85 + height * 0.035;
-    const boughs = Math.max(4, Math.round(7 - 3 * t));
-    const twist = rnd() * Math.PI * 2;
-    for (let b = 0; b < boughs; b++) {
-      const yaw = twist + (b / boughs) * Math.PI * 2 + (rnd() - 0.5) * 0.5;
-      const droop = (snowy ? 0.32 : 0.2) * (1 - t * 0.7) + (rnd() - 0.5) * 0.1;
-      const out = new THREE.Vector3(Math.cos(yaw), Math.sin(yaw), 0);
-      const dir = out.clone().multiplyScalar(Math.cos(droop)).add(new THREE.Vector3(0, 0, -Math.sin(droop))).normalize();
-      const l = len * (0.85 + rnd() * 0.3);
-      const root = new THREE.Vector3(0, 0, z), tip = root.clone().addScaledVector(dir, l);
-      if (t < 0.85) parts.push(cylinderBetween(root.toArray() as V3, tip.toArray() as V3, height * 0.006 + 1, 5, "BarkWarm", 0.8));
-      // sprays along the bough, flat-ish and facing up, each turned a little; every other one
-      // rolled steeply so the bough has some thickness from the side
-      const sprays = Math.max(3, Math.round(l / 32));
-      for (let k = 0; k < sprays; k++) {
-        const s = 0.25 + 0.75 * ((k + 0.5) / sprays);
-        const c = root.clone().addScaledVector(dir, l * s).add(new THREE.Vector3(0, 0, (rnd() - 0.3) * 10));
-        const cl = Math.min(190, Math.max(70, l * 0.75)) * (0.85 + rnd() * 0.3);
-        const spin = (rnd() - 0.5) * 0.7, roll = k % 2 ? (rnd() - 0.5) * 0.7 : (rnd() < 0.5 ? -1 : 1) * (0.7 + rnd() * 0.5);
-        const along = dir.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), spin);
-        const across = new THREE.Vector3(0, 0, 1).cross(along).normalize().applyAxisAngle(along, roll);
-        const n = out.clone().multiplyScalar(0.55).add(new THREE.Vector3(0, 0, 0.85)).normalize();
-        const shade = (0.62 + 0.38 * s) * (0.88 + 0.12 * t) * (0.92 + rnd() * 0.12);
-        card(c, along, across, cl, cl * 0.62, n, shade);
-      }
+  for (let w = 0; w < tiers; w++) {
+    const t = w / (tiers - 1); // 0 bottom .. 1 top
+    const z = base + (height * 0.9 - base) * Math.pow(t, 0.92);
+    const R = maxR * Math.pow(1 - t, 0.9) + height * 0.045;
+    const n = Math.max(5, Math.round(8 - 3 * t)), twist = rnd() * Math.PI * 2;
+    const droop = (snowy ? 0.75 : 0.55) * (1 - 0.45 * t) + (rnd() - 0.5) * 0.1;
+    const light = 0.72 + 0.22 * t;
+    for (let b = 0; b < n; b++) {
+      const yaw = twist + (b / n) * Math.PI * 2 + (rnd() - 0.5) * 0.35;
+      const len = R * (0.92 + rnd() * 0.2), wid = Math.min(len * 0.75, ((2 * Math.PI * R) / n) * 1.05);
+      bough(z, yaw, len, wid, droop, 0.5 * light, light + 0.08);
+      // a shorter bough above, between these two, to fill the tier out
+      bough(z + R * 0.12, yaw + Math.PI / n, len * 0.68, wid * 0.8, droop * 0.9, 0.55 * light, light + 0.12);
     }
   }
   // the leader: two crossed sprays standing up at the top
-  const top = new THREE.Vector3(0, 0, height * 0.97), upDir = new THREE.Vector3(0, 0, 1);
-  for (const a of [0, Math.PI / 2]) card(top, upDir, new THREE.Vector3(Math.cos(a), Math.sin(a), 0), height * 0.14, height * 0.07, new THREE.Vector3(Math.cos(a + 1), Math.sin(a + 1), 0.6).normalize(), 1);
-
-  const group = toThree(merge(...parts), material);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  group.add(swaying(geo, snowy ? "needleSnow" : "needle", () => needleTexture(snowy)));
-  return group;
+  const top = new THREE.Vector3(0, 0, height * 0.97);
+  for (const a of [0, Math.PI / 2]) cards.add(top.toArray() as V3, UP, new THREE.Vector3(Math.cos(a), Math.sin(a), 0), height * 0.13, height * 0.07, new THREE.Vector3(Math.cos(a + 1), Math.sin(a + 1), 0.8).normalize(), shade(1));
+  return treeObject(merge(...parts), [cards, snowy ? "boughSnow" : "bough"]);
 }
 
-// ---- bamboo: a clump of canes with narrow leaves near the top ----
+// ---- bamboo: a clump of canes arching out a little, sprays of narrow leaves hanging from
+// their upper thirds ----
 function bamboo(seed: number, canes: number): THREE.Group {
   const rnd = seeded(seed);
-  const parts: Geo[] = [];
-  const crowns: [number, number, number, number, number, number][] = [];
+  const parts: Geo[] = [], lobes: Lobe[] = [];
   for (let i = 0; i < canes; i++) {
     const a = rnd() * Math.PI * 2, d = rnd() * 55;
     const x = Math.cos(a) * d, y = Math.sin(a) * d, h = 480 + rnd() * 320, r = 3.5 + rnd() * 2.5;
-    const tip: V3 = [x + (rnd() - 0.5) * 70, y + (rnd() - 0.5) * 70, h];
-    parts.push(cylinderBetween([x, y, 0], tip, r, 7, i % 3 ? "Bamboo" : "BambooDry", r * 0.75));
-    crowns.push([tip[0], tip[1], h * 0.86, 70, 70, h * 0.13]);
+    const tip: V3 = [x + Math.cos(a) * 30 + (rnd() - 0.5) * 50, y + Math.sin(a) * 30 + (rnd() - 0.5) * 50, h];
+    const pts: V3[] = [[x, y, 0], [x + (tip[0] - x) * 0.3, y + (tip[1] - y) * 0.3, h * 0.5], tip];
+    parts.push(limb(pts, r, r * 0.7, i % 3 ? "Bamboo" : "BambooDry", { seg: 5, step: 200 }));
+    for (const t of [0.66, 0.8, 0.93]) {
+      const p = along(pts, t);
+      lobes.push([p[0] + (rnd() - 0.5) * 30, p[1] + (rnd() - 0.5) * 30, p[2], 46 + rnd() * 18, 46 + rnd() * 18, 34 + rnd() * 10]);
+    }
   }
-  const group = toThree(merge(...parts), material);
-  group.add(swaying(leaves({ crowns, leafSize: 45, density: 0.9 }, rnd), "bamboo", () => leafClump(LEAVES.bamboo), false));
-  return group;
+  const cards = new LeafCards();
+  parts.push(foliage({ seed: seed + 5, lobes, leaf: 50, look: CANOPY.bamboo, density: 0.75, hang: 0.7, flat: 0, ragged: 0.9, under: 0.6 }, cards));
+  return treeObject(merge(...parts), [cards, "lance"]);
 }
 
-// ---- cacti ----
+// ---- cacti: smooth ribbed columns with rounded tips ----
 function cactus(seed: number, tall: boolean): THREE.Group {
   const rnd = seeded(seed);
   if (!tall) {
-    // a round barrel cactus
-    const body = scale(sphereCenter(28, [0, 0, 22], "CactusGreen", 12), [1, 1, 0.9], [0, 0, 0]);
-    const flower = sphereCenter(5, [0, 0, 45], "FabricRed", 6);
-    return toThree(merge(body, flower), material);
+    // a round barrel cactus, deep ribs, a few pink flowers on top
+    const prof: THREE.Vector2[] = [];
+    for (let k = 0; k <= 6; k++) {
+      const a = (k / 6) * Math.PI * 0.95;
+      prof.push(new THREE.Vector2(Math.max(0.5, Math.sin(a) * 28), 22 - Math.cos(a) * 24));
+    }
+    const geo = new THREE.LatheGeometry(prof, 16);
+    geo.rotateX(Math.PI / 2);
+    const pos = geo.getAttribute("position");
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), a = Math.atan2(y, x), f = 0.9 + 0.1 * Math.abs(Math.cos(a * 6));
+      pos.setXYZ(i, x * f, y * f, Math.max(0, pos.getZ(i) * 0.95));
+    }
+    geo.computeVertexNormals();
+    const uv = geo.getAttribute("uv");
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i), uv.getY(i) * 0.6);
+    const flowers = new Cards();
+    for (const [a, c] of [[0, FLOWER_CELLS.cosmosPink], [1.6, FLOWER_CELLS.rosePink]] as const)
+      flowers.facing("FlowerCards", [Math.cos(a) * 4, Math.sin(a) * 4, 45], new THREE.Vector3(Math.cos(a) * 0.3, Math.sin(a) * 0.3, 1), a, 16, 16, UP, flowerCell(c));
+    return toThree(merge([{ geo, mat: "CactusGreen" }], flowers.geo()), material);
   }
   const h = 230 + rnd() * 80, r = 20;
-  const parts: Geo[] = [cylinderAt({ radius: r, height: h, segments: 10, bottom: [0, 0, 0] }, "CactusGreen"), sphereCenter(r, [0, 0, h], "CactusGreen", 10)];
+  const parts: Geo[] = [limb([[0, 0, 0], [2, 1, h * 0.5], [0, 0, h - r]], r * 1.06, r, "CactusGreen", { seg: 10, step: 70, dome: true, flare: 0.12 })];
   for (const side of [1, -1]) {
     if (side < 0 && rnd() < 0.3) continue;
-    const z = h * (0.35 + rnd() * 0.25), out = 45 + rnd() * 15, up = 50 + rnd() * 50;
-    const a: V3 = [0, 0, z], b: V3 = [side * out, 0, z + 8], c: V3 = [side * out, 0, z + 8 + up];
-    parts.push(cylinderBetween(a, b, r * 0.62, 8, "CactusGreen"), sphereCenter(r * 0.62, b, "CactusGreen", 8), cylinderBetween(b, c, r * 0.62, 8, "CactusGreen"), sphereCenter(r * 0.62, c, "CactusGreen", 8));
+    const z = h * (0.35 + rnd() * 0.25), out = 45 + rnd() * 15, up = 50 + rnd() * 50, ra = r * 0.62;
+    parts.push(limb([[0, 0, z], [side * out * 0.55, 0, z + 2], [side * out, 0, z + 22], [side * out, 0, z + 8 + up]], ra, ra * 0.94, "CactusGreen", { seg: 8, step: 22, dome: true, maxRings: 9 }));
   }
   return toThree(merge(...parts), material);
 }
