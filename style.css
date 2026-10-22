@@ -739,8 +739,17 @@ body.touch .mp-info {
 body.touch .mp-info:empty { display: none; }
 
 /* asking before a skill point is spent */
-.sk-confirm { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; background: rgba(8, 12, 6, 0.55); }
-.sk-confirm-box { width: min(360px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 14px; background: rgba(20, 28, 18, 0.97); border: 1px solid var(--rim); text-align: center; }
-.sk-confirm-box strong { display: block; color: var(--gold); font-size: 16px; }
-.sk-confirm-box p { margin: 6px 0 12px; color: var(--muted); font-size: 13px; }
-.sk-confirm-row { display: flex; gap: 8px; justify-content: center; }
+/* skill window: points planned, then confirmed together */
+.sk-plan {
+  display: flex; align-items: center; gap: 8px; margin: 8px 14px 0; padding: 6px 10px; border-radius: 10px;
+  background: rgba(157, 240, 180, 0.1); border: 1px solid rgba(157, 240, 180, 0.5);
+}
+.sk-plan.hidden { display: none; }
+.sk-plan-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12.5px; }
+.sk-plan-text strong { color: #9df0b4; font-size: 14px; }
+.sk-plan-text small { color: var(--muted); font-size: 11.5px; }
+.sk-plan .title-btn { flex: none; margin: 0; padding: 7px 16px; }
+.sk-plus.minus { background: #f3c19d; }
+.sk-plus.mini.minus { left: auto; right: calc(50% + 22px); box-shadow: 0 0 8px rgba(243, 193, 157, 0.7); }
+.sk-tnode.planned .sk-rank { color: #10160d; background: #9df0b4; white-space: nowrap; }
+.sk-line.planned { border-color: rgba(157, 240, 180, 0.6); }

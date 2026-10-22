@@ -1062,6 +1062,18 @@ export class Progress {
     this.listeners.add(fn);
   }
 
+  // A copy to plan points on (the skill window): it saves nothing and tells no one.
+  draft(): Progress {
+    const d = Object.create(Progress.prototype) as Progress;
+    Object.assign(d, structuredClone({
+      cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
+      elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar,
+    }));
+    d.listeners = new Set();
+    d.save = () => {};
+    return d;
+  }
+
   changed(): void {
     this.save();
     for (const fn of this.listeners) fn(this);
