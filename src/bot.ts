@@ -452,14 +452,23 @@ export class Bot {
   }
 
   // ---- skills ----
-  ready(id: string, support: boolean): boolean {
+  // A skill can go now: learned, off cooldown, the right weapon, and its MP over the floor plus
+  // `reserve` (what a skill higher on the list is waiting to have).
+  ready(id: string, support: boolean, reserve = 0): boolean {
+    return this.usable(id) && this.d.hero.mp - ACTIVES[id].skill.mp >= this.floor(support) + reserve;
+  }
+
+  // Learned, off cooldown, and the weapon it needs in hand (MP aside).
+  usable(id: string): boolean {
     const { hero, progress } = this.d;
     if (!progress.skillRank(id) || hero.cooldowns.has(id)) return false;
-    const a = ACTIVES[id], s = a.skill;
-    if (a.source.weapons && !a.source.weapons.includes(this.d.weaponId() as WeaponId)) return false;
-    // offensive skills leave saveMp % of MP for the support ones
-    const floor = support ? 0 : (hero.stats.maxMp * this.settings.saveMp) / 100;
-    return hero.mp - s.mp >= floor;
+    const a = ACTIVES[id];
+    return !a.source.weapons || a.source.weapons.includes(this.d.weaponId() as WeaponId);
+  }
+
+  // offensive skills leave saveMp % of MP for the support ones
+  floor(support: boolean): number {
+    return support ? 0 : (this.d.hero.stats.maxMp * this.settings.saveMp) / 100;
   }
 
   // The player can start a skill now (not mid-cast, and a swing has already landed).
@@ -501,15 +510,24 @@ export class Bot {
     const hpPct = (hero.hp / hero.stats.maxHp) * 100;
     const dist = Math.hypot(t.x - player.x, t.y - player.y) - t.radius;
     if (!clearLine(player, t, RADIUS * 0.6) && dist > 120) return false;
+    // the list goes top first: a skill that would go but for its MP keeps that MP from the ones
+    // under it (else cheap spells spent it as it came back and the big one never went)
+    let reserve = 0;
     for (const r of this.settings.rules) {
       const a = ACTIVES[r.id];
-      if (!r.on || !a || isSupport(a.skill) || !this.ready(r.id, false)) continue;
+      if (!r.on || !a || isSupport(a.skill) || !this.usable(r.id)) continue;
       const { reach, area, self } = skillReach(a.skill);
       if (dist > reach) continue;
       let go = r.cond === "ready";
       if (r.cond === "hp") go = hpPct < r.value;
       else if (r.cond === "mobs") go = this.count(self ? player : t, area) >= r.value;
-      if (go && this.cast(r.id, t)) return true;
+      if (!go) continue;
+      if (!this.ready(r.id, false, reserve)) {
+        // (one it could never afford holds nothing back)
+        if (a.skill.mp + this.floor(false) <= hero.stats.maxMp) reserve = Math.max(reserve, a.skill.mp);
+        continue;
+      }
+      if (this.cast(r.id, t)) return true;
     }
     return false;
   }
