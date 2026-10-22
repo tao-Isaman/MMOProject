@@ -10,8 +10,8 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock, gableRoof, gableWall } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial } from "../textures";
-import { leaves, leafMaterials } from "../trees";
-import { solid } from "./types";
+import { shrub } from "../trees";
+import type { ShrubLook } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the island's own colours ----
@@ -586,21 +586,24 @@ function sacredRock(): Geo {
   return merge(...P);
 }
 
-// Kumazasa: a waist-high bush of dwarf bamboo.
-function sasaBush(): THREE.Object3D {
+// Kumazasa: a waist-high bush of dwarf bamboo: thin canes under lobes of long narrow leaves,
+// their tips pale where the frost has bleached the edges.
+defineMaterial("Volcanic_SasaCore", { map: "foliage", tint: "#3f6a2e", rough: 0.95, bump: 1.5 });
+defineMaterial("Volcanic_SasaCardDark", { card: "lance", tint: "#477a34", rough: 0.8 });
+defineMaterial("Volcanic_SasaCard", { card: "lance", tint: "#6c9e44", rough: 0.75 });
+defineMaterial("Volcanic_SasaCardLight", { card: "lance", tint: "#b4d07a", rough: 0.7 });
+const SASA: ShrubLook = { core: "Volcanic_SasaCore", dark: "Volcanic_SasaCardDark", mid: "Volcanic_SasaCard", light: "Volcanic_SasaCardLight" };
+function sasaBush(): Geo {
   const rnd = seeded(61), stems: Geo[] = [];
   for (let i = 0; i < 16; i++) {
     const a = rnd() * Math.PI * 2, d = rnd() * 50;
     const x = Math.cos(a) * d, y = Math.sin(a) * d, h = 55 + rnd() * 45;
     stems.push(cylinderBetween([x, y, 0], [x * 1.5 + (rnd() - 0.5) * 20, y * 1.5 + (rnd() - 0.5) * 20, h], 1.5, 5, i % 3 ? "Bamboo" : "BambooDry", 1));
   }
-  const g = solid(merge(...stems));
-  const [mat, depth] = leafMaterials("bamboo");
-  const crown = new THREE.Mesh(leaves({ crowns: [[0, 0, 58, 88, 76, 34], [48, -38, 46, 52, 48, 28], [-44, 40, 44, 52, 46, 26], [-20, -50, 40, 40, 40, 24]], leafSize: 32, density: 1.5 }, rnd), mat);
-  crown.customDepthMaterial = depth;
-  crown.castShadow = crown.receiveShadow = true;
-  g.add(crown);
-  return g;
+  return merge(...stems, shrub({
+    seed: 63, leaf: 34, look: SASA, ragged: 0.75, core: 0.75,
+    lobes: [[0, 0, 58, 72, 62, 32], [48, -38, 46, 46, 42, 26], [-44, 40, 44, 46, 40, 24], [-20, -50, 40, 36, 36, 22], [30, 34, 48, 40, 36, 24], [-42, -6, 50, 38, 36, 24]],
+  }));
 }
 
 // Susuki: a fountain of silver grass with feathery plumes.

@@ -15,7 +15,9 @@ import {
   cylinderBetween, cylinderAt, sphereCenter, torus, gableWall, rock,
 } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial } from "../textures";
+import { defineMaterial, FLOWER_CELLS } from "../textures";
+import { Cards, shrub } from "../trees";
+import type { Lobe, ShrubLook } from "../trees";
 import type { SolidSpec } from "../../world";
 import type { Paved, Poly } from "../paved";
 import type { FieldBuilder } from "../field";
@@ -56,6 +58,11 @@ defineMaterial("Steppe_HayOld", { map: "thatch", tint: "#ae9a62", bump: 2 });
 defineMaterial("Steppe_Sage", { map: "felt", tint: "#94a07a", rough: 1 });
 defineMaterial("Steppe_SageDark", { map: "felt", tint: "#6a7a4c", rough: 1 });
 defineMaterial("Steppe_Bloom", { map: "felt", tint: "#e6c443", rough: 0.9 });
+// the sage scrub: small grey-green leaves round a leafy core
+defineMaterial("Steppe_SageCore", { map: "foliage", tint: "#6e7c52", rough: 1, bump: 1.5 });
+defineMaterial("Steppe_SageCardDark", { card: "leaves", tint: "#6c7c50", rough: 0.95 });
+defineMaterial("Steppe_SageCard", { card: "leaves", tint: "#98a678", rough: 0.9 });
+defineMaterial("Steppe_SageCardLight", { card: "leaves", tint: "#c4cca0", rough: 0.85 });
 defineMaterial("Steppe_Shadow", { tint: "#231c16", rough: 1 });
 defineMaterial("Steppe_Paint", { map: "wood", tint: "#3e2d22", bump: 0.6 });
 defineMaterial("Steppe_Rune", { tint: "#9fe8ff", rough: 0.4, glow: "#36b9ff", glowI: 1.2 });
@@ -299,6 +306,9 @@ function grassTuft(): Geo {
 }
 
 // A steppe shrub: woody stems under grey-green sage clumps with a few yellow pea flowers (1.8 m).
+const SAGE: ShrubLook = { core: "Steppe_SageCore", dark: "Steppe_SageCardDark", mid: "Steppe_SageCard", light: "Steppe_SageCardLight" };
+// Sagebrush: grey-green lobes of small leaves on woody stems, dotted with yellow flowers, grass
+// at its foot (the cards keep to the footprint of the old round scrub).
 function scrub(): Geo {
   const rnd = seeded(61);
   const parts: Geo[] = [];
@@ -310,16 +320,19 @@ function scrub(): Geo {
     parts.push(cylinderBetween([Math.cos(a) * 6, Math.sin(a) * 6, 0], tip, 4, 5, "Steppe_Bark", 2));
   }
   tips.push([0, 0, 95]);
-  tips.forEach((t, i) => {
+  const lobes: Lobe[] = [], lo: V3 = [1e9, 1e9, 0], hi: V3 = [-1e9, -1e9, 0];
+  tips.forEach((t) => {
     const r = 34 + rnd() * 18;
-    parts.push(blob([t[0], t[1], t[2] + 4], [r, r * 0.9, r * 0.62], i % 2 ? "Steppe_Sage" : "Steppe_SageDark", 7));
-    for (let k = 0; k < 3; k++) {
-      const a = rnd() * Math.PI * 2;
-      parts.push(sphereCenter(4.5, [t[0] + Math.cos(a) * r * 0.55, t[1] + Math.sin(a) * r * 0.55, t[2] + 4 + r * 0.45], "Steppe_Bloom", 5));
-    }
+    for (let k = 0; k < 3; k++) rnd();
+    lobes.push([t[0], t[1], t[2] + 4, r * 0.92, r * 0.84, r * 0.6]);
+    lo[0] = Math.min(lo[0], t[0] - r); lo[1] = Math.min(lo[1], t[1] - r * 0.9);
+    hi[0] = Math.max(hi[0], t[0] + r); hi[1] = Math.max(hi[1], t[1] + r * 0.9); hi[2] = Math.max(hi[2], t[2] + 4 + r * 0.62 + 6);
   });
+  const cards = new Cards();
+  cards.clip = { min: lo, max: hi };
+  parts.push(shrub({ seed: 67, lobes, leaf: 20, look: SAGE, ragged: 0.55, core: 0.8, cards, flowers: { cells: [FLOWER_CELLS.tinyYellow], n: 14, size: 15 } }));
   parts.push(tuft([60, -50, 0], 0.6, 62), tuft([-55, 60, 0], 0.6, 63));
-  return merge(...parts);
+  return merge(...parts, cards.geo());
 }
 
 // A dead tree bent by the wind: a bleached, twisted trunk leaning +X, bare limbs (4.6 m).

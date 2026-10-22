@@ -256,7 +256,7 @@ export class Terrain {
       }
     }
     // round the corners: a gaussian along the outline
-    const sig = clamp(L / 30, 70, 160), R = Math.ceil((3 * sig) / h);
+    const sig = clamp(L / 28, 70, 250), R = Math.ceil((3 * sig) / h);
     const ker: number[] = [];
     let ks = 0;
     for (let j = -R; j <= R; j++) ks += ker[j + R] = Math.exp(-((j * h) ** 2) / (2 * sig * sig));
@@ -275,7 +275,7 @@ export class Terrain {
     const ccw = ccwOf(sx, sy, n);
     const [nx0, ny0] = normals(sx, sy, n, ccw);
     const size = clamp(L / 7000, 0.4, 1);
-    const waves = [[1500, 30], [950, 20], [560, 12], [300, 6]].map(([len, amp], j) => ({ k: Math.max(1, Math.round(L / len)), amp: amp * size, ph: hash(k * 13.7 + j * 3.1) * Math.PI * 2 }));
+    const waves = [[2600, 50], [1500, 32], [950, 18], [560, 10], [300, 5]].map(([len, amp], j) => ({ k: Math.max(1, Math.round(L / len)), amp: amp * size, ph: hash(k * 13.7 + j * 3.1) * Math.PI * 2 }));
     for (let i = 0; i < n; i++) {
       const s = (i / n) * Math.PI * 2;
       let o = 0;
@@ -310,8 +310,9 @@ export class Terrain {
       const hw = r.width / 2;
       if (db > 150 || side(kb) >= hw) continue;
       let a = kb, b = kb;
-      for (let s = 0; s < m && side((b + 1) % m) < hw; s++) b = (b + 1) % m;
-      for (let s = 0; s < m && side((a + m - 1) % m) < hw; s++) a = (a + m - 1) % m;
+      const close = (i: number) => side(i) < hw && Math.hypot(vx[i] - r.top[0], vy[i] - r.top[1]) < r.width * 1.5;
+      for (let s = 0; s < m && close((b + 1) % m); s++) b = (b + 1) % m;
+      for (let s = 0; s < m && close((a + m - 1) % m); s++) a = (a + m - 1) % m;
       for (let i = a; ; i = (i + 1) % m) {
         gap[i] = 1;
         if (i === b) break;
@@ -686,7 +687,7 @@ export class Terrain {
             nextStone = sAcc + (140 + rnd() * 300) * (1.4 - Math.min(1, e.ah[i] / 45) * 0.6);
             const S = clamp(0.16 * dh + 20, 28, 95) * (0.7 + rnd() * 0.5);
             const along = (rnd() - 0.5) * 60, lx = -ny, ly = nx;
-            const d0 = wf + S * (0.05 + 0.3 * rnd());
+            const d0 = wf + S * (-0.15 + 0.25 * rnd()); // (into the face's foot, not out where people walk)
             stones.push({ x: x + nx * d0 + lx * along, y: y + ny * d0 + ly * along, z: 0, s: S, big: true });
             for (let q = 0, nq = 1 + Math.floor(rnd() * 3); q < nq; q++) {
               const d1 = wf + S * 0.3 + rnd() * (e.wa[i] * 0.6), a1 = along + (rnd() - 0.5) * 2.4 * S;

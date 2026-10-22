@@ -22,7 +22,8 @@ import {
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, material, leafClump } from "../textures";
 import type { LeafPalette } from "../textures";
-import { leaves, leafMaterials } from "../trees";
+import { leaves, leafMaterials, shrub } from "../trees";
+import type { ShrubLook } from "../trees";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -266,18 +267,18 @@ function redMaple(): THREE.Object3D {
   return g;
 }
 
-// A low bush of red leaves, about 2.4 m across.
-function redBush(): THREE.Object3D {
-  const rr = seeded(89);
-  const crowns: Crown[] = [[0, 0, 78, 115, 100, 72], [62, -55, 62, 72, 64, 52], [-55, 62, 58, 70, 62, 46]];
-  const sticks: Geo[] = [];
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * TAU;
-    sticks.push(cylinderBetween([0, 0, 0], [Math.cos(a) * 60, Math.sin(a) * 60, 70], 4, 5, "WoodDark", 1.5));
-  }
-  const g = toThree(merge(...sticks), material);
-  g.add(crownMesh(crowns, 46, "frontier_scarlet_bush", SCARLET, rr, 1.3));
-  return g;
+// A low bush of red leaves, about 2.4 m across: overlapping lobes of scarlet sprays over a dark
+// red core, deep crimson underneath, orange where the sun catches the top, on a few dark stems.
+defineMaterial("Frontier_RedCore", { map: "foliage", tint: "#8a2a1c", rough: 0.95, bump: 1.5 });
+defineMaterial("Frontier_RedCardDark", { card: "leaves", tint: "#9a2c1e", rough: 0.85 });
+defineMaterial("Frontier_RedCard", { card: "leaves", tint: "#d04a26", rough: 0.8 });
+defineMaterial("Frontier_RedCardLight", { card: "leaves", tint: "#f88a40", rough: 0.75 });
+const RED_BUSH: ShrubLook = { core: "Frontier_RedCore", dark: "Frontier_RedCardDark", mid: "Frontier_RedCard", light: "Frontier_RedCardLight" };
+function redBush(): Geo {
+  return shrub({
+    seed: 89, leaf: 34, look: RED_BUSH, ragged: 0.6, stems: { mat: "WoodDark", r: 4, n: 6 },
+    lobes: [[0, 0, 84, 76, 68, 52], [52, 18, 62, 54, 50, 44], [-44, 40, 58, 52, 48, 42], [-40, -40, 60, 52, 46, 42], [62, -55, 56, 56, 50, 42], [-55, 62, 52, 54, 48, 38], [12, -8, 116, 48, 44, 32]],
+  });
 }
 
 // Fallen leaves: leaf-clump cards lying on the ground in a patch about 4 m across.

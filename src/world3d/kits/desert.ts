@@ -12,9 +12,10 @@
 import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock, toThree } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial, material, leafClump } from "../textures";
+import { defineMaterial, material, leafClump, FLOWER_CELLS } from "../textures";
 import type { LeafPalette } from "../textures";
-import { leafMaterials, leaves, wind } from "../trees";
+import { leafMaterials, leaves, wind, shrub } from "../trees";
+import type { ShrubLook } from "../trees";
 import type { Kit, Put } from "./types";
 
 // ---- the desert's own colours ----
@@ -257,7 +258,6 @@ function sheet(pts: V3[], mat: string): Geo {
 const ZUP_TO_YUP = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
 const ACACIA: LeafPalette = { dark: [112, 134, 54], light: [200, 208, 116], leaves: 26, thin: 0.22 };
 const BAOBAB: LeafPalette = { dark: [66, 108, 38], light: [158, 192, 88], leaves: 14 };
-const SCRUB: LeafPalette = { dark: [96, 92, 50], light: [178, 168, 98], leaves: 20, thin: 0.18 };
 
 function leafy(wood: Geo, crowns: Crown[], leafSize: number, density: number, key: string, pal: LeafPalette, seed: number): THREE.Group {
   const g = toThree(wood, material);
@@ -560,15 +560,25 @@ function deadTree(): Geo {
   return merge(...parts);
 }
 
-// พุ่มหนามแห้ง: a thorn scrub, grey-green and sparse over a tangle of dark twigs.
-function dryBush(): THREE.Group {
+// พุ่มหนามแห้ง: a thorn scrub, olive-grey and thin over a tangle of dark twigs (the twigs show
+// through the gaps), a few small orange flowers.
+defineMaterial("Desert_ScrubCore", { map: "foliage", tint: "#6a6638", rough: 1, bump: 1.5 });
+defineMaterial("Desert_ScrubCardDark", { card: "leaves", tint: "#6e6a3a", rough: 0.95 });
+defineMaterial("Desert_ScrubCard", { card: "leaves", tint: "#9c9858", rough: 0.9 });
+defineMaterial("Desert_ScrubCardLight", { card: "leaves", tint: "#c8c084", rough: 0.85 });
+const THORN: ShrubLook = { core: "Desert_ScrubCore", dark: "Desert_ScrubCardDark", mid: "Desert_ScrubCard", light: "Desert_ScrubCardLight" };
+function dryBush(): Geo {
   const rnd = seeded(17);
   const twigs: Geo[] = [];
   for (let i = 0; i < 11; i++) {
     const a = rnd() * Math.PI * 2, r = 30 + rnd() * 60;
     twigs.push(cylinderBetween([Math.cos(a) * 8, Math.sin(a) * 8, 0], [Math.cos(a) * r, Math.sin(a) * r, 50 + rnd() * 50], 3.5, 5, "Desert_DarkWood", 1.2));
   }
-  return leafy(merge(...twigs), [[0, 0, 62, 88, 80, 48], [42, -30, 48, 58, 56, 36], [-38, 32, 42, 52, 50, 32]], 34, 0.8, "desert_scrub", SCRUB, 19);
+  return merge(...twigs, shrub({
+    seed: 19, leaf: 26, look: THORN, ragged: 0.85, density: 0.75, core: 0.55,
+    lobes: [[0, 0, 64, 62, 58, 40], [42, -30, 48, 46, 44, 32], [-38, 32, 44, 44, 42, 30], [30, 36, 54, 40, 38, 28], [-34, -34, 52, 40, 38, 28], [6, 4, 86, 38, 36, 24]],
+    flowers: { cells: [FLOWER_CELLS.tinyOrange], n: 6, size: 14 },
+  }));
 }
 
 // ขอนไม้ล้ม: a fallen trunk gone grey, its root plate up on one end and the other end splintered.

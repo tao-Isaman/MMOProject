@@ -49,7 +49,7 @@ const EDEN_MATS: Record<string, Recipe> = {
   // the city quarter
   Eden_PlasterYellow: { map: "plaster", tint: "#f6e2a2", bump: 0.6 },
   Eden_PlasterRose: { map: "plaster", tint: "#f2cbc2", bump: 0.6 },
-  Eden_Hedge: { map: "foliage", tint: "#5a9a40", rough: 0.95, bump: 1.5 },
+  Eden_Hedge: { map: "foliage", tint: "#6aa64a", rough: 0.95, bump: 1.5 },
   Eden_ShopGlass: { tint: "#d8eef8", rough: 0.05, opacity: 0.22 },
   Eden_PotionRed: { tint: "#ff5a78", rough: 0.15, glow: "#ff2f55", glowI: 0.9 },
   Eden_PotionBlue: { tint: "#5ab4ff", rough: 0.15, glow: "#2f84ff", glowI: 0.9 },
@@ -1123,12 +1123,15 @@ function flowerPlanter(): Geo {
   const rows: [number, number, number[]][] = [[-15, 24, [FC.roseRed, FC.daisy]], [0, 30, [FC.buttercup, FC.cosmosPink, FC.buttercup]], [15, 36, [FC.pansy, FC.daisy, FC.pansy]]];
   for (const [x, h, cells] of rows)
     for (let i = 0; i < 8; i++) flowerClump(cards, [x + (rnd() - 0.5) * 6, -76 + i * 21.7 + (rnd() - 0.5) * 6, 58], 30, h, [cells[i % cells.length]], 2, rnd, [-0.5, 0]);
-  // ivy over the front lip: strands of small leaf sprays
+  // ivy over the front lip: strands of small leaf sprays, some long, some short
   const front = new THREE.Vector3(-0.6, 0, 0.8).normalize();
-  for (let i = 0; i < 7; i++) {
-    const y = -78 + i * 26 + (rnd() - 0.5) * 8, n = 2 + Math.floor(rnd() * 2);
-    for (let k = 0; k <= n; k++)
-      cards.facing(k % 2 ? "LeafCardDark" : "LeafCard", [-38 - k * 1.2, y + (rnd() - 0.5) * 8, 57 - k * 11], new THREE.Vector3(-1, (rnd() - 0.5) * 0.7, 0.35), rnd() * 6.28, 18, 18, front);
+  for (let i = 0; i < 9; i++) {
+    let y = -82 + i * 20.5 + (rnd() - 0.5) * 10;
+    const n = 1 + Math.floor(rnd() * 3.5);
+    for (let k = 0; k <= n; k++) {
+      y += (rnd() - 0.5) * 7;
+      cards.facing(rnd() < 0.5 ? "LeafCardDark" : "LeafCard", [-38 - k * 1.2, y, 57 - k * 10], new THREE.Vector3(-1, (rnd() - 0.5) * 0.8, 0.3 + rnd() * 0.3), rnd() * 6.28, 15 + rnd() * 6, 15 + rnd() * 6, front);
+    }
   }
   return merge(...out, cards.geo());
 }
@@ -2223,8 +2226,8 @@ function hedge(): Geo {
     const lift = 1 + rnd() * 4;
     const c: V3 = [p0[0] + (p1[0] - p0[0]) * f + n.x * lift, y, p0[2] + (p1[2] - p0[2]) * f + n.z * lift];
     const face = n.clone().add(new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(0.9)).normalize();
-    const sun = 0.55 * (n.z * 0.5 + 0.5) + 0.35 * (c[2] / 131) + 0.25 * (rnd() - 0.5);
-    cards.facing(sun < 0.45 ? "LeafCardDark" : sun < 0.72 ? "LeafCard" : "LeafCardLight", c, face, rnd() * 6.28, 17 + rnd() * 8, 17 + rnd() * 8, n.clone().multiplyScalar(0.7).add(SKY.clone().multiplyScalar(0.6)).normalize());
+    const sun = 0.55 * (n.z * 0.5 + 0.5) + 0.4 * (c[2] / 131) + 0.25 * (rnd() - 0.5);
+    cards.facing(sun < 0.42 ? "LeafCardDark" : sun < 0.68 ? "LeafCard" : "LeafCardLight", c, face, rnd() * 6.28, 17 + rnd() * 8, 17 + rnd() * 8, n.clone().multiplyScalar(0.7).add(SKY.clone().multiplyScalar(0.6)).normalize());
   }
   return merge(...out, cards.geo());
 }
@@ -2253,12 +2256,18 @@ function flowerBed(): Geo {
     cylinderAt({ radius: 140, height: 5, segments: 16, bottom: [0, 0, 22] }, "Eden_Soil"),
     scale(sphereCenter(70, [0, 0, 22], "Eden_Soil", 10), [1, 1, 0.3], [0, 0, 22]),
   ];
-  const bands: [number, number, number[], number][] = [[118, 26, [FC.roseRed, FC.roseRed, FC.daisy], 30], [87, 29, [FC.buttercup, FC.marigold], 22], [58, 35, [FC.cosmosPink, FC.pansy], 15]];
+  // three bands of flowers, each two staggered rows of clumps, leaning out toward the kerb
+  const bands: [number, number, number[], number][] = [[118, 26, [FC.roseRed, FC.roseRed, FC.daisy], 34], [87, 29, [FC.buttercup, FC.marigold], 26], [58, 35, [FC.cosmosPink, FC.pansy], 18]];
   for (const [r, z, cells, n] of bands)
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + (rnd() - 0.5) * 0.1, rr = r + (rnd() - 0.5) * 12;
-      flowerClump(cards, [Math.cos(a) * rr, Math.sin(a) * rr, z], 30, 25 + rnd() * 8, [cells[Math.floor(i / 2) % cells.length]], 2, rnd, [Math.cos(a) * 0.5, Math.sin(a) * 0.5]);
+      const a = ((i + 0.5 * (i % 2)) / n) * Math.PI * 2 + (rnd() - 0.5) * 0.08, rr = r + (i % 2 ? 8 : -8) + (rnd() - 0.5) * 6;
+      flowerClump(cards, [Math.cos(a) * rr, Math.sin(a) * rr, z], 40, 27 + rnd() * 9, [cells[Math.floor(i / 2) % cells.length]], 2, rnd, [Math.cos(a) * 0.5, Math.sin(a) * 0.5]);
     }
+  // low leaves over the soil between them
+  for (let i = 0; i < 40; i++) {
+    const a = rnd() * Math.PI * 2, rr = 45 + Math.sqrt(rnd()) * 90;
+    cards.facing(rnd() < 0.5 ? "LeafCardDark" : "LeafCard", [Math.cos(a) * rr, Math.sin(a) * rr, 30 + rnd() * 6], new THREE.Vector3((rnd() - 0.5) * 0.8, (rnd() - 0.5) * 0.8, 1), rnd() * 6.28, 30, 30, SKY);
+  }
   out.push(shrub({ seed: 21, lobes: [[0, 0, 66, 29, 29, 23], [0, 0, 46, 26, 26, 15]], leaf: 16, ragged: 0.35, core: 0.85, flowers: { cells: [FC.blossom, FC.rosePink], n: 10, size: 13 }, cards }));
   return merge(...out, cards.geo());
 }
@@ -2295,7 +2304,7 @@ function pergola(): Geo {
         for (let k = 0; k < 2; k++) {
           const face = new THREE.Vector3((rnd() - 0.5) * 1.1, (rnd() - 0.5) * 1.1, 1);
           const edge = Math.max(Math.abs(x) / 150, Math.abs(y) / 200);
-          cards.facing(k ? "LeafCardLight" : edge > 0.85 ? "LeafCardDark" : "LeafCard", [x + (rnd() - 0.5) * 30, y + (rnd() - 0.5) * 30, 299 + k * 7 + rnd() * 5], face, rnd() * 6.28, 44 + rnd() * 14, 44 + rnd() * 14, SKY);
+          cards.facing(k && rnd() < 0.45 ? "LeafCardLight" : edge > 0.85 || rnd() < 0.3 ? "LeafCardDark" : "LeafCard", [x + (rnd() - 0.5) * 30, y + (rnd() - 0.5) * 30, 299 + k * 7 + rnd() * 5], face, rnd() * 6.28, 44 + rnd() * 14, 44 + rnd() * 14, SKY);
         }
       if ((i * 3 + j) % 3 === 1) {
         const h = 50 + ((i + j) % 3) * 9, cell = flowerCell((i + j) % 5 ? FC.wisteria : FC.blossom);

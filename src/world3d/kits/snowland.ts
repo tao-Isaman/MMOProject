@@ -15,7 +15,9 @@ import {
   cylinderBetween, cylinderAt, sphereCenter, gableRoof, gableWall, rock,
 } from "../geo";
 import type { Geo, V3 } from "../geo";
-import { defineMaterial } from "../textures";
+import { defineMaterial, FLOWER_CELLS } from "../textures";
+import { Cards, shrub, lump } from "../trees";
+import type { Lobe, ShrubLook } from "../trees";
 import type { Kit } from "./types";
 
 // ---- the kit's own materials ----
@@ -31,6 +33,12 @@ defineMaterial("Snowland_Earth", { map: "adobe", tint: "#5e4a3a", bump: 1.5 });
 defineMaterial("Snowland_DryGrass", { map: "thatch", tint: "#c9ad68", rough: 1 });
 defineMaterial("Snowland_DryGrassDark", { map: "thatch", tint: "#93804c", rough: 1 });
 defineMaterial("Snowland_FrostLeaf", { map: "felt", tint: "#6f9087", rough: 0.95 });
+// the frosted shrub: blue-green leaf sprays round a leafy core, snow lying on top
+defineMaterial("Snowland_FrostCore", { map: "foliage", tint: "#5d8076", rough: 0.95, bump: 1.5 });
+defineMaterial("Snowland_FrostCardDark", { card: "leaves", tint: "#5f857a", rough: 0.85 });
+defineMaterial("Snowland_FrostCard", { card: "leaves", tint: "#86aa9e", rough: 0.8 });
+defineMaterial("Snowland_FrostCardLight", { card: "leaves", tint: "#bcd6cf", rough: 0.75 });
+defineMaterial("Snowland_SnowCard", { card: "leaves", tint: "#f6f9ff", rough: 0.8 });
 defineMaterial("Snowland_Frost", { map: "snow", tint: "#e1ebf6", rough: 0.85 });
 defineMaterial("Snowland_Ice", { map: "ice", tint: "#cfeaf6", rough: 0.12, opacity: 0.9 });
 defineMaterial("Snowland_IceDeep", { map: "ice", tint: "#8ec8e4", rough: 0.15 });
@@ -340,20 +348,32 @@ function snowyStump(): Geo {
   return merge(...parts);
 }
 
+// A frosted shrub on a drift: blue-green lobes of leaves on bare stems, each under a soft cap of
+// snow with white sprays where it thins out over the leaves, bare twigs poking out, a few red
+// berries left by the birds.
+const FROST: ShrubLook = { core: "Snowland_FrostCore", dark: "Snowland_FrostCardDark", mid: "Snowland_FrostCard", light: "Snowland_FrostCardLight" };
 function frostShrub(): Geo {
-  const rnd = seeded(101), parts: Geo[] = [mound(160, 140, 20, 104)];
+  const rnd = seeded(101), r2 = seeded(107), parts: Geo[] = [mound(160, 140, 20, 104)];
+  const lobes: Lobe[] = [], cards = new Cards(), up = new THREE.Vector3(0, 0, 1);
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2 + rnd() * 0.5, d = 25 + rnd() * 42, h = 55 + rnd() * 55;
     const tip: V3 = [Math.cos(a) * d, Math.sin(a) * d, h];
     parts.push(cylinderBetween([Math.cos(a) * 5, Math.sin(a) * 5, 0], tip, 3.5, 5, "Snowland_DeadWood", 1.5));
     const r = 26 + rnd() * 14;
-    parts.push(blob(r, tip, "Snowland_FrostLeaf", 0.75));
-    parts.push(blob(r * 0.8, [tip[0] + 3, tip[1] - 2, tip[2] + r * 0.42], "Snow", 0.42, 8));
+    lobes.push([tip[0], tip[1], tip[2], r, r * 0.95, r * 0.72]);
+    // the snow cap, and white sprays round its edge
+    parts.push(lump([tip[0] + 2, tip[1] - 2, tip[2] + r * 0.4], [r * 0.8, r * 0.76, r * 0.3], 300 + i, "Snow", 1, 0.18));
+    for (let k = 0; k < 5; k++) {
+      const b = r2() * Math.PI * 2, e = 0.5 + r2() * 0.35;
+      const dir = new THREE.Vector3(Math.cos(b) * Math.cos(e), Math.sin(b) * Math.cos(e), Math.sin(e));
+      cards.facing("Snowland_SnowCard", [tip[0] + dir.x * r * 0.92, tip[1] + dir.y * r * 0.9, tip[2] + dir.z * r * 0.7], dir.clone().add(up), r2() * 6.28, 18 + r2() * 8, 18 + r2() * 8, up);
+    }
     // bare twigs poking out
     const out: V3 = [Math.cos(a + 0.3) * (d + 45), Math.sin(a + 0.3) * (d + 45), h + 20 + rnd() * 25];
     parts.push(cylinderBetween(tip, out, 1.8, 4, "Snowland_DeadWood", 0.6));
   }
-  return merge(...parts);
+  parts.push(shrub({ seed: 103, lobes, leaf: 21, look: FROST, ragged: 0.45, core: 0.8, cards, flowers: { cells: [FLOWER_CELLS.berries], n: 6, size: 11, up: 0.3 } }));
+  return merge(...parts, cards.geo());
 }
 
 function dryGrass(): Geo {
