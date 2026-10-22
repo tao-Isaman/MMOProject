@@ -12,9 +12,10 @@
 // `height` is exact (built into the ground mesh and used to stand every piece on the ground);
 // the game reads a grid of it (`sampler`) every frame. Down a rock face it is the straight line
 // from the top of the face to its foot, which is what the ground mesh draws there (its points are
-// moved onto those two lines: `place`), and the rock face (a mesh) bulges out in front of it. Thin
-// solids run along the cliffs, from just inside the edge to the foot of the face, so nobody walks
-// off or up them; a ramp leaves its stretch of edge open and is walled along its sides.
+// moved onto those two lines: `place`), and the rock face (a mesh, with boulders and stones heaped
+// at its foot) bulges out in front of it. Solids run along the cliffs, from just inside the edge to
+// the foot of the face, so nobody walks off or up them (or into the rock); a ramp leaves its
+// stretch of edge open and is walled along its sides.
 
 import * as THREE from "three";
 import type { SolidSpec } from "../world";
@@ -242,12 +243,13 @@ interface RampRec {
   bank: number;   // how far out its banks can reach
 }
 
-// the colour a cliff's rock takes where it faces up (moss, snow, sun-bleached)
-function capOf(rockName: string): [number, number, number] {
-  if (/snow|glacier|ice/i.test(rockName)) return [1.3, 1.33, 1.38];
-  if (/sand|red/i.test(rockName)) return [1.12, 1.06, 0.95];
-  if (/basalt|dark/i.test(rockName)) return [0.95, 0.9, 0.95];
-  return [0.78, 1.0, 0.6];
+// the colour a cliff's rock takes where it faces up (moss, snow, sun-bleached), from how far up
+// it starts to, and how much
+function capOf(rockName: string): { c: [number, number, number]; from: number; to: number; k: number } {
+  if (/snow|glacier|ice/i.test(rockName)) return { c: [1.45, 1.48, 1.55], from: 0.25, to: 0.7, k: 0.92 };
+  if (/sand|red/i.test(rockName)) return { c: [1.12, 1.06, 0.95], from: 0.45, to: 0.9, k: 0.55 };
+  if (/basalt|dark/i.test(rockName)) return { c: [0.95, 0.9, 0.95], from: 0.45, to: 0.9, k: 0.5 };
+  return { c: [0.78, 1.0, 0.6], from: 0.45, to: 0.9, k: 0.65 };
 }
 
 export class Terrain {
@@ -767,6 +769,17 @@ export class Terrain {
             }
           }
         }
+        // a heap of boulders where the face meets a ramp's bank (each end of a run that is not a loop)
+        if (fine && run[0] !== run[run.length - 1])
+          for (const c of [Math.min(2, run.length - 1), Math.max(0, run.length - 3)]) {
+            const i = run[c], x = e.x[i], y = e.y[i], nx = e.nx[i], ny = e.ny[i], wf = e.wf[i];
+            if (!this.inDetail(x, y) || e.drop[i] < 60) continue;
+            const S = clamp(0.14 * e.drop[i] + 25, 35, 90);
+            for (let q = 0; q < 3; q++) {
+              const d = wf * (0.7 + 0.5 * rnd()), a = (rnd() - 0.5) * 120;
+              stones.push({ x: x + nx * d - ny * a, y: y + ny * d + nx * a, s: S * (q ? 0.45 + 0.3 * rnd() : 1), detail: q ? -1 : 1 });
+            }
+          }
         // the faces between columns, wound to face out
         const cols = run.length;
         const p = (c: number, r: number) => first + c * rows + r;
@@ -813,8 +826,8 @@ export class Terrain {
     const nor = geo.getAttribute("normal"), col = new Float32Array(shade.length * 3);
     for (let v = 0; v < shade.length; v++) {
       const sh = Math.abs(shade[v]), up = nor.getY(v);
-      const m = Math.max(shade[v] < 0 ? 0.6 : 0, smoothstep(0.45, 0.9, up) * 0.65);
-      for (let c = 0; c < 3; c++) col[v * 3 + c] = sh * lerp(1, cap[c], m);
+      const m = Math.max(shade[v] < 0 ? cap.k * 0.9 : 0, smoothstep(cap.from, cap.to, up) * cap.k);
+      for (let c = 0; c < 3; c++) col[v * 3 + c] = sh * lerp(1, cap.c[c], m);
     }
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
     const mat = material(this.spec.rock ?? "CliffRock").clone();
