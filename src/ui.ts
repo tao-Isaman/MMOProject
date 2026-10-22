@@ -96,11 +96,7 @@ export class InventoryUI {
     }
     this.grid = el("div", "inv-grid", body);
     this.grid.style.setProperty("--cols", String(COLS));
-    this.cells = inv.slots.map((_, i) => {
-      const c = el("div", "inv-cell", this.grid);
-      c.dataset.index = String(i);
-      return c;
-    });
+    this.cells = [];
     this.tip = el("div", "inv-tip hidden", document.body);
     const foot = el("div", "inv-foot", this.win);
     this.gold = el("span", "inv-gold", foot);
@@ -215,6 +211,13 @@ export class InventoryUI {
   }
 
   render(): void {
+    // one cell per slot (the bag grows with the wandering merchant's book)
+    while (this.cells.length < this.inv.slots.length) {
+      const c = el("div", "inv-cell", this.grid);
+      c.dataset.index = String(this.cells.length);
+      this.cells.push(c);
+    }
+    while (this.cells.length > this.inv.slots.length) this.cells.pop()!.remove();
     this.inv.slots.forEach((s, i) => this.fill(this.cells[i], s?.id, s?.count));
     for (const [slot, cell] of Object.entries(this.equipEls)) this.fill(cell, this.inv.equipped[slot as EquipSlot], 1);
     // a two-handed weapon fills both hands: show it faded in the off-hand cell too

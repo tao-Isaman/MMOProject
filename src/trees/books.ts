@@ -1,5 +1,6 @@
 // Skill books found in the game, readable by any class (no `job`): two schools of elemental
-// magic, three books of basics (magic, body, fighting), the archer's eye and the prayers.
+// magic, three books of basics (magic, body, fighting), the archer's eye, the prayers and the
+// wandering merchant (shop prices, bag slots).
 // About first-class strength.
 import type { Tree } from "../progression";
 import { pct, lin } from "./util";
@@ -240,6 +241,32 @@ export const BOOK_TREES: Record<string, Tree> = {
       { id: "psalm_hymn", name: "บทเพลงสรรเสริญ", kind: "active", max: 5, pos: [1, 3], req: [["psalm_grace", 1], ["psalm_haven", 1]], glyph: "star",
         skill: { type: "buff", mp: 45, cd: 60, motion: "cast", duration: 15, heal: lin(0.1, 0.02), buff: (r) => ({ atkPct: 0.06 + 0.02 * r, matkPct: 0.06 + 0.02 * r, defPct: 0.1, mdefPct: 0.1 }), color: "#fffbe0" },
         desc: (r) => `ฟื้น HP ทันที ${pct(lin(0.1, 0.02)(r))} แล้ว 15 วิ: พลังโจมตีและพลังเวท +${pct(0.06 + 0.02 * r)} ป้องกันและต้านเวท +10%` },
+    ],
+  },
+
+  // ---- the wandering merchant: buys cheap, sells dear, carries more ----
+  merchant: {
+    name: "ตำราพ่อค้าพเนจร", cls: null, color: "#e8c36a", glyph: "coin",
+    note: "เคล็ดลับของพ่อค้าที่เดินทางไปทั่ว ซื้อของจาก NPC ถูก ขายได้แพง และขนของได้มากขึ้น",
+    nodes: [
+      { id: "merchant_haggle", name: "ต่อรองราคา", kind: "passive", max: 10, pos: [0, 0], glyph: "coin",
+        stats: (r) => ({ buyDisc: 0.02 * r }), desc: (r) => `ซื้อของจากร้านค้า NPC ถูกลง ${pct(0.02 * r)}` },
+      { id: "merchant_sweet_talk", name: "ปากหวาน", kind: "passive", max: 10, pos: [1, 0], glyph: "heart",
+        stats: (r) => ({ sellBonus: 0.03 * r }), desc: (r) => `ขายของให้ร้านค้า NPC ได้ราคาเพิ่ม ${pct(0.03 * r)}` },
+      { id: "merchant_big_pack", name: "กระเป๋าใบใหญ่", kind: "passive", max: 5, pos: [2, 0], glyph: "bag",
+        stats: (r) => ({ bagSlots: 4 * r }), desc: (r) => `ช่องกระเป๋า +${4 * r} ช่อง` },
+      { id: "merchant_road_feet", name: "เท้าพเนจร", kind: "passive", max: 5, pos: [3, 0], glyph: "shoes",
+        stats: (r) => ({ move: 0.02 * r }), desc: (r) => `ความเร็วเดิน +${pct(0.02 * r)}` },
+      { id: "merchant_gold_eye", name: "ตาพ่อค้า", kind: "passive", max: 5, pos: [0, 1], req: [["merchant_haggle", 3]], glyph: "eye",
+        stats: (r) => ({ goldPct: 0.06 * r }), desc: (r) => `ทองที่ได้จากมอนสเตอร์ +${pct(0.06 * r)}` },
+      { id: "merchant_appraise", name: "ตาถึงของดี", kind: "passive", max: 5, pos: [1, 1], req: [["merchant_sweet_talk", 3]], glyph: "star",
+        stats: (r) => ({ drop: 0.03 * r }), desc: (r) => `โอกาสได้ของ +${pct(0.03 * r)}` },
+      { id: "merchant_road_friends", name: "เส้นสายนักเดินทาง", kind: "passive", max: 5, pos: [3, 1], req: [["merchant_road_feet", 3]], glyph: "wing",
+        stats: (r) => ({ fareDisc: 0.05 * r }), desc: (r) => `ค่าเดินทางกับผู้นำทางถูกลง ${pct(0.05 * r)}` },
+      { id: "merchant_tycoon", name: "ราชาพ่อค้า", kind: "passive", max: 1, pos: [1, 2], req: [["merchant_haggle", 10], ["merchant_sweet_talk", 10]], glyph: "coin",
+        stats: () => ({ buyDisc: 0.05, sellBonus: 0.1, bagSlots: 8 }), desc: () => "ซื้อของถูกลงอีก 5% ขายได้ราคาเพิ่มอีก 10% ช่องกระเป๋า +8 ช่อง" },
+      { id: "merchant_caravan", name: "กองคาราวาน", kind: "passive", max: 1, pos: [2, 2], req: [["merchant_big_pack", 5]], glyph: "bag",
+        stats: () => ({ bagSlots: 8 }), desc: () => "ช่องกระเป๋า +8 ช่อง" },
     ],
   },
 };

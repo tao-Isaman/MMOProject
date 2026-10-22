@@ -7,6 +7,8 @@ import { el, makeWindow } from "./ui";
 import type { Inventory } from "./inventory";
 import type { Img } from "./types";
 
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
 export const MERCHANT = { x: 900, y: 690, name: "มิร่า", title: "ร้านค้า" };
 
 export const STOCK = [
@@ -17,12 +19,34 @@ export const STOCK = [
   "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
   "hat_straw", "hat_leather", "shoes_sandals", "shoes_boots", "ring_power", "ring_mind", "ring_chant", "trinket_moon",
   "book_survivor", "book_gathering", "book_lightning", "book_tree_basic_magic", "book_tree_basic_body", "book_tree_basic_combat",
+  "book_tree_merchant",
 ];
+
+// The wandering merchant's book: a share off what the shop charges (at most 50%) and a share more
+// for what it buys (at most double).
+export interface Deal {
+  buy: number;
+  sell: number;
+}
+
+// What the shop charges for one, after the discount.
+export function buyPrice(id: string, deal: Deal): number {
+  const price = ITEMS[id]?.price ?? 0;
+  return price && Math.max(1, Math.round(price * (1 - Math.min(0.5, deal.buy))));
+}
+
+// What the shop pays for one, after the bonus; never as much as it charges for the same thing,
+// so buying to sell back never pays.
+export function sellFor(id: string, deal: Deal): number {
+  const base = sellPrice(id), more = Math.floor(base * (1 + Math.min(1, deal.sell)));
+  return STOCK.includes(id) ? Math.max(base, Math.min(more, buyPrice(id, deal) - 1)) : more;
+}
 
 // ---- shop window ----
 export class ShopUI {
   inv: Inventory;
   icons: (id: string) => Img | null;
+  deal: () => Deal;
   win: HTMLElement;
   tab: "buy" | "sell" = "buy";
   tabs: HTMLElement;
@@ -31,9 +55,11 @@ export class ShopUI {
   status: HTMLElement;
   qty = new Map<string, number>();
 
-  constructor(inv: Inventory, icons: (id: string) => Img | null) {
+  // deal(): the discount and the sale bonus the player has now
+  constructor(inv: Inventory, icons: (id: string) => Img | null, deal: () => Deal = () => ({ buy: 0, sell: 0 })) {
     this.inv = inv;
     this.icons = icons;
+    this.deal = deal;
     this.win = makeWindow("shop", `${MERCHANT.title} · ${MERCHANT.name}`, "F");
     const top = el("div", "shop-top", this.win);
     this.tabs = el("div", "sk-tabs", top);
@@ -66,7 +92,10 @@ export class ShopUI {
   toggle(show = !this.open): void {
     this.win.classList.toggle("hidden", !show);
     if (show) {
-      this.status.textContent = "ยินดีต้อนรับจ้า ยา เสื้อผ้า คัมภีร์ มีครบ ของในกระเป๋าก็รับซื้อนะ";
+      const { buy, sell } = this.deal();
+      this.status.textContent = buy || sell
+        ? `พ่อค้าด้วยกันนี่นา ลดให้ ${pct(Math.min(0.5, buy))} รับซื้อเพิ่มให้ ${pct(Math.min(1, sell))} เลยจ้า`
+        : "ยินดีต้อนรับจ้า ยา เสื้อผ้า คัมภีร์ มีครบ ของในกระเป๋าก็รับซื้อนะ";
       this.render();
     }
   }
@@ -106,13 +135,14 @@ export class ShopUI {
   }
 
   renderBuy(): void {
+    const deal = this.deal();
     for (const id of STOCK) {
-      const item = ITEMS[id], price = item.price ?? 0;
+      const item = ITEMS[id], price = buyPrice(id, deal);
       const row = el("div", "shop-row", this.list);
       this.iconCell(row, id);
       const info = el("div", "shop-info", row);
       el("strong", "", info).textContent = item.name;
-      el("span", "sk-sub", info).textContent = `${item.note ?? ""}${this.inv.count(id) ? ` · มีอยู่ ${this.inv.count(id)}` : ""}`;
+      el("span", "sk-sub", info).textContent = `${item.note ?? ""}${this.inv.count(id) ? ` · มีอยู่ ${this.inv.count(id)}` : ""}${price < (item.price ?? 0) ? ` · ปกติ ${(item.price ?? 0).toLocaleString()} ทอง` : ""}`;
       const stackable = stackLimit(id) > 1;
       let n = Math.max(1, this.qty.get(id) ?? 1);
       if (stackable) {
@@ -154,12 +184,13 @@ export class ShopUI {
   }
 
   renderSell(): void {
+    const deal = this.deal();
     const sellable = this.inv.slots.map((s, i) => [s, i] as const).filter(([s]) => s && sellPrice(s.id) > 0);
     const mats = sellable.filter(([s]) => ITEMS[s!.id].kind === "material");
     if (mats.length) {
       const all = el("button", "wr-choice shop-sellall", this.list);
       all.type = "button";
-      const total = mats.reduce((t, [s]) => t + sellPrice(s!.id) * s!.count, 0);
+      const total = mats.reduce((t, [s]) => t + sellFor(s!.id, deal) * s!.count, 0);
       all.textContent = `ขายวัตถุดิบทั้งหมด (${total.toLocaleString()} ทอง)`;
       all.addEventListener("click", () => {
         for (const [, i] of mats) this.inv.slots[i] = null;
@@ -170,12 +201,12 @@ export class ShopUI {
     }
     if (!sellable.length) el("p", "wr-note", this.list).textContent = "ไม่มีของที่ขายได้ (ของที่สวมใส่อยู่ต้องถอดก่อน)";
     for (const [s, i] of sellable) {
-      const id = s!.id, item = ITEMS[id], each = sellPrice(id);
+      const id = s!.id, item = ITEMS[id], each = sellFor(id, deal);
       const row = el("div", "shop-row", this.list);
       this.iconCell(row, id);
       const info = el("div", "shop-info", row);
       el("strong", "", info).textContent = `${item.name}${s!.count > 1 ? ` × ${s!.count}` : ""}`;
-      el("span", "sk-sub", info).textContent = `ชิ้นละ ${each.toLocaleString()} ทอง`;
+      el("span", "sk-sub", info).textContent = `ชิ้นละ ${each.toLocaleString()} ทอง${each > sellPrice(id) ? ` (ปกติ ${sellPrice(id).toLocaleString()})` : ""}`;
       const sell = (n: number) => {
         this.inv.discard(i, n);
         this.inv.gold += each * n;

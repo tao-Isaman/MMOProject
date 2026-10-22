@@ -9,7 +9,7 @@ import { Motes } from "./motes";
 import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon } from "./items";
 import type { OffhandArt } from "./items";
 import type { WeaponId } from "./items";
-import { Inventory, NO_GEAR } from "./inventory";
+import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
 import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
@@ -339,6 +339,9 @@ async function boot(): Promise<void> {
   const progress = new Progress();
   const GEAR_DROPS = Object.keys(ITEMS).filter((i) => ["hat", "shoes", "ring", "trinket"].includes(ITEMS[i].kind));
   const hero = new Hero(progress, () => inv.equipped.weapon, () => inv.equipped.offhand, () => GEAR_SLOTS.map((g) => inv.equipped[g]));
+  // the bag's size follows the slots the skills give (the wandering merchant's book)
+  const fitBag = () => inv.resize(BAG_BASE + hero.stats.bagSlots);
+  fitBag();
   const look = loadLook(looks.hairstyles);
   // Rebuild the player's sheets when the look or the clothes change; a newer change wins
   // over one still loading.
@@ -531,7 +534,7 @@ async function boot(): Promise<void> {
       if (r.died) player.target = player.attack = null;
     },
     onKill(m) {
-      const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop)) + 1;
+      const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop + hero.stats.goldPct)) + 1;
       // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
       for (const id of rollDrops(m.variant, hero.stats.drop)) ground.drop(id, m);
@@ -590,6 +593,7 @@ async function boot(): Promise<void> {
   progress.onChange(() => {
     refreshBar();
     hero.recompute();
+    fitBag();
     // keep the title screen's line for this character up to date
     const line = `${progress.level}|${progress.cls}`;
     if (line !== rosterLine && progress.cls) {
@@ -727,7 +731,7 @@ async function boot(): Promise<void> {
   });
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
-  const shopUI = new ShopUI(inv, iconFor);
+  const shopUI = new ShopUI(inv, iconFor, () => ({ buy: hero.stats.buyDisc, sell: hero.stats.sellBonus }));
   const talkDialog = new TalkDialog(quests);
   const questLog = new QuestLog(quests);
   new QuestTracker(quests, () => questLog.toggle(true));
@@ -737,7 +741,7 @@ async function boot(): Promise<void> {
   // a guide's trip costs gold (a ship's passage doesn't)
   const mapUI = new MapUI(MAP_NAMES, goTo, (id, byShip) => {
     if (travelling) return "กำลังเดินทางอยู่"; // (and nothing is charged)
-    const fee = byShip ? 0 : travelFee(current.id, id);
+    const fee = byShip ? 0 : travelFee(current.id, id, hero.stats.fareDisc);
     if (inv.gold < fee) return `ค่าเดินทาง ${fee.toLocaleString()} ทอง ทองไม่พอ`;
     if (fee) {
       inv.gold -= fee;
@@ -761,6 +765,7 @@ async function boot(): Promise<void> {
     return `บันทึกจุดเกิดที่${current.name}แล้ว ล้มเมื่อไรจะฟื้นที่นี่`;
   };
   const pictures = new Map<MapId, HTMLCanvasElement>();
+  mapUI.fareCut = () => hero.stats.fareDisc;
   mapUI.setMap(current, null);
   // The rest of a map's loading: its townsfolk dressed (10 s at most), every material compiled,
   // its picture from above taken.

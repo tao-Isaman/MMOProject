@@ -16,6 +16,8 @@ export const NO_GEAR: Equipped = { weapon: null, offhand: null, top: null, botto
 
 export const COLS = 8;
 export const ROWS = 5;
+// The bag's size before extra slots (the wandering merchant's book, stat bagSlots).
+export const BAG_BASE = COLS * ROWS;
 const SAVE_KEY = () => saveKey("inventory.v3");
 const OLD_KEYS = () => [saveKey("inventory.v2"), saveKey("inventory.v1")];
 
@@ -49,7 +51,7 @@ export const STARTER: { equipped: Equipped } = {
 };
 
 export class Inventory {
-  slots: (Stack | null)[] = new Array(COLS * ROWS).fill(null);
+  slots: (Stack | null)[] = new Array(BAG_BASE).fill(null);
   equipped: Equipped = { ...NO_GEAR };
   gold = 0;
   listeners = new Set<(inv: Inventory) => void>();
@@ -65,6 +67,26 @@ export class Inventory {
     this.add("potion_blue", 5, { silent: true });
     this.gold = 200;
     this.changed();
+  }
+
+  // Grows or shrinks the bag to `size` slots (never below the base size). Shrinking moves what
+  // lies past the end into free slots before it, and keeps any slot it can't empty.
+  resize(size: number): void {
+    const n = Math.max(BAG_BASE, Math.floor(size)), before = this.slots.length;
+    if (n > before) this.slots.push(...new Array<Stack | null>(n - before).fill(null));
+    else if (n < before) {
+      for (let i = n; i < before; i++) {
+        const free = this.slots.indexOf(null);
+        if (this.slots[i] && free >= 0 && free < n) {
+          this.slots[free] = this.slots[i];
+          this.slots[i] = null;
+        }
+      }
+      let end = before;
+      while (end > n && !this.slots[end - 1]) end--;
+      this.slots.length = end;
+    }
+    if (this.slots.length !== before) this.changed();
   }
 
   // A new character's gear, put on straight away (nothing left over in the bag).
@@ -256,7 +278,8 @@ export class Inventory {
     } catch {
       return false;
     }
-    if (!data || !Array.isArray(data.slots) || data.slots.length !== this.slots.length) return false;
+    // (a bag saved bigger keeps its size until the slots it was given are known: resize)
+    if (!data || !Array.isArray(data.slots) || data.slots.length < BAG_BASE) return false;
     const old = from !== SAVE_KEY();
     const before = !("offhand" in (data.equipped ?? {}));
     this.gold = Math.max(0, Math.floor(Number(data.gold) || 0));

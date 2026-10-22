@@ -23,6 +23,9 @@ const ZERO = {
   // it at 0 HP); the falcon's chance to dive in after a normal hit and its strength (of attack);
   // poison damage
   lifesteal: 0, lowHpDmg: 0, falconChance: 0, falconPower: 0, poisonPct: 0,
+  // trade (the wandering merchant's book): a share off what NPC shops charge, a share more for
+  // what they buy, extra bag slots, more gold from monsters, a share off a guide's fare
+  buyDisc: 0, sellBonus: 0, bagSlots: 0, goldPct: 0, fareDisc: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };

@@ -130,7 +130,7 @@ kbd {
 .inv-equip { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 8px; }
 .inv-equip-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .inv-equip-label { font-size: 12px; color: var(--muted); }
-.inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; }
+.inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; max-height: 346px; overflow-y: auto; scrollbar-width: thin; }
 .inv-cell {
   position: relative; width: 46px; height: 46px; border-radius: 8px; touch-action: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.28));
@@ -671,7 +671,7 @@ body.touch .sk-help { display: none; }
 body.touch #skills { width: calc(100vw - 12px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
 body.touch .inv-body { flex-direction: row; align-items: flex-start; }
 body.touch .inv-equip { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
-body.touch .inv-grid { grid-template-columns: repeat(var(--cols), 44px); }
+body.touch .inv-grid { grid-template-columns: repeat(var(--cols), 44px); max-height: none; overflow: visible; }
 body.touch .inv-cell { width: 44px; height: 44px; }
 body.touch .inv-icon { width: 38px; height: 38px; }
 body.touch #shop { width: min(460px, calc(100vw - 12px)); }

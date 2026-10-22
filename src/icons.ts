@@ -157,6 +157,26 @@ const GLYPHS: Record<string, (g: G, under: boolean) => void> = {
     g.lineTo(4, 12);
     g.stroke();
   },
+  // trade: a stack of coins; a tied pouch
+  coin: (g, u) => {
+    const k = u ? 3 : 0;
+    for (const [x, y] of [[-10, 10], [10, 10], [0, -8]]) {
+      g.beginPath();
+      g.ellipse(x, y, 16 + k, 11 + k, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+  },
+  bag: (g, u) => {
+    const k = u ? 3 : 0;
+    g.beginPath();
+    g.moveTo(-10, -14);
+    g.quadraticCurveTo(-30 - k, 4, -24 - k, 22 + k);
+    g.lineTo(24 + k, 22 + k);
+    g.quadraticCurveTo(30 + k, 4, 10, -14);
+    g.closePath();
+    g.fill();
+    poly(g, [[-14 - k, -28 - k], [14 + k, -28 - k], [6, -14], [-6, -14]]);
+  },
   ring: (g, u) => {
     g.beginPath();
     g.arc(0, 6, 18, 0, Math.PI * 2);

@@ -15,10 +15,11 @@ import type { Vec2 } from "./types";
 
 // What a travel guide charges to take you to a town: 1,000 gold at least, more the farther it is.
 export const TRAVEL_FEE_MIN = 1000;
-export function travelFee(from: string, to: string): number {
+// cut: the share off (the wandering merchant's book, at most half)
+export function travelFee(from: string, to: string, cut = 0): number {
   const a = PLACES.find((p) => p.id === from), b = PLACES.find((p) => p.id === to);
-  if (!a || !b) return TRAVEL_FEE_MIN;
-  return Math.max(TRAVEL_FEE_MIN, Math.round((Math.hypot(a.x - b.x, a.y - b.y) * 8) / 100) * 100);
+  const fee = !a || !b ? TRAVEL_FEE_MIN : Math.max(TRAVEL_FEE_MIN, Math.round((Math.hypot(a.x - b.x, a.y - b.y) * 8) / 100) * 100);
+  return Math.round((fee * (1 - Math.min(0.5, cut))) / 10) * 10;
 }
 
 export interface MapState {
@@ -64,6 +65,7 @@ export class MapUI {
   onWalk: (to: Vec2, npc?: Npc) => string | null;
   onTravel: (id: string, byShip: boolean) => string | null;
   guide = false; // opened by a travel guide: a click on a town goes there
+  fareCut = () => 0; // the share off a guide's fare
   ports: string[] | null = null; // opened by a ship's captain: the towns the ship sails to
 
   // names: map id -> its name (for the warps' "to ..."); onWalk(to, npc): walk there, or up to
@@ -348,7 +350,7 @@ export class MapUI {
     const p = hovered ?? this.picked;
     // a guide's fare to an open town
     const fare = p && this.guide && !this.ports && this.map && p.id !== this.map.id && p.open && p.kind !== "field" && p.kind !== "castle"
-      ? ` · ค่าเดินทาง ${travelFee(this.map.id, p.id).toLocaleString()} ทอง` : "";
+      ? ` · ค่าเดินทาง ${travelFee(this.map.id, p.id, this.fareCut()).toLocaleString()} ทอง` : "";
     let info = p ? `${p.name}${fare} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}`
       : this.guide && this.ports ? `${isTouch() ? "แตะ" : "คลิก"}ท่าเรือที่จะไป: ${this.ports.map((id) => PLACES.find((q) => q.id === id)?.name ?? id).join(" หรือ ")}`
       : this.guide ? `${isTouch() ? "แตะ" : "คลิก"}เมืองที่จะไป ผู้นำทางพาไปถึงในพริบตา (ค่าเดินทาง ${TRAVEL_FEE_MIN.toLocaleString()} ทองขึ้นไป ไกลยิ่งแพง)`

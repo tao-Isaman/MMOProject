@@ -307,10 +307,11 @@ const BAG_NAMES: Record<string, string> = {
   dmg: "ดาเมจ", reach: "ระยะโจมตี", stunHit: "โอกาสตีให้มึน",
   healPct: "พลังรักษา", multiShot: "โอกาสยิงซ้อน", poisonHit: "โอกาสตีติดพิษ", huntDmg: "ดาเมจใส่ศัตรูติดสถานะ", buffTime: "เวลาบัฟ",
   lifesteal: "ดูดเลือด", lowHpDmg: "ดาเมจเมื่อเลือดน้อย", falconChance: "โอกาสเหยี่ยวโจมตี", falconPower: "พลังเหยี่ยว", poisonPct: "พลังพิษ",
+  buyDisc: "ซื้อของจาก NPC ถูกลง", sellBonus: "ขายของให้ NPC ได้เพิ่ม", bagSlots: "ช่องกระเป๋า", goldPct: "ทองจากมอนสเตอร์", fareDisc: "ค่าเดินทางถูกลง",
   ...Object.fromEntries(RACES.map((r) => [`${r}Dmg`, `ดาเมจใส่${RACE_NAMES[r]}`])),
 };
 const isPct = (k: string) => k.endsWith("Pct") || k.endsWith("Dmg") && k !== "critDmg" && !k.endsWith("Atk") || PERCENT_STATS.has(k)
-  || ["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower"].includes(k);
+  || ["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "buyDisc", "sellBonus", "fareDisc"].includes(k);
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const num = (v: number) => `${+v.toFixed(1)}`;
 const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct(Math.abs(v)) : num(Math.abs(v))}`;
