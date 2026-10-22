@@ -7,8 +7,7 @@
 // Characters stay 2D sprites, Ragnarok style: each one is drawn by its own draw code into a
 // small canvas that becomes a camera-facing billboard standing on its feet, so props in front
 // hide it by depth. The player also gets a faint copy drawn over everything, so she shows
-// through a tree or the house (a ghost), and whatever stands between her and the camera opens
-// up around her (a dithered cutaway), so a street between tall houses stays in view.
+// through a tree or the house (a ghost). Nothing turns see-through: the camera turns instead.
 
 import * as THREE from "three";
 import { wind } from "./trees";
@@ -18,7 +17,6 @@ import type { View } from "../types";
 const DIST = 6000; // camera distance from what it looks at, cm
 const BIAS = 14;
 const AREA_N = 96; // points round the bot's hunting circle   // billboards sit this much toward the camera (their ground shadow clears the ground)
-const CUT_R = 260; // the cutaway's radius on screen, cm
 
 interface Billboard {
   canvas: HTMLCanvasElement;
@@ -75,7 +73,6 @@ export class World3D {
   portals: THREE.Object3D[] = [];
   target = new THREE.Vector3();
   shadowAt = new THREE.Vector3(1e9, 0, 0);
-  focus: { x: number; y: number } | null = null; // who the cutaway keeps in view
   groundSets = new Map<string, { mesh: THREE.Mesh; geo: THREE.BufferGeometry; cap: number }>();
   groundTex = new Map<object, THREE.Texture>();
 
@@ -128,10 +125,6 @@ export class World3D {
     if (this.level) this.scene.remove(this.level);
     this.level = level.root;
     this.scene.add(level.root);
-    level.root.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (mesh.isMesh) for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) cutaway(m);
-    });
     this.scene.background = new THREE.Color(level.sky);
     this.portals = (level.warps ?? []).map((w) => {
       const p = portal();
@@ -334,12 +327,6 @@ export class World3D {
       (beam.material as THREE.MeshBasicMaterial).opacity = 0.32 + 0.12 * Math.sin(this.time * 3);
     }
     this.camera.updateMatrixWorld();
-    if (this.focus) {
-      const h = heightAt(this.focus.x, this.focus.y);
-      const v = new THREE.Vector3(this.focus.x, h + 100, -this.focus.y).applyMatrix4(this.camera.matrixWorldInverse);
-      CUT.value.set(v.x, v.y, v.z, CUT_R);
-      CUT_H.value = h;
-    } else CUT.value.w = 0;
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -364,12 +351,11 @@ export class World3D {
     const g = out.getContext("2d")!;
     const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
 
-    // put away what is not scenery: the characters, the target ring, the cutaway, the fog
+    // put away what is not scenery: the characters, the target ring, the fog
     const hidden: THREE.Object3D[] = [this.ring, this.area, ...[...this.boards.values()].flatMap((bb) => (bb.ghost ? [bb.sprite, bb.ghost] : [bb.sprite]))].filter((o) => o.visible);
     for (const o of hidden) o.visible = false;
     const fog = this.scene.fog as THREE.Fog | null, fogWas = fog ? [fog.near, fog.far] : null;
     if (fog) [fog.near, fog.far] = [1e7, 2e7];
-    CUT.value.w = 0;
     // the sun's shadows over the whole map, from higher than in play so they stay short
     const sc = this.sun.shadow.camera, half = Math.hypot(W, H) / s / 2 + 1000;
     this.sun.target.position.set(cx, 0, -cy);
@@ -409,42 +395,6 @@ export class World3D {
     for (const o of hidden) o.visible = true;
     return out;
   }
-}
-
-// ---- the cutaway: lit surfaces more than 70 cm above the ground she stands on and nearer the
-// camera than the player are dithered away in a circle round her on screen ----
-const CUT = { value: new THREE.Vector4(0, 0, 0, 0) }; // the player in view space, the radius
-const CUT_H = { value: 0 };                           // the height of the ground under her
-const cutDone = new WeakSet<THREE.Material>();
-function cutaway(m: THREE.Material): void {
-  const lit = m as THREE.Material & { isMeshStandardMaterial?: boolean; isMeshLambertMaterial?: boolean; isMeshPhongMaterial?: boolean };
-  if (cutDone.has(m) || !(lit.isMeshStandardMaterial || lit.isMeshLambertMaterial || lit.isMeshPhongMaterial)) return;
-  cutDone.add(m);
-  // keep the material's own changes, and its own program apart from others'
-  const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
-  m.onBeforeCompile = (shader, renderer) => {
-    prev.call(m, shader, renderer);
-    shader.uniforms.uCut = CUT;
-    shader.uniforms.uCutH = CUT_H;
-    shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying float vCutY;")
-      .replace("#include <project_vertex>", `#include <project_vertex>
-        vec4 cutW = vec4(transformed, 1.0);
-        #ifdef USE_INSTANCING
-        cutW = instanceMatrix * cutW;
-        #endif
-        vCutY = (modelMatrix * cutW).y;`);
-    shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vCutY;\nuniform vec4 uCut;\nuniform float uCutH;")
-      .replace("#include <clipping_planes_fragment>", `#include <clipping_planes_fragment>
-        if (uCut.w > 0.0 && vCutY > uCutH + 70.0 && -vViewPosition.z > uCut.z + 80.0) {
-          float r = length(-vViewPosition.xy - uCut.xy) / uCut.w;
-          float n = fract(52.9829189 * fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715))));
-          if (r < 1.0 && n > smoothstep(0.65, 1.0, r)) discard;
-        }`);
-  };
-  m.customProgramCacheKey = () => key + "|cut";
-  m.needsUpdate = true;
 }
 
 // A warp portal as Ragnarok draws one: a glowing ring on the ground and a soft column of light.

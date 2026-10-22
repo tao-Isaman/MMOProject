@@ -397,7 +397,6 @@ async function boot(): Promise<void> {
     player.x = left.x;
     player.y = left.y;
   }
-  w3d.focus = player;
   player.builtin = first.builtin;
   applyLook();
   // townsfolk, made once per map: the merchant's own sprite, or dressed through the wardrobe
