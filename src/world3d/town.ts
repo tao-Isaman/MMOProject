@@ -368,6 +368,7 @@ export class TownBuilder {
     root.scale.setScalar(k);
     const at = <T extends { x: number; y: number }>(p: T): T => ({ ...p, x: p.x * k, y: p.y * k });
     const b = o.bounds;
+    const height = terrain?.sampler(b, k, 40);
     return {
       level: { root, sky: o.sky, warps: o.warps.map((w) => ({ ...w, z: terrain?.height(w.x, w.y) ?? 0 })) },
       solids: solids.map((sp) => ("r" in sp ? { ...at(sp), r: sp.r * k } : { ...at(sp), w: sp.w * k, d: sp.d * k })),
@@ -379,7 +380,7 @@ export class TownBuilder {
       ...(o.spots ? { spots: o.spots.map(at) } : {}),
       closed: o.closed.map((c) => ({ ...at(c), r: c.r * k })),
       labels: o.labels.map(at),
-      ...(terrain ? { height: terrain.sampler(b, k, 40), top: terrain.top() * k } : {}),
+      ...(height ? { height, top: height.max } : {}),
     };
   }
 }

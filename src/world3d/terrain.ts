@@ -96,6 +96,12 @@ export class Terrain {
     return h;
   }
 
+  // whether a point is on ground walled in by cliffs with no way up (the highest plateau
+  // under it, or one it stands in, has no ramp)
+  walledOff(x: number, y: number): boolean {
+    return (this.spec.plateaus ?? []).some((p) => !p.ramps?.length && inside(p.poly, x, y));
+  }
+
   // the highest the ground goes (or a little over)
   top(): number {
     const hills = (this.spec.hills ?? []).reduce((t, h) => t + Math.max(0, h.h), 0);
@@ -241,17 +247,21 @@ export class Terrain {
   }
 
   // A grid of heights over a box for the game to read every frame: bilinear between cells.
-  // `k` scales it to the world (TOWN_SCALE): the returned function takes world centimetres.
-  sampler(box: { minX: number; maxX: number; minY: number; maxY: number }, k: number, cell = 25): (x: number, y: number) => number {
+  // `k` scales it to the world (TOWN_SCALE): the returned function takes world centimetres;
+  // its `max` is the highest it goes.
+  sampler(box: { minX: number; maxX: number; minY: number; maxY: number }, k: number, cell = 25): ((x: number, y: number) => number) & { max: number } {
     const W = Math.ceil((box.maxX - box.minX) / cell) + 2, H = Math.ceil((box.maxY - box.minY) / cell) + 2;
     const g = new Float32Array(W * H);
-    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) g[j * W + i] = this.height(box.minX + i * cell, box.minY + j * cell);
-    return (wx: number, wy: number) => {
+    let max = 0;
+    for (let j = 0; j < H; j++)
+      for (let i = 0; i < W; i++) max = Math.max(max, (g[j * W + i] = this.height(box.minX + i * cell, box.minY + j * cell)));
+    const at = (wx: number, wy: number) => {
       const fx = (wx / k - box.minX) / cell, fy = (wy / k - box.minY) / cell;
       const i = Math.max(0, Math.min(W - 2, Math.floor(fx))), j = Math.max(0, Math.min(H - 2, Math.floor(fy)));
       const u = Math.max(0, Math.min(1, fx - i)), v = Math.max(0, Math.min(1, fy - j));
       const a = g[j * W + i], b = g[j * W + i + 1], c = g[(j + 1) * W + i], d = g[(j + 1) * W + i + 1];
       return k * (a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v);
     };
+    return Object.assign(at, { max: max * k });
   }
 }

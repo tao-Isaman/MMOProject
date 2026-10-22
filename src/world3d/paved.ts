@@ -17,6 +17,7 @@ export interface PavedSpec {
   base?: string;     // the open ground: grass (default), snow, sand, steppe, jungle, dirt, moss, rock
   road?: [number, number, number];  // tints over the cobbles and flagstones
   track?: boolean;  // the roads are tracks of bare earth (soft edges, no kerb), not cobbles
+  tint?: string;    // over the whole ground (black lava rock, blighted earth...)
   plaza?: [number, number, number];
   height?: (x: number, y: number) => number; // ground that is not flat (src/world3d/terrain.ts)
   cell?: number;                             // its mesh's grid, cm
@@ -88,7 +89,7 @@ export function buildPaved(spec: PavedSpec): Paved {
     uTexel: { value: new THREE.Vector2(1 / W, 1 / H) },
     uOrigin: { value: new THREE.Vector3((x0 + x1) / 2, 0, -(y0 + y1) / 2) },
   };
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
+  const mat = new THREE.MeshStandardMaterial({ color: spec.tint ?? 0xffffff, roughness: 0.95 });
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader

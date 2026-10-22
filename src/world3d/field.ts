@@ -82,10 +82,11 @@ export class FieldBuilder extends TownBuilder {
   }
 
   // Where the monsters live: a jittered grid over `box`, on level open ground (not a track or
-  // water), clear of everything placed so far, `away` cm from every way out, and not where
-  // `keepOut` says. Call it after the props are placed.
-  monsterSpots(ground: Paved, box: Box, o: { step?: number; away?: number; keepOut?: (x: number, y: number) => boolean } = {}): void {
-    const step = o.step ?? 900, away = o.away ?? 1200, rnd = this.rnd;
+  // water, not walled in by cliffs), clear of everything placed so far, `away` cm from every
+  // way out, and not where `keepOut` says; no more than `max`, kept evenly spread. Call it after
+  // the props are placed.
+  monsterSpots(ground: Paved, box: Box, o: { step?: number; away?: number; max?: number; keepOut?: (x: number, y: number) => boolean } = {}): void {
+    const step = o.step ?? 900, away = o.away ?? 1200, rnd = this.rnd, found: { x: number; y: number }[] = [];
     const solids: SolidSpec[] = [...this.extra, ...this.terrain.solids()];
     for (const pl of this.puts) solids.push(...solidsOf(pl, protoOf(pl.ref, pl.colours)));
     // within 1.8 m of a solid (a box measured to its sides, so a long cliff only clears a strip)
@@ -99,10 +100,27 @@ export class FieldBuilder extends TownBuilder {
     for (let x = box.x0 + step / 2; x < box.x1; x += step)
       for (let y = box.y0 + step / 2; y < box.y1; y += step) {
         const px = x + (rnd() - 0.5) * step * 0.6, py = y + (rnd() - 0.5) * step * 0.6;
-        if (ground.kind(px, py) !== 0 || !this.terrain.level(px, py, 200) || near(px, py)) continue;
+        if (ground.kind(px, py) !== 0 || !this.terrain.level(px, py, 200) || this.terrain.walledOff(px, py) || near(px, py)) continue;
         if (this.warps.some((w) => Math.hypot(w.x - px, w.y - py) < away) || o.keepOut?.(px, py)) continue;
-        this.spots.push({ x: px, y: py });
+        found.push({ x: px, y: py });
       }
+    // too many: each next the one farthest from those kept
+    const max = o.max ?? 60;
+    if (found.length > max) {
+      const kept = [found.shift()!];
+      const gap = found.map((p) => Math.hypot(p.x - kept[0].x, p.y - kept[0].y));
+      while (kept.length < max && found.length) {
+        let best = 0;
+        for (let i = 1; i < found.length; i++) if (gap[i] > gap[best]) best = i;
+        const [p] = found.splice(best, 1);
+        gap.splice(best, 1);
+        kept.push(p);
+        found.forEach((q, i) => (gap[i] = Math.min(gap[i], Math.hypot(q.x - p.x, q.y - p.y))));
+      }
+      found.length = 0;
+      found.push(...kept);
+    }
+    this.spots.push(...found);
   }
 
   // Everything into the game's terms (see TownBuilder.finish), with the field's ways out, the

@@ -162,9 +162,8 @@ export function build(_quality: { flowers: number }): Town {
     ...RAMPS.map((r) => bandPoly([r.bottom, r.top], r.width - 40)),
   ];
   const chasms = CHASMS.map(([line, w], i) => chasmPoly(line, w, 31 + i * 17));
-  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: chasms, base: "rock", road: [0.72, 0.5, 0.56] });
+  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: chasms, base: "rock", road: [0.72, 0.5, 0.56], tint: "#7a6890" });
   // the demon lands' ground: the rock darkened to purple-black
-  (ground.mesh.material as THREE.MeshStandardMaterial).color.set("#7a6890");
   const DEPTH = 320;
   const scenery: THREE.Object3D[] = [chasmMesh(chasms, DEPTH)];
   for (const poly of chasms) {

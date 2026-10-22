@@ -144,6 +144,7 @@ export function build(_quality: { flowers: number }): Town {
   const ground = f.ground({
     area: { x0: -A, y0: -A, x1: A, y1: A },
     base: "rock",
+    tint: "#cbc3bc", // darker lava rock under the ash
     roads: [band(MAIN, 460), band(SPRINGS, 400), band(LAKESIDE, 380), band(BASALT, 380), band(VENTS, 380)],
     plazas: [],
     water: [lakePoly, band(RIVER, 380)],

@@ -156,7 +156,7 @@ export async function loadMap(id: MapId, quality: { flowers: number }): Promise<
         level: fieldLevel(quality, [FIELD_WARP, FIELD_WOODS]),
         npcs: [{ id: "mira", x: MERCHANT.x, y: MERCHANT.y, face: 180, name: MERCHANT.name, title: MERCHANT.title, role: "shop", sprite: "merchant", lines: ["ยินดีต้อนรับจ้า"] }],
         warps: [FIELD_WARP, FIELD_WOODS],
-        gates: { eden: { x: 420, y: -520 }, west_woods: { x: 850, y: 1700 } },
+        gates: { eden: { x: 430, y: -470 }, west_woods: { x: 850, y: 1700 } },
         closed: [],
         labels: [{ x: 1910, y: 1440, text: "บ้านไร่" }, { x: 1100, y: 820, text: "บ่อน้ำ", kind: "small" }],
       };
