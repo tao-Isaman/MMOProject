@@ -140,6 +140,12 @@ export class FieldBuilder extends TownBuilder {
     closed?: Town["closed"];
     labels: MapLabel[];
   }): Town {
+    // a piece that ended up on a rock face (it stood at the very brink, or at the foot, of a cliff
+    // as first drawn) stands on the top of the face or at its foot instead
+    for (const pl of this.puts) {
+      const z = LEGACY ? null : this.terrain.standAt(pl.x, pl.y); // TEMP (LEGACY)
+      if (z !== null) pl.z += z - this.terrain.height(pl.x, pl.y);
+    }
     { // TEMP
       const legacy = new LegacyTerrain(this.terrain.spec);
       (window as unknown as { __terrainDiff: unknown }).__terrainDiff = this.puts

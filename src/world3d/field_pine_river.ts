@@ -178,6 +178,7 @@ export function build(quality: { flowers: number }): Town {
       { poly: dense(PE2), h: 660, ramps: [RE2] },
     ],
     rock: "CliffRock",
+    keep: [FALLS], // the falls pour over the edge just where it is drawn
   });
   const { put, rnd } = f;
   const tracks = [T1, T_RIDGE, T_CAMP, T_EAST, T_STONES];

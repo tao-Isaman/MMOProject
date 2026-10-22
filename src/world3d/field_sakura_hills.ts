@@ -39,7 +39,7 @@ const N2: Poly = [[6100, -300], [9500, -300], [9500, -1700], [6400, -1700]];
 
 // the ramps: a ramp's top on its plateau's edge, its foot out on the ground below
 const RAMP_T1 = { top: [-1760, -760] as XY, bottom: [-1696, 138] as XY, width: 460 };
-const RAMP_T2 = { top: [-3000, -2600] as XY, bottom: [-2823.5, -1717.5] as XY, width: 440 }; // the stone steps
+const RAMP_T2 = { top: [-3000, -2600] as XY, bottom: [-2823.5, -1717.5] as XY, width: 440, straight: true }; // the stone steps (a straight slope, as they are built)
 const RAMP_D = { top: [2050, -1350] as XY, bottom: [1734, -192] as XY, width: 440 };
 
 const POND: XY = [-3300, 2000];

@@ -14,7 +14,7 @@
 // from the top of the face to its foot, which is what the ground mesh draws there (its points are
 // moved onto those two lines: `place`), and the rock face (a mesh, with boulders and stones heaped
 // at its foot) bulges out in front of it. Solids run along the cliffs, from just inside the edge to
-// the foot of the face, so nobody walks off or up them (or into the rock); a ramp leaves its
+// near the foot of the face, so nobody walks off or up them (or into the rock); a ramp leaves its
 // stretch of edge open and is walled along its sides.
 
 import * as THREE from "three";
@@ -36,6 +36,7 @@ export interface Ramp {
   top: XY;    // on the plateau's edge
   bottom: XY; // out on the ground below
   width: number;
+  straight?: boolean; // its slope straight from end to end, not eased in and out (a flight of steps is built on it)
 }
 
 export interface Plateau {
@@ -48,7 +49,8 @@ export interface TerrainSpec {
   hills?: Hill[];
   plateaus?: Plateau[]; // a plateau inside another is a higher step on it
   rock?: string;        // the cliff faces' material
-  detail?: number;      // the cliffs are worked in full within this far of the origin, each way (default 7700)
+  detail?: number;      // the cliffs are worked in full within this far of the origin, each way (default 7200)
+  keep?: XY[];          // where the cliffs stay just as drawn, the face plain and no scree below (a waterfall pours over)
 }
 
 // ---- small helpers ----
@@ -73,11 +75,12 @@ const ease = (t: number) => t + 0.6 * (t * t * (3 - 2 * t) - t);
 
 // ---- the shape of a cliff, by how far it drops ----
 const LIP_W = 160;   // the grass starts to roll over this far in from the edge
+const KEEP_R = 350;  // a kept place: the cliff as drawn this far round it (and shaped in full 400 further)
 const BANK = 1.5;    // a ramp's banks: down this much for each cm out
 const STEP = 40;     // the working spacing of an outline
-const FINE = 80;     // the outline's points near the playing area
+const FINE = 100;    // the outline's points near the playing area
 const COARSE = 320;  // and far out
-const faceW = (d: number) => 18 + 0.13 * d;              // how far out the face's foot is from its top
+const faceW = (d: number) => Math.min(85, 18 + 0.13 * d); // how far out the face's foot is from its top
 const screeH = (d: number) => Math.min(55, 0.12 * d);    // how high the scree heaps against it
 const screeW = (d: number) => Math.min(320, 100 + 0.3 * d); // and how far out it runs
 const lipDrop = (d: number) => Math.min(26, 0.065 * d);  // how far the grass rolls down at the edge
@@ -100,6 +103,7 @@ interface Edge {
   ah: Float32Array;   // its scree's height
   wa: Float32Array;   // and reach
   lip: Float32Array;  // how far its grass rolls down at the edge
+  plain: Float32Array; // 1 a cliff shaped in full, 0 kept as drawn (about a `keep` place)
   x0: number; x1: number; y0: number; y1: number;
   reach: number;      // the furthest from the outline that it shapes the ground
   rows: Map<number, number[]>; // segments by row (for inside tests)
@@ -262,7 +266,7 @@ export class Terrain {
 
   constructor(spec: TerrainSpec) {
     this.spec = spec;
-    this.detail = spec.detail ?? 7700;
+    this.detail = spec.detail ?? 7200;
     const ps = spec.plateaus ?? [];
     ps.forEach((p, k) => this.edges.push(this.outline(p, k)));
     this.near = new Uint8Array(this.edges.length);
@@ -306,6 +310,8 @@ export class Terrain {
         w[i] *= smoothstep(hw + 60, hw + 420, ds);
       }
     }
+    // and about each place kept as drawn
+    for (const [kx, ky] of this.spec.keep ?? []) for (let i = 0; i < n; i++) w[i] *= smoothstep(KEEP_R, KEEP_R + 400, Math.hypot(pts[i][0] - kx, pts[i][1] - ky));
     // round the corners: a gaussian along the outline
     const sig = clamp(L / 28, 70, 250), R = Math.ceil((3 * sig) / h);
     const ker: number[] = [];
@@ -394,7 +400,7 @@ export class Terrain {
     for (let i = 1; i < m; i++) s[i] = s[i - 1] + Math.hypot(ex[i] - ex[i - 1], ey[i] - ey[i - 1]);
     const e: Edge = {
       p, h: p.h, n: m, x: ex, y: ey, nx, ny, s, L: s[m - 1] + Math.hypot(ex[0] - ex[m - 1], ey[0] - ey[m - 1]), wall: Uint8Array.from(W),
-      drop: new Float32Array(m), wf: new Float32Array(m), ah: new Float32Array(m), wa: new Float32Array(m), lip: new Float32Array(m),
+      drop: new Float32Array(m), wf: new Float32Array(m), ah: new Float32Array(m), wa: new Float32Array(m), lip: new Float32Array(m), plain: new Float32Array(m).fill(1),
       x0: Math.min(...X), x1: Math.max(...X), y0: Math.min(...Y), y1: Math.max(...Y), reach: LIP_W, rows: new Map(), grid: new Map(),
     };
     for (let i = 0; i < m; i++) {
@@ -416,11 +422,14 @@ export class Terrain {
       if (!e.wall[i]) continue;
       const d = Math.max(0, e.h - this.core(e.x[i] + e.nx[i] * 120, e.y[i] + e.ny[i] * 120, false));
       const s = e.s[i], L = e.L, o = e.h * 0.37;
+      let k = 1;
+      for (const [kx, ky] of this.spec.keep ?? []) k = Math.min(k, smoothstep(KEEP_R, KEEP_R + 400, Math.hypot(e.x[i] - kx, e.y[i] - ky)));
+      e.plain[i] = k;
       e.drop[i] = d;
       e.wf[i] = faceW(d) * (0.8 + 0.4 * noiseL(s, L, 600, o));
-      e.ah[i] = screeH(d) * (0.65 + 0.7 * noiseL(s, L, 430, o + 1));
+      e.ah[i] = screeH(d) * (0.65 + 0.7 * noiseL(s, L, 430, o + 1)) * k;
       e.wa[i] = screeW(d) * (0.8 + 0.4 * noiseL(s, L, 520, o + 2));
-      e.lip[i] = lipDrop(d);
+      e.lip[i] = lipDrop(d) * k;
       reach = Math.max(reach, e.wf[i] + e.wa[i]);
     }
     e.reach = Math.max(reach, 240) + 20; // (and at least as far as the ground's points are drawn onto the cliff: `place`)
@@ -469,7 +478,7 @@ export class Terrain {
         if (over > 0) continue;
         v = R.e.h + (R.level - R.e.h) * t;
       } else {
-        v = R.e.h + (this.below(x, y, R.e) - R.e.h) * ease(t);
+        v = R.e.h + (this.below(x, y, R.e) - R.e.h) * (R.r.straight ? t : ease(t));
         if (over > 0) v -= over * BANK;
       }
       if (v > h) h = v;
@@ -594,6 +603,25 @@ export class Terrain {
     return w;
   }
 
+  // Where a thing whose middle is on a rock face (between its top and its foot) should stand: the
+  // top of the face when it is nearer the top, else its foot (null: not on a face).
+  standAt(x: number, y: number): number | null {
+    for (const e of this.edges) {
+      if (x < e.x0 - e.reach || x > e.x1 + e.reach || y < e.y0 - e.reach || y > e.y1 + e.reach || !nearest(e, x, y)) continue;
+      const { i, j, t, d } = Q;
+      if (!e.wall[i] || !e.wall[j] || inside(e, x, y)) continue;
+      const wf = lerp(e.wf[i], e.wf[j], t);
+      if (d >= wf || this.core(x, y, false) >= e.h) continue;
+      if (d < wf / 2) return e.h - lerp(e.lip[i], e.lip[j], t);
+      let nx = lerp(e.nx[i], e.nx[j], t), ny = lerp(e.ny[i], e.ny[j], t);
+      const nl = Math.hypot(nx, ny) || 1;
+      nx /= nl;
+      ny /= nl;
+      return this.height(lerp(e.x[i], e.x[j], t) + nx * wf, lerp(e.y[i], e.y[j], t) + ny * wf);
+    }
+    return null;
+  }
+
   // whether a point is on ground walled in by cliffs with no way up (the highest plateau
   // under it, or one it stands in, has no ramp)
   walledOff(x: number, y: number): boolean {
@@ -651,8 +679,8 @@ export class Terrain {
     return out;
   }
 
-  // Solids along the cliffs (from just inside the edge out to the foot of the face, in straight
-  // pieces that keep within a few cm of the outline), and along both sides of every ramp.
+  // Solids along the cliffs (from just inside the edge out to near the foot of the face, in
+  // straight pieces that keep within a few cm of the outline), and along both sides of every ramp.
   solids(): SolidSpec[] {
     const out: SolidSpec[] = [];
     const box = (ax: number, ay: number, bx: number, by: number, inner: number, outer: number, nx: number, ny: number, extend: number) => {
@@ -690,7 +718,9 @@ export class Terrain {
           let wf = 0;
           for (let q = prev; q <= k; q++) wf = Math.max(wf, e.wf[run[q]]);
           const dx = e.x[ib] - e.x[ia], dy = e.y[ib] - e.y[ia], L = Math.hypot(dx, dy) || 1;
-          box(e.x[ia], e.y[ia], e.x[ib], e.y[ib], -35, Math.max(35, wf + 10), (sgn * dy) / L, (-sgn * dx) / L, 20);
+          // (out to near the foot of the face, not all of it: as thin as can be, so narrow ways
+          // between a cliff and what stands below it stay open)
+          box(e.x[ia], e.y[ia], e.x[ib], e.y[ib], -35, Math.max(35, wf - 25), (sgn * dy) / L, (-sgn * dx) / L, 20);
           prev = k;
         }
       }
@@ -723,7 +753,7 @@ export class Terrain {
       for (const run of this.runs(e, (i) => e.wall[i] === 1 && e.drop[i] >= 6)) {
         const fine = run.some((i) => this.inDetail(e.x[i], e.y[i]));
         const maxDrop = Math.max(...run.map((i) => e.drop[i]));
-        const bands = fine ? clamp(Math.round(maxDrop / 170), 1, 3) : 1, rows = bands * 2 + 1;
+        const bands = fine ? clamp(Math.round(maxDrop / 220), 1, 3) : 1, rows = bands * 2 + 1;
         const first = pos.length / 3;
         let sAcc = 0, nextStone = 120 + rnd() * 200, su = e.s[run[0]];
         const L = e.L, o = e.h * 0.37;
@@ -738,7 +768,7 @@ export class Terrain {
           const us: number[] = [0];
           for (let b = 1; b < bands; b++) us.push(b / bands + (noiseL(s, L, 520, o + 3 + b) - 0.5) * (0.32 / bands));
           us.push(1);
-          const B = Math.min(48, 8 + 0.12 * dh) * (0.55 + 0.7 * noiseL(s, L, 700, o + 9));
+          const B = Math.min(48, 8 + 0.12 * dh) * (0.55 + 0.7 * noiseL(s, L, 700, o + 9)) * e.plain[i];
           for (let r = 0; r < rows; r++) {
             const b = r >> 1, seam = r % 2 === 0;
             let u: number, off: number, z: number, sh: number;
@@ -757,7 +787,7 @@ export class Terrain {
           }
           // boulders and stones heaped at the foot, more where the scree is high
           sAcc = c > 0 ? sAcc + Math.hypot(x - e.x[run[c - 1]], y - e.y[run[c - 1]]) : 0;
-          if (fine && dh > 40 && sAcc >= nextStone && this.inDetail(x, y)) {
+          if (fine && dh > 40 && sAcc >= nextStone && this.inDetail(x, y) && e.plain[i] > 0.5) {
             nextStone = sAcc + (260 + rnd() * 380) * (1.3 - Math.min(1, e.ah[i] / 45) * 0.5);
             const S = clamp(0.16 * dh + 20, 28, 95) * (0.7 + rnd() * 0.5);
             const along = (rnd() - 0.5) * 60, lx = -ny, ly = nx;
@@ -773,7 +803,7 @@ export class Terrain {
         if (fine && run[0] !== run[run.length - 1])
           for (const c of [Math.min(2, run.length - 1), Math.max(0, run.length - 3)]) {
             const i = run[c], x = e.x[i], y = e.y[i], nx = e.nx[i], ny = e.ny[i], wf = e.wf[i];
-            if (!this.inDetail(x, y) || e.drop[i] < 60) continue;
+            if (!this.inDetail(x, y) || e.drop[i] < 60 || e.plain[i] < 0.5) continue;
             const S = clamp(0.14 * e.drop[i] + 25, 35, 90);
             for (let q = 0; q < 3; q++) {
               const d = wf * (0.7 + 0.5 * rnd()), a = (rnd() - 0.5) * 120;
@@ -797,9 +827,13 @@ export class Terrain {
           }
       }
     }
-    // the stones: rough rocks half sunk in the scree
-    let k = 0;
-    for (const st of stones) {
+    // the stones: rough rocks half sunk in the scree (no more than about 7000 triangles of them:
+    // where the cliffs are many and long, every so many left out)
+    const cost = stones.reduce((t, st) => t + (st.detail === 1 ? 80 : 20), 0), every = Math.max(1, cost / 7000);
+    let k = 0, kept = 0;
+    for (const [n, st] of stones.entries()) {
+      if (n + 1 < (kept + 1) * every) continue;
+      kept++;
       const big = st.detail >= 0;
       const sz = big ? [st.s * (0.9 + rnd() * 0.5), st.s * (0.8 + rnd() * 0.4), st.s * (0.55 + rnd() * 0.35)] : [st.s * (0.9 + rnd() * 0.4), st.s * (0.8 + rnd() * 0.4), st.s * (0.5 + rnd() * 0.3)];
       const g = rock(sz as [number, number, number], big ? 0.45 : 0.5, 31 + k++ * 7, "x", !big, Math.max(0, st.detail))[0].geo;

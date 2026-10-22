@@ -92,6 +92,7 @@ export function buildPaved(spec: PavedSpec): Paved {
     uSize: { value: new THREE.Vector2(x1 - x0, y1 - y0) },
     uTexel: { value: new THREE.Vector2(1 / W, 1 / H) },
     uOrigin: { value: new THREE.Vector3((x0 + x1) / 2, 0, -(y0 + y1) / 2) },
+    uSteep: { value: spec.place ? 1 : 0 }, // on ground shaped by the terrain: steep ground (a ramp's banks) stony, no paving up it
   };
   const mat = new THREE.MeshStandardMaterial({ color: spec.tint ?? 0xffffff, roughness: 0.95 });
   mat.onBeforeCompile = (shader) => {
@@ -99,12 +100,14 @@ export function buildPaved(spec: PavedSpec): Paved {
     shader.vertexShader = shader.vertexShader
       // the ground's own coordinates (the polygons'), whatever the level is scaled to in the world;
       // how stony it is (scree, steep banks)
-      .replace("#include <common>", "#include <common>\nvarying vec3 vGround;\nuniform vec3 uOrigin;\nattribute float scree;\nvarying float vStony;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGround = transformed + uOrigin;\nvStony = max(scree, 1.0 - smoothstep(0.6, 0.86, normal.y));");
+      .replace("#include <common>", "#include <common>\nvarying vec3 vGround;\nuniform vec3 uOrigin;\nattribute float scree;\nvarying float vStony;\nvarying float vUp;\nuniform float uSteep;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGround = transformed + uOrigin;\nvUp = normal.y;\nvStony = max(scree, uSteep * (1.0 - smoothstep(0.6, 0.86, normal.y)));");
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>
         varying vec3 vGround;
         varying float vStony;
+        varying float vUp;
+        uniform float uSteep;
         uniform sampler2D uGrass, uCobble, uFlag, uMask;
         uniform vec2 uMin, uSize, uTexel;
         uniform vec3 uRoad, uPlaza;
@@ -123,11 +126,13 @@ export function buildPaved(spec: PavedSpec): Paved {
         vec2 m = (w - uMin) / uSize;
         vec3 k = texture2D(uMask, m).rgb;
         if (k.b > 0.5) discard; // the water below shows through
-        float road = smoothstep(0.3, 0.7, k.r), plaza = smoothstep(0.3, 0.7, k.g);
+        // (no paving or track up a steep bank)
+        float level = mix(1.0, smoothstep(0.62, 0.8, vUp), uSteep);
+        float road = smoothstep(0.3, 0.7, k.r) * level, plaza = smoothstep(0.3, 0.7, k.g) * level;
         vec3 col = mix(mix(grass, cobble, road), flag, plaza);
         // a kerb: darker where paving meets grass
         float edge = max(k.r, k.g);
-        float kerb = 1.0 - uKerb * (smoothstep(0.15, 0.45, edge) - smoothstep(0.55, 0.85, edge));
+        float kerb = 1.0 - uKerb * level * (smoothstep(0.15, 0.45, edge) - smoothstep(0.55, 0.85, edge));
         diffuseColor.rgb *= col * kerb;`);
   };
   // flat: one quad; with a height, a grid of `cell` squares (up to 600 a side) raised to it
