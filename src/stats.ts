@@ -10,6 +10,8 @@ import { rand } from "./particles";
 const ZERO = {
   maxHp: 0, maxMp: 0, atk: 0, matk: 0, def: 0, mdef: 0, hit: 0, flee: 0, crit: 0, critDmg: 0, aspd: 0, move: 0,
   hpRegen: 0, mpRegen: 0, cdr: 0, dmgRed: 0,
+  // a share off every cast time (skills.ts), apart from the cooldowns
+  castRed: 0,
   // extras: weapon damage bonus, reach, stun chance on hit, exp and drop bonus, defence ignored
   dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0, potion: 0,
   // healing power, a second arrow on a bow shot, poison on a normal hit, damage to monsters
@@ -90,6 +92,7 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   s.mpRegen *= 1 + s.mpRegenPct;
   s.crit = Math.min(1, s.crit);
   s.cdr = Math.min(0.5, s.cdr);
+  s.castRed = Math.min(0.6, s.castRed);
   s.dmgRed = Math.min(0.75, s.dmgRed);
   s.aspd = Math.min(1.5, s.aspd);
   s.pierce = Math.min(0.8, s.pierce);

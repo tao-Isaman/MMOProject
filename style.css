@@ -438,15 +438,6 @@ kbd {
 .bt-slider { display: flex; flex-direction: column; gap: 2px; font-size: 13px; margin: 2px 0 6px; }
 .bt-slider input { width: 100%; accent-color: var(--gold); }
 .bt-form .wr-choice { margin-top: 4px; }
-.bt-chip {
-  position: fixed; top: 62px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; gap: 8px; align-items: center;
-  max-width: calc(100vw - 32px); padding: 6px 8px 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid rgba(157, 240, 180, 0.5);
-  font-size: 13px; color: var(--text); white-space: nowrap;
-}
-.bt-chip > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; }
-.bt-chip.hidden { display: none; }
-.bt-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #9df0b4; animation: bt-pulse 1.2s ease-in-out infinite; }
-@keyframes bt-pulse { 50% { opacity: 0.3; } }
 
 /* the name of the map, shown for a moment on arriving */
 .map-banner {
@@ -457,11 +448,6 @@ kbd {
   opacity: 0; transition: opacity 0.6s ease, transform 0.6s ease;
 }
 .map-banner.show { opacity: 1; transform: translate(-50%, 0); }
-.bt-chip-stop {
-  flex: none; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rim); background: rgba(255, 255, 255, 0.08);
-  color: var(--text); font: 600 12px var(--font); cursor: pointer;
-}
-.bt-chip-stop:hover { border-color: var(--gold); }
 .menu-btn.auto { color: #9df0b4; }
 .menu-btn.auto.on { border-color: rgba(0, 0, 0, 0.3); color: #10200c; background: #9df0b4; }
 /* ---- gold, sorting, item menu ---- */
@@ -556,7 +542,6 @@ kbd {
 
 @media (max-width: 720px) {
   #bot { width: auto; }
-  .bt-chip { top: auto; bottom: 150px; }
 }
 
 @media (max-width: 720px) {
@@ -614,7 +599,6 @@ body.touch .menu {
   display: flex; gap: 5px;
 }
 body.touch .menu-btn { padding: 6px 10px; font-size: 13px; min-height: 34px; }
-body.touch .bt-chip { top: calc(50px + env(safe-area-inset-top)); bottom: auto; max-width: max(200px, calc(100vw - 440px)); }
 
 /* the thumb stick: resting bottom left, follows the thumb while held */
 .joystick { display: none; }
@@ -718,6 +702,9 @@ body.touch .title-form { max-height: calc(100dvh - 150px); }
 .mp-stage { position: relative; padding: 8px; }
 .mp-canvas { display: block; border-radius: 10px; touch-action: none; }
 .mp-info { margin-top: 6px; min-height: 2.8em; padding: 0 4px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.mp-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+.mp-actions.hidden { display: none; }
+.mp-actions .title-btn { margin: 0; padding: 6px 14px; font-size: 13px; }
 .minimap { position: fixed; z-index: 3; top: 14px; right: 14px; cursor: pointer; }
 .minimap canvas {
   display: block; width: 168px; height: 168px; border-radius: 12px; border: 1px solid var(--rim);

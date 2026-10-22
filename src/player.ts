@@ -169,11 +169,13 @@ export class Player {
     return this.attack?.aim ?? this.facing();
   }
 
-  startCast(duration: number, hoverEnd: number): void {
+  // A cast bar of `duration` s, floating until hoverEnd; facing `dir` (a spell aimed somewhere),
+  // else the camera like the Oriverse cast.
+  startCast(duration: number, hoverEnd: number, dir?: Vec2): void {
     this.cast = { t: 0, duration, hoverEnd, x: this.x, y: this.y };
     this.attack = null;
     this.target = null;
-    this.dir = (8 - yawEighths()) % 8; // face the camera like the Oriverse cast
+    this.dir = dir ? directionIndex(dir.x, dir.y) : (8 - yawEighths()) % 8;
   }
 
   // Normal attack with weapon stats w, optionally turning toward a world point first.

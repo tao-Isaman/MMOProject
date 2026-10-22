@@ -24,6 +24,12 @@
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point, `hits` times) · nova, storm
 // (around the caster) · cone (in front) · beam (a line) · dash (no `mult`: a teleport) · heal ·
 // shield · buff · flower.
+//
+// A spell with a cast time (SkillDef.cast, shortened by the castRed stat) is read out first: the
+// caster stands still under a cast bar, and it goes off when the bar fills, only then costing its
+// MP and starting its cooldown. Walking off (or falling) lets it go for nothing. The monsters it
+// is aimed at feel it coming and turn on the caster, so the heavy spells cost a risk as well; a
+// spell aimed at a monster (or at a spot with monsters in it) follows that one when it moves.
 
 import { ACTIVES, MASTERIES } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
@@ -53,10 +59,29 @@ interface SkillDeps {
   weapon: () => string | null;
 }
 
+// The unit vector from a to b (null when they stand on each other).
+function toward(a: Vec2, b: Vec2): Vec2 | null {
+  const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+  return d > 1 ? { x: dx / d, y: dy / d } : null;
+}
+
 // A rank-scaled number of a skill (missing ones count as 0).
 const at = (f: ((r: number) => number) | undefined, rank: number) => f?.(rank) ?? 0;
 
 const LEAD = 0.22; // s from the start of the animation to the hit
+const RELEASE = 0.45; // s the caster's hands come down after a cast
+
+// A spell being cast: what it was aimed at, and the monster it follows (its mark).
+interface Casting {
+  id: string;
+  s: SkillDef;
+  rank: number;
+  dir: Vec2;
+  aim: Vec2 | null;
+  mark: Monster | null;
+  locked: boolean; // the mark is a single-target skill's lock (it comes to nothing without it)
+  left: number;    // s until it goes off
+}
 
 // One target, locked on (a shot that homes in, a blow at the one in front); the other damage
 // skills reach an area (aimed at a spot on the ground, along a line or round the player).
@@ -81,6 +106,7 @@ export class Skills {
   spells: FlowerSpell[];
   weapon: () => string | null;
   timers: { t: number; fn: () => void }[] = [];
+  pending: Casting | null = null;
 
   constructor(deps: SkillDeps) {
     this.progress = deps.progress;
@@ -107,7 +133,7 @@ export class Skills {
     if (!this.hero.alive) return "ล้มอยู่";
     const weapons = a.source.weapons;
     if (weapons && !weapons.includes(this.weapon() as WeaponId)) return `ต้องถือ${MASTERIES[a.source.mastery!].name}`;
-    if (this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
+    if (this.pending || this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
     if (this.hero.mp < a.skill.mp) return "MP ไม่พอ";
     return null;
@@ -131,7 +157,15 @@ export class Skills {
     return this.combat.lockOn({ x: p.x, y: p.y, target: null }, dir, reach);
   }
 
-  // Try a skill toward a world point. Returns null when it goes off, or why not.
+  // How long a skill takes to cast for this hero (0: it goes off at once). The flower field keeps
+  // its own timing (its carpet is drawn to it, spell.ts).
+  castTime(s: SkillDef): number {
+    if (!s.cast || s.type === "flower") return 0;
+    return s.cast * (1 - this.hero.stats.castRed);
+  }
+
+  // Try a skill toward a world point. Returns null when it goes off (or its cast starts), or why
+  // not.
   use(id: string, aim: Vec2 | null): string | null {
     const no = this.why(id);
     if (no) return no;
@@ -144,27 +178,107 @@ export class Skills {
     }
     const lock = singleTarget(s) ? this.lockFor(s, aim, dir0) : null;
     if (singleTarget(s) && !lock) return "ไม่มีเป้าหมายในระยะ";
+    const p = this.player;
+    const dir = lock ? toward(p, lock) ?? dir0 : dir0;
+    const time = this.castTime(s);
+    if (time > 0) {
+      const mark = lock ?? this.markFor(s, dir, aim);
+      this.pending = { id, s, rank, dir, aim, mark, locked: !!lock, left: time };
+      p.startCast(time, time + RELEASE, dir);
+      p.target = lock;
+      this.notice(s, dir, aim, lock);
+      return null;
+    }
     if (!this.hero.spend(s.mp)) return "MP ไม่พอ";
-    this.hero.cooldowns.set(id, s.cd * (1 - this.hero.stats.cdr));
-    this.hero.cdTotal.set(id, s.cd * (1 - this.hero.stats.cdr));
+    this.goOff(id, s, rank, dir, aim, lock);
+    return null;
+  }
+
+  // A skill going off (at once, or when its cast bar fills: `cast`): its cooldown, the animation
+  // of an instant one, its effect.
+  goOff(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null, lock: Monster | null, cast = false): void {
+    const cd = s.cd * (1 - this.hero.stats.cdr);
+    this.hero.cooldowns.set(id, cd);
+    this.hero.cdTotal.set(id, cd);
     if ((this.el.wind ?? 0) >= 35 && Math.random() < 0.15) {
       this.hero.cooldowns.delete(id);
       this.floaters.add(this.player.x, this.player.y, 170, "พายุหมุน!", "info");
     }
-
     const p = this.player;
-    let dir = dir0;
-    if (lock) {
-      const dx = lock.x - p.x, dy = lock.y - p.y, d = Math.hypot(dx, dy) || 1;
-      dir = { x: dx / d, y: dy / d };
-    }
     // a locked skill keeps its target for the attacks after it
     p.target = lock;
-    if (s.cast) p.startCast(s.cast, s.type === "flower" ? HOVER_END : s.cast);
-    else p.startMotion(s.motion, dir, this.weaponStats());
+    if (s.type === "flower") p.startCast(s.cast ?? CAST_TIME, HOVER_END);
+    else if (!cast) p.startMotion(s.motion, dir, this.weaponStats());
     this.effect(id, s, rank, dir, aim, lock);
     this.afterCast();
-    return null;
+  }
+
+  // The monster an area spell being cast follows: the target, else the one nearest the aimed
+  // spot within the spell's reach.
+  markFor(s: SkillDef, dir: Vec2, aim: Vec2 | null): Monster | null {
+    const t = this.player.target as Monster | null;
+    const hit = this.noticed(s, dir, aim);
+    if (t?.alive && hit.includes(t)) return t;
+    const c = aim ?? this.player;
+    return hit.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0] ?? null;
+  }
+
+  // The monsters a spell is aimed at: what its area would catch as it stands.
+  noticed(s: SkillDef, dir: Vec2, aim: Vec2 | null): Monster[] {
+    const p = this.player, me = { x: p.x, y: p.y };
+    switch (s.type) {
+      case "blast": {
+        const range = s.range ?? 500, dist = aim ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : range * 0.6;
+        return shapeTargets({ x: p.x + dir.x * dist, y: p.y + dir.y * dist }, dir, { hit: "circle", reach: s.radius ?? 150 }, this.monsters);
+      }
+      case "nova":
+      case "storm":
+        return shapeTargets(me, dir, { hit: "circle", reach: s.radius ?? 200 }, this.monsters);
+      case "beam":
+        return shapeTargets(me, dir, { hit: "line", reach: s.length ?? 500, width: s.width }, this.monsters);
+      case "fan":
+      case "bolt":
+        return shapeTargets(me, dir, { hit: "arc", reach: s.range ?? 500, arc: s.spread ?? 40 }, this.monsters);
+      case "cone":
+        return shapeTargets(me, dir, { hit: "arc", reach: s.reach ?? 150, arc: s.arc }, this.monsters);
+      default:
+        return [];
+    }
+  }
+
+  // The monsters a cast is aimed at feel it and come for the caster (with their pack).
+  notice(s: SkillDef, dir: Vec2, aim: Vec2 | null, lock: Monster | null): void {
+    const p = this.player;
+    for (const m of lock ? [lock] : this.noticed(s, dir, aim)) {
+      if (!m.alive) continue;
+      const fresh = m.angry <= 0;
+      m.provoke(toward(p, m) ?? dir);
+      if (fresh) this.floaters.add(m.x, m.y, m.height + 10, "!", "hurt");
+    }
+  }
+
+  // Let a cast go (walked off, fell, changed map): nothing is spent.
+  interrupt(why: string | null = "ยกเลิกการร่าย"): void {
+    if (!this.pending) return;
+    this.pending = null;
+    const c = this.player.cast;
+    if (c && c.t < c.duration) this.player.cast = null;
+    if (why) this.floaters.add(this.player.x, this.player.y, 150, why, "info");
+  }
+
+  // A cast whose bar has filled: it goes off at its mark (where that has moved to), if the MP
+  // is still there; a single-target spell whose target is gone comes to nothing.
+  release(c: Casting): void {
+    this.pending = null;
+    const p = this.player, m = c.mark?.alive && this.monsters.includes(c.mark) ? c.mark : null;
+    if (c.locked && !m) return void this.floaters.add(p.x, p.y, 150, "เป้าหมายหายไป", "info");
+    if (!this.hero.spend(c.s.mp)) return void this.floaters.add(p.x, p.y, 150, "MP ไม่พอ", "info");
+    let { dir, aim } = c;
+    if (m) {
+      dir = toward(p, m) ?? dir;
+      if (c.s.type === "blast") aim = { x: m.x, y: m.y };
+    }
+    this.goOff(c.id, c.s, c.rank, dir, aim, c.locked ? m : null, true);
   }
 
   weaponStats(): AttackWeapon {
@@ -176,6 +290,12 @@ export class Skills {
   }
 
   update(dt: number): void {
+    const c = this.pending;
+    if (c) {
+      if (!this.hero.alive) this.interrupt(null);
+      else if (!this.player.cast) this.interrupt();
+      else if ((c.left -= dt) <= 0) this.release(c);
+    }
     for (let i = this.timers.length - 1; i >= 0; i--) {
       const tm = this.timers[i];
       tm.t -= dt;

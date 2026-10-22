@@ -13,6 +13,14 @@ import type { Npc } from "./npcs";
 import type { Monster } from "./monsters";
 import type { Vec2 } from "./types";
 
+// What a travel guide charges to take you to a town: 1,000 gold at least, more the farther it is.
+export const TRAVEL_FEE_MIN = 1000;
+export function travelFee(from: string, to: string): number {
+  const a = PLACES.find((p) => p.id === from), b = PLACES.find((p) => p.id === to);
+  if (!a || !b) return TRAVEL_FEE_MIN;
+  return Math.max(TRAVEL_FEE_MIN, Math.round((Math.hypot(a.x - b.x, a.y - b.y) * 8) / 100) * 100);
+}
+
 export interface MapState {
   player: Vec2;
   facing: Vec2;    // the way she faces, a unit world vector
@@ -41,6 +49,7 @@ export class MapUI {
   tabs: Record<View, HTMLButtonElement>;
   canvas: HTMLCanvasElement;
   info: HTMLElement;
+  actions: HTMLElement;
   mini: HTMLCanvasElement;
   miniName: HTMLElement;
   view: View = "local";
@@ -54,13 +63,15 @@ export class MapUI {
   note: { text: string; t: number } | null = null; // a word after a click, over the usual text
   time = 0;
   onWalk: (to: Vec2, npc?: Npc) => string | null;
-  onTravel: (id: string) => void;
+  onTravel: (id: string, byShip: boolean) => string | null;
+  onSaveSpawn: (() => string) | null = null; // a travel guide keeps this town as where you get up
   guide = false; // opened by a travel guide: a click on a town goes there
   ports: string[] | null = null; // opened by a ship's captain: the towns the ship sails to
 
   // names: map id -> its name (for the warps' "to ..."); onWalk(to, npc): walk there, or up to
-  // npc to talk; returns why not, or null; onTravel(id): a travel guide's trip to that town
-  constructor(names: Record<string, string>, onWalk: (to: Vec2, npc?: Npc) => string | null, onTravel: (id: string) => void) {
+  // npc to talk; returns why not, or null; onTravel(id, byShip): a travel guide's (or ship's)
+  // trip to that town, or why not (the fare)
+  constructor(names: Record<string, string>, onWalk: (to: Vec2, npc?: Npc) => string | null, onTravel: (id: string, byShip: boolean) => string | null) {
     this.names = names;
     this.onWalk = onWalk;
     this.onTravel = onTravel;
@@ -80,6 +91,12 @@ export class MapUI {
     const stage = el("div", "mp-stage", this.win);
     this.canvas = el("canvas", "mp-canvas", stage);
     this.info = el("div", "mp-info", stage);
+    // a travel guide also keeps the town as your save point
+    this.actions = el("div", "mp-actions hidden", stage);
+    const save = el("button", "title-btn", this.actions);
+    save.type = "button";
+    save.textContent = "บันทึกจุดเกิดที่นี่";
+    save.addEventListener("click", () => this.onSaveSpawn && this.say(this.onSaveSpawn()));
     this.canvas.addEventListener("pointermove", (e) => (this.hover = { x: e.offsetX, y: e.offsetY }));
     this.canvas.addEventListener("pointerleave", () => (this.hover = null));
     this.canvas.addEventListener("pointerdown", (e) => {
@@ -147,6 +164,7 @@ export class MapUI {
     for (const v of ["local", "world"] as View[]) this.tabs[v].classList.toggle("on", v === this.view);
     this.tabs.local.textContent = this.map ? this.map.name : "แผนที่นี้";
     this.title.textContent = this.guide && this.ports ? "ขึ้นเรือ · เลือกท่าเรือ" : this.guide ? "เดินทาง · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
+    this.actions.classList.toggle("hidden", !(this.guide && !this.ports && this.view === "world"));
     const [w, h] = this.view === "world" || !this.pic ? [WORLD_W, WORLD_H] : [this.pic.width, this.pic.height];
     const touch = isTouch();
     const maxW = Math.min(touch ? 2000 : 900, innerWidth - (touch ? 28 : 56));
@@ -186,8 +204,9 @@ export class MapUI {
       if (p.id === map.id) return this.say(`ตอนนี้อยู่ที่${p.name}แล้ว`);
       if (this.ports && !this.ports.includes(p.id)) return this.say(`เรือลำนี้ไม่ได้แล่นไป${p.name}`);
       if (!p.open || p.kind === "field" || p.kind === "castle") return this.say(`ผู้นำทางยังพาไป${p.name}ไม่ได้`);
+      const why = this.onTravel(p.id, !!this.ports);
+      if (why) return this.say(why);
       this.toggle(false);
-      this.onTravel(p.id);
       return;
     }
     if (!p || !map || !p.open || p.id === map.id) return;
@@ -336,9 +355,12 @@ export class MapUI {
       else if (!p.open) text("ยังไม่เปิด", x, y + px(big ? 33 : 29), px(10.5), "#e8b7a4");
     }
     const p = hovered ?? this.picked;
-    let info = p ? `${p.name} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}`
+    // a guide's fare to an open town
+    const fare = p && this.guide && !this.ports && this.map && p.id !== this.map.id && p.open && p.kind !== "field" && p.kind !== "castle"
+      ? ` · ค่าเดินทาง ${travelFee(this.map.id, p.id).toLocaleString()} ทอง` : "";
+    let info = p ? `${p.name}${fare} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}`
       : this.guide && this.ports ? `${isTouch() ? "แตะ" : "คลิก"}ท่าเรือที่จะไป: ${this.ports.map((id) => PLACES.find((q) => q.id === id)?.name ?? id).join(" หรือ ")}`
-      : this.guide ? `${isTouch() ? "แตะ" : "คลิก"}เมืองที่จะไป ผู้นำทางพาไปถึงในพริบตา`
+      : this.guide ? `${isTouch() ? "แตะ" : "คลิก"}เมืองที่จะไป ผู้นำทางพาไปถึงในพริบตา (ค่าเดินทาง ${TRAVEL_FEE_MIN.toLocaleString()} ทองขึ้นไป ไกลยิ่งแพง)`
       : isTouch() ? "" : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · คลิกที่ที่เปิดแล้วเพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
     if (this.note) info = this.note.text;
     if (this.info.textContent !== info) this.info.textContent = info;

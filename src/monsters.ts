@@ -118,6 +118,8 @@ const BITE_REACH = 95;   // cm between centres
 const BITE_TIME = 1.6;   // s between bites
 const CHASE_LEASH = 900; // gives up past this far from home
 const ANGER = 12;        // s it stays angry after being hit
+const SHOWN = 8;         // s its name and HP stay under it after the player last hurt it
+const PLATE = 46;        // map px under its feet for its name and HP
 const RARE_SPOTS = 2;
 const RANGE = 480;       // cm a shooter shoots from
 const SHOT_SPEED = 560;  // cm/s
@@ -332,6 +334,8 @@ export class Monster {
   vy = 0;
   flash = 0;
   shake = 0; // s left of the shake a hit gives it (a hit doesn't stop it)
+  shown = 0; // s its name and HP still show under it (the player hurt it)
+  focus = false; // the player's (or the bot's) target: its name and HP show (set each frame)
   respawn = 0;
   respawnT = 9;
   spawnFade = 0;
@@ -465,6 +469,7 @@ export class Monster {
     if (!this.alive) return false;
     this.hp -= damage;
     this.flash = 0.12;
+    this.shown = SHOWN;
     this.anger();
     // pushed (only some skills push): the big ones barely budge; a blow that doesn't push
     // leaves a push already sliding it alone
@@ -556,6 +561,7 @@ export class Monster {
     this.age += dt;
     this.flash = Math.max(0, this.flash - dt);
     this.shake = Math.max(0, this.shake - dt);
+    this.shown = Math.max(0, this.shown - dt);
     this.stun = Math.max(0, this.stun - dt);
     this.freeze = Math.max(0, this.freeze - dt);
     this.slow = Math.max(0, this.slow - dt);
@@ -804,13 +810,15 @@ export class Monster {
     return this.fly ? 40 + Math.sin(this.age * 2.6) * 7 : 0;
   }
 
-  // The billboard it is drawn into (map px): room for its sheet, the HP bar and badges.
+  // The billboard it is drawn into (map px): room for its sheet, the badges over it and its
+  // name and HP under its feet.
   get board(): { w: number; h: number; foot: number } {
     const L = this.look;
+    const foot = Math.max(PLATE, L.foot * L.scale + 12);
     return {
       w: Math.max(210, L.cell * L.scale * 1.3),
-      h: Math.max(170, (L.cell - L.foot) * L.scale + (this.fly ? 130 : 80)),
-      foot: Math.max(30, L.foot * L.scale + 12),
+      h: Math.max(170, (L.cell - L.foot) * L.scale + (this.fly ? 130 : 80)) + foot - 30,
+      foot,
     };
   }
 
@@ -822,6 +830,7 @@ export class Monster {
     if (this.body && this.person) {
       this.drawPerson(ctx, view, this.body, this.person, fade);
       this.drawOver(ctx, gx, gy - L.top * L.scale * k - 8 * k, k);
+      this.drawPlate(ctx, gx, gy, k);
       return;
     }
     ctx.globalAlpha = fade;
@@ -849,13 +858,13 @@ export class Monster {
     }
     ctx.globalAlpha = 1;
     this.drawOver(ctx, gx, gy - L.top * s - lift - 8 * k, k);
+    this.drawPlate(ctx, gx, gy, k);
   }
 
-  // Stars, HP bar and badges over its head (top: where its head ends on the canvas).
+  // Stars and status badges over its head (top: where its head ends on the canvas).
   private drawOver(ctx: CanvasRenderingContext2D, gx: number, top: number, k: number): void {
     if (this.stun > 0 && this.alive) this.drawStars(ctx, gx, top - 6 * k, k);
-    if (this.alive && (this.hp < this.maxHp || this.angry > 0)) this.drawHp(ctx, gx, top, k);
-    if (this.alive) this.drawStatus(ctx, gx, top - 18 * k, k);
+    if (this.alive) this.drawStatus(ctx, gx, top, k);
   }
 
   // A person: its wardrobe body posed as the player's would be (walking, its attack motion with
@@ -898,23 +907,39 @@ export class Monster {
     }
   }
 
-  drawHp(ctx: CanvasRenderingContext2D, cx: number, y: number, k: number): void {
-    const w = (this.boss ? 110 : 52) * k, h = (this.boss ? 8 : 6) * k;
-    ctx.fillStyle = "rgba(10, 12, 8, 0.8)";
+  // Under its feet while it is the target or the player has hurt it lately: its level and name,
+  // and its HP as a bar with the numbers on it.
+  drawPlate(ctx: CanvasRenderingContext2D, cx: number, feet: number, k: number): void {
+    if (!this.alive || !(this.focus || this.shown > 0)) return;
+    const w = (this.boss ? 120 : 76) * k, h = (this.boss ? 10 : 9) * k;
+    const gold = this.boss || this.entry?.kind === "rare";
+    ctx.lineJoin = "round";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `600 ${12.5 * k}px Kanit, system-ui, sans-serif`;
+    ctx.lineWidth = 3.5 * k;
+    ctx.strokeStyle = "rgba(10, 12, 8, 0.9)";
+    ctx.fillStyle = gold ? "#ffd27a" : this.focus ? "#fff6d8" : "#e8e2cc";
+    const label = `Lv ${this.level} ${this.variant.name}`;
+    const ty = feet + 20 * k;
+    ctx.strokeText(label, cx, ty);
+    ctx.fillText(label, cx, ty);
+    const y = ty + 5 * k;
+    ctx.fillStyle = "rgba(10, 12, 8, 0.85)";
     ctx.fillRect(cx - w / 2 - k, y - k, w + 2 * k, h + 2 * k);
     ctx.fillStyle = "#4b1c18";
     ctx.fillRect(cx - w / 2, y, w, h);
     ctx.fillStyle = this.angry > 0 ? "#ff6a5a" : "#e0a090";
     ctx.fillRect(cx - w / 2, y, (w * Math.max(0, this.hp)) / this.maxHp, h);
-    ctx.font = `600 ${11 * k}px Kanit, system-ui, sans-serif`;
-    ctx.textAlign = "right";
-    ctx.lineWidth = 3 * k;
-    ctx.strokeStyle = "rgba(10, 12, 8, 0.85)";
-    // rare ones and bosses show their level in gold
-    ctx.fillStyle = this.boss || this.entry?.kind === "rare" ? "#ffd27a" : "#fff6d8";
-    ctx.strokeText(`Lv ${this.level}`, cx - w / 2 - 4 * k, y + h);
-    ctx.fillText(`Lv ${this.level}`, cx - w / 2 - 4 * k, y + h);
+    ctx.font = `600 ${8.5 * k}px Kanit, system-ui, sans-serif`;
+    ctx.lineWidth = 2.5 * k;
+    ctx.textBaseline = "middle";
+    const hp = `${Math.max(0, Math.ceil(this.hp))} / ${this.maxHp}`;
+    ctx.strokeText(hp, cx, y + h / 2 + 0.5 * k);
+    ctx.fillStyle = "#fff6d8";
+    ctx.fillText(hp, cx, y + h / 2 + 0.5 * k);
     ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
   }
 
   // Screen-space pick test for clicks (map px): an oval over its body.

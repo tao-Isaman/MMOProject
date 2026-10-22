@@ -1,6 +1,6 @@
 // Bot window (B): start/stop, what the bot is doing, and its settings — skill rules in priority
-// order, which slimes to hunt, the hunting area, when to rest. Plus a chip at the top of the
-// screen while the bot runs.
+// order, which slimes to hunt, the hunting area, when to rest. While it runs, the ออโต้ button
+// by the skill bar says so.
 
 import { el, makeWindow } from "./ui";
 import { icon } from "./icons";
@@ -33,8 +33,6 @@ export class BotUI {
   numbers: HTMLElement;
   rules: HTMLElement;
   form: HTMLElement;
-  chip: HTMLElement;
-  chipText: HTMLElement;
   menuBtn: HTMLElement | null;
 
   constructor(bot: Bot, progress: Progress) {
@@ -56,14 +54,6 @@ export class BotUI {
     this.form = el("div", "bt-form", body);
     el("p", "wr-note", body).textContent = "กดเดิน คลิก หรือใช้สกิลเองได้ตลอด บอทจะหยุดรอ 2.5 วินาทีแล้วทำต่อ";
 
-    this.chip = el("div", "bt-chip hidden", document.body);
-    this.chip.setAttribute("role", "status");
-    el("span", "bt-dot", this.chip);
-    this.chipText = el("span", "", this.chip);
-    const stop = el("button", "bt-chip-stop", this.chip);
-    stop.type = "button";
-    stop.textContent = "หยุด";
-    stop.addEventListener("click", () => bot.stop());
     this.menuBtn = document.getElementById("btn-auto");
 
     bot.onChange(() => this.render());
@@ -84,7 +74,6 @@ export class BotUI {
     const b = this.bot;
     this.run.textContent = b.on ? "หยุดบอท" : "เริ่มบอท";
     this.run.classList.toggle("on", b.on);
-    this.chip.classList.toggle("hidden", !b.on);
     if (this.menuBtn) {
       this.menuBtn.classList.toggle("on", b.on);
       this.menuBtn.textContent = b.on ? "■ หยุดออโต้" : "▶ ออโต้";
@@ -100,7 +89,6 @@ export class BotUI {
     const b = this.bot, st = b.stats;
     const what = b.on ? STATE_TEXT[b.state] + (b.target && (b.state === "fight" || b.state === "approach") ? ` · ${b.target.variant.name} Lv ${b.target.level}` : "") : STATE_TEXT.off;
     const perHour = st.time > 30 ? Math.round((st.xp / st.time) * 3600) : 0;
-    if (b.on) this.chipText.textContent = `บอท · ${what} · ${clock(st.time)} · ล่าแล้ว ${st.kills} ตัว`;
     if (!this.open) return;
     this.state.textContent = what;
     this.numbers.textContent = b.on || st.time
@@ -288,7 +276,6 @@ export class BotUI {
     slider(f, (v) => (v ? `เก็บ MP ${v}% ไว้ให้สกิลช่วยเหลือ` : "สกิลโจมตีใช้ MP ได้หมด"), "saveMp", 0, 60, 5);
 
     el("h3", "bt-h", f).textContent = "อื่น ๆ";
-    check(f, "ฟื้นจากการล้มแล้วล่าต่อ", "revive");
     check(f, "หยุดเมื่อกระเป๋าเต็ม", "stopFull");
     check(f, "เดินไปเก็บของที่ดรอป", "loot");
     const reset = el("button", "wr-choice", f);

@@ -229,8 +229,8 @@ export const ITEMS: Record<string, Item> = {
   buckler: offhand("โล่ไม้กลม", "buckler", { def: 6, mdef: 2 }, 300, "โล่ไม้เบา ๆ กันได้นิดหน่อย"),
   kite_shield: offhand("โล่อัศวิน", "kite", { def: 14, mdef: 4, maxHpPct: 0.05, move: -0.03 }, 900, "โล่เหล็กยาว หนักแต่กันได้มาก"),
   alchemy_flask: offhand("ขวดแปรธาตุ", "flask", { potion: 0.25, mpRegen: 1.5 }, 700, "ยาที่ดื่มฟื้นมากขึ้น ฟื้น MP เร็วขึ้น"),
-  spell_tome: offhand("สมุดเวท", "tome", { matkPct: 0.08, cdr: 0.04 }, 650, "สมุดคาถาของนักเวทฝึกหัด"),
-  grimoire: offhand("คัมภีร์โบราณ", "grimoire", { matkPct: 0.14, maxMpPct: 0.1, cdr: 0.06 }, 1800, "คัมภีร์เวทเล่มหนา พลังเวทสูง"),
+  spell_tome: offhand("สมุดเวท", "tome", { matkPct: 0.08, cdr: 0.04, castRed: 0.05 }, 650, "สมุดคาถาของนักเวทฝึกหัด"),
+  grimoire: offhand("คัมภีร์โบราณ", "grimoire", { matkPct: 0.14, maxMpPct: 0.1, cdr: 0.06, castRed: 0.1 }, 1800, "คัมภีร์เวทเล่มหนา พลังเวทสูง"),
   potion_red: potion("ยาแดง", { hp: 0.25 }, "#ff6a5a", 25, "ฟื้น HP 25% ของ HP สูงสุด"),
   potion_red_big: potion("ยาแดงเข้มข้น", { hp: 0.5 }, "#d8343a", 80, "ฟื้น HP 50% ของ HP สูงสุด"),
   potion_blue: potion("ยาฟ้า", { mp: 0.25 }, "#6ab4ff", 30, "ฟื้น MP 25% ของ MP สูงสุด"),
@@ -240,7 +240,7 @@ export const ITEMS: Record<string, Item> = {
   style_hime: style("hime", "ยาวหน้าม้าตรง", 1500),
   hat_straw: gear("hat", "หมวกฟาง", { def: 3, mdef: 1 }, 180, "#e2c46a", "หมวกสานกันแดด"),
   hat_leather: gear("hat", "หมวกหนัง", { def: 6, maxHp: 20 }, 520, "#a8743f", "หมวกหนังสัตว์บุนวม"),
-  hat_wizard: gear("hat", "หมวกพ่อมด", { matk: 6, maxMp: 20 }, 680, "#6a5acd", "หมวกปลายแหลมของนักเวท"),
+  hat_wizard: gear("hat", "หมวกพ่อมด", { matk: 6, maxMp: 20, castRed: 0.05 }, 680, "#6a5acd", "หมวกปลายแหลมของนักเวท"),
   hat_feather: gear("hat", "หมวกขนนก", { hit: 6, flee: 6 }, 640, "#5fb08a", "หมวกประดับขนนกของนักล่า"),
   shoes_sandals: gear("shoes", "รองเท้าแตะ", { move: 0.03 }, 150, "#c99a5b", "เดินเร็วขึ้นนิดหน่อย"),
   shoes_boots: gear("shoes", "รองเท้าบูทหนัง", { def: 4, move: 0.04 }, 480, "#7b5232", "บูทหนังทนทาน"),
@@ -249,6 +249,7 @@ export const ITEMS: Record<string, Item> = {
   ring_mind: gear("ring", "แหวนปัญญา", { matk: 5 }, 600, "#6a9ae8", "แหวนเงินฝังไพลิน"),
   ring_life: gear("ring", "แหวนชีวิต", { maxHp: 40, hpRegen: 0.5 }, 700, "#6fcf6a", "แหวนไม้หอมจากป่าใหญ่"),
   ring_focus: gear("ring", "แหวนแม่นยำ", { hit: 8, crit: 0.02 }, 800, "#e8d06a", "แหวนตาเหยี่ยว"),
+  ring_chant: gear("ring", "แหวนบทร่าย", { castRed: 0.08 }, 950, "#b48ae8", "แหวนสลักบทร่ายย่อ ร่ายเวทเสร็จไวขึ้น"),
   trinket_clover: gear("trinket", "จี้ใบโคลเวอร์", { drop: 0.05 }, 900, "#5fbf5a", "นำโชค ของตกบ่อยขึ้น"),
   trinket_fang: gear("trinket", "สร้อยเขี้ยวสัตว์", { atk: 3, critDmg: 0.1 }, 750, "#e8e0c8", "เขี้ยวสัตว์ร้อยเชือก"),
   trinket_moon: gear("trinket", "จี้พระจันทร์", { maxMp: 25, mpRegen: 0.5 }, 750, "#c8d8ff", "จี้เงินรูปจันทร์เสี้ยว"),
@@ -332,9 +333,9 @@ const GEAR_WHERE: Partial<Record<ItemKind, string>> = { hat: "ใส่ช่อ
 const STAT_WORDS: Record<string, string> = {
   def: "ป้องกัน", mdef: "ต้านเวท", atk: "พลังโจมตี", matk: "พลังเวท", maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", maxHpPct: "HP สูงสุด",
   maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน", potion: "ยาฟื้นแรงขึ้น", hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท",
-  cdr: "ลดคูลดาวน์", hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", drop: "โอกาสได้ของ", dmgRed: "ลดความเสียหาย",
+  cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", drop: "โอกาสได้ของ", dmgRed: "ลดความเสียหาย",
 };
-const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "crit", "critDmg", "drop", "dmgRed"]);
+const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "castRed", "crit", "critDmg", "drop", "dmgRed"]);
 export function statText(stats: Partial<Record<string, number>> | undefined): string {
   return Object.entries(stats ?? {}).map(([k, v = 0]) => `${STAT_WORDS[k] ?? k} ${v < 0 ? "" : "+"}${STAT_PCT.has(k) ? `${Math.round(v * 100)}%` : v}`).join(" · ");
 }

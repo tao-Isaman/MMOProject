@@ -15,7 +15,7 @@ export const STOCK = [
   "buckler", "kite_shield", "alchemy_flask", "spell_tome", "grimoire",
   "top_priestess_white", "bottom_priestess_white", "top_adventurer_teal", "bottom_adventurer_sand",
   "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
-  "hat_straw", "hat_leather", "shoes_sandals", "shoes_boots", "ring_power", "ring_mind", "trinket_moon",
+  "hat_straw", "hat_leather", "shoes_sandals", "shoes_boots", "ring_power", "ring_mind", "ring_chant", "trinket_moon",
   "book_survivor", "book_gathering", "book_lightning",
 ];
 

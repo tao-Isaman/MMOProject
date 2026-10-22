@@ -36,7 +36,7 @@ import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./s
 import { ShopUI } from "./shop";
 import { Npc, TALK_RANGE } from "./npcs";
 import { loadMap, MAP_NAMES } from "./maps";
-import { MapUI, mapArea } from "./mapui";
+import { MapUI, mapArea, travelFee } from "./mapui";
 import type { GameMap, MapId } from "./maps";
 import { findPath, blocked, SOLIDS } from "./world";
 import { RADIUS } from "./player";
@@ -653,7 +653,32 @@ async function boot(): Promise<void> {
   const shopUI = new ShopUI(inv, iconFor);
   // the minimap and the map window (M); each map's picture from above is taken while it loads
   // and kept
-  const mapUI = new MapUI(MAP_NAMES, goTo, (id) => void enterMap(id as MapId));
+  // a guide's trip costs gold (a ship's passage doesn't)
+  const mapUI = new MapUI(MAP_NAMES, goTo, (id, byShip) => {
+    if (travelling) return "กำลังเดินทางอยู่"; // (and nothing is charged)
+    const fee = byShip ? 0 : travelFee(current.id, id);
+    if (inv.gold < fee) return `ค่าเดินทาง ${fee.toLocaleString()} ทอง ทองไม่พอ`;
+    if (fee) {
+      inv.gold -= fee;
+      inv.changed();
+      floaters.add(player.x, player.y, 140, `จ่ายค่าเดินทาง ${fee.toLocaleString()} ทอง`, "info");
+    }
+    void enterMap(id as MapId);
+    return null;
+  });
+  // where you get up after falling: a town a guide kept for you, else Eden
+  const spawnKey = saveKey("respawn.v1");
+  let savePoint = readJson<{ map: MapId; x: number; y: number }>(spawnKey);
+  if (savePoint && !(savePoint.map in MAP_NAMES)) savePoint = null;
+  mapUI.onSaveSpawn = () => {
+    savePoint = { map: current.id, x: Math.round(player.x), y: Math.round(player.y) };
+    try {
+      localStorage.setItem(spawnKey, JSON.stringify(savePoint));
+    } catch {
+      // not persisted
+    }
+    return `บันทึกจุดเกิดที่${current.name}แล้ว ล้มเมื่อไรจะฟื้นที่นี่`;
+  };
   const pictures = new Map<MapId, HTMLCanvasElement>();
   mapUI.setMap(current, null);
   // The rest of a map's loading: its townsfolk dressed (10 s at most), every material compiled,
@@ -739,6 +764,7 @@ async function boot(): Promise<void> {
     monsters.length = 0;
     monsters.push(...(await populate(current)));
     ground.clear();
+    skills.interrupt(null);
     npcs = townsfolk(current);
     const there = (from && current.gates[from]) || at || current.spawn;
     player.x = there.x;
@@ -797,6 +823,7 @@ async function boot(): Promise<void> {
       }
       return;
     }
+    walkTo = null; // a skill stops a walk (a cast would end at the next step)
     hud.pulse(i, "flash");
   }
 
@@ -1219,10 +1246,13 @@ async function boot(): Promise<void> {
     }
     let move = fromView(fwd, left);
     if (hero.update(dt) === "respawn") {
-      // back on your feet in the city, like Ragnarok's save point
-      if (current.id !== "eden") void enterMap("eden");
-      player.x = SPAWN.x;
-      player.y = SPAWN.y;
+      // back on your feet at the save point (a town a guide kept, else Eden), like Ragnarok
+      const at = savePoint ?? { map: "eden" as MapId, x: SPAWN.x, y: SPAWN.y };
+      if (current.id !== at.map) void enterMap(at.map, { x: at.x, y: at.y });
+      else {
+        player.x = at.x;
+        player.y = at.y;
+      }
       floaters.add(player.x, player.y, 140, "ฟื้นแล้ว", "heal");
     }
     // the bot walks when the keys don't
@@ -1256,6 +1286,8 @@ async function boot(): Promise<void> {
     const w = weaponStats(inv.equipped.weapon, hero.stats);
     const offW = offhandWeapon(inv.equipped.offhand);
     if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
+    // walking (the keys, a click on the ground) lets a cast go; the bot waits for it
+    if (skills.pending && (fwd || left || walkTo) && (move.x || move.y)) skills.interrupt();
     const was = { x: player.x, y: player.y };
     if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon, offW);
     // a walk that stops getting anywhere (held up by a fight, or by someone in the way) ends
@@ -1350,6 +1382,7 @@ async function boot(): Promise<void> {
     };
     w3d.beginActors();
     for (const m of monsters) {
+      m.focus = m === player.target || (bot.on && m === bot.target); // its name and HP show under it
       if (m.state === "gone" || !onScreen(m.x, m.y, 200)) continue;
       w3d.actor(m, { x: m.x, y: m.y, ...m.board }, vw, (c, v) => m.draw(c, v));
     }
@@ -1405,7 +1438,7 @@ async function boot(): Promise<void> {
   let placeSaved = "", placeSavedAt = 0;
   function savePlace(): void {
     placeSavedAt = performance.now();
-    if (!hero.alive) return; // the dead get up in Eden; keep where they last stood alive
+    if (!hero.alive) return; // the dead get up at their save point; keep where they last stood alive
     const place = JSON.stringify({ map: current.id, x: Math.round(player.x), y: Math.round(player.y) });
     if (place === placeSaved) return;
     placeSaved = place;

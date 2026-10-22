@@ -706,7 +706,10 @@ export class SkillUI {
     el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
     if (n.kind === "active" && n.skill) {
       const s = n.skill;
-      el("p", "sk-meta", panel).textContent = `MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}`;
+      // the cast time as this hero reads it out (its castRed), and the plain one beside it
+      const red = s.type === "flower" ? 0 : this.hero.stats.castRed;
+      const cast = s.cast ? ` · ร่าย ${+(s.cast * (1 - red)).toFixed(2)} วิ${red ? ` (ปกติ ${s.cast})` : ""}` : "";
+      el("p", "sk-meta", panel).textContent = `MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${cast}`;
     }
 
     // requirements

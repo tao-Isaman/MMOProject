@@ -53,16 +53,15 @@ export interface BotSettings {
   saveMp: number;                     // % MP only support skills may dip into
   potHp: number;                      // % HP below which to drink a red potion (0: never)
   potMp: number;                      // % MP below which to drink a blue potion (0: never)
-  revive: boolean;                    // keep hunting after a respawn
   stopFull: boolean;                  // stop when the bag is full
   loot: boolean;                      // walk over what monsters drop (between fights) to pick it up
 }
 
-export type BotState = "off" | "seek" | "approach" | "fight" | "loot" | "rest" | "return" | "paused" | "dead";
+export type BotState = "off" | "seek" | "approach" | "fight" | "loot" | "rest" | "return" | "paused";
 
 export const STATE_TEXT: Record<BotState, string> = {
   off: "ปิดอยู่", seek: "รอมอนสเตอร์", approach: "เดินไปหาเป้าหมาย", fight: "กำลังต่อสู้", loot: "เดินไปเก็บของ",
-  rest: "นั่งพักฟื้น", return: "กลับเขตล่า", paused: "ผู้เล่นควบคุมอยู่", dead: "รอฟื้น",
+  rest: "นั่งพักฟื้น", return: "กลับเขตล่า", paused: "ผู้เล่นควบคุมอยู่",
 };
 
 const SUPPORT = new Set(["heal", "shield", "buff"]);
@@ -81,7 +80,7 @@ export function defaultRule(id: string): SkillRule {
 export function defaultSettings(): BotSettings {
   return {
     rules: [], basic: true, targets: Object.fromEntries(VARIANTS.map((v) => [v.id, true])), prefer: "near", defend: true,
-    radius: 900, wholeMap: false, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, revive: true, stopFull: true, loot: true,
+    radius: 900, wholeMap: false, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, stopFull: true, loot: true,
   };
 }
 
@@ -254,12 +253,9 @@ export class Bot {
     for (const [m, t] of this.skip) if ((t - dt) <= 0) this.skip.delete(m); else this.skip.set(m, t - dt);
     for (const [l, t] of this.skipLoot) if ((t - dt) <= 0) this.skipLoot.delete(l); else this.skipLoot.set(l, t - dt);
 
+    // falling stops it: the player decides what to do after getting up
     if (!hero.alive) {
-      if (!s.revive) {
-        this.stop("บอทหยุดเพราะตัวละครล้ม");
-        return none;
-      }
-      this.reset("dead");
+      this.stop("บอทหยุดเพราะตัวละครล้ม");
       return none;
     }
     if (this.manual > 0) {
