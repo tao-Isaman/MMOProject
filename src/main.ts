@@ -13,8 +13,9 @@ import { Inventory } from "./inventory";
 import { InventoryUI, loadLook } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
-import type { MonsterCtx } from "./monsters";
-import { MONSTERS, MONSTER_BY_ID, behaviour } from "./bestiary";
+import type { MonsterCtx, Person } from "./monsters";
+import { MONSTERS, MONSTER_BY_ID, PEOPLE, behaviour } from "./bestiary";
+import type { MonsterDef } from "./bestiary";
 import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
@@ -425,9 +426,17 @@ async function boot(): Promise<void> {
   motes.prewarm();
   const spells: FlowerSpell[] = [];
   const floaters = new Floaters();
+  // the people among the monsters are dressed like townsfolk, their weapon in hand
+  const dress = async (d: MonsterDef): Promise<Person | null> => {
+    const p = PEOPLE[d.id];
+    if (!p) return null;
+    const { top, bottom, ...l } = p.look;
+    const built = await looks.build(l, { weapon: p.weapon, offhand: null, top, bottom }, ["idle", "walk", p.motion]);
+    return { sheets: built.sheets, hands: built.hands, builtin: built.builtin, weapon: weapons[p.weapon] ?? null, motion: p.motion };
+  };
   const monLooks = new MonsterLooks(slimeSheets({
     idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
-  }));
+  }), dress);
   // A map's monsters: towns have none; a field its own from the bestiary (and those its boss
   // calls up), their sheets loaded first.
   async function populate(map: GameMap): Promise<Monster[]> {
@@ -1040,7 +1049,7 @@ async function boot(): Promise<void> {
       const def = MONSTER_BY_ID[id];
       for (let i = 0; i < n; i++) {
         const a = Math.random() * Math.PI * 2, v = variantOf(def, def.levels[0]);
-        const c = new Monster(v, { x: m.x + Math.cos(a) * (m.radius + 120), y: m.y + Math.sin(a) * (m.radius + 120) }, monLooks.of(v));
+        const c = new Monster(v, { x: m.x + Math.cos(a) * (m.radius + 120), y: m.y + Math.sin(a) * (m.radius + 120) }, monLooks.of(v), monLooks.person(v));
         c.temp = true;
         c.angry = 12;
         c.kin = monsters;

@@ -11,7 +11,8 @@
 // colour variants hue-rotated copies, and hop. Every other monster has one sheet
 // (public/assets/monsters/<id>.png, listed in index.json): a standing frame, then its walk,
 // then its attack; it walks. One whose sheet isn't drawn yet stands in as a slime of its
-// element, grown to its size.
+// element, grown to its size. The bandits, raiders and ninjas are people: dressed through the
+// wardrobe (src/look.ts) and drawn like the player, weapon in hand.
 
 import { icon } from "./icons";
 import { mapX, mapY, yaw } from "./projection";
@@ -19,8 +20,11 @@ import { resolve, SOLIDS, BOUNDS } from "./world";
 import { hueShift, silhouette } from "./recolor";
 import { loadImage } from "./assets";
 import { rand } from "./particles";
-import { behaviour, statsFor } from "./bestiary";
+import { behaviour, statsFor, PEOPLE } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
+import { Player, directionIndex, directionVector } from "./player";
+import type { Hands } from "./look";
+import type { WeaponArt } from "./weapons";
 import type { Img, Vec2, View } from "./types";
 import type { Hero } from "./hero";
 import type { ElementId } from "./progression";
@@ -89,6 +93,7 @@ const SCALE = 1.25;      // map px per sprite px
 const HOP_SPEED = 95;    // cm/s while hopping
 const HOP_FPS = 10;
 const PX_PER_CM = 0.8;   // how tall a monster of `size` cm stands on screen (the player: 128 px)
+const BLANK = document.createElement("canvas"); // a person has no staff gem to light
 
 // level, hp, atk, def, mdef and xp feed stats.js; aggro: radius (cm) in which it attacks first
 const BOOK_DROPS: [string, number][] = [["book_survivor", 0.015], ["book_gathering", 0.015], ["book_lightning", 0.015]];
@@ -184,6 +189,25 @@ function spriteLook(img: Img, m: SheetMeta, size: number): Look {
   };
 }
 
+// A person's sheets from the wardrobe (8 directions: idle, walk and its attack motion) and the
+// weapon it holds.
+export interface Person {
+  sheets: Record<string, Img>;
+  hands?: Hands;
+  builtin: Record<string, boolean>;
+  weapon: { img: Img; art: WeaponArt } | null;
+  motion: string;
+}
+
+// A person's timing and size (it stands as tall as the player: 128 px).
+function personLook(p: Person): Look {
+  const img = p.sheets.idle, cell = img.height / 8, idle = clip(img, 1);
+  return {
+    cell, scale: 128 / (cell * 0.92), foot: 0, top: cell * 0.92, fps: 8, attackFps: 10, strike: 0.25, swing: 0.5,
+    hurtT: 0.3, dieT: 1.1, hop: false, idle, move: idle, attack: idle, hurt: idle, die: idle,
+  };
+}
+
 // Which slime stands in for a monster of each element until its own sheet is drawn.
 const STAND_IN: Partial<Record<ElementId, string>> = {
   plant: "green", earth: "green", wind: "green", mud: "green",
@@ -196,12 +220,23 @@ export class MonsterLooks {
   private meta: Promise<Record<string, SheetMeta>> | null = null;
   private sheets = new Map<string, Look>();
   private standIns = new Map<string, Look>();
+  private people = new Map<string, { person: Person; look: Look }>();
 
-  constructor(readonly slimes: Record<string, Look>) {}
+  // dress: a person's sheets, built from its look in PEOPLE (src/bestiary.ts)
+  constructor(readonly slimes: Record<string, Look>, private dress?: (d: MonsterDef) => Promise<Person | null>) {}
 
-  // Load these monsters' sheets (those drawn so far; the rest stand in as slimes).
+  // Load these monsters' sheets (those drawn so far; the rest stand in as slimes) and dress the
+  // people among them.
   async prepare(defs: MonsterDef[]): Promise<void> {
     this.meta ??= fetch("assets/monsters/index.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+    await Promise.all(defs.filter((d) => PEOPLE[d.id] && this.dress && !this.people.has(d.id)).map(async (d) => {
+      try {
+        const person = await this.dress!(d);
+        if (person) this.people.set(d.id, { person, look: personLook(person) });
+      } catch (err) {
+        console.warn(err);
+      }
+    }));
     const meta = await this.meta;
     await Promise.all(defs.filter((d) => meta[d.id] && !this.sheets.has(d.id)).map(async (d) => {
       try {
@@ -212,10 +247,14 @@ export class MonsterLooks {
     }));
   }
 
+  person(v: Variant): Person | null {
+    return (v.entry && this.people.get(v.entry.id)?.person) ?? null;
+  }
+
   of(v: Variant): Look {
     const d = v.entry;
     if (!d) return this.slimes[v.id];
-    const own = this.sheets.get(d.id);
+    const own = this.sheets.get(d.id) ?? this.people.get(d.id)?.look;
     if (own) return own;
     let s = this.standIns.get(d.id);
     if (!s) {
@@ -284,6 +323,8 @@ export class Monster {
   wait = 0;
   goal: Vec2 | null = null;
   row = 0;     // facing, see row4
+  dir8 = 0;    // and as one of 8 (a person), see directionIndex
+  walked = 0;  // cm walked (a person's steps)
   vx = 0;
   vy = 0;
   flash = 0;
@@ -316,11 +357,18 @@ export class Monster {
   fled = false;
   called = 0;    // how many calls for help so far
   burst = false;
+  person: Person | null;
+  body: Player | null = null; // a person is drawn as the player is
 
-  constructor(variant: Variant, home: Vec2, look: Look) {
+  constructor(variant: Variant, home: Vec2, look: Look, person: Person | null = null) {
     this.variant = variant;
     this.home = home;
     this.look = look;
+    this.person = person;
+    if (person) {
+      this.body = new Player(home.x, home.y, person.sheets, person.hands, BLANK);
+      this.body.setSheets(person.sheets, person.hands, person.builtin);
+    }
     const d = (this.entry = variant.entry ?? null);
     if (d) {
       const has = (b: string) => behaviour(d, b) !== null;
@@ -342,6 +390,12 @@ export class Monster {
       this.packs = has("pack");
     }
     this.spawn();
+  }
+
+  // Turn to face along a world vector.
+  face(dx: number, dy: number): void {
+    this.row = row4(dx, dy);
+    this.dir8 = directionIndex(dx, dy);
   }
 
   get reach(): number {
@@ -382,7 +436,7 @@ export class Monster {
     this.age = rand(0, 10);
     this.wait = rand(0.5, 2.5);
     this.goal = null;
-    this.row = Math.floor(rand(0, 4));
+    this.face(Math.cos(rand(0, 6.3)), Math.sin(rand(0, 6.3)));
     this.vx = this.vy = 0;
     this.flash = 0;
     this.respawn = 0;
@@ -403,7 +457,7 @@ export class Monster {
     const heavy = Math.min(1, 40 / this.radius);
     this.vx = dir.x * knock * 6 * heavy;
     this.vy = dir.y * knock * 6 * heavy;
-    this.row = row4(-dir.x, -dir.y); // turn to face the attacker
+    this.face(-dir.x, -dir.y); // turn to face the attacker
     if (this.hp <= 0) {
       this.alive = false;
       this.state = "die";
@@ -430,7 +484,7 @@ export class Monster {
   provoke(dir: Vec2): void {
     if (!this.alive) return;
     this.anger();
-    this.row = row4(-dir.x, -dir.y);
+    this.face(-dir.x, -dir.y);
   }
 
   get held(): boolean {
@@ -481,7 +535,7 @@ export class Monster {
     this.blow = blow;
     this.t = 0;
     this.bitten = false;
-    this.row = row4(pl.x - this.x, pl.y - this.y);
+    this.face(pl.x - this.x, pl.y - this.y);
   }
 
   update(dt: number, ctx: MonsterCtx): void {
@@ -576,7 +630,7 @@ export class Monster {
         this.go();
       } else if (this.ranged && toPlayer < RANGE * 0.85 && toPlayer > reach) {
         // a shooter keeps its distance
-        this.row = row4(pl.x - this.x, pl.y - this.y);
+        this.face(pl.x - this.x, pl.y - this.y);
         if (this.state === "hop") {
           this.state = "idle";
           this.wait = 0.3;
@@ -689,7 +743,7 @@ export class Monster {
           break;
         }
         if (d < 12) break;
-        this.row = row4(dx, dy);
+        this.face(dx, dy);
         const slowed = this.slow > 0 ? 1 - this.slowPct : 1;
         let v: number;
         if (L.hop) {
@@ -702,6 +756,7 @@ export class Monster {
         }
         const p = { x: this.x + (dx / d) * v * dt, y: this.y + (dy / d) * v * dt };
         resolve(p, this.radius);
+        this.walked += Math.hypot(p.x - this.x, p.y - this.y);
         this.x = p.x;
         this.y = p.y;
         break;
@@ -744,6 +799,11 @@ export class Monster {
     const { k, ox, oy } = view, L = this.look;
     const gx = mapX(this.x, this.y) * k + ox, gy = mapY(this.x, this.y) * k + oy;
     const fade = this.state === "die" ? Math.max(0, 1 - Math.max(0, this.t - L.dieT * 0.45) / (L.dieT * 0.55)) : 1 - this.spawnFade / 0.6;
+    if (this.body && this.person) {
+      this.drawPerson(ctx, view, this.body, this.person, fade);
+      this.drawOver(ctx, gx, gy - L.top * L.scale * k - 8 * k, k);
+      return;
+    }
     ctx.globalAlpha = fade;
     ctx.fillStyle = "rgba(16, 30, 10, 0.3)";
     const sw = Math.max(26, this.radius * 0.85) * k * (this.fly ? 0.8 : 1);
@@ -768,10 +828,33 @@ export class Monster {
       ctx.drawImage(this.petrify > 0 ? clip.stone : clip.ice, sx, sy, c, c, dx, dy, dw, dh);
     }
     ctx.globalAlpha = 1;
-    const top = gy - L.top * s - lift - 8 * k;
+    this.drawOver(ctx, gx, gy - L.top * s - lift - 8 * k, k);
+  }
+
+  // Stars, HP bar and badges over its head (top: where its head ends on the canvas).
+  private drawOver(ctx: CanvasRenderingContext2D, gx: number, top: number, k: number): void {
     if (this.stun > 0 && this.alive) this.drawStars(ctx, gx, top - 6 * k, k);
     if (this.alive && (this.hp < this.maxHp || this.angry > 0)) this.drawHp(ctx, gx, top, k);
     if (this.alive) this.drawStatus(ctx, gx, top - 18 * k, k);
+  }
+
+  // A person: its wardrobe body posed as the player's would be (walking, its attack motion with
+  // the weapon in hand), flashing when hit, turning to stone or ice.
+  private drawPerson(ctx: CanvasRenderingContext2D, view: View, b: Player, p: Person, fade: number): void {
+    b.x = this.x;
+    b.y = this.y;
+    b.dir = this.dir8;
+    b.time = this.age;
+    b.walked = this.walked;
+    b.moving = this.state === "hop";
+    b.hurtFlash = this.flash > 0 ? 0.3 : 0;
+    const sheet = p.sheets[p.motion] ?? p.sheets.idle;
+    b.attack = this.state === "bite"
+      ? { t: this.t, motion: p.motion, dur: this.look.swing, frames: sheet.width / b.cell, hit: true, w: { motion: p.motion, builtin: p.builtin[p.motion] }, aim: directionVector(this.dir8) }
+      : null;
+    ctx.globalAlpha = fade * (this.freeze > 0 || this.petrify > 0 ? 0.75 : 1);
+    b.draw(ctx, view, p.weapon);
+    ctx.globalAlpha = 1;
   }
 
   // A row of small badges over the HP bar: poisoned, slowed, weakened, exposed, blinded.
@@ -955,7 +1038,7 @@ function pickBy<T>(list: T[], weight: (t: T) => number): T {
 // violet at the top.
 export function spawnMonsters(looks: MonsterLooks, where: Spawns = {}): Monster[] {
   const list: Monster[] = [];
-  const make = (v: Variant, home: Vec2) => list.push(new Monster(v, home, looks.of(v)));
+  const make = (v: Variant, home: Vec2) => list.push(new Monster(v, home, looks.of(v), looks.person(v)));
   const pool = where.pool ?? [];
   const common = pool.filter((d) => KINDS[d.kind].weight > 0);
   if (common.length) {

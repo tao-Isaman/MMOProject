@@ -24,6 +24,7 @@
 
 import type { ElementId } from "./progression";
 import type { MapId } from "./maps";
+import type { WeaponId } from "./items";
 
 export type MonsterKind = "normal" | "tank" | "fast" | "caster" | "rare" | "boss";
 
@@ -283,5 +284,14 @@ export function behaviour(def: { behave: string[] }, name: string): string | nul
   }
   return null;
 }
+
+// The people among them, dressed through the wardrobe (src/look.ts): their look, the weapon
+// they hold and the motion they strike with.
+export const PEOPLE: Record<string, { look: { gender: string; hair: string; hairColor: string; eyes: string; top: string; bottom: string }; weapon: WeaponId; motion: string }> = {
+  highway_bandit: { look: { gender: "female", hair: "hime", hairColor: "ink", eyes: "crimson", top: "top_adventurer_plum", bottom: "bottom_adventurer_black" }, weapon: "dagger", motion: "thrust" },
+  nomad_raider: { look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior_cocoa" }, weapon: "bow", motion: "shoot" },
+  cursed_deserter: { look: { gender: "male", hair: "", hairColor: "ink", eyes: "crimson", top: "top_warrior_navy", bottom: "bottom_warrior_black" }, weapon: "sword_1h", motion: "swing" },
+  bamboo_ninja: { look: { gender: "female", hair: "twintail", hairColor: "ink", eyes: "teal", top: "top_adventurer_teal", bottom: "bottom_adventurer_black" }, weapon: "dagger", motion: "thrust" },
+};
 
 export const MONSTER_BY_ID: Record<string, MonsterDef> = Object.fromEntries(MONSTERS.map((m) => [m.id, m]));
