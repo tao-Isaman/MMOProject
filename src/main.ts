@@ -29,7 +29,7 @@ import type { ElementId, StatBag } from "./progression";
 
 import { Vitals, ClassPicker, ProfileUI, SettingsUI, SkillUI, skillTip } from "./charui";
 import { startGear } from "./starter";
-import { icon } from "./icons";
+import { icon, skillIcon, loadSkillArt } from "./icons";
 import { Bot } from "./bot";
 import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./save";
@@ -290,6 +290,7 @@ async function boot(): Promise<void> {
     loadAll(files, (f) => (bar.value = f)),
     fetch("assets/chars/bodies.json").then((r) => r.json() as Promise<Record<string, BodyDef>>),
     fetch("assets/chars/hair.json").then((r) => r.json() as Promise<HairData>),
+    loadSkillArt(),
   ]);
 
   // tinted glows and rings for skill effects, made on first use
@@ -566,7 +567,7 @@ async function boot(): Promise<void> {
       const a = id && ACTIVES[id];
       if (!a) return hud.set(i, null);
       const rank = progress.skillRank(id);
-      hud.set(i, { id, name: a.name, icon: icon(a.glyph, a.color), tip: skillTip(id, rank), missing: !rank });
+      hud.set(i, { id, name: a.name, icon: skillIcon(id, a.glyph, a.color), tip: skillTip(id, rank), missing: !rank });
     });
   }
   let rosterLine = `${progress.level}|${progress.cls}`;

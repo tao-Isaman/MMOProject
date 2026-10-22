@@ -3,7 +3,7 @@
 // by the skill bar says so.
 
 import { el, makeWindow } from "./ui";
-import { icon } from "./icons";
+import { skillIcon } from "./icons";
 import { ACTIVES } from "./progression";
 import { VARIANTS } from "./monsters";
 import { STATE_TEXT, defaultSettings, isSupport } from "./bot";
@@ -121,7 +121,7 @@ export class BotUI {
         this.save();
       });
       const ic = el("span", "sk-icon small", row);
-      ic.append(icon(a.glyph, a.color));
+      ic.append(skillIcon(r.id, a.glyph, a.color));
       const name = el("span", "bt-name", row);
       name.textContent = a.name;
       name.title = isSupport(a.skill) ? "สกิลช่วยเหลือ" : "สกิลโจมตี";

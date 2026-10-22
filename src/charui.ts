@@ -3,7 +3,7 @@
 
 import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
 import type { Look } from "./ui";
-import { icon } from "./icons";
+import { skillIcon } from "./icons";
 import {
   CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL,
 } from "./progression";
@@ -470,9 +470,10 @@ export class SkillUI {
     return b;
   }
 
-  skillIcon(parent: HTMLElement, glyph: string, color: string, activeId: string | null | undefined, learned: boolean): HTMLElement {
+  // `id`: the skill whose picture to show if it has one (null for trees, masteries, elements)
+  skillIcon(parent: HTMLElement, id: string | null, glyph: string, color: string, activeId: string | null | undefined, learned: boolean): HTMLElement {
     const wrap = el("span", `sk-icon${learned ? "" : " dim"}`, parent);
-    const c = icon(glyph, color);
+    const c = skillIcon(id, glyph, color);
     const cv = el("canvas", "", wrap);
     cv.width = c.width;
     cv.height = c.height;
@@ -593,7 +594,7 @@ export class SkillUI {
       const b = el("button", `sk-treetab${treeId === this.tree ? " on" : ""}`, list);
       b.type = "button";
       b.style.setProperty("--tree", t.color);
-      this.skillIcon(b, t.glyph, t.color, null, true);
+      this.skillIcon(b, null, t.glyph, t.color, null, true);
       const txt = el("span", "", b);
       el("strong", "", txt).textContent = t.name;
       el("small", "", txt).textContent = `ลงแล้ว ${p.pointsIn(treeId)} แต้ม`;
@@ -655,7 +656,7 @@ export class SkillUI {
       node.setAttribute("aria-label", `${n.name} ระดับ ${rank}/${n.max}`);
       // only a skill it already knows goes on the skill bar, not one just planned
       const known = (this.real.ranks[n.id] ?? 0) > 0;
-      const ic = this.skillIcon(node, n.glyph, tree.color, n.kind === "active" && known ? n.id : null, rank > 0);
+      const ic = this.skillIcon(node, n.id, n.glyph, tree.color, n.kind === "active" && known ? n.id : null, rank > 0);
       if (!reqOk) el("span", "sk-lockmark", ic).textContent = "🔒";
       const more = this.planned("node", n.id);
       if (more) node.classList.add("planned");
@@ -691,7 +692,7 @@ export class SkillUI {
     const panel = el("div", "sk-detail", parent);
     panel.style.setProperty("--tree", tree.color);
     const head = el("div", "sk-detail-head", panel);
-    this.skillIcon(head, n.glyph, tree.color, n.kind === "active" && (this.real.ranks[n.id] ?? 0) > 0 ? n.id : null, rank > 0);
+    this.skillIcon(head, n.id, n.glyph, tree.color, n.kind === "active" && (this.real.ranks[n.id] ?? 0) > 0 ? n.id : null, rank > 0);
     const t = el("div", "", head);
     el("strong", "", t).textContent = n.name;
     const sub = el("span", "sk-sub", t);
@@ -790,7 +791,7 @@ export class SkillUI {
       const dot = el("div", `sk-dot${got ? " got" : ""}${m === next ? " next" : ""}`, tr);
       dot.style.left = `${(100 * m.at) / max}%`;
       el("span", "sk-dot-lv", dot).textContent = `Lv ${m.at}`;
-      const ic = this.skillIcon(dot, m.glyph, got ? color : "#9aa08a", m.active ?? null, got);
+      const ic = this.skillIcon(dot, m.active ?? null, m.glyph, got ? color : "#9aa08a", m.active ?? null, got);
       ic.classList.add("small");
       el("span", "sk-dot-name", dot).textContent = m.name;
       this.hoverTip(dot, m.tip);
@@ -818,7 +819,7 @@ export class SkillUI {
         if (img.height > img.width * 1.6) g.rotate(Math.PI / 4);
         g.drawImage(img, (-img.width * s) / 2, (-img.height * s) / 2, img.width * s, img.height * s);
       } else {
-        art.replaceWith(this.skillIcon(top, m.glyph, "#8fbf6a", null, true));
+        art.replaceWith(this.skillIcon(top, null, m.glyph, "#8fbf6a", null, true));
       }
       const info = el("div", "sk-info", top);
       el("strong", "", info).textContent = `${m.name} · ระดับ ${lv}/${m.max}${this.planned("mastery", id) ? ` (+${this.planned("mastery", id)})` : ""}${m.weapons?.includes(holding as WeaponId) ? " · ถืออยู่" : ""}`;
@@ -849,7 +850,7 @@ export class SkillUI {
       const row = el("div", "sk-line", list);
       row.style.setProperty("--fill", e.color);
       const top = el("div", "sk-line-top", row);
-      this.skillIcon(top, e.glyph, e.color, null, true);
+      this.skillIcon(top, null, e.glyph, e.color, null, true);
       const info = el("div", "sk-info", top);
       el("strong", "", info).textContent = `ธาตุ${e.name} · เด่นด้าน${e.side} · ระดับ ${lv}/${e.max}${this.planned("element", id) ? ` (+${this.planned("element", id)})` : ""}`;
       el("span", "sk-sub", info).textContent = `ต่อระดับ: ${bagText(e.per)} · ${e.skill}`;

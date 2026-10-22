@@ -373,6 +373,8 @@ Vercel build ด้วย `npm run build` แล้วเสิร์ฟ `dist/`
 
 อาวุธที่ไม่ได้มากับท่าของ Oriverse จะวาดเข้ามือเฉพาะตอนโจมตีและตอนร่ายเวท (ของมือรองวาดที่มือซ้าย) ตำแหน่งมือทุกเฟรมเก็บใน `bodies.json` (`hands`) หาด้วย `tools/hand_anchors.py`
 ภาพอาวุธและไอคอนวาดด้วย `python3 tools/draw_items.py public/assets` ไอคอนสกิลวาดด้วยโค้ด (`src/icons.ts`)
+ยกเว้นสกิลที่มีภาพจาก Oriverse แล้ว (`public/assets/skills/<id>.png` รายชื่อใน `index.json`): สร้างเป็นภาพเดียวแบบตาราง 3×3
+ด้วย `generate_image` แล้วตัดด้วย `python3 tools/skill_icons.py <ภาพ.png> 3 3 <id> ...` (ไล่แถวจากซ้ายไปขวา) ตอนนี้มีสายเวทโจมตี 9 สกิล
 
 ## ฉาก 3 มิติ
 
@@ -447,7 +449,7 @@ Vercel build ด้วย `npm run build` แล้วเสิร์ฟ `dist/`
 | `src/starter.ts` | สิ่งที่ตัวละครเริ่มต้นด้วย: อาชีพ ตำราสกิล ธาตุ ความเชี่ยวชาญ อาวุธ |
 | `src/hud.ts` | แถบสกิล 10 ช่อง, คูลดาวน์ |
 | `src/touch.ts` | โหมดสัมผัส แนวนอน/เต็มจอ และจอยสติ๊ก |
-| `src/icons.ts` | ไอคอนสกิล |
+| `src/icons.ts` | ไอคอนสกิล (ภาพจาก Oriverse ถ้ามี ไม่งั้นวาดด้วยโค้ด) |
 | `src/garments.ts` | ไอคอนเสื้อและกางเกงแต่ละทรง |
 | `src/look.ts`, `src/recolor.ts` | ประกอบหัวกับตัว, ย้อมสีผม ตา เสื้อ กางเกง และสีสไลม์ |
 | `src/weapons.ts` | วาดอาวุธเข้ามือ |

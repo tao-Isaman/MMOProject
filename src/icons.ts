@@ -1,10 +1,36 @@
 // Skill, mastery and element icons, drawn as vector glyphs on a tinted gem so every skill reads
-// at 40 px. icon(glyph, color) returns a cached 96 px canvas.
+// at 40 px. icon(glyph, color) returns a cached 96 px canvas. A skill with a picture of its own
+// (assets/skills/<id>.png from Oriverse, listed in index.json, cut by tools/skill_icons.py) shows
+// that instead: skillIcon(id, glyph, color).
+
+import { loadImage } from "./assets";
 
 const SIZE = 96;
 const cache = new Map<string, HTMLCanvasElement>();
+const art = new Map<string, HTMLCanvasElement>();
 type G = CanvasRenderingContext2D;
 type Pt = [number, number];
+
+// The skill pictures, loaded once at start (before any window draws an icon); a missing one
+// leaves its skill on the glyph.
+export async function loadSkillArt(): Promise<void> {
+  const ids: string[] = await fetch("assets/skills/index.json").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  await Promise.all(ids.map(async (id) => {
+    try {
+      const img = await loadImage(`assets/skills/${id}.png`);
+      const c = document.createElement("canvas");
+      c.width = c.height = SIZE;
+      c.getContext("2d")!.drawImage(img, 0, 0, SIZE, SIZE);
+      art.set(id, c);
+    } catch {
+      // keeps its glyph
+    }
+  }));
+}
+
+export function skillIcon(id: string | null | undefined, glyph: string, color: string): HTMLCanvasElement {
+  return (id && art.get(id)) || icon(glyph, color);
+}
 
 export function icon(glyph: string, color: string): HTMLCanvasElement {
   const key = `${glyph}|${color}`;
