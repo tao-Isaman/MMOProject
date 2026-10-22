@@ -15,6 +15,7 @@ import { buildPaved } from "./paved";
 import type { Paved, PavedSpec, Poly } from "./paved";
 import { Terrain } from "./terrain";
 import { Terrain as LegacyTerrain } from "./terrain_legacy"; // TEMP
+const LEGACY = typeof location !== "undefined" && location.search.includes("legacyTerrain"); // TEMP
 import type { TerrainSpec } from "./terrain";
 import { TownBuilder, protoOf, solidsOf } from "./town";
 import type { Town } from "./town";
@@ -33,14 +34,14 @@ export class FieldBuilder extends TownBuilder {
 
   constructor(seed: number, terrain: TerrainSpec) {
     super(seed);
-    this.terrain = new Terrain(terrain);
+    this.terrain = (LEGACY ? new LegacyTerrain(terrain) : new Terrain(terrain)) as Terrain; // TEMP
   }
 
   // The ground: a plane over `area` raised to the terrain (its points moved onto the tops and
   // feet of the cliffs), with tracks of bare earth (`roads`, unless `track: false` makes them
   // cobbles) and `water` cut out of it.
   ground(spec: Omit<PavedSpec, "height" | "place">): Paved {
-    return buildPaved({ track: true, ...spec, height: (x, y) => this.terrain.height(x, y), place: (x, y, cell) => this.terrain.place(x, y, cell) });
+    return buildPaved({ track: true, ...spec, height: (x, y) => this.terrain.height(x, y), ...(LEGACY ? {} : { place: (x: number, y: number, cell: number) => this.terrain.place(x, y, cell) }) }); // TEMP
   }
 
   // The ground's height at a point (full size, before the scale).
