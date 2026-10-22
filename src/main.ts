@@ -12,8 +12,9 @@ import type { WeaponId } from "./items";
 import { Inventory } from "./inventory";
 import { InventoryUI, loadLook } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
-import { slimeSheets, spawnMonsters, rollDrops } from "./monsters";
-import type { Monster, MonsterCtx } from "./monsters";
+import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
+import type { MonsterCtx } from "./monsters";
+import { MONSTERS, MONSTER_BY_ID, behaviour } from "./bestiary";
 import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
@@ -47,6 +48,12 @@ const AILMENTS: Partial<Record<ElementId, { name: string; stats: StatBag; t: num
   ice: { name: "หนาวสั่น", stats: { aspd: -0.2 }, t: 3 },
   mud: { name: "โคลนติดเท้า", stats: { move: -0.3 }, t: 3 },
   dark: { name: "ตาพร่า", stats: { hit: -30 }, t: 4 },
+};
+// What some monsters' bites leave (src/bestiary.ts: slow, petrify; burn is a fire that bites
+// every second).
+const BITE_AILS: Record<string, { name: string; stats: StatBag; t: number }> = {
+  slow: { name: "เชื่องช้า", stats: { move: -0.35 }, t: 3 },
+  petrify: { name: "ตัวแข็งเป็นหิน", stats: { move: -0.85, aspd: -0.5 }, t: 1.5 },
 };
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -419,27 +426,37 @@ async function boot(): Promise<void> {
   motes.prewarm();
   const spells: FlowerSpell[] = [];
   const floaters = new Floaters();
-  const slimes = slimeSheets({
+  const monLooks = new MonsterLooks(slimeSheets({
     idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
-  });
-  // towns have no monsters; the list stays the same array (combat, skills and the bot hold it)
-  const monsters: Monster[] = current.town ? [] : spawnMonsters(slimes, { spots: current.spots, levels: current.levels });
+  }));
+  // A map's monsters: towns have none; a field its own from the bestiary (and those its boss
+  // calls up), their sheets loaded first.
+  async function populate(map: GameMap): Promise<Monster[]> {
+    shots.length = 0;
+    if (map.town) return [];
+    const pool = MONSTERS.filter((d) => d.field === map.id);
+    const called = pool.map((d) => behaviour(d, "summon")).filter((id): id is string => !!id && !!MONSTER_BY_ID[id]).map((id) => MONSTER_BY_ID[id]);
+    await monLooks.prepare([...pool, ...called]);
+    return spawnMonsters(monLooks, { spots: map.spots, levels: map.levels, pool, spawn: map.spawn });
+  }
+  // the list stays the same array (combat, skills and the bot hold it)
+  const monsters: Monster[] = await populate(current);
   const combat = new Combat({
     fx, tex, floaters, monsters, hero,
+    onReflect(_m, dmg) {
+      const r = hero.takeDamage(dmg);
+      if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
+      if (r.died) player.target = player.attack = null;
+    },
     onKill(m) {
       let got = 0;
       const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop)) + 1;
+      // gold, loot and experience go straight in, with no words over the body
       inv.gold += gold;
-      floaters.add(m.x, m.y, m.height + 70, `+${gold} ทอง`, "level");
-      for (const id of rollDrops(m.variant, hero.stats.drop)) {
-        const left = inv.add(id, 1);
-        if (!left) got++;
-        floaters.add(m.x, m.y, m.height + 20, left ? "กระเป๋าเต็ม" : `+ ${ITEMS[id].name}`, left ? "info" : "loot");
-      }
+      for (const id of rollDrops(m.variant, hero.stats.drop)) if (!inv.add(id, 1)) got++;
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
-      floaters.add(m.x, m.y, m.height + 45, `+${xp} EXP`, "loot");
       bot.noteKill(xp, got, gold);
       inv.changed();
       if (progress.addXp(xp) > 0) levelUp();
@@ -661,7 +678,7 @@ async function boot(): Promise<void> {
     }
     w3d.load(current.level);
     monsters.length = 0;
-    if (!current.town) monsters.push(...spawnMonsters(slimes, { spots: current.spots, levels: current.levels }));
+    monsters.push(...(await populate(current)));
     npcs = townsfolk(current);
     const there = (from && current.gates[from]) || at || current.spawn;
     player.x = there.x;
@@ -960,6 +977,7 @@ async function boot(): Promise<void> {
     for (const w of wins) watch.observe(w, { attributes: true, attributeFilter: ["class"] });
   });
   const deathNote = document.getElementById("death")!;
+  let burning = { t: 0, acc: 0, dmg: 0 };
   // what monsters need from the player: where to chase and how a bite lands
   const monsterCtx: MonsterCtx = {
     player,
@@ -982,6 +1000,7 @@ async function boot(): Promise<void> {
         player.target = null;
         player.attack = null;
         player.cast = null;
+        burning.t = 0;
         return;
       }
       // metal: part of the bite goes back at the biter
@@ -998,6 +1017,37 @@ async function boot(): Promise<void> {
         hero.addBuff(`ail_${m.element}`, ail.name, ail.stats, ail.t * (1 - 0.01 * plant));
         floaters.add(player.x, player.y, 140, ail.name, "hurt");
       }
+      // some bites slow, turn to stone for a moment or set alight
+      for (const a of m.ails) {
+        if (Math.random() >= 0.2) continue;
+        if (a === "burn") burning = { t: 3.5, acc: 0, dmg: Math.max(1, Math.round(m.atk * 0.15)) };
+        else hero.addBuff(`ail_${a}`, BITE_AILS[a].name, BITE_AILS[a].stats, BITE_AILS[a].t);
+        floaters.add(player.x, player.y, 140, a === "burn" ? "ไฟลวก" : BITE_AILS[a].name, "hurt");
+      }
+      // a thief takes some gold and runs
+      if (m.steals && inv.gold > 0 && Math.random() < 0.2) {
+        const took = Math.min(inv.gold, Math.round(m.level * (2 + Math.random() * 2)));
+        inv.gold -= took;
+        inv.changed();
+        floaters.add(player.x, player.y, 160, `-${took} ทอง`, "info");
+        m.fleeT = 2.5;
+      }
+    },
+    note(m, text) {
+      floaters.add(m.x, m.y, m.height + 40, text, "heal");
+    },
+    // a boss calls up others, angry from the start, gone for good once they fall
+    summon(m, id, n) {
+      const def = MONSTER_BY_ID[id];
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, v = variantOf(def, def.levels[0]);
+        const c = new Monster(v, { x: m.x + Math.cos(a) * (m.radius + 120), y: m.y + Math.sin(a) * (m.radius + 120) }, monLooks.of(v));
+        c.temp = true;
+        c.angry = 12;
+        c.kin = monsters;
+        monsters.push(c);
+      }
+      floaters.add(m.x, m.y, m.height + 60, "เรียกพวก!", "info");
     },
   };
   let last = performance.now();
@@ -1072,6 +1122,20 @@ async function boot(): Promise<void> {
       if (walkTo.stuck > 1.2) walkTo = null;
     }
     for (const m of monsters) m.update(dt, monsterCtx);
+    updateShots(dt, monsterCtx);
+    // those a boss called up are gone for good once they fall
+    for (let i = monsters.length - 1; i >= 0; i--) if (monsters[i].temp && monsters[i].state === "gone") monsters.splice(i, 1);
+    // burning: the fire bites every second
+    if (burning.t > 0 && hero.alive) {
+      burning.t -= dt;
+      burning.acc += dt;
+      if (burning.acc >= 1) {
+        burning.acc -= 1;
+        const r = hero.takeDamage(burning.dmg);
+        if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
+        if (r.died) burning.t = 0;
+      }
+    }
     // warps to the next map; gates that are shut say so
     for (const w of current.warps) {
       if (Math.hypot(player.x - w.x, player.y - w.y) < w.r && hero.alive) {
@@ -1139,7 +1203,7 @@ async function boot(): Promise<void> {
     w3d.beginActors();
     for (const m of monsters) {
       if (m.state === "gone" || !onScreen(m.x, m.y, 200)) continue;
-      w3d.actor(m, { x: m.x, y: m.y, w: 210, h: 170, foot: 30 }, vw, (c, v) => m.draw(c, v));
+      w3d.actor(m, { x: m.x, y: m.y, ...m.board }, vw, (c, v) => m.draw(c, v));
     }
     for (const n of npcs) {
       if (!onScreen(n.x, n.y, 300)) continue;
@@ -1166,6 +1230,7 @@ async function boot(): Promise<void> {
     fx.draw(ctx, vw, air);
 
     combat.draw(ctx, vw, images.arrow);
+    drawShots(ctx, vw);
     ctx.globalCompositeOperation = "lighter";
     fx.draw(ctx, vw, fx.layer(AIR_GLOW));
     ctx.globalCompositeOperation = "source-over";

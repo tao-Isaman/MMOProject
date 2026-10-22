@@ -230,16 +230,25 @@ export class BotUI {
 
     el("h3", "bt-h", f).textContent = "เป้าหมาย";
     const kinds = el("div", "bt-kinds", f);
-    for (const v of VARIANTS) {
+    // the kinds living on this map with their levels (the slimes on a map without monsters)
+    const here = new Map<string, { name: string; lo: number; hi: number }>();
+    for (const m of this.bot.d.monsters) {
+      if (m.temp) continue;
+      const k = here.get(m.variant.id);
+      if (k) [k.lo, k.hi] = [Math.min(k.lo, m.level), Math.max(k.hi, m.level)];
+      else here.set(m.variant.id, { name: m.variant.name, lo: m.level, hi: m.level });
+    }
+    if (!here.size) for (const v of VARIANTS) here.set(v.id, { name: v.name, lo: v.level, hi: v.level });
+    for (const [id, k] of here) {
       const lab = el("label", "bt-check", kinds);
       const box = el("input", "", lab);
       box.type = "checkbox";
-      box.checked = s.targets[v.id] !== false;
+      box.checked = s.targets[id] !== false;
       box.addEventListener("change", () => {
-        s.targets[v.id] = box.checked;
+        s.targets[id] = box.checked;
         this.save();
       });
-      lab.append(`${v.name} Lv ${v.level}`);
+      lab.append(`${k.name} Lv ${k.lo === k.hi ? k.lo : `${k.lo}-${k.hi}`}`);
     }
     const pref = el("label", "bt-row", f);
     el("span", "", pref).textContent = "เลือกตัวที่";

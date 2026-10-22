@@ -180,6 +180,7 @@ interface CombatDeps {
   monsters: Monster[];
   hero: Hero;
   onKill: (m: Monster) => void;
+  onReflect?: (m: Monster, dmg: number) => void; // a monster sends part of a blow back
 }
 
 export class Combat {
@@ -189,19 +190,21 @@ export class Combat {
   monsters: Monster[];
   hero: Hero;
   onKill: (m: Monster) => void;
+  onReflect?: (m: Monster, dmg: number) => void;
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType }[] = []; // delayed second hits (weapons with hits > 1)
   offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2 }[] = []; // off-hand follow-ups
   burnClock = 0;
 
   // hero: stats for damage; onKill(monster)
-  constructor({ fx, tex, floaters, monsters, hero, onKill }: CombatDeps) {
+  constructor({ fx, tex, floaters, monsters, hero, onKill, onReflect }: CombatDeps) {
     this.fx = fx;
     this.tex = tex;
     this.floaters = floaters;
     this.monsters = monsters;
     this.hero = hero;
     this.onKill = onKill;
+    this.onReflect = onReflect;
   }
 
   // The player's weapon lands: resolve a melee hit or launch a projectile.
@@ -281,6 +284,11 @@ export class Combat {
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
       size: [[0, 24], [1, 60]], alpha: [[0, 0.8], [1, 0]] });
+    // a spiked shell or a mirror sends part of a blow (not a spell) back
+    if (m.reflect > 0 && !r.magic && this.hero.alive) {
+      const back = Math.round(r.dmg * m.reflect);
+      if (back > 0) this.onReflect?.(m, back);
+    }
     if (died) this.onKill(m);
     return died;
   }
