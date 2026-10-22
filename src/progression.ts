@@ -702,58 +702,108 @@ export const TREES: Record<string, Tree> = {
 };
 
 // ---- masteries ----
-// Weapon masteries cover weapon types (items.js); each level adds damage and attack speed with
-// them, and set levels open a passive or an active that needs that weapon in hand.
+// Weapon masteries cover weapon types (items.js). Each weapon grows its own way: every level adds
+// its own stats (the ones the profile shows: attack, aim, defence...), and set levels open
+// passives (5, 10, 20, 30) and an active (15) that need that weapon in hand.
 type RewardSpec = Omit<MasteryReward, "at" | "kind">;
-const weaponMastery = (name: string, weapons: WeaponId[], glyph: string, p5: RewardSpec, s15: RewardSpec): Mastery => ({
-  name, kind: "weapon", weapons, glyph, max: 30,
-  per: { dmg: 0.02, aspd: 0.005 },
-  perDesc: "ดาเมจ +2% ความเร็วโจมตี +0.5% ต่อระดับ เมื่อถืออาวุธนี้",
+interface WeaponLine {
+  per: StatBag;
+  perDesc: string;
+  p5: RewardSpec;
+  p10: RewardSpec;
+  s15: RewardSpec;
+  p20: RewardSpec;
+  p30: RewardSpec;
+}
+const weaponMastery = (name: string, weapons: WeaponId[], glyph: string, w: WeaponLine): Mastery => ({
+  name, kind: "weapon", weapons, glyph, max: 30, per: w.per, perDesc: `${w.perDesc} ต่อระดับ เมื่อถือ${name}`,
   rewards: [
-    { at: 5, kind: "passive", ...p5 },
-    { at: 10, kind: "passive", name: "ชำนาญ", glyph: "up", stats: { dmg: 0.05 }, desc: "ดาเมจ +5% เมื่อถืออาวุธนี้" },
-    { at: 15, kind: "active", ...s15 },
-    { at: 20, kind: "passive", name: "เชี่ยวชาญ", glyph: "swirl", stats: { aspd: 0.05, crit: 0.03 }, desc: "ความเร็วโจมตี +5% โอกาสคริติคอล +3% เมื่อถืออาวุธนี้" },
-    { at: 30, kind: "passive", name: "ปรมาจารย์", glyph: "star", stats: { dmg: 0.1, crit: 0.05 }, desc: "ดาเมจ +10% โอกาสคริติคอล +5% เมื่อถืออาวุธนี้" },
+    { at: 5, kind: "passive", ...w.p5 },
+    { at: 10, kind: "passive", glyph: "up", ...w.p10 },
+    { at: 15, kind: "active", ...w.s15 },
+    { at: 20, kind: "passive", glyph: "swirl", ...w.p20 },
+    { at: 30, kind: "passive", glyph: "star", ...w.p30 },
   ],
 });
 
 export const MASTERIES: Record<string, Mastery> = {
-  sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword",
-    { name: "คมดาบ", stats: { crit: 0.05 }, desc: "โอกาสคริติคอล +5% เมื่อถือดาบ" },
-    { id: "sword_wave", name: "คลื่นดาบ", glyph: "wave",
+  // all round: damage, aim and a little of everything
+  sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword", {
+    per: { atk: 1.5, hit: 1, crit: 0.002 }, perDesc: "พลังโจมตี +1.5 ความแม่นยำ +1 โอกาสคริติคอล +0.2%",
+    p5: { name: "คมดาบ", stats: { crit: 0.05 }, desc: "โอกาสคริติคอล +5% เมื่อถือดาบ" },
+    p10: { name: "ฝีมือดาบ", stats: { atkPct: 0.05, hit: 10 }, desc: "พลังโจมตี +5% ความแม่นยำ +10 เมื่อถือดาบ" },
+    s15: { id: "sword_wave", name: "คลื่นดาบ", glyph: "wave",
       skill: { type: "bolt", stat: "atk", mult: () => 2, pierce: true, mp: 12, cd: 6, motion: "swing", speed: 900, range: 520, radius: 50, color: "#e6f4ff" },
-      desc: "ฟันคลื่นดาบทะลุทุกตัว ดาเมจ 200% ของพลังโจมตี" }),
-  axe: weaponMastery("ขวาน", ["axe"], "axe",
-    { name: "น้ำหนักขวาน", stats: { critDmg: 0.2 }, desc: "แรงคริติคอล +20% เมื่อถือขวาน" },
-    { id: "axe_spin", name: "ขวานพายุ", glyph: "spin",
+      desc: "ฟันคลื่นดาบทะลุทุกตัว ดาเมจ 200% ของพลังโจมตี" },
+    p20: { name: "ดาบคู่กาย", stats: { aspd: 0.05, crit: 0.03 }, desc: "ความเร็วโจมตี +5% โอกาสคริติคอล +3% เมื่อถือดาบ" },
+    p30: { name: "ปรมาจารย์ดาบ", stats: { atkPct: 0.08, critDmg: 0.15 }, desc: "พลังโจมตี +8% แรงคริติคอล +15% เมื่อถือดาบ" },
+  }),
+  // slow and brutal: the hardest criticals, and cuts through armour
+  axe: weaponMastery("ขวาน", ["axe"], "axe", {
+    per: { atk: 2, critDmg: 0.01 }, perDesc: "พลังโจมตี +2 แรงคริติคอล +1%",
+    p5: { name: "น้ำหนักขวาน", stats: { critDmg: 0.2 }, desc: "แรงคริติคอล +20% เมื่อถือขวาน" },
+    p10: { name: "ผ่าฟืน", stats: { crit: 0.03 }, desc: "โอกาสคริติคอล +3% เมื่อถือขวาน" },
+    s15: { id: "axe_spin", name: "ขวานพายุ", glyph: "spin",
       skill: { type: "nova", stat: "atk", mult: () => 2.4, mp: 15, cd: 7, motion: "swing", radius: 180, color: "#ffd9b0" },
-      desc: "หมุนขวานรอบตัว ดาเมจ 240% ของพลังโจมตี" }),
-  mace: weaponMastery("ค้อน", ["mace"], "mace",
-    { name: "แรงกระแทก", stats: { stunHit: 0.1 }, desc: "ตีปกติมีโอกาส 10% ทำให้มึน 1 วิ เมื่อถือค้อน" },
-    { id: "mace_quake", name: "ทุบสะเทือน", glyph: "slam",
+      desc: "หมุนขวานรอบตัว ดาเมจ 240% ของพลังโจมตี" },
+    p20: { name: "ขวานผ่าเกราะ", stats: { pierce: 0.1 }, desc: "เจาะเกราะ +10% เมื่อถือขวาน" },
+    p30: { name: "เจ้าแห่งขวาน", stats: { atkPct: 0.1, critDmg: 0.25 }, desc: "พลังโจมตี +10% แรงคริติคอล +25% เมื่อถือขวาน" },
+  }),
+  // sturdy: stuns, toughness and blows that go through
+  mace: weaponMastery("ค้อน", ["mace"], "mace", {
+    per: { atk: 1.2, def: 0.8 }, perDesc: "พลังโจมตี +1.2 ป้องกัน +0.8",
+    p5: { name: "แรงกระแทก", stats: { stunHit: 0.1 }, desc: "ตีปกติมีโอกาส 10% ทำให้มึน 1 วิ เมื่อถือค้อน" },
+    p10: { name: "มือหนัก", stats: { stunHit: 0.05, maxHpPct: 0.03 }, desc: "โอกาสตีให้มึน +5% HP สูงสุด +3% เมื่อถือค้อน" },
+    s15: { id: "mace_quake", name: "ทุบสะเทือน", glyph: "slam",
       skill: { type: "cone", stat: "atk", mult: () => 2.2, mp: 15, cd: 8, motion: "thrust", reach: 200, arc: 120, stun: () => 1.5, color: "#ffe4b0" },
-      desc: "ทุบพื้นด้านหน้า ดาเมจ 220% ของพลังโจมตี มึน 1.5 วิ" }),
-  spear: weaponMastery("หอก", ["spear_1h", "spear_2h"], "spear",
-    { name: "ระยะหอก", stats: { reach: 0.15 }, desc: "ระยะโจมตี +15% เมื่อถือหอก" },
-    { id: "spear_lance", name: "แทงทะลวง", glyph: "pierce",
+      desc: "ทุบพื้นด้านหน้า ดาเมจ 220% ของพลังโจมตี มึน 1.5 วิ" },
+    p20: { name: "ศรัทธาเหล็ก", stats: { maxHpPct: 0.05, dmgRed: 0.03 }, desc: "HP สูงสุด +5% ลดความเสียหาย 3% เมื่อถือค้อน" },
+    p30: { name: "ค้อนพิฆาต", stats: { atkPct: 0.1, pierce: 0.15 }, desc: "พลังโจมตี +10% เจาะเกราะ +15% เมื่อถือค้อน" },
+  }),
+  // keeps its distance: reach and aim
+  spear: weaponMastery("หอก", ["spear_1h", "spear_2h"], "spear", {
+    per: { atk: 1.5, hit: 1.5 }, perDesc: "พลังโจมตี +1.5 ความแม่นยำ +1.5",
+    p5: { name: "ระยะหอก", stats: { reach: 0.15 }, desc: "ระยะโจมตี +15% เมื่อถือหอก" },
+    p10: { name: "แทงแม่น", stats: { pierce: 0.05, hit: 10 }, desc: "เจาะเกราะ +5% ความแม่นยำ +10 เมื่อถือหอก" },
+    s15: { id: "spear_lance", name: "แทงทะลวง", glyph: "pierce",
       skill: { type: "beam", stat: "atk", mult: () => 2.5, mp: 14, cd: 7, motion: "thrust", length: 420, width: 60, color: "#f0f6ff" },
-      desc: "แทงทะลุแนวยาว 4.2 ม. ดาเมจ 250% ของพลังโจมตี" }),
-  dagger: weaponMastery("มีด", ["dagger"], "dagger",
-    { name: "มือไว", stats: { aspd: 0.1 }, desc: "ความเร็วโจมตี +10% เมื่อถือมีด" },
-    { id: "shadow_step", name: "เงาจู่โจม", glyph: "dash",
+      desc: "แทงทะลุแนวยาว 4.2 ม. ดาเมจ 250% ของพลังโจมตี" },
+    p20: { name: "รักษาระยะ", stats: { reach: 0.1, flee: 10 }, desc: "ระยะโจมตี +10% หลบหลีก +10 เมื่อถือหอก" },
+    p30: { name: "เทพหอก", stats: { atkPct: 0.1, pierce: 0.1 }, desc: "พลังโจมตี +10% เจาะเกราะ +10% เมื่อถือหอก" },
+  }),
+  // quick and slippery: speed, criticals, dodging and poison
+  dagger: weaponMastery("มีด", ["dagger"], "dagger", {
+    per: { atk: 0.8, aspd: 0.008, crit: 0.003, flee: 0.6 }, perDesc: "พลังโจมตี +0.8 ความเร็วโจมตี +0.8% โอกาสคริติคอล +0.3% หลบหลีก +0.6",
+    p5: { name: "มือไว", stats: { aspd: 0.1 }, desc: "ความเร็วโจมตี +10% เมื่อถือมีด" },
+    p10: { name: "แทงจุดตาย", stats: { critDmg: 0.1 }, desc: "แรงคริติคอล +10% เมื่อถือมีด" },
+    s15: { id: "shadow_step", name: "เงาจู่โจม", glyph: "dash",
       skill: { type: "dash", stat: "atk", mult: () => 2.2, mp: 12, cd: 6, motion: "thrust", distance: 200, width: 60, color: "#c8b8ff" },
-      desc: "พุ่งผ่านศัตรู ดาเมจ 220% ของพลังโจมตี" }),
-  staff: weaponMastery("ไม้เท้า", ["staff"], "staff",
-    { name: "สื่อมานา", stats: { matkPct: 0.08 }, desc: "พลังเวท +8% เมื่อถือไม้เท้า" },
-    { id: "staff_scatter", name: "เวทกระจาย", glyph: "fan",
+      desc: "พุ่งผ่านศัตรู ดาเมจ 220% ของพลังโจมตี" },
+    p20: { name: "ฝีเท้าเงา", stats: { move: 0.05, flee: 15 }, desc: "ความเร็วเดิน +5% หลบหลีก +15 เมื่อถือมีด" },
+    p30: { name: "นักฆ่า", stats: { crit: 0.08, poisonHit: 0.1 }, desc: "โอกาสคริติคอล +8% ตีปกติมีโอกาส 10% ติดพิษ เมื่อถือมีด" },
+  }),
+  // the caster's: magic power, mana and quicker spells
+  staff: weaponMastery("ไม้เท้า", ["staff"], "staff", {
+    per: { matk: 2, mpRegen: 0.05 }, perDesc: "พลังเวท +2 ฟื้น MP +0.05/วิ",
+    p5: { name: "สื่อมานา", stats: { matkPct: 0.08 }, desc: "พลังเวท +8% เมื่อถือไม้เท้า" },
+    p10: { name: "สมาธิ", stats: { maxMpPct: 0.08 }, desc: "MP สูงสุด +8% เมื่อถือไม้เท้า" },
+    s15: { id: "staff_scatter", name: "เวทกระจาย", glyph: "fan",
       skill: { type: "fan", stat: "matk", mult: () => 0.9, count: 5, spread: 50, mp: 16, cd: 6, motion: "cast", speed: 950, range: 520, radius: 28, color: "#b8ffd8" },
-      desc: "ยิงลูกเวท 5 ลูกเป็นรูปพัด ลูกละ 90% ของพลังเวท" }),
-  bow: weaponMastery("ธนู", ["bow"], "bow",
-    { name: "สายตาเหยี่ยว", stats: { reach: 0.15 }, desc: "ระยะยิง +15% เมื่อถือธนู" },
-    { id: "arrow_rain", name: "ยิงกระจาย", glyph: "fan",
+      desc: "ยิงลูกเวท 5 ลูกเป็นรูปพัด ลูกละ 90% ของพลังเวท" },
+    p20: { name: "ร่ายคล่อง", stats: { cdr: 0.05 }, desc: "ลดคูลดาวน์ 5% เมื่อถือไม้เท้า" },
+    p30: { name: "จอมเวทไม้เท้า", stats: { matkPct: 0.08, mpRegenPct: 0.15 }, desc: "พลังเวท +8% ฟื้น MP +15% เมื่อถือไม้เท้า" },
+  }),
+  // the marksman's: aim, a steady rate and a second arrow
+  bow: weaponMastery("ธนู", ["bow"], "bow", {
+    per: { atk: 1.5, hit: 1.2, crit: 0.002 }, perDesc: "พลังโจมตี +1.5 ความแม่นยำ +1.2 โอกาสคริติคอล +0.2%",
+    p5: { name: "สายตาเหยี่ยว", stats: { reach: 0.15 }, desc: "ระยะยิง +15% เมื่อถือธนู" },
+    p10: { name: "ยิงต่อเนื่อง", stats: { aspd: 0.05 }, desc: "ความเร็วโจมตี +5% เมื่อถือธนู" },
+    s15: { id: "arrow_rain", name: "ยิงกระจาย", glyph: "fan",
       skill: { type: "fan", stat: "atk", mult: () => 0.85, count: 5, spread: 40, arrow: true, mp: 14, cd: 6, motion: "shoot", speed: 1400, range: 700, radius: 26, color: "#fff2c8" },
-      desc: "ยิงลูกธนู 5 ดอกเป็นรูปพัด ดอกละ 85% ของพลังโจมตี" }),
+      desc: "ยิงลูกธนู 5 ดอกเป็นรูปพัด ดอกละ 85% ของพลังโจมตี" },
+    p20: { name: "ศรซ้อน", stats: { multiShot: 0.1 }, desc: "ยิงปกติมีโอกาส 10% ยิงซ้อนอีกดอก เมื่อถือธนู" },
+    p30: { name: "นักแม่นธนู", stats: { atkPct: 0.08, critDmg: 0.2 }, desc: "พลังโจมตี +8% แรงคริติคอล +20% เมื่อถือธนู" },
+  }),
   // opened by a mastery book
   gathering: {
     name: "เก็บเกี่ยว", kind: "life", book: "book_gathering", glyph: "leaf", max: 20,
