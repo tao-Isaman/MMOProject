@@ -1,4 +1,18 @@
 {
+ "brook_spirit": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "desert_vulture": {
+  "cell": 96,
+  "foot": 0,
+  "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
  "fang_squirrel": {
   "cell": 96,
   "foot": 0,
@@ -6,10 +20,59 @@
   "walk": 4,
   "attack": 4
  },
+ "flame_mane": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "ghost_rancher": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "giant_gull": {
+  "cell": 96,
+  "foot": 0,
+  "top": 96,
+  "walk": 4,
+  "attack": 4
+ },
  "grass_hyena": {
   "cell": 96,
   "foot": 0,
   "top": 94,
+  "walk": 4,
+  "attack": 4
+ },
+ "grove_guardian": {
+  "cell": 128,
+  "foot": 0,
+  "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "horned_hare": {
+  "cell": 96,
+  "foot": 0,
+  "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
+ "iron_crab": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "mill_rat": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
   "walk": 4,
   "attack": 4
  },
@@ -27,6 +90,34 @@
   "walk": 4,
   "attack": 4
  },
+ "pine_bear": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
+ "pine_wolf": {
+  "cell": 96,
+  "foot": 0,
+  "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
+ "ram_goat": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "red_scorpion": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
  "sand_cobra": {
   "cell": 96,
   "foot": 0,
@@ -41,6 +132,20 @@
   "walk": 4,
   "attack": 4
  },
+ "shaggy_bison": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
+ "snow_wolf": {
+  "cell": 96,
+  "foot": 0,
+  "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
  "spore_mushroom": {
   "cell": 96,
   "foot": 0,
@@ -52,6 +157,27 @@
   "cell": 128,
   "foot": 0,
   "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "vine_monkey": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "walking_cactus": {
+  "cell": 96,
+  "foot": 0,
+  "top": 90,
+  "walk": 4,
+  "attack": 4
+ },
+ "wheat_locust": {
+  "cell": 96,
+  "foot": 0,
+  "top": 93,
   "walk": 4,
   "attack": 4
  }
