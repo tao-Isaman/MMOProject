@@ -74,6 +74,16 @@ export interface BodyDef {
   under?: string;                  // the body whose trousers show when this one's coat isn't worn
   shoes?: number;                  // rows above the sole that keep their colour when the trousers are dyed
   lift?: number;                   // a body cut at its neckline: the head sits this much higher, over a neck
+  eyes?: Eyes;                     // where the eyes are, in a body that draws its own face (paintEyes)
+}
+
+// The eyes of a body that draws its own hair and face (the male ones), from tools/eye_track.py:
+// boxes on the standing frame of each direction, moved per frame to where the face is.
+export interface Eyes {
+  natural: string;                             // the EYE_COLORS id they are drawn in
+  iris: Region;                                // that colour
+  boxes: [number, number, number, number][][]; // per direction: [x0, y0, x1, y1], inclusive
+  offsets: Offsets;
 }
 
 export interface HairStyle {
@@ -97,13 +107,14 @@ function inRange(v: number, [a, b]: Range): boolean {
   return a <= b ? v >= a && v <= b : v >= a || v <= b;
 }
 
+function inRegion(q: Region, h: number, s: number, l: number): boolean {
+  return inRange(h, q.h) && s >= q.s[0] && s <= q.s[1] && l >= q.l[0] && l <= q.l[1];
+}
+
 // Every region a colour falls in, in the order they are listed.
 function matches(regions: Regions, r: number, g: number, b: number): string[] {
   const [h, s, l] = rgbToHsl(r, g, b);
-  return Object.keys(regions).filter((name) => {
-    const q = regions[name];
-    return inRange(h, q.h) && s >= q.s[0] && s <= q.s[1] && l >= q.l[0] && l <= q.l[1];
-  });
+  return Object.keys(regions).filter((name) => inRegion(regions[name], h, s, l));
 }
 
 export function classify(regions: Regions, r: number, g: number, b: number): string | null {
@@ -259,6 +270,61 @@ function keepShoes(dyed: Sheets, plain: Sheets, rows: number): Sheets {
           px[i + 2] = src[i + 2];
         }
       }
+    g.putImageData(d, 0, 0);
+    out[clip] = c;
+  }
+  return out;
+}
+
+// Teal, for eyes drawn in another colour (the heads' eyes are drawn teal: its EYE_COLORS entry
+// has no dye).
+const TEAL_EYES: Dye = { hue: 178, sat: 0.5, light: 0 };
+
+// The dye that turns eyes drawn in `natural` to the chosen colour (none when they already are).
+function eyeDyeFor(natural: string, chosen: string): Dye | null {
+  if (chosen === natural) return null;
+  const c = EYE_COLORS.find((e) => e.id === chosen);
+  return c && c.hue !== null && c.hue !== undefined ? c : TEAL_EYES;
+}
+
+// Dye a body's own eyes, frame by frame, deciding by the undyed pixels in `plain` (the hair
+// dye may have reached the darker reds of an iris). Never skin; inside a box every other colour
+// but whites and greys is eye, around it (a pixel above, two to the sides and below) only the
+// iris's own colour, which catches an eye drawn a pixel or two off.
+function paintEyes(dyed: Sheets, plain: Sheets, eyes: Eyes, dye: Dye): Sheets {
+  const out: Sheets = { ...dyed };
+  const eyeLike = (s: number, l: number) => s >= 0.25 && l < 0.8;
+  for (const [clip, img] of Object.entries(dyed)) {
+    const offsets = eyes.offsets[clip];
+    if (!offsets || !plain[clip]) continue;
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext("2d", { willReadFrequently: true })!;
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height);
+    const o = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+    o.canvas.width = c.width;
+    o.canvas.height = c.height;
+    o.drawImage(plain[clip], 0, 0);
+    const src = o.getImageData(0, 0, c.width, c.height).data, px = d.data, W = c.width, H = c.height;
+    eyes.boxes.forEach((boxes, dir) => {
+      for (let f = 0; f * CELL < W; f++) {
+        const [dx, dy] = offsets[dir]?.[f] ?? [0, 0];
+        for (const [x0, y0, x1, y1] of boxes)
+          for (let y = y0 - 1; y <= y1 + 2; y++)
+            for (let x = x0 - 2; x <= x1 + 2; x++) {
+              const X = f * CELL + x + dx, Y = dir * CELL + y + dy;
+              if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+              const i = (Y * W + X) * 4;
+              if (!src[i + 3] || !px[i + 3]) continue;
+              const [h, s, l] = rgbToHsl(src[i], src[i + 1], src[i + 2]);
+              const inside = x >= x0 && x <= x1 && y >= y0 && y <= y1;
+              if (inRegion(SKIN, h, s, l) || !(inside ? eyeLike(s, l) : inRegion(eyes.iris, h, s, l))) continue;
+              [px[i], px[i + 1], px[i + 2]] = paint(src[i], src[i + 1], src[i + 2], dye, 0.5);
+            }
+      }
+    });
     g.putImageData(d, 0, 0);
     out[clip] = c;
   }
@@ -501,7 +567,9 @@ export class Looks {
     const split = (d: BodyDef) => (d.split ? { neck: d.split, offsets: d.head?.offsets } : null);
     // one body: its halves fit as they are; two: each keeps only its own piece
     // (the top reaches down to the lower of the two waists, so no gap opens between them)
-    const upperC = recolor(same ? upper : pieces(upper, def, true, Math.max(def.waist, bdef.waist)), def.regions, topDyes, def.mean, split(def));
+    let upperC = recolor(same ? upper : pieces(upper, def, true, Math.max(def.waist, bdef.waist)), def.regions, topDyes, def.mean, split(def));
+    const ownEyes = def.eyes && eyeDyeFor(def.eyes.natural, look.eyes);
+    if (def.eyes && ownEyes) upperC = paintEyes(upperC, upper, def.eyes, ownEyes);
     const lowerP = same ? lower : pieces(lower, bdef, false);
     let lowerC = recolor(lowerP, bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
     // shoes drawn in the trousers' colours keep theirs when the trousers are dyed
