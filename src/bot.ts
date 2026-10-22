@@ -1,6 +1,7 @@
 // Auto-hunt bot: picks slimes inside a hunting area, walks to them around the solids, uses the
-// skills its rules allow in their priority order, attacks normally in between, and sits down to
-// recover when HP or MP runs low. Any key or click hands control back for a moment.
+// skills its rules allow in their priority order, attacks normally in between, walks over what
+// they drop to pick it up (if told to), and sits down to recover when HP or MP runs low. Any
+// key or click hands control back for a moment.
 //
 // Settings live in localStorage (the character's "bot.v1"); the window that edits them is src/botui.ts.
 
@@ -24,6 +25,7 @@ const THREAT_RANGE = 700;  // cm: angry slimes this close are fought first
 const THINK = 0.12;        // s between decisions
 const STUCK_TIME = 1.2;    // s without progress before giving up on a target
 const SKIP_TIME = 8;       // s an unreachable target is ignored
+const LOOT_RANGE = 900;    // cm: how far it goes for loot when hunting the whole map
 
 // When a skill rule fires:
 //   ready  offensive: the target is in the skill's reach; support: in a fight and the effect is missing
@@ -53,12 +55,13 @@ export interface BotSettings {
   potMp: number;                      // % MP below which to drink a blue potion (0: never)
   revive: boolean;                    // keep hunting after a respawn
   stopFull: boolean;                  // stop when the bag is full
+  loot: boolean;                      // walk over what monsters drop (between fights) to pick it up
 }
 
-export type BotState = "off" | "seek" | "approach" | "fight" | "rest" | "return" | "paused" | "dead";
+export type BotState = "off" | "seek" | "approach" | "fight" | "loot" | "rest" | "return" | "paused" | "dead";
 
 export const STATE_TEXT: Record<BotState, string> = {
-  off: "ปิดอยู่", seek: "รอมอนสเตอร์", approach: "เดินไปหาเป้าหมาย", fight: "กำลังต่อสู้",
+  off: "ปิดอยู่", seek: "รอมอนสเตอร์", approach: "เดินไปหาเป้าหมาย", fight: "กำลังต่อสู้", loot: "เดินไปเก็บของ",
   rest: "นั่งพักฟื้น", return: "กลับเขตล่า", paused: "ผู้เล่นควบคุมอยู่", dead: "รอฟื้น",
 };
 
@@ -78,7 +81,7 @@ export function defaultRule(id: string): SkillRule {
 export function defaultSettings(): BotSettings {
   return {
     rules: [], basic: true, targets: Object.fromEntries(VARIANTS.map((v) => [v.id, true])), prefer: "near", defend: true,
-    radius: 900, wholeMap: false, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, revive: true, stopFull: true,
+    radius: 900, wholeMap: false, restHp: 35, restMp: 15, resume: 90, saveMp: 20, potHp: 45, potMp: 25, revive: true, stopFull: true, loot: true,
   };
 }
 
@@ -108,6 +111,7 @@ interface BotDeps {
   weaponId: () => string | null;
   onSkill?: (id: string) => void;
   say?: (text: string) => void;  // a short line over the player
+  loot?: Vec2[];                  // what lies on the ground to pick up (src/loot.ts)
   drink?: (kind: "hp" | "mp") => boolean;   // drink the fitting potion; false if none or too soon
   potions?: (kind: "hp" | "mp") => number;  // how many potions of that kind are in the bag
 }
@@ -127,6 +131,8 @@ export class Bot {
   restTick = 0;
   stuck = { t: 0, x: 0, y: 0 };
   skip = new Map<Monster, number>();
+  fetching: Vec2 | null = null;      // the thing on the ground being walked to
+  skipLoot = new Map<Vec2, number>(); // things it couldn't get to, for a while
   stats = { time: 0, kills: 0, xp: 0, items: 0, gold: 0, potions: 0 };
   listeners = new Set<() => void>();
 
@@ -220,12 +226,15 @@ export class Bot {
     this.path = [];
   }
 
-  noteKill(xp: number, items: number, gold = 0): void {
+  noteKill(xp: number, gold = 0): void {
     if (!this.on) return;
     this.stats.kills++;
     this.stats.xp += xp;
-    this.stats.items += items;
     this.stats.gold += gold;
+  }
+
+  notePick(): void {
+    if (this.on) this.stats.items++;
   }
 
   reset(state: BotState): void {
@@ -243,6 +252,7 @@ export class Bot {
     const s = this.settings;
     this.stats.time += dt;
     for (const [m, t] of this.skip) if ((t - dt) <= 0) this.skip.delete(m); else this.skip.set(m, t - dt);
+    for (const [l, t] of this.skipLoot) if ((t - dt) <= 0) this.skipLoot.delete(l); else this.skipLoot.set(l, t - dt);
 
     if (!hero.alive) {
       if (!s.revive) {
@@ -306,6 +316,16 @@ export class Bot {
       if (this.useSupport(true)) return none;
       if (this.target && this.useOffensive(this.target)) return none;
     }
+
+    // ---- between fights: walk over what fell to pick it up ----
+    const pick = s.loot && !threats.length ? this.nearestLoot() : null;
+    if (pick) {
+      player.target = null; // nothing is after it (no threats), so the fight can wait
+      this.fetching = pick;
+      this.state = "loot";
+      return this.walkTo(pick, dt);
+    }
+    this.fetching = null;
 
     const t = this.target;
     if (!t) {
@@ -410,9 +430,29 @@ export class Bot {
   }
 
   giveUp(): Vec2 {
+    if (this.fetching) {
+      this.skipLoot.set(this.fetching, SKIP_TIME);
+      this.fetching = null;
+      this.path = [];
+      this.pathTo = null;
+      return { x: 0, y: 0 };
+    }
     if (this.target) this.skip.set(this.target, SKIP_TIME);
     this.setTarget(null);
     return { x: 0, y: 0 };
+  }
+
+  // The nearest thing lying in the hunting area (or near, hunting the whole map).
+  nearestLoot(): Vec2 | null {
+    const s = this.settings, p = this.d.player;
+    let best: Vec2 | null = null, bestD = Infinity;
+    for (const l of this.d.loot ?? []) {
+      if (this.skipLoot.has(l)) continue;
+      const d = Math.hypot(l.x - p.x, l.y - p.y);
+      const inArea = s.wholeMap ? d <= LOOT_RANGE : Math.hypot(l.x - this.anchor.x, l.y - this.anchor.y) <= s.radius + 100;
+      if (inArea && d < bestD) [best, bestD] = [l, d];
+    }
+    return best;
   }
 
   // ---- skills ----

@@ -13,6 +13,7 @@ import { Inventory, NO_GEAR } from "./inventory";
 import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
+import { Ground } from "./loot";
 import type { MonsterCtx, Person } from "./monsters";
 import { MONSTERS, MONSTER_BY_ID, PEOPLE, behaviour } from "./bestiary";
 import type { MonsterDef } from "./bestiary";
@@ -452,6 +453,8 @@ async function boot(): Promise<void> {
   }
   // the list stays the same array (combat, skills and the bot hold it)
   const monsters: Monster[] = await populate(current);
+  // what they drop lies on the ground until it is picked up (src/loot.ts)
+  const ground = new Ground();
   const combat = new Combat({
     fx, tex, floaters, monsters, hero,
     onReflect(_m, dmg) {
@@ -460,26 +463,26 @@ async function boot(): Promise<void> {
       if (r.died) player.target = player.attack = null;
     },
     onKill(m) {
-      let got = 0;
       const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop)) + 1;
-      // gold, loot and experience go straight in, with no words over the body
+      // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
-      for (const id of rollDrops(m.variant, hero.stats.drop)) if (!inv.add(id, 1)) got++;
+      for (const id of rollDrops(m.variant, hero.stats.drop)) ground.drop(id, m);
       // a field monster now and then leaves a book the player can still learn, a hat, shoes, a
       // ring or a trinket, or a hairstyle; a rare one more often, a boss always a book
       if (m.entry) {
         const k = m.entry.kind, more = 1 + hero.stats.drop;
         const roll = (chance: number, pool: string[]) => {
-          if (pool.length && Math.random() < chance * more && !inv.add(pool[Math.floor(Math.random() * pool.length)], 1)) got++;
+          if (pool.length && Math.random() < chance * more) ground.drop(pool[Math.floor(Math.random() * pool.length)], m);
         };
-        roll(k === "boss" ? 1 : k === "rare" ? 0.12 : 0.006, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b)));
+        const lying = new Set(ground.items.map((l) => l.id));
+        roll(k === "boss" ? 1 : k === "rare" ? 0.12 : 0.006, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b)));
         roll(k === "boss" ? 0.6 : k === "rare" ? 0.25 : 0.012, GEAR_DROPS);
         if (look.gender === "female") roll(k === "boss" ? 0.3 : k === "rare" ? 0.05 : 0.002, Object.keys(ITEMS).filter((i) => ITEMS[i].kind === "style" && !look.styles?.includes(ITEMS[i].style!)));
       }
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
-      bot.noteKill(xp, got, gold);
+      bot.noteKill(xp, gold);
       inv.changed();
       if (progress.addXp(xp) > 0) levelUp();
     },
@@ -529,6 +532,7 @@ async function boot(): Promise<void> {
       if (i >= 0) hud.pulse(i, "flash");
     },
     say: (text) => floaters.add(player.x, player.y, 150, text, "info"),
+    loot: ground.items,
     drink,
     potions: (kind) => inv.slots.reduce((n, s) => n + (s && ITEMS[s.id].restore?.[kind] ? s.count : 0), 0),
   });
@@ -734,6 +738,7 @@ async function boot(): Promise<void> {
     w3d.load(current.level);
     monsters.length = 0;
     monsters.push(...(await populate(current)));
+    ground.clear();
     npcs = townsfolk(current);
     const there = (from && current.gates[from]) || at || current.spawn;
     player.x = there.x;
@@ -960,10 +965,37 @@ async function boot(): Promise<void> {
       player.target = m;
       return false;
     }
+    // something lying on the ground: walk over to pick it up
+    const l = ground.at(mx, my);
+    if (l) {
+      player.target = null;
+      walkToward(l);
+      return false;
+    }
     player.target = null;
     if (walk) return walkToward(groundAt(mx, my));
     player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundAt(mx, my));
     return false;
+  }
+  // Walking over loot picks it up (what doesn't fit stays where it lies).
+  let fullSaid = 0;
+  function pickUp(dt: number): void {
+    ground.update(dt);
+    fullSaid -= dt;
+    if (!hero.alive) return;
+    let took = false;
+    for (const l of ground.within(player)) {
+      if (inv.add(l.id, 1) > 0) {
+        if (fullSaid <= 0) floaters.add(player.x, player.y, 140, "กระเป๋าเต็ม", "info");
+        fullSaid = 3;
+        continue;
+      }
+      ground.take(l);
+      took = true;
+      floaters.add(player.x, player.y, 120, ITEMS[l.id].name, "loot");
+      bot.notePick();
+    }
+    if (took) inv.changed();
   }
   // A walk to a ground point round the solids (none if there is no way).
   function walkToward(at: { x: number; y: number }): boolean {
@@ -1232,6 +1264,7 @@ async function boot(): Promise<void> {
       if (walkTo.stuck > 1.2) walkTo = null;
     }
     for (const m of monsters) m.update(dt, monsterCtx);
+    pickUp(dt);
     updateShots(dt, monsterCtx);
     // those a boss called up are gone for good once they fall
     for (let i = monsters.length - 1; i >= 0; i--) if (monsters[i].temp && monsters[i].state === "gone") monsters.splice(i, 1);
@@ -1326,6 +1359,9 @@ async function boot(): Promise<void> {
       // talking ones need room above the head for the balloon
       w3d.actor(n, { x: n.x, y: n.y, w: 300, h: n.bubble ? 360 : 240, foot: 30 }, vw, (c, v) => n.draw(c, v, near));
     }
+    for (const l of ground.items) {
+      if (onScreen(l.x, l.y, 100)) w3d.actor(l, Ground.box(l), vw, (c, v) => ground.draw(c, v, l, iconFor(l.id)));
+    }
     w3d.actor(player, { x: player.x, y: player.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => player.draw(c, v, inHand, inOff), true);
     w3d.endActors();
     // what lies on the ground (glows, the spell's flowers) goes into the 3D view, under the feet
@@ -1359,7 +1395,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap,
+    progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART } }; // for test scripts drawing the player by hand

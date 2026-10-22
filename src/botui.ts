@@ -290,6 +290,7 @@ export class BotUI {
     el("h3", "bt-h", f).textContent = "อื่น ๆ";
     check(f, "ฟื้นจากการล้มแล้วล่าต่อ", "revive");
     check(f, "หยุดเมื่อกระเป๋าเต็ม", "stopFull");
+    check(f, "เดินไปเก็บของที่ดรอป", "loot");
     const reset = el("button", "wr-choice", f);
     reset.type = "button";
     reset.textContent = "คืนค่าเริ่มต้น";
