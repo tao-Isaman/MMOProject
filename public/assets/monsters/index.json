@@ -1,0 +1,9 @@
+{
+ "spore_mushroom": {
+  "cell": 96,
+  "foot": 0,
+  "top": 88,
+  "walk": 4,
+  "attack": 4
+ }
+}
