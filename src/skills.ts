@@ -44,6 +44,8 @@
 //   manaBurn  more on casters, and the monster's casting and shooting stop (`silence`)
 //   terrain on a buff: stats by the kind of map (hero.ts)
 //   coin    a coin flipped on every hit, as `dice` rolls a die: heads more, tails as much less
+//   falcon with `ally: "wolf"`  the pack's strike: the player's wolves leap at the target and
+//           bite instead of the falcon diving (allies.ts pounce); no wolf standing, no strike
 //
 // A spell with a cast time (SkillDef.cast, shortened by the castRed stat) is read out first: the
 // caster stands still under a cast bar, and it goes off when the bar fills, only then costing its
@@ -264,6 +266,7 @@ export class Skills {
     if (!this.wields(id)) return `ต้องถือ${needText(a.need, (w) => WEAPON_TYPES[w].name)}`;
     if (this.pending || this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
+    if (this.packless(a.skill)) return "ไม่มีหมาป่าอยู่ด้วย";
     if (this.copy?.id === id) return null; // the copy costs no MP
     if (this.hero.mp < mpCost(id, this.progress.skillRank(id))) return "MP ไม่พอ";
     if (a.skill.type === "make" && a.skill.make && this.make) return this.make(a.skill.make, this.progress.skillRank(id), true);
@@ -795,7 +798,9 @@ export class Skills {
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * 0.25, () => {
             if (!lock.alive) return;
-            this.dive(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir));
+            // a pack strike: each wolf standing leaps in and lands the hit, no falcon
+            if (s.ally === "wolf") this.allies?.pounce(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir));
+            else this.dive(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir));
           });
         }
         break;
@@ -828,6 +833,11 @@ export class Skills {
     return this.casts.some((x) => c.after.includes(x.id) && this.clock - x.t <= (c.within ?? 3)) ? c.more(rank) : 0;
   }
 
+  // A pack strike (a falcon-type skill done by the wolves) with no wolf standing to do it.
+  packless(s: SkillDef): boolean {
+    return s.type === "falcon" && s.ally === "wolf" && !this.allies?.count("wolf");
+  }
+
   // A normal hit landed on m: now and then it casts a skill by itself (the autocast_<id> stats),
   // free of MP and cooldown, at that skill's rank, if the hands hold what it needs.
   autocast(m: Monster): void {
@@ -836,7 +846,7 @@ export class Skills {
     for (const key of Object.keys(st)) {
       if (!key.startsWith(AUTOCAST) || !(st[key] > 0)) continue;
       const id = key.slice(AUTOCAST.length), a = ACTIVES[id], rank = this.progress.skillRank(id);
-      if (!a || !rank || !this.wields(id) || !lucky(st[key], this.hero.stats)) continue;
+      if (!a || !rank || !this.wields(id) || this.packless(a.skill) || !lucky(st[key], this.hero.stats)) continue;
       this.autoCd = AUTOCAST_GAP;
       const dir = toward(this.player, m) ?? this.player.facing();
       this.floaters.add(this.player.x, this.player.y, 175, `${a.name}!`, "magic");
