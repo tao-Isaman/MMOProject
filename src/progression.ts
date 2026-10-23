@@ -328,6 +328,11 @@ export function jobName(p: { cls: ClassId | null; job: JobId | null }): string {
   return p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
 }
 
+// The emblem shown with that name: assets/skills/job_<id>.png, else class_<id>.png (null: no class).
+export function jobIcon(p: { cls: ClassId | null; job: JobId | null }): string | null {
+  return p.job ? `assets/skills/job_${p.job}.png` : p.cls ? `assets/skills/class_${p.cls}.png` : null;
+}
+
 // The four elements a new character picks one of (the rest are found in the game).
 export const FIRST_ELEMENTS = ["earth", "water", "wind", "fire"];
 
@@ -1231,7 +1236,9 @@ function addBook(kind: BookKind, id: string, own: string | undefined, name: stri
   const who = cls ? `เฉพาะ${CLASSES[cls].name}` : "ใช้ได้ทุกอาชีพ";
   ITEMS[bookId] = {
     kind: "book", name: name.startsWith("ตำรา") ? name : `${BOOK_WORD[kind]}: ${name}`, stack: 5,
-    price: kind === "tree" ? 2400 : kind === "mastery" || kind === "element" ? 3000 : 9000, icon: { glyph, color, art: `${kind}_${id}` },
+    price: kind === "tree" ? 2400 : kind === "mastery" || kind === "element" ? 3000 : 9000,
+    // a second book wears its first book's picture with a "II" on it
+    icon: { glyph, color, art: `${kind.replace("2", "")}_${id}`, badge: kind.endsWith("2") ? "II" : undefined },
     note: note ?? `อ่านเพื่อเรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[kind] + name} (${who})`,
   };
 }

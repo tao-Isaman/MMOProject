@@ -128,7 +128,7 @@ export class ShopUI {
   render(): void {
     if (!this.open) return;
     for (const b of this.tabs.children) b.classList.toggle("on", (b as HTMLElement).dataset.tab === this.tab);
-    this.gold.innerHTML = `<i></i>${this.inv.gold.toLocaleString()} ทอง`;
+    this.gold.innerHTML = `<img src="assets/skills/gold_coin.png" alt="">${this.inv.gold.toLocaleString()} ทอง`;
     this.list.replaceChildren();
     if (this.tab === "buy") this.renderBuy();
     else this.renderSell();

@@ -167,7 +167,7 @@ export interface Item {
   stats?: Partial<Record<string, number>>; // off-hand gear while held
   art?: OffhandArt;
   style?: string;                       // a hairstyle item: the hairstyle it teaches
-  icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string; art?: string };
+  icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string; art?: string; badge?: string };
 }
 
 const weapon = (type: WeaponId): Item => ({
@@ -269,6 +269,9 @@ export const ITEMS: Record<string, Item> = {
   old_bandage: quest("ผ้าพันศพเก่า", "wave", "#d8c9a0", "ผ้าพันแผลเก่าแก่ของมัมมี่ทาส"),
   fox_tail: quest("หางจิ้งจอกเก้าหาง", "flame", "#ffb060", "หางที่เรืองแสงอุ่น ๆ ของจิ้งจอกเก้าหาง"),
 };
+// Items drawn as a glyph, and potions, show their own picture where there is one
+// (assets/skills/<item id>.png, src/icons.ts); the glyph stays as the fallback.
+for (const [id, item] of Object.entries(ITEMS)) if ((item.icon.glyph || item.kind === "potion") && !item.icon.art) item.icon.art = id;
 
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [
   { slot: "weapon", name: "มือหลัก" },

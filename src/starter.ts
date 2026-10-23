@@ -9,7 +9,7 @@ import { CLASSES, TREES, ELEMENTS, MASTERIES, FIRST_ELEMENTS } from "./progressi
 import type { ClassId } from "./progression";
 import { isTwoHanded } from "./items";
 import type { WeaponId } from "./items";
-import { skillIcon } from "./icons";
+import { skillIcon, hasArt } from "./icons";
 
 export interface Start {
   cls: ClassId;
@@ -36,7 +36,7 @@ export function startGear(s: Start): { weapon: WeaponId; offhand: string | null 
   return { weapon, offhand: isTwoHanded(weapon) ? null : CLASS_OFFHAND[s.cls] ?? null };
 }
 
-// The three choices as rows of icons under headings (a class shows its weapon's mastery icon),
+// The three choices as rows of icons under headings (a class its emblem, else its weapon's),
 // the picked one named under its row; picking redraws them (a new class picks its own first book
 // again) and calls changed().
 export function starterForm(parent: HTMLElement, s: Start, changed: () => void = () => {}): void {
@@ -75,7 +75,7 @@ export function starterForm(parent: HTMLElement, s: Start, changed: () => void =
     cls.classList.add("title-classes");
     for (const [id, c] of Object.entries(CLASSES) as [ClassId, (typeof CLASSES)[ClassId]][]) {
       const m = MASTERIES[classMastery(id)];
-      choice(cls, `mastery_${classMastery(id)}`, m.glyph, c.name, s.cls === id, () => Object.assign(s, defaultStart(id)), gold);
+      choice(cls, hasArt(`class_${id}`) ? `class_${id}` : `mastery_${classMastery(id)}`, m.glyph, c.name, s.cls === id, () => Object.assign(s, defaultStart(id)), gold);
     }
     caption(CLASSES[s.cls].name, CLASSES[s.cls].note, gold);
     const trees = section("ตำราสกิลเริ่มต้น", "เลือก 1 จาก 3 · อีก 2 เล่มหาได้ในเกม");

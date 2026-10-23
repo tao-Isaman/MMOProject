@@ -5,7 +5,7 @@ import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
 import type { Look } from "./ui";
 import { skillIcon, hasArt } from "./icons";
 import {
-  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, mpCost, TIER2_DROP_LEVEL,
+  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
 } from "./progression";
 import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
 import type { WeaponId } from "./items";
@@ -83,7 +83,9 @@ export class Vitals {
     if (key === this.last) return;
     this.last = key;
     this.lv.textContent = `Lv ${p.level}`;
-    this.cls.textContent = p.cls ? jobName(p) : "ยังไม่เลือกคลาส";
+    this.cls.replaceChildren(p.cls ? jobName(p) : "ยังไม่เลือกคลาส");
+    const pic = jobIcon(p);
+    if (pic) this.cls.prepend(Object.assign(el("img", "role-ic"), { src: pic, alt: "" }));
     this.sp.textContent = p.free > 0 ? `แต้มสกิล ${p.free}` : "";
     this.hp.fill.style.width = `${(100 * h.hp) / s.maxHp}%`;
     this.hp.extra.style.width = `${Math.min(100, (100 * (h.shield?.amount ?? 0)) / s.maxHp)}%`;
@@ -182,7 +184,8 @@ export class ProfileUI {
   render(): void {
     if (this.win.classList.contains("hidden")) return;
     const p = this.progress, s = this.hero.stats, inv = this.d.inv;
-    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${jobName(p)} · Lv ${p.level} / ${MAX_LEVEL}` +
+    const pic = jobIcon(p);
+    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${pic ? `<img class="role-ic" src="${pic}" alt="">` : ""}${jobName(p)} · Lv ${p.level} / ${MAX_LEVEL}` +
       `<br>EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed} · แต้มสกิล ${p.free} / ${p.points} · ทอง ${inv.gold}`;
     // what it wears, slot by slot
     this.gear.replaceChildren(...EQUIP_SLOTS.map(({ slot, name }) => {
@@ -791,28 +794,24 @@ export class SkillUI {
   }
 
   // ---- masteries and elements: a line from 0 to max with a dot at every milestone ----
-  // cap: where the line ends for now (the part past it waits for the second book, hatched).
+  // (a line's second-book part shows only once that book is read: max is where it ends now)
   track(parent: HTMLElement, opts: {
-    lv: number; max: number; cap?: number; color: string;
+    lv: number; max: number; color: string;
     marks: { at: number; name: string; glyph: string; active?: string; tip: () => string }[];
   }): void {
-    const { lv, max, color, marks } = opts;
-    const cap = opts.cap ?? max;
+    const { lv, max, color } = opts;
+    const marks = opts.marks.filter((m) => m.at <= max);
     const tr = el("div", `sk-track${marks.length > 6 ? " dense" : ""}`, parent);
     tr.style.setProperty("--fill", color);
     const line = el("div", "sk-line-bar", tr);
     el("i", "", line).style.width = `${(100 * lv) / max}%`;
-    if (cap < max) {
-      const lock = el("b", "sk-lock", line);
-      lock.style.left = `${(100 * cap) / max}%`;
-    }
     const here = el("span", "sk-here", tr);
     here.style.left = `${(100 * lv) / max}%`;
     here.textContent = String(lv);
-    const next = marks.find((m) => lv < m.at && m.at <= cap);
+    const next = marks.find((m) => lv < m.at);
     marks.forEach((m, i) => {
       const got = lv >= m.at;
-      const dot = el("div", `sk-dot${got ? " got" : ""}${m === next ? " next" : ""}${m.at > cap ? " locked" : ""}${marks.length > 6 && i % 2 ? " alt" : ""}`, tr);
+      const dot = el("div", `sk-dot${got ? " got" : ""}${m === next ? " next" : ""}${marks.length > 6 && i % 2 ? " alt" : ""}`, tr);
       dot.style.left = `${(100 * m.at) / max}%`;
       el("span", "sk-dot-lv", dot).textContent = `Lv ${m.at}`;
       const ic = this.skillIcon(dot, m.active ?? null, m.glyph, got ? color : "#9aa08a", m.active ?? null, got);
@@ -846,24 +845,21 @@ export class SkillUI {
         art.replaceWith(this.skillIcon(top, `mastery_${id}`, m.glyph, "#8fbf6a", null, true));
       }
       const info = el("div", "sk-info", top);
-      const cap = p.masteryMax(id), end = m.max2 ?? m.max;
+      const cap = p.masteryMax(id);
       el("strong", "", info).textContent = `${m.name} · ระดับ ${lv}/${cap}${this.planned("mastery", id) ? ` (+${this.planned("mastery", id)})` : ""}${m.weapons?.includes(holding as WeaponId) ? " · ถืออยู่" : ""}`;
       el("span", "sk-sub", info).textContent = `${m.perDesc}${lv ? ` · ตอนนี้ ${bagText(Object.fromEntries(Object.entries(m.per).map(([k, v = 0]) => [k, v * lv])))}` : ""}`;
-      const book2 = `ตำราความเชี่ยวชาญ: ${m.name} ขั้นสอง`;
-      if (cap < end) el("span", "sk-sub more", info).textContent = `ขยายถึงระดับ ${end} ได้ด้วย${book2} (ดรอปจากมอนสเตอร์เลเวล ${TIER2_DROP_LEVEL} ขึ้นไป)`;
       const full = lv >= cap;
       if (this.planned("mastery", id)) row.classList.add("planned");
       this.minus(top, "mastery", id);
-      this.plus(top, !full && p.free > 0, full ? (cap < end ? `เต็มแล้ว อ่าน${book2}เพื่อขยาย` : "เต็มแล้ว") : p.free > 0 ? "จองอัพ 1 ระดับ" : "แต้มสกิลไม่พอ", () => this.add({ kind: "mastery", id }));
+      this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? "จองอัพ 1 ระดับ" : "แต้มสกิลไม่พอ", () => this.add({ kind: "mastery", id }));
       const realLv = this.real.mastery[id] ?? 0;
-      const lockNote = (at: number) => (at > cap ? `<br><i>ต้องอ่าน${book2}ก่อน</i>` : "");
       this.track(row, {
-        lv, max: end, cap, color: "#f4d27a",
+        lv, max: cap, color: "#f4d27a",
         marks: m.rewards.map((r) => ({
           at: r.at, name: r.name, glyph: r.glyph ?? (r.kind === "active" ? "star" : "up"), active: r.kind === "active" && realLv >= r.at ? r.id : undefined,
-          tip: () => (r.kind === "active" && r.id
+          tip: () => r.kind === "active" && r.id
             ? `${skillTip(r.id, lv >= r.at ? 1 : 0)}<br><b>ได้เมื่อ${m.name}ระดับ ${r.at}</b>${m.weapons ? " · ต้องถืออาวุธนี้" : ""}`
-            : `<strong>${r.name}</strong>ติดตัวเมื่อ${m.name}ระดับ ${r.at}${lv >= r.at ? " ✓" : ` (อีก ${r.at - lv} ระดับ)`}<br>${r.desc}`) + lockNote(r.at),
+            : `<strong>${r.name}</strong>ติดตัวเมื่อ${m.name}ระดับ ${r.at}${lv >= r.at ? " ✓" : ` (อีก ${r.at - lv} ระดับ)`}<br>${r.desc}`,
         })),
       });
     }
@@ -880,21 +876,19 @@ export class SkillUI {
       const top = el("div", "sk-line-top", row);
       this.skillIcon(top, `element_${id}`, e.glyph, e.color, null, true);
       const info = el("div", "sk-info", top);
-      const cap = p.elementMax(id), end = e.max2 ?? e.max;
+      const cap = p.elementMax(id);
       el("strong", "", info).textContent = `ธาตุ${e.name} · เด่นด้าน${e.side} · ระดับ ${lv}/${cap}${this.planned("element", id) ? ` (+${this.planned("element", id)})` : ""}`;
       el("span", "sk-sub", info).textContent = `ต่อระดับ: ${bagText(e.per)} · ${e.skill}`;
       if (lv) el("span", "sk-sub now", info).textContent = `ตอนนี้: ${bagText(Object.fromEntries(Object.entries(e.per).map(([k, v = 0]) => [k, v * lv])))}`;
-      const book2 = `ตำราธาตุ: ${e.name} ขั้นสอง`;
-      if (cap < end) el("span", "sk-sub more", info).textContent = `ขยายถึงระดับ ${end} ได้ด้วย${book2} (ดรอปจากมอนสเตอร์เลเวล ${TIER2_DROP_LEVEL} ขึ้นไป)`;
       const full = lv >= cap;
       if (this.planned("element", id)) row.classList.add("planned");
       this.minus(top, "element", id);
-      this.plus(top, !full && p.free > 0, full ? (cap < end ? `เต็มแล้ว อ่าน${book2}เพื่อขยาย` : "เต็มแล้ว") : p.free > 0 ? "จองอัพ 1 ระดับ" : "แต้มสกิลไม่พอ", () => this.add({ kind: "element", id }));
+      this.plus(top, !full && p.free > 0, full ? "เต็มแล้ว" : p.free > 0 ? "จองอัพ 1 ระดับ" : "แต้มสกิลไม่พอ", () => this.add({ kind: "element", id }));
       this.track(row, {
-        lv, max: end, cap, color: e.color,
+        lv, max: cap, color: e.color,
         marks: e.marks.map((m) => ({
           at: m.at, name: m.name, glyph: m.stats ? "up" : e.glyph,
-          tip: () => `<strong>${m.name}</strong>เมื่อธาตุ${e.name}ระดับ ${m.at}${lv >= m.at ? " ✓" : ` (อีก ${m.at - lv} ระดับ)`}<br>${m.desc}${m.at > cap ? `<br><i>ต้องอ่าน${book2}ก่อน</i>` : ""}`,
+          tip: () => `<strong>${m.name}</strong>เมื่อธาตุ${e.name}ระดับ ${m.at}${lv >= m.at ? " ✓" : ` (อีก ${m.at - lv} ระดับ)`}<br>${m.desc}`,
         })),
       });
     }

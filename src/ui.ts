@@ -228,7 +228,7 @@ export class InventoryUI {
     this.status.textContent = isTouch()
       ? `${used} / ${this.inv.slots.length} ช่อง · แตะไอเท็มเพื่อดูว่าทำอะไรได้ · ลากเพื่อย้ายหรือใส่`
       : `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
-    this.gold.innerHTML = `<i></i>${this.inv.gold.toLocaleString()} ทอง`;
+    this.gold.innerHTML = `<img src="assets/skills/gold_coin.png" alt="">${this.inv.gold.toLocaleString()} ทอง`;
   }
 
   // What item a cell shows.

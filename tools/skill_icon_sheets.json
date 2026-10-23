@@ -415,6 +415,72 @@
     "merchant_caravan"
    ],
    "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG skill icons for prayer chants (cream, gold) and a wandering merchant (gold coins, leather), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) a green leaf with a golden glow; (2) praying hands with music notes; (3) a golden sword with a prayer ribbon; (4) a winged boot with a golden glow.\nRow 2, left to right: (5) a large golden healing halo; (6) a small golden shrine with a protective glow; (7) an angel's trumpet sounding light; (8) a hand haggling a coin, a red down-arrow price tag.\nRow 3, left to right: (9) a smiling mouth with gold coins flowing out; (10) a big bulging traveller's backpack; (11) worn traveller boots on a dirt road; (12) an eye with a gold coin for a pupil.\nRow 4, left to right: (13) a jeweller's loupe over a sparkling gem; (14) a signpost with a handshake; (15) a gold crown on a pile of coins; (16) a covered merchant wagon."
+  },
+  {
+   "name": "item_icons_gear",
+   "done": true,
+   "ids": [
+    "hat_straw",
+    "hat_leather",
+    "hat_wizard",
+    "hat_feather",
+    "shoes_sandals",
+    "shoes_boots",
+    "shoes_swift",
+    "ring_power",
+    "ring_mind",
+    "ring_life",
+    "ring_focus",
+    "ring_chant",
+    "trinket_clover",
+    "trinket_fang",
+    "trinket_moon",
+    "trinket_charm"
+   ],
+   "prompt": "4x4 item icons: straw hat, leather cap, wizard hat, feathered hunter hat / sandals, leather boots, winged swift shoes, copper ruby ring / silver sapphire ring, wooden leaf ring, gold hawk-eye ring, violet rune ring / clover pendant, fang necklace, crescent moon pendant, paper talisman on a holy stone (same frame and grey-gap layout as the skill sheets)"
+  },
+  {
+   "name": "item_icons_misc",
+   "done": true,
+   "ids": [
+    "potion_red",
+    "potion_red_big",
+    "potion_blue",
+    "potion_blue_big",
+    "quest_letter",
+    "boar_tusk",
+    "ice_core",
+    "polar_pelt",
+    "bison_hide",
+    "dark_shard",
+    "old_bandage",
+    "fox_tail",
+    "style_twintail",
+    "style_hime",
+    "tree_merchant",
+    "gold_coin"
+   ],
+   "prompt": "4x4 item icons: small red flask, big crimson bottle, small blue flask, big deep blue bottle / wax-sealed letter, boar tusk, ice crystal core, polar bear pelt / bison hide, dark purple shard, old bandage roll, glowing fox tail / twin-tail hairstyle book, long straight hairstyle book, coin pouch with balance scales, stack of gold coins"
+  },
+  {
+   "name": "class_job_icons",
+   "done": true,
+   "cols": 5,
+   "rows": 2,
+   "aspect": "landscape",
+   "ids": [
+    "class_mage",
+    "class_warrior",
+    "class_archer",
+    "class_priest",
+    "job_ranger",
+    "job_swordsman",
+    "job_wizard",
+    "job_bishop",
+    "job_battlemage",
+    "job_warlord"
+   ],
+   "prompt": "5x2 class emblems: staff and spellbook, sword and shield, longbow, mace with halo, falcon on glove with bow / twin swords and greatsword, wizard hat with fire-ice-shadow orbs, winged holy cross, rune sword crossed with staff, horned helmet with axes and rage flames (tiles came out slightly tall: cut to the dark frame, resized to 96)"
   }
  ]
 }

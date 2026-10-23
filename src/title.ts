@@ -7,7 +7,7 @@
 import { el } from "./ui";
 import { GENDERS, HAIR_COLORS, EYE_COLORS, swatchColor } from "./ui";
 import type { Look, ColorChoice } from "./ui";
-import { CLASSES, JOBS, Progress, jobName } from "./progression";
+import { CLASSES, JOBS, Progress, jobName, jobIcon } from "./progression";
 import type { JobId } from "./progression";
 import { SHAPES, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
@@ -86,7 +86,11 @@ export class Title {
       this.portrait(cv, look, eq);
       el("strong", "", card).textContent = c.name;
       const job = readJson<{ job?: JobId | null }>(saveKey("character.v1", c.id))?.job ?? null;
-      el("span", "", card).textContent = `${CLASSES[c.cls] ? jobName({ cls: c.cls, job: job && JOBS[job] ? job : null }) : "-"} · Lv ${c.level}`;
+      const who = { cls: CLASSES[c.cls] ? c.cls : null, job: job && JOBS[job] ? job : null };
+      const line = el("span", "", card);
+      line.textContent = `${who.cls ? jobName(who) : "-"} · Lv ${c.level}`;
+      const pic = jobIcon(who);
+      if (pic) line.prepend(Object.assign(el("img", "role-ic"), { src: pic, alt: "" }));
       card.addEventListener("click", () => {
         // a second tap soon after the first starts (phones don't always send dblclick)
         if (this.selected === c.id && performance.now() - this.tapped < 450) return this.start(c.id);

@@ -203,6 +203,8 @@ kbd {
 .vt-head { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
 .vt-lv { font-weight: 600; color: var(--gold); }
 .vt-cls { color: var(--text); }
+.role-ic { width: 18px; height: 18px; margin-right: 4px; vertical-align: -4px; border-radius: 4px; }
+.st-head .role-ic { width: 20px; height: 20px; }
 .vt-sp { margin-left: auto; font-size: 12px; color: #9df0b4; font-weight: 600; }
 .vt-bar { position: relative; height: 15px; border-radius: 6px; overflow: hidden; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); }
 .vt-bar i, .vt-bar b { position: absolute; left: 0; top: 0; bottom: 0; transition: width 0.15s; }
@@ -387,12 +389,9 @@ kbd {
 .sk-dot.next .sk-icon.small { border-color: #fff; animation: bt-pulse 1.4s ease-in-out infinite; }
 .sk-dot-name { margin-top: 3px; font-size: 11px; line-height: 1.2; color: var(--muted); }
 .sk-dot.got .sk-dot-name { color: var(--text); }
-.sk-lock { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.14) 0 4px, transparent 4px 8px); }
-.sk-dot.locked { opacity: 0.55; }
 .sk-track.dense { height: 98px; }
 .sk-track.dense .sk-dot { width: 70px; }
 .sk-dot.alt .sk-dot-name { margin-top: 17px; }
-.sk-sub.more { color: #e8c98a; }
 @media (max-width: 960px) {
   .sk-treeview { grid-template-columns: 1fr; }
   .sk-treelist { flex-direction: row; flex-wrap: wrap; }
@@ -459,7 +458,7 @@ kbd {
 /* ---- gold, sorting, item menu ---- */
 .inv-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px 6px; }
 .inv-gold { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--gold); }
-.inv-gold i { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3b0, #e0a82a 60%, #9a6a10); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4); }
+.inv-gold img { width: 22px; height: 22px; border-radius: 4px; }
 .inv-sort { padding: 4px 12px; }
 .inv-menu {
   position: fixed; z-index: 70; min-width: 170px; padding: 6px; border-radius: 10px; display: flex; flex-direction: column; gap: 4px;

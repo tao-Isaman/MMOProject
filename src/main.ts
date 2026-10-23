@@ -29,7 +29,7 @@ import type { ElementId, StatBag } from "./progression";
 
 import { Vitals, ClassPicker, ProfileUI, SettingsUI, SkillUI, skillTip } from "./charui";
 import { startGear } from "./starter";
-import { icon, skillIcon, loadSkillArt } from "./icons";
+import { icon, skillIcon, loadSkillArt, hasArt } from "./icons";
 import { Bot } from "./bot";
 import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./save";
@@ -211,6 +211,34 @@ function offhandSprite(art: OffhandArt): HTMLCanvasElement {
     else px(7, 8, 8, 2, "#e0b84a");
   }
   return c;
+}
+
+// A canvas of its own with the same picture (one canvas can't stand in two places).
+function copyCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = src.width;
+  c.height = src.height;
+  c.getContext("2d")!.drawImage(src, 0, 0);
+  return c;
+}
+
+// A small plate with a word on it ("II"), in the bottom right corner of an icon `size` wide.
+function itemBadge(g: CanvasRenderingContext2D, text: string, size: number): void {
+  const h = Math.round(size * 0.36), w = Math.round(h * 1.25), x = size - w - 2, y = size - h - 2;
+  g.save();
+  g.fillStyle = "#2a1a08";
+  g.strokeStyle = "#ffd36b";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.roundRect(x, y, w, h, 6);
+  g.fill();
+  g.stroke();
+  g.fillStyle = "#ffe9a8";
+  g.font = `900 ${Math.round(h * 0.72)}px serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(text, x + w / 2, y + h / 2 + 1);
+  g.restore();
 }
 
 // A round flask of coloured liquid with a cork; big ones are wider.
@@ -399,13 +427,16 @@ async function boot(): Promise<void> {
       }
     } else if (item.kind === "offhand") {
       c = makeIcon(offhandArt[item.art!].img);
-    } else if (item.kind === "potion") {
+    } else if (item.kind === "potion" && !hasArt(id)) {
       c = potionIcon(item.icon.color ?? "#ff6a5a", (item.restore?.hp ?? item.restore?.mp ?? 0) > 0.3);
     } else if (item.icon.glyph) {
-      // books, hairstyles, hats, shoes, rings, trinkets: a glyph on a gem
+      // books, hairstyles, hats, shoes, rings, trinkets, quest items, potions: their picture, else
+      // a glyph on a gem; a badge ("II": a second book) in the bottom corner
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
-      c.getContext("2d")!.drawImage(skillIcon(item.icon.art, item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
+      const g = c.getContext("2d")!;
+      g.drawImage(skillIcon(item.icon.art, item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
+      if (item.icon.badge) itemBadge(g, item.icon.badge, c.width);
     } else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
     icons.set(id, c);
     return c;
@@ -1279,7 +1310,8 @@ async function boot(): Promise<void> {
   });
   const potionBtns = (["hp", "mp"] as const).map((kind) => {
     const b = document.getElementById(`btn-pot-${kind}`)!;
-    b.prepend(potionIcon(kind === "hp" ? "#ff6a5a" : "#5aa8ff", false));
+    const pic = kind === "hp" ? "potion_red" : "potion_blue";
+    b.prepend(hasArt(pic) ? copyCanvas(skillIcon(pic, "drop", "#ff6a5a")) : potionIcon(kind === "hp" ? "#ff6a5a" : "#5aa8ff", false));
     b.addEventListener("click", () => {
       bot.noteManual();
       if (!drink(kind)) floaters.add(player.x, player.y, 150, hero.alive && (kind === "hp" ? hero.hp >= hero.stats.maxHp : hero.mp >= hero.stats.maxMp) ? "เต็มอยู่แล้ว" : "ไม่มียา", "info");
