@@ -181,6 +181,13 @@
   "walk": 4,
   "attack": 4
  },
+ "risen_pharaoh": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
  "sand_cobra": {
   "cell": 96,
   "foot": 0,
@@ -241,6 +248,13 @@
   "cell": 128,
   "foot": 0,
   "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "tanuki": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
   "walk": 4,
   "attack": 4
  },
