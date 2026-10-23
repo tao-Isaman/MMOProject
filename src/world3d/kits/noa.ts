@@ -35,7 +35,6 @@ const NOA_MATS: Record<string, Recipe> = {
   Noa_StoneDark: { map: "stone", tint: "#929382", bump: 2.3 },
   Noa_Moss: { map: "stone", tint: "#8e9c66", bump: 2.4 },                     // stone furred with moss
   Noa_MossCap: { map: "foliage", tint: "#7f9c4c", rough: 0.95, bump: 1.5 },   // turf on broken tops
-  Noa_Grass: { map: "foliage", tint: "#93ad5e", rough: 0.95, bump: 1.2 },     // grass over old paving
   Noa_Plaster: { map: "plaster", tint: "#e5dbc2", bump: 0.9 },
   Noa_PlasterOchre: { map: "plaster", tint: "#dcc391", bump: 0.9 },
   Noa_PlasterRose: { map: "plaster", tint: "#dbbfae", bump: 0.9 },
@@ -745,7 +744,7 @@ function oldGate(): Geo {
     for (const z of [420, 860]) t.push(boxBounds([-248, -TW - 8, z], [248, TW + 8, z + 14], "Noa_StoneLight", 2));
     t.push(boxBounds([-262, -TW - 22, TH], [262, TW + 22, TH + 30], "Noa_StoneLight", 3));
     t.push(array(boxBounds([-262, -TW + 10, TH - 50], [-240, -TW + 40, TH], "Noa_StoneLight", 1.5), 6, [0, 70, 0]));
-    t.push(translate(hipRoof(262, TW + 22, TH + 30, 300, 24, "Noa_RoofBlue"), [0, 0, 0]));
+    t.push(hipRoof(262, TW + 22, TH + 30, 300, 24, "Noa_RoofBlue"));
     t.push(beamBetween([0, 0, TH + 350], [6, 4, TH + 470], 3, 3, "IronDark"), sphereCenter(7, [0, 0, TH + 358], "Noa_Gilt", 6));
     for (const f of ["-x", "+x"] as const) for (const z of [260, 640]) t.push(onFace(slitGeo(), f, 240, 0, z));
     t.push(onFace(slitGeo(), s < 0 ? "-y" : "+y", TW, 0, 500));
@@ -779,7 +778,10 @@ function ruinedWall(o: { low: number; breach?: boolean; seed: number }): Geo {
     if (Math.abs(mid) < L - 60) h = Math.max(110, h + (rnd() - 0.5) * 80);
     else h = END;
     mason.push(boxBounds([-HX, y, 60], [HX, y1, h], "Noa_Stone"));
-    out.push(boxBounds([-HX + 4 + rnd() * 12, y, h], [HX - 4 - rnd() * 12, y1, h + 6], "Noa_MossCap"));
+    if (rnd() < 0.55) {
+      const a = -HX + 10 + rnd() * 90;
+      out.push(boxBounds([a, y + 2, h], [Math.min(HX - 8, a + 60 + rnd() * 90), y1 - 2, h + 6], "Noa_MossCap"));
+    }
     if (rnd() < 0.6) tops.push([(rnd() - 0.5) * 120, mid, h + 6]);
     if (h > 260) out.push(boxBounds([-HX - 8, y, 220], [-HX, y1, 232], "Noa_StoneLight"));
     if (h > 470 && ((Math.round(mid) % 120) + 120) % 120 === 20) out.push(boxBounds([HX, mid - 15, 400], [HX + 30, mid + 15, 440], "Noa_StoneLight", 1.5));
@@ -841,11 +843,14 @@ function palaceRuins(): Geo {
   const { X0, Y, OUT, HX1, CR, CH } = PAL, SP = CH + 36, out: Geo[] = [], rnd = rng(51);
   // the floor: worn flags over the court and the hall, grass breaking through
   out.push(boxBounds([X0 - 120, -OUT, 0], [HX1, OUT, 4], "Noa_Stone"));
-  for (let i = 0; i < 10; i++) {
-    const x = X0 + rnd() * (PAL.X1 - X0), y = (rnd() - 0.5) * 2 * Y, w = 90 + rnd() * 220;
-    out.push(flatPatch(x, y, w, w * (0.6 + rnd() * 0.4), 200 + i, 4, "Noa_Grass"));
+  // grass breaking up through the flags in clumps, thickest round the edges of the court
+  const clumps: V3[] = [];
+  for (let i = 0; i < 16; i++) {
+    const cx = X0 + 100 + rnd() * (PAL.X1 - X0 - 200), cy = (rnd() - 0.5) * 2 * (Y - 100);
+    for (let k = 0; k < 6; k++) clumps.push([cx + (rnd() - 0.5) * 140, cy + (rnd() - 0.5) * 140, 4]);
   }
-  out.push(tufts(scatter(X0, PAL.X1, -Y + 60, Y - 60, 4, 40, 52), 53, 30, 0.35));
+  out.push(tufts(clumps, 54, 30, 0.3));
+  out.push(tufts(scatter(X0, PAL.X1, -Y + 60, Y - 60, 4, 50, 52), 53, 30, 0.35));
   // columns: the front row and the two side rows (the corners shared)
   const cols: { x: number; y: number; key: string }[] = [];
   for (const y of PAL_FRONT) cols.push({ x: X0, y, key: `f:${y}` });
@@ -1418,7 +1423,7 @@ function ruinRubble(): Geo {
 function brokenColumn(): Geo {
   return merge(
     column(36, 440, { broken: 260, seed: 5 }),
-    translate(rotateZ(ivy(-30, 30, 30, 220, 6, { n: 2, spread: 26 }), 0), [-34, 0, 0]),
+    translate(ivy(-30, 30, 30, 220, 6, { n: 2, spread: 26 }), [-34, 0, 0]),
     translate(rotateZ(ivy(-30, 30, 30, 160, 7, { n: 2, spread: 26 }), 180), [34, 0, 0]),
     tufts(scatter(-80, 80, -80, 80, 0, 10, 8).filter(([x, y]) => Math.max(Math.abs(x), Math.abs(y)) > 54), 9, 28, 0.4),
   );
@@ -1505,8 +1510,14 @@ function sample(put: Put): void {
   put("ruined_tower", [2100, 1000, 0], 180);
   put("broken_column", [1500, 300, 0]);
   put("ruin_rubble", [1550, -400, 0]);
-  for (const [x, y, k, s] of [[1300, 1900, "BigOak", 0.8], [-2600, 1700, "RoundTree", 1], [1600, -1300, "SmallTree", 1], [-1900, 1000, "RoundTree", 0.8], [2700, 300, "BigOak", 0.7]] as const) put(`flora:${k}`, [x, y, 0], x, s);
-  for (const [x, y, sc] of [[-2200, 1300, 1.2], [1000, 1700, 1.1], [2700, -1500, 1.3]] as const) put("flora:Bush", [x, y, 0], y, sc);
+  // lamps along the square's edge, ruins and old trees in the grass round about
+  for (const y of [450, -1150]) put("old_lamp", [-1500, y, 0], 0);
+  put("ruin_rubble", [1100, -1450, 0], 30);
+  put("broken_column", [800, -1500, 0]);
+  put("broken_column", [2600, -700, 0], 60);
+  for (const [x, y, k, s] of [[1300, 1900, "BigOak", 0.8], [-2600, 1700, "RoundTree", 1], [1600, -1300, "SmallTree", 1], [-1900, 1000, "RoundTree", 0.8], [2700, 300, "BigOak", 0.7],
+    [-2800, -1700, "BigOak", 0.75], [-3000, 600, "RoundTree", 0.9], [2900, 1700, "Birch", 1], [400, -1400, "RoundTree", 0.7], [-600, 2600, "BigOak", 0.8], [2000, 2500, "SmallTree", 1]] as const) put(`flora:${k}`, [x, y, 0], x, s);
+  for (const [x, y, sc] of [[-2200, 1300, 1.2], [1000, 1700, 1.1], [2700, -1500, 1.3], [-1100, -1500, 1.2], [1900, -900, 1.1], [-3000, -900, 1.3]] as const) put("flora:Bush", [x, y, 0], y, sc);
 }
 
 export const SOLIDS: Record<string, SolidSpec[]> = {

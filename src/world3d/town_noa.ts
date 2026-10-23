@@ -20,11 +20,13 @@
 //     the walls it breaks off a bay or two on (its ruins go on across the plains to the south);
 //   - north-west, behind the broken inner wall along the west road (a breach on the palace's
 //     axis, the ruined tower at its east end by the aqueduct): the palace precinct, the ruined
-//     palace (its arcaded court gone to grass, the roofless throne hall behind) with its forecourt
-//     and the statue of the first king, old trees and fallen columns round it;
+//     palace (its arcaded court gone to grass, the roofless throne hall behind), its forecourt
+//     lined with the stumps of a colonnade and the statue of the first king in the middle, the
+//     old palace gardens gone wild round it (great oaks, fallen columns, rubble);
 //   - east of the square: the caravan road out of its south-east corner to the old market (u
-//     600..730, v 405..590) and on to the caravan yard inside the south-east gate, the caravan
-//     inn on the yard's north side;
+//     600..730, v 405..590: stalls in three lines round the old well) and on to the caravan yard
+//     inside the south-east gate (wagons drawn up either side of the road, their loads stacked
+//     by them), the caravan inn on the yard's north side;
 //   - north of the square: the meadow road from the cardo east to its gate (v 115..165), and on
 //     west under the aqueduct into the palace precinct;
 //   - houses everywhere else, in rows wall to wall along the streets and lanes: the north-east
@@ -32,7 +34,9 @@
 //     sides of the cardo, and the south-west quarter (a lane down from the west road at u 140..162
 //     and one across at v 560..582, on under the aqueduct to the cardo), the smithy by the west
 //     gate; Eden's houses in faded colourways and Noa's own old townhouses among them;
-//   - greens between the rows full of old trees and fallen columns, woods outside.
+//   - greens between the rows full of old trees and fallen columns, orchards and garden wells
+//     between the southern rows and the wall; outside, milestones and lamps by the five roads,
+//     and woods.
 //
 // The plan is read in its own pixels and turned into the world (north is +X, east is -Y); the
 // whole town is built at full size and drawn at TOWN_SCALE.
@@ -235,13 +239,13 @@ export function buildNoa(quality: { flowers: number }): Town {
     lamp(FOUNTAIN[0] + du * 44, FOUNTAIN[1] + dv * 44, 45);
     put("common:bench", at(FOUNTAIN[0] + Math.cos(a + Math.PI / 4) * 30, FOUNTAIN[1] + Math.sin(a + Math.PI / 4) * 30), facing(-Math.cos(a + Math.PI / 4), -Math.sin(a + Math.PI / 4)));
   }
-  for (const [u, v] of [[372, 293], [500, 296], [338, 442], [500, 442]] as UV[]) lamp(u, v);
+  for (const [u, v] of [[372, 293], [338, 442], [500, 442]] as UV[]) lamp(u, v);
   put("noa:milestone", at(474, 360), facing(-1, 0));
   for (const u of [346, 376, 464, 494]) put("eden:flower_planter", at(u, SQ.v1 - 6), FACE.n, { colours: "noa-blue" });
   for (const u of [452, 518]) put("eden:banner_pole", at(u, SQ.v0 + 6), FACE.s, { colours: "noa-wall" });
   put("eden:notice_board", at(339, 405), FACE.e, { colours: "noa-terra" });
-  for (const [u, v, s] of [[346, 425, 0.75], [494, 425, 0.7], [352, 330, 0.6]] as [number, number, number][]) put("flora:BigOak", at(u, v), rnd() * 360, { s });
-  for (const [u, v, f] of [[372, 445, "n"], [468, 445, "n"], [338, 375, "e"]] as [number, number, Side][]) put("common:bench", at(u, v), FACE[f]);
+  for (const [u, v, s] of [[346, 425, 0.75], [494, 425, 0.7]] as [number, number, number][]) put("flora:BigOak", at(u, v), rnd() * 360, { s });
+  for (const [u, v, f] of [[372, 445, "n"], [468, 445, "n"], [500, 330, "w"]] as [number, number, Side][]) put("common:bench", at(u, v), FACE[f]);
 
   // ---- the palace precinct ----
   put("noa:palace_ruins", at(...PALACE), FACE.s, { solid: NOA_SOLIDS.palace_ruins });
@@ -273,20 +277,27 @@ export function buildNoa(quality: { flowers: number }): Town {
   put("noa:archive_hall", at(...ARCHIVE), FACE.s);
   for (const [u, v] of [[455, 180], [520, 180]] as UV[]) put("flora:BigOak", at(u, v), rnd() * 360, { s: 0.7 });
 
-  // ---- the old market: stalls in two rows facing the middle, a well and carts between ----
+  // ---- the old market: stalls along both sides facing the middle, carts and crates at its ends ----
   const STALLS = ["noa:market_stall_old", "eden:market_stall_cloth", "noa:market_stall_canvas", "eden:market_stall_fruit"];
   [462, 482, 502, 522, 542, 562].forEach((v, i) => put(STALLS[i % 4], at(MARKET.u0 + 15, v), FACE.e, { colours: STALLS[i % 4].startsWith("eden") ? "noa-terra" : undefined }));
   [420, 440, 460, 480, 500, 520].forEach((v, i) => put(STALLS[(i + 2) % 4], at(MARKET.u1 - 15, v), FACE.w, { colours: STALLS[(i + 2) % 4].startsWith("eden") ? "noa-blue" : undefined }));
+  // down the middle, stalls back to back either side of the old well
+  [440, 460, 540, 560].forEach((v, i) => {
+    put(STALLS[(i + 1) % 4], at(657, v), FACE.w, { colours: STALLS[(i + 1) % 4].startsWith("eden") ? "noa-blue" : undefined });
+    put(STALLS[(i + 3) % 4], at(673, v), FACE.e, { colours: STALLS[(i + 3) % 4].startsWith("eden") ? "noa-terra" : undefined });
+  });
   put("eden:public_well", at(665, 500), 0, { colours: "noa-wall" });
-  for (const v of [440, 562]) put("common:market_cart", at(665, v), FACE.s);
-  for (const [u, v] of [[640, 415], [690, 585], [632, 578], [700, 418]] as UV[]) put("common:crate", at(u, v), rnd() * 90);
+  put("common:market_cart", at(690, 412), FACE.w);
+  put("common:market_cart", at(640, 584), FACE.e);
+  for (const [u, v] of [[628, 414], [700, 584], [612, 582], [722, 412], [650, 590]] as UV[]) put("common:crate", at(u, v), rnd() * 90);
   for (const [u, v] of [[640, 470], [690, 530]] as UV[]) lamp(u, v);
 
   // ---- the caravan yard and the inn ----
   put("noa:caravan_inn", at(...INN), FACE.s);
-  for (const [u, v, h] of [[768, 620, 95], [812, 628, 80], [770, 512, 100]] as [number, number, number][]) put("noa:caravan_wagon", at(u, v), h);
-  for (const [u, v] of [[838, 612], [836, 640]] as UV[]) put("eden:cargo_stack", at(u, v), rnd() * 90, { colours: "noa-terra" });
-  for (const [u, v] of [[750, 640], [838, 506]] as UV[]) put("common:crate", at(u, v), rnd() * 90);
+  // wagons drawn up either side of the road through the yard, their loads stacked by them
+  for (const [u, v, h] of [[768, 620, 95], [812, 628, 80], [770, 514, 100], [818, 516, 85], [790, 640, 92]] as [number, number, number][]) put("noa:caravan_wagon", at(u, v), h);
+  for (const [u, v] of [[838, 604], [836, 642], [752, 596], [752, 646]] as UV[]) put("eden:cargo_stack", at(u, v), rnd() * 90, { colours: "noa-terra" });
+  for (const [u, v] of [[750, 622], [838, 532], [792, 600], [796, 598]] as UV[]) put("common:crate", at(u, v), rnd() * 90);
   for (const [u, v] of [[750, 505], [838, 588]] as UV[]) lamp(u, v);
 
   // ---- lamps down the old roads ----
@@ -429,7 +440,7 @@ function noaNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
     { id: "noa_clockkeeper", ...spot(374, 314), face: toward(374, 314, ...FOUNTAIN), name: "ลุงอ็อตโต", title: "คนดูแลหอนาฬิกา", role: "talk", look: man("top_warrior_forest", "silver"),
       lines: ["นาฬิกาเรือนนี้เดินมาสามร้อยปี ข้าขึ้นไปไขลานทุกเช้า", "ระฆังบนยอดหอตีบอกเวลาเปิดตลาดกับเวลาปิดประตูเมืองมาแต่โบราณ"] },
     // the market and the caravans
-    { id: "noa_caravan", ...spot(800, 520), face: toward(800, 520, 800, 560), name: "หัวหน้าโยฮัน", title: "หัวหน้ากองคาราวาน", role: "talk", look: man("top_warrior", "auburn"),
+    { id: "noa_caravan", ...spot(794, 540), face: toward(794, 540, 794, 500), name: "หัวหน้าโยฮัน", title: "หัวหน้ากองคาราวาน", role: "talk", look: man("top_warrior", "auburn"),
       lines: ["กองคาราวานของข้าวิ่งระหว่างโนอากับอีเดนมาสามสิบปีแล้ว", "จากที่นี่มีถนนไปได้ทุกทิศ เหนือไปไฮแลนด์ ใต้ไปเวนิชเซีย ตะวันตกข้ามเขาไปซูโจว",
         "โรงเตี๊ยมนี้ของเพื่อนข้า เตียงนุ่ม เบียร์เย็น พักให้หายเมื่อยก่อนออกเดินทาง"] },
     { id: "noa_market", ...spot(665, 520), face: toward(665, 520, 615, 520), name: "ป้าโรซา", title: "แม่ค้าตลาดเก่า", role: "talk",
