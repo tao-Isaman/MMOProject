@@ -19,6 +19,9 @@ const ZERO = {
   healPct: 0, multiShot: 0, poisonHit: 0, huntDmg: 0, buffTime: 0,
   // a share of the damage a bite does sent back at the biter
   reflect: 0,
+  // luck: every chance the player rolls is this many percent likelier (luckFactor); the chance
+  // a monster's spell misses outright (smoke)
+  luck: 0, magicDodge: 0,
   // a share of the damage done healed back; up to this much more damage as HP runs low (all of
   // it at 0 HP); the falcon's chance to dive in after a normal hit and its strength (of attack);
   // poison damage
@@ -105,7 +108,7 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   s.def *= 1 + s.defPct;
   s.mdef *= 1 + s.mdefPct;
   s.mpRegen *= 1 + s.mpRegenPct;
-  s.crit = Math.min(1, s.crit);
+  s.crit = Math.min(CRIT_CAP, s.crit);
   s.cdr = Math.min(0.5, s.cdr);
   s.castRed = Math.min(0.6, s.castRed);
   s.dmgRed = Math.min(0.75, s.dmgRed);
@@ -114,7 +117,24 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
   s.multiShot = Math.min(0.8, s.multiShot);
   s.poisonHit = Math.min(0.6, s.poisonHit);
   s.reflect = Math.min(0.6, s.reflect);
+  s.magicDodge = Math.min(0.6, s.magicDodge);
   return s;
+}
+
+// Luck (the jester's new stat, gear): every chance in the player's favour is this much likelier
+// (luck 50: half as likely again): crits, procs, steals, drops, refining, a good dice roll. A
+// monster's crit is as much less likely.
+export function luckFactor(stats: { luck: number }): number {
+  return 1 + Math.max(0, stats.luck) / 100;
+}
+export function lucky(chance: number, stats: { luck: number }): boolean {
+  return Math.random() < chance * luckFactor(stats);
+}
+// A die (1-6): with luck, now and then rolled twice and the better kept.
+export function rollDie(stats: { luck: number }): number {
+  const roll = () => 1 + Math.floor(Math.random() * 6);
+  const first = roll();
+  return Math.random() < Math.min(0.8, Math.max(0, stats.luck) / 100) ? Math.max(first, roll()) : first;
 }
 
 // How strong the player's poison is: poison damage stats, doubled at poison element 50.
@@ -132,6 +152,9 @@ export function mitigate(amount: number, defence: number, pierce = 0): number {
 export function hitChance(hit: number, flee: number): number {
   return Math.min(1, Math.max(0.05, 0.8 + (hit - flee) / 100));
 }
+
+// The most a crit chance can be, luck and the weapon's own included.
+export const CRIT_CAP = 0.5;
 
 // A critical hit goes through this much of the armour, on top of any armour piercing.
 export const CRIT_PIERCE = 0.5;
@@ -166,7 +189,7 @@ function spellHit(raw: number, stats: Stats, target: Defender, through = 0): Hit
 // A physical blow rolls its crit first, as in Ragnarok: a crit always lands, harder and through
 // half the armour. Any other blow can miss (accuracy against evasion).
 function physicalHit(raw: number, stats: Stats, critChance: number, target: Defender, through = 0): Hit {
-  const crit = Math.random() < critChance;
+  const crit = Math.random() < Math.min(CRIT_CAP, critChance * luckFactor(stats));
   if (!crit && Math.random() >= hitChance(stats.hit, target.flee)) return { dmg: 0, crit: false, magic: false, miss: true };
   const pierce = 1 - (1 - stats.pierce) * (1 - through) * (crit ? 1 - CRIT_PIERCE : 1);
   const dmg = mitigate(raw * (crit ? 1 + stats.critDmg : 1), target.def, pierce);
@@ -213,7 +236,7 @@ export function skillPower(stats: Stats, elements: Record<string, number>, skill
 }
 
 // A skill hit: skillPower and the spread, then a spell (lightning: +0.3% damage a level) or a
-// physical blow (lightning: +0.3% crit chance a level), then the element bonus (a light hit also
+// physical blow (lightning: +0.1% crit chance a level), then the element bonus (a light hit also
 // goes through some of the armour).
 export function skillDamage(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, target: Defender, weapon: WeaponType | null = null): Hit {
   const lightning = elements.lightning ?? 0, el = skill.element;
@@ -221,7 +244,7 @@ export function skillDamage(stats: Stats, elements: Record<string, number>, skil
   const raw = skillPower(stats, elements, skill, rank, weapon) * rand(0.92, 1.08);
   const hit = skill.stat === "matk" || skill.stat === "both"
     ? spellHit(raw * (1 + 0.003 * lightning), stats, target, through)
-    : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target, through);
+    : physicalHit(raw, stats, stats.crit + 0.001 * lightning, target, through);
   if (!hit.miss) {
     hit.dmg += Math.round(playerElementBonus(stats, target));
     if (el) hit.element = el;
@@ -235,7 +258,7 @@ export function skillDamage(stats: Stats, elements: Record<string, number>, skil
 // it misses.
 export const MONSTER_CRIT_DMG = 0.5;
 export function monsterDamage(m: { power: number; accuracy: number; crit: number; element?: ElementId; eleAtk: number }, stats: Stats): { dmg: number; crit: boolean } | null {
-  const crit = Math.random() < m.crit;
+  const crit = Math.random() < m.crit / luckFactor(stats);
   if (!crit && Math.random() >= hitChance(m.accuracy, stats.flee)) return null;
   const swing = m.element ? ELEMENT_SWING * m.eleAtk : 0;
   let hit = mitigate((m.power + swing) * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);

@@ -50,7 +50,7 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "ฟันกว้าง ช้าแต่แรง",
   },
   axe: {
-    name: "ขวาน", motion: "thrust", chop: true, hit: "arc", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.18,
+    name: "ขวาน", motion: "thrust", chop: true, hit: "arc", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.12,
     note: "โอกาสคริติคอลสูง",
   },
   mace: {
@@ -66,7 +66,7 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     note: "แทงทะลุทุกตัวในแนว",
   },
   dagger: {
-    name: "มีดสั้น", motion: "thrust", hit: "line", reach: 95, width: 40, interval: 0.4, damage: [11, 15], crit: 0.15,
+    name: "มีดสั้น", motion: "thrust", hit: "line", reach: 95, width: 40, interval: 0.4, damage: [11, 15], crit: 0.1,
     note: "แทงเร็ว",
   },
   staff: {

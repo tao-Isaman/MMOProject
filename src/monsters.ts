@@ -283,6 +283,9 @@ const STATUS: [(m: Monster) => boolean, string, string][] = [
   [(m) => m.blind > 0, "eye", "#7d7690"],
 ];
 
+// Shots that are things thrown or fired, not spells.
+const PHYSICAL_SHOTS = new Set(["", "arrow", "cannon", "musket", "rock", "shuriken", "tongue", "vine", "spear"]);
+
 export class Monster {
   variant: Variant;
   home: Vec2;
@@ -413,6 +416,12 @@ export class Monster {
 
   get boss(): boolean {
     return this.entry?.kind === "boss";
+  }
+
+  // Its attacks are spells (a caster, or a shot of fire, frost, water, snow, a curse, foxfire):
+  // smoke can dodge them.
+  get magical(): boolean {
+    return this.entry?.kind === "caster" || (!!this.ranged && !PHYSICAL_SHOTS.has(this.ranged));
   }
 
   spawn(): void {

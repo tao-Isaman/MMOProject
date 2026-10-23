@@ -42,7 +42,7 @@
 
 import { ACTIVES, MASTERIES, mpCost, needMet, needText } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
-import { mitigate, poisonScale, skillDamage } from "./stats";
+import { mitigate, poisonScale, skillDamage, lucky } from "./stats";
 import { shapeTargets } from "./combat";
 import type { Combat, Floaters } from "./combat";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
@@ -272,7 +272,7 @@ export class Skills {
     const cd = s.cd * (1 - this.hero.stats.cdr);
     this.hero.cooldowns.set(id, cd);
     this.hero.cdTotal.set(id, cd);
-    if ((this.el.wind ?? 0) >= 35 && Math.random() < 0.15) {
+    if ((this.el.wind ?? 0) >= 35 && lucky(0.15, this.hero.stats)) {
       this.hero.cooldowns.delete(id);
       this.floaters.add(this.player.x, this.player.y, 170, "พายุหมุน!", "info");
     }
@@ -470,17 +470,17 @@ export class Skills {
     switch (el) {
       case "ice":
         m.chillFor(lv >= 10 ? 5 : 3, Math.min(0.8, (0.1 + 0.006 * lv) * (lv >= 50 ? 2 : 1)));
-        if (lv >= 35 && Math.random() < 0.1) m.freeze = Math.max(m.freeze, 1.5 * earth);
+        if (lv >= 35 && lucky(0.1, this.hero.stats)) m.freeze = Math.max(m.freeze, 1.5 * earth);
         break;
       case "dark": {
-        if (Math.random() >= Math.min(0.6, 0.1 + 0.006 * lv)) break;
+        if (!lucky(Math.min(0.6, 0.1 + 0.006 * lv), this.hero.stats)) break;
         const t = lv >= 10 ? 6 : 4;
         const ails = [() => (m.blind = Math.max(m.blind, t)), () => m.weaken(t, 0.2), () => m.burns.push({ dps: (dmg * 0.3 * poisonScale(this.hero.stats, this.el)) / t, t, poison: true })];
         for (const i of [...ails.keys()].sort(() => Math.random() - 0.5).slice(0, lv >= 35 ? 2 : 1)) ails[i]();
         break;
       }
       case "stone":
-        if (Math.random() < Math.min(0.4, (0.04 + 0.003 * lv) * (lv >= 35 ? 1.5 : 1))) m.petrify = Math.max(m.petrify, (lv >= 10 ? 3 : 2) * earth);
+        if (lucky(Math.min(0.4, (0.04 + 0.003 * lv) * (lv >= 35 ? 1.5 : 1)), this.hero.stats)) m.petrify = Math.max(m.petrify, (lv >= 10 ? 3 : 2) * earth);
         break;
       case "mud":
         m.slowFor((lv >= 10 ? 5 : 3) * earth, Math.min(0.8, (0.2 + 0.008 * lv) * (lv >= 50 ? 1.5 : 1)));

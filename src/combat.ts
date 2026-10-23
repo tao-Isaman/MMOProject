@@ -6,7 +6,7 @@ import { WEAPON_TYPES, OFFHAND_DAMAGE } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
-import { basicDamage, isMagic, poisonScale } from "./stats";
+import { basicDamage, isMagic, poisonScale, lucky } from "./stats";
 import type { Hit, Stats } from "./stats";
 import type { Hero } from "./hero";
 import type { Monster } from "./monsters";
@@ -254,7 +254,7 @@ export class Combat {
       };
       this.shoot(origin, aim, { ...p, onHit, target });
       // a second arrow after the first, now and then (the archer's double shot)
-      if (p.kind === "arrow" && Math.random() < this.hero.stats.multiShot) {
+      if (p.kind === "arrow" && lucky(this.hero.stats.multiShot, this.hero.stats)) {
         const a = Math.atan2(aim.y, aim.x) + 0.07;
         this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit, target });
       }
@@ -290,13 +290,13 @@ export class Combat {
     const st = this.hero.stats, el = isMagic(w) ? null : this.hero.enchant, r = basicDamage(st, w, m, el);
     if (r.miss) return void this.apply(m, r, dir);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
-    if (st.stunHit && Math.random() < st.stunHit) m.stun = Math.max(m.stun, 1);
-    if (st.poisonHit && Math.random() < st.poisonHit) {
+    if (st.stunHit && lucky(st.stunHit, st)) m.stun = Math.max(m.stun, 1);
+    if (st.poisonHit && lucky(st.poisonHit, st)) {
       m.burns.push({ dps: (r.dmg * 0.4 * poisonScale(st, this.hero.progress.elements)) / 3, t: 3, poison: true });
     }
     this.apply(m, r, dir);
     if (el) this.onElement?.(m, el, r.dmg);
-    if (st.falconChance && m.alive && Math.random() < st.falconChance) this.onFalcon?.(m);
+    if (st.falconChance && m.alive && lucky(st.falconChance, st)) this.onFalcon?.(m);
   }
 
   // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it. Only a

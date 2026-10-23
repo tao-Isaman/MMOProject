@@ -124,6 +124,15 @@ const star = (g: G, x: number, y: number, r: number, under: boolean) => {
 };
 
 const GLYPHS: Record<string, (g: G, under: boolean) => void> = {
+  // a puff of smoke (the smoke element)
+  cloud: (g, u) => {
+    const k = u ? 3 : 0;
+    for (const [x, y, r] of [[-14, 6, 13], [2, -6, 16], [16, 8, 12], [0, 12, 12]]) {
+      g.beginPath();
+      g.arc(x, y, r + k, 0, Math.PI * 2);
+      g.fill();
+    }
+  },
   // gear: a hat, a boot, a ring, a pendant; a comb for hairstyles
   hat: (g, u) => {
     poly(g, [[-30 - (u ? 3 : 0), 14], [30 + (u ? 3 : 0), 14], [22, 4], [-22, 4]]);

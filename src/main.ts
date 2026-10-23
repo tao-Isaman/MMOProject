@@ -24,7 +24,7 @@ import type { WeaponArt } from "./weapons";
 import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
-import { monsterDamage } from "./stats";
+import { monsterDamage, lucky } from "./stats";
 import type { ElementId, StatBag } from "./progression";
 
 import { Vitals, ClassPicker, ProfileUI, SettingsUI, SkillUI, skillTip } from "./charui";
@@ -578,10 +578,10 @@ async function boot(): Promise<void> {
       if (r.died) player.target = player.attack = null;
     },
     onKill(m) {
-      const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop + hero.stats.goldPct)) + 1;
+      const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop + hero.stats.goldPct + hero.stats.luck / 200)) + 1;
       // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
-      for (const id of rollDrops(m.variant, hero.stats.drop)) ground.drop(id, m);
+      for (const id of rollDrops(m.variant, hero.stats.drop + hero.stats.luck / 200)) ground.drop(id, m);
       // what the quests count, and what they want dropped
       const kind = m.entry?.id ?? m.variant.id;
       quests.onKill(kind, m.variant.name);
@@ -590,7 +590,7 @@ async function boot(): Promise<void> {
       // from level TIER2_DROP_LEVEL up) and now and then a hat, shoes, a ring or a trinket; a rare
       // one more often, a boss a book one time in four (hairstyles don't drop)
       if (m.entry) {
-        const k = m.entry.kind, more = 1 + hero.stats.drop;
+        const k = m.entry.kind, more = 1 + hero.stats.drop + hero.stats.luck / 200;
         const roll = (chance: number, pool: string[]) => {
           if (pool.length && Math.random() < chance * more) ground.drop(pool[Math.floor(Math.random() * pool.length)], m);
         };
@@ -1377,8 +1377,13 @@ async function boot(): Promise<void> {
     player,
     hero,
     bite(m: Monster) {
-      // a blinded monster misses half its bites; a weakened one bites softer
-      if (m.blind > 0 && Math.random() < 0.5) {
+      // a spell may miss outright (smoke); a blinded monster misses half its bites (more with
+      // luck); a weakened one bites softer
+      if (m.magical && hero.stats.magicDodge > 0 && lucky(hero.stats.magicDodge, hero.stats)) {
+        floaters.add(player.x, player.y, 120, "หลบเวท", "miss");
+        return;
+      }
+      if (m.blind > 0 && lucky(0.5, hero.stats)) {
         floaters.add(player.x, player.y, 120, "พลาด", "miss");
         return;
       }
