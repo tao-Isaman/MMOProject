@@ -28,7 +28,7 @@ import type { Hands } from "./look";
 import type { WeaponArt } from "./weapons";
 import type { Img, Vec2, View } from "./types";
 import type { Hero } from "./hero";
-import { RACE_NAMES } from "./progression";
+import { RACE_ICONS } from "./progression";
 import type { ElementId, Race } from "./progression";
 
 export interface Variant {
@@ -919,10 +919,14 @@ export class Monster {
     ctx.lineWidth = 4.5 * k;
     ctx.strokeStyle = "rgba(10, 12, 8, 0.9)";
     ctx.fillStyle = gold ? "#ffd27a" : this.focus ? "#fff6d8" : "#e8e2cc";
-    const label = `Lv ${this.level} ${this.variant.name} · ${RACE_NAMES[this.race]}`;
-    const ty = feet + 27 * k;
-    ctx.strokeText(label, cx, ty);
-    ctx.fillText(label, cx, ty);
+    // the level and name, and before them the badge of what kind of monster it is
+    const label = `Lv ${this.level} ${this.variant.name}`;
+    const ty = feet + 27 * k, badge = 22 * k, tw = ctx.measureText(label).width;
+    const tx = cx + (badge + 4 * k) / 2;
+    ctx.strokeText(label, tx, ty);
+    ctx.fillText(label, tx, ty);
+    const [glyph, color] = RACE_ICONS[this.race];
+    ctx.drawImage(icon(glyph, color), tx - tw / 2 - badge - 4 * k, ty - badge + 4 * k, badge, badge);
     const y = ty + 6 * k;
     ctx.fillStyle = "rgba(10, 12, 8, 0.85)";
     ctx.fillRect(cx - w / 2 - k, y - k, w + 2 * k, h + 2 * k);

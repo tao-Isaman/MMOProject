@@ -1,33 +1,39 @@
 // Talking to the townsfolk, and the quests on screen (src/quests.ts): the talk window anyone
 // opens when spoken to (what they say, their business: buying and selling, healing, travel, and
 // their quests to take, hand in or be reminded of), the quest log (J) with what is on, what can
-// be taken and what is done, and the tracker under HP/MP that shows the steps under way.
+// be taken and what is done, and the tracker under HP/MP that shows the steps under way. Only the
+// step under way shows (what comes after is for the player to find out), with where to go: the
+// place someone stands at, the field the monsters live in, and a guide button that walks there.
 
 import { el, makeWindow } from "./ui";
 import { ITEMS } from "./items";
 import { MAP_NAMES } from "./maps";
 import { QUESTS, QUEST_BY_ID, rewardText } from "./quests";
 import { JOBS, JOB_POINTS, TREES } from "./progression";
+import { monsterField, placeOf, questDest } from "./guide";
 import type { QuestDef, Quests } from "./quests";
 import type { MapId } from "./maps";
 
 const itemName = (id: string) => ITEMS[id]?.name ?? id;
 const townName = (map: MapId) => (MAP_NAMES as Record<string, string>)[map] ?? map;
 
-// What a step needs, with how far it has got ("ปราบสไลม์เขียว 3/5").
+// What a step needs, with how far it has got and where ("ปราบสไลม์เขียว 3/5 (ทุ่งนอกเมือง)",
+// "ไปคุยกับท่านนาดีม (บาฮามัส · โอเอซิส)").
 function stepLine(quests: Quests, q: QuestDef): string {
   const st = quests.step(q.id);
   if (!st) return "";
-  const p = quests.progress(q.id);
-  const count = st.goal.kind === "kill" || st.goal.kind === "collect" ? ` ${p.have}/${p.need}` : "";
-  return `${st.task}${count}`;
+  const p = quests.progress(q.id), g = st.goal;
+  const count = g.kind === "kill" || g.kind === "collect" ? ` ${p.have}/${p.need}` : "";
+  const field = g.kind === "kill" ? g.what[0] : g.kind === "collect" ? g.from?.[0] : undefined;
+  const where = g.kind === "talk" ? placeOf(st.to) : field ? townName(monsterField(field)) : "";
+  return `${st.task}${count}${where && !st.task.includes(where) ? ` (${where})` : ""}`;
 }
 
 // What the step is waiting on once its goal is met.
 function handInLine(quests: Quests, q: QuestDef): string {
   const st = quests.step(q.id);
   if (!st || !quests.ready(q.id) || st.goal.kind === "talk") return "";
-  return `ส่งได้ที่ ${st.to.name} (${townName(st.to.map)})`;
+  return `ส่งได้ที่ ${st.to.name} (${placeOf(st.to)})`;
 }
 
 // ---- talking to someone ----
@@ -50,6 +56,7 @@ export class TalkDialog {
   list: HTMLElement;
   buttons: HTMLElement;
   who: Speaker | null = null;
+  onGuide: ((q: QuestDef) => void) | null = null; // the guide button: walk to where the step leads
 
   constructor(quests: Quests) {
     this.quests = quests;
@@ -143,8 +150,6 @@ export class TalkDialog {
         this.button("กลับ", () => this.home());
         return;
       }
-      const steps = el("ol", "qd-steps", this.list);
-      for (const s of q.steps) el("li", "", steps).textContent = s.task;
       el("p", "qd-reward", this.list).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
       this.button("รับเควส", () => {
         quests.accept(q.id);
@@ -171,6 +176,11 @@ export class TalkDialog {
       this.text.textContent = `ยังไม่เสร็จ: ${stepLine(quests, q)}`;
       const at = handInLine(quests, q);
       if (at) el("p", "qd-reward", this.list).textContent = at;
+      const guide = this.onGuide;
+      if (guide && questDest(quests, q)) this.button("นำทาง", () => {
+        this.close();
+        guide(q);
+      });
     }
     this.button("กลับ", () => this.home());
   }
@@ -218,6 +228,7 @@ export class QuestLog {
   tabs: HTMLElement;
   list: HTMLElement;
   tab: "on" | "open" | "done" = "on";
+  onGuide: ((q: QuestDef) => void) | null = null;
 
   constructor(quests: Quests) {
     this.quests = quests;
@@ -257,19 +268,29 @@ export class QuestLog {
       const c = el("div", "ql-card", this.list);
       const h = el("div", "ql-head", c);
       el("b", "", h).textContent = q.name;
-      el("span", `ql-kind${q.repeat ? " repeat" : ""}`, h).textContent = q.repeat ? "ทำซ้ำได้" : q.steps.length > 1 ? `${q.steps.length} ขั้น` : "ครั้งเดียว";
-      el("p", "ql-who", c).textContent = `${q.giver.name} · ${townName(q.giver.map)}${q.level ? ` · Lv ${q.level}+` : ""}`;
+      el("span", `ql-kind${q.repeat ? " repeat" : ""}`, h).textContent = q.repeat ? "ทำซ้ำได้" : "ครั้งเดียว";
+      el("p", "ql-who", c).textContent = `${q.giver.name} · ${placeOf(q.giver)}${q.level ? ` · Lv ${q.level}+` : ""}`;
       return c;
     };
     if (this.tab === "on") {
       const on = QUESTS.filter((q) => quests.isActive(q.id));
       if (!on.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่ทำอยู่ ดูเควสที่รับได้ในแท็บ \"รับได้\" แล้วไปคุยกับคนให้เควส";
       for (const q of on) {
-        const c = card(q), a = quests.s.active[q.id];
-        el("p", `ql-step${quests.ready(q.id) ? " ready" : ""}`, c).textContent = `ขั้น ${a.step + 1}/${q.steps.length}: ${stepLine(quests, q)}`;
+        const c = card(q);
+        el("p", `ql-step${quests.ready(q.id) ? " ready" : ""}`, c).textContent = `ตอนนี้: ${stepLine(quests, q)}`;
         const at = handInLine(quests, q);
         if (at) el("p", "ql-at", c).textContent = at;
         el("p", "ql-reward", c).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
+        const guide = this.onGuide;
+        if (guide && questDest(quests, q)) {
+          const g = el("button", "ql-guide", c);
+          g.type = "button";
+          g.textContent = "นำทาง";
+          g.addEventListener("click", () => {
+            this.toggle(false);
+            guide(q);
+          });
+        }
         const x = el("button", "ql-drop", c);
         x.type = "button";
         x.textContent = "ยกเลิกเควส";
@@ -306,6 +327,7 @@ export class QuestLog {
 export class QuestTracker {
   quests: Quests;
   box: HTMLElement;
+  onGuide: ((q: QuestDef) => void) | null = null;
 
   constructor(quests: Quests, onOpen: () => void) {
     this.quests = quests;
@@ -325,6 +347,17 @@ export class QuestTracker {
       const r = el("div", `qt-row${quests.ready(q.id) ? " ready" : ""}`, this.box);
       el("span", "qt-name", r).textContent = q.name;
       el("span", "qt-step", r).textContent = quests.ready(q.id) && quests.step(q.id)?.goal.kind !== "talk" ? `✓ ${handInLine(quests, q)}` : stepLine(quests, q);
+      const guide = this.onGuide;
+      if (guide && questDest(quests, q)) {
+        const g = el("button", "qt-guide", r);
+        g.type = "button";
+        g.textContent = "นำทาง";
+        g.title = "เดินไปยังจุดหมายของเควสนี้";
+        g.addEventListener("click", (e) => {
+          e.stopPropagation(); // (the box itself opens the log)
+          guide(q);
+        });
+      }
     }
     if (on.length > 4) el("span", "qt-more", this.box).textContent = `และอีก ${on.length - 4} เควส`;
   }

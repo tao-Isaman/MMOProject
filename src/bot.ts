@@ -5,7 +5,7 @@
 //
 // Settings live in localStorage (the character's "bot.v1"); the window that edits them is src/botui.ts.
 
-import { ACTIVES } from "./progression";
+import { ACTIVES, mpCost } from "./progression";
 import { saveKey } from "./save";
 import type { Progress, SkillDef } from "./progression";
 import { findPath, clearLine } from "./world";
@@ -455,7 +455,12 @@ export class Bot {
   // A skill can go now: learned, off cooldown, the right weapon, and its MP over the floor plus
   // `reserve` (what a skill higher on the list is waiting to have).
   ready(id: string, support: boolean, reserve = 0): boolean {
-    return this.usable(id) && this.d.hero.mp - ACTIVES[id].skill.mp >= this.floor(support) + reserve;
+    return this.usable(id) && this.d.hero.mp - this.mp(id) >= this.floor(support) + reserve;
+  }
+
+  // What a skill costs now (its rank's MP).
+  mp(id: string): number {
+    return mpCost(id, this.d.progress.skillRank(id));
   }
 
   // Learned, off cooldown, and the weapon it needs in hand (MP aside).
@@ -523,7 +528,7 @@ export class Bot {
       if (!go) continue;
       if (!this.ready(r.id, false, reserve)) {
         // (one it could never afford holds nothing back)
-        if (a.skill.mp + this.floor(false) <= hero.stats.maxMp) reserve = Math.max(reserve, a.skill.mp);
+        if (this.mp(r.id) + this.floor(false) <= hero.stats.maxMp) reserve = Math.max(reserve, this.mp(r.id));
         continue;
       }
       if (this.cast(r.id, t)) return true;

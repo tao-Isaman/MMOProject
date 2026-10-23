@@ -157,6 +157,80 @@ const GLYPHS: Record<string, (g: G, under: boolean) => void> = {
     g.lineTo(4, 12);
     g.stroke();
   },
+  // kinds of monster (the race badges on their nameplates, RACE_ICONS): a skull, a paw, a bug,
+  // a fish, a horned head, a person, a dragon's head
+  skull: (g, u) => {
+    const k = u ? 3 : 0;
+    g.beginPath();
+    g.arc(0, -6, 22 + k, 0, Math.PI * 2);
+    g.fill();
+    g.fillRect(-12 - k, 6, 24 + 2 * k, 18 + k);
+    if (!u) {
+      g.save();
+      g.fillStyle = "rgba(20, 14, 8, 0.9)";
+      dot(g, -9, -5, 6, false);
+      dot(g, 9, -5, 6, false);
+      poly(g, [[0, 4], [-4, 11], [4, 11]]);
+      g.restore();
+    }
+  },
+  paw: (g, u) => {
+    const k = u ? 3 : 0;
+    g.beginPath();
+    g.ellipse(0, 10, 16 + k, 13 + k, 0, 0, Math.PI * 2);
+    g.fill();
+    for (const [x, y] of [[-20, -6], [-8, -18], [8, -18], [20, -6]]) dot(g, x, y, 7, u);
+  },
+  bug: (g, u) => {
+    const k = u ? 3 : 0;
+    for (const y of [-4, 8, 20]) line(g, [[-24, y - 6], [24, y - 6]]);
+    g.beginPath();
+    g.ellipse(0, 6, 13 + k, 19 + k, 0, 0, Math.PI * 2);
+    g.fill();
+    dot(g, 0, -18, 8, u);
+    line(g, [[-4, -24], [-12, -32]]);
+    line(g, [[4, -24], [12, -32]]);
+  },
+  fish: (g, u) => {
+    const k = u ? 3 : 0;
+    g.beginPath();
+    g.ellipse(-4, 0, 20 + k, 12 + k, 0, 0, Math.PI * 2);
+    g.fill();
+    poly(g, [[10, 0], [28 + k, -14 - k], [28 + k, 14 + k]]);
+    if (!u) {
+      g.save();
+      g.fillStyle = "rgba(20, 14, 8, 0.9)";
+      dot(g, -14, -3, 3, false);
+      g.restore();
+    }
+  },
+  horns: (g, u) => {
+    const k = u ? 3 : 0;
+    g.beginPath();
+    g.arc(0, 8, 16 + k, 0, Math.PI * 2);
+    g.fill();
+    poly(g, [[-14, -2], [-28 - k, -28 - k], [-4, -10]]);
+    poly(g, [[14, -2], [28 + k, -28 - k], [4, -10]]);
+  },
+  person: (g, u) => {
+    const k = u ? 3 : 0;
+    dot(g, 0, -12, 11, u);
+    g.beginPath();
+    g.moveTo(-22 - k, 26 + k);
+    g.quadraticCurveTo(0, -8, 22 + k, 26 + k);
+    g.closePath();
+    g.fill();
+  },
+  dragon: (g, u) => {
+    const k = u ? 3 : 0;
+    poly(g, [[-22 - k, 16 + k], [-16, -8], [-4, -16], [0, -30 - k], [6, -16], [26 + k, -6], [26 + k, 4], [8, 8], [2, 22 + k]]);
+    if (!u) {
+      g.save();
+      g.fillStyle = "rgba(20, 14, 8, 0.9)";
+      dot(g, 4, -8, 3, false);
+      g.restore();
+    }
+  },
   // trade: a stack of coins; a tied pouch
   coin: (g, u) => {
     const k = u ? 3 : 0;

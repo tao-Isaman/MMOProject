@@ -114,11 +114,10 @@ export class MapUI {
     return !this.win.classList.contains("hidden");
   }
 
-  // M: this map, then the world, then closed.
+  // M: this map, and M again closes it (the world map is a tab in the window).
   cycle(): void {
     this.guide = false;
     if (!this.open) this.show("local");
-    else if (this.view === "local") this.show("world");
     else this.toggle(false);
   }
 

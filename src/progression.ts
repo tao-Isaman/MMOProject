@@ -36,6 +36,12 @@ export const RACE_NAMES: Record<Race, string> = {
   formless: "ไร้รูป", undead: "อันเดด", brute: "สัตว์", plant: "พืช", insect: "แมลง",
   fish: "สัตว์น้ำ", demon: "ปีศาจ", human: "มนุษย์", angel: "เทวะ", dragon: "มังกร",
 };
+// Each kind's badge on a monster's nameplate (an icons.ts glyph and the gem's colour).
+export const RACE_ICONS: Record<Race, [string, string]> = {
+  formless: ["drop", "#5aa8dc"], undead: ["skull", "#8f86b8"], brute: ["paw", "#b98a50"], plant: ["leaf", "#5aae4a"],
+  insect: ["bug", "#a6b532"], fish: ["fish", "#3f97bd"], demon: ["horns", "#b8384e"], human: ["person", "#c9a37a"],
+  angel: ["wing", "#d9c56e"], dragon: ["dragon", "#c4662e"],
+};
 
 // What a skill or passive needs in hand: `weapons` one of these in the main hand; `dual` a
 // one-handed weapon in each hand (true: any, a list: each one of those). A passive counts only
@@ -1180,6 +1186,16 @@ for (const [mid, m] of Object.entries(MASTERIES)) {
       ACTIVES[r.id] = { id: r.id, name: r.name, glyph: r.glyph ?? "star", skill: r.skill, max: 1, source: { mastery: mid, at: r.at }, need: m.weapons && { weapons: m.weapons }, color: "#ffe6a8", desc: r.desc };
     }
   }
+}
+
+// What a skill costs in MP at a rank: the cost it is written with is rank 1's, and each rank
+// after costs more, up to MP_GROWTH more at its top rank (a one-rank skill stays as written).
+export const MP_GROWTH = 0.8;
+export function mpCost(id: string, rank: number): number {
+  const a = ACTIVES[id];
+  if (!a) return 0;
+  const r = Math.min(Math.max(1, rank), a.max);
+  return a.max > 1 ? Math.round(a.skill.mp * (1 + (MP_GROWTH * (r - 1)) / (a.max - 1))) : a.skill.mp;
 }
 
 

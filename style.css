@@ -801,6 +801,10 @@ body.touch .mp-info:empty { display: none; }
 .qt-name { font-size: 13px; font-weight: 600; }
 .qt-step { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .qt-row.ready .qt-step { color: #9df0b4; }
+/* the quest guide: walks to where the step leads */
+.qt-guide, .ql-guide { align-self: flex-start; margin-top: 3px; padding: 2px 9px; border-radius: 7px; border: 1px solid rgba(244, 210, 122, 0.55); background: rgba(244, 210, 122, 0.12); color: var(--gold); font: 600 11px var(--font); cursor: pointer; }
+.qt-guide:hover, .ql-guide:hover { background: rgba(244, 210, 122, 0.25); }
+.ql-guide { margin: 6px 8px 0 0; font-size: 12px; padding: 3px 10px; }
 .qt-more { font-size: 11px; color: var(--muted); }
 body.touch .qt { left: calc(6px + env(safe-area-inset-left)); top: calc(112px + env(safe-area-inset-top)); width: 196px; padding: 6px 8px; }
 body.touch .qt-step { font-size: 11px; }

@@ -40,7 +40,7 @@
 // is aimed at feel it coming and turn on the caster, so the heavy spells cost a risk as well; a
 // spell aimed at a monster (or at a spot with monsters in it) follows that one when it moves.
 
-import { ACTIVES, MASTERIES, needMet, needText } from "./progression";
+import { ACTIVES, MASTERIES, mpCost, needMet, needText } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
 import { mitigate, poisonScale, skillDamage } from "./stats";
 import { shapeTargets } from "./combat";
@@ -201,7 +201,7 @@ export class Skills {
     if (!this.wields(id)) return `ต้องถือ${needText(a.need, (w) => WEAPON_TYPES[w].name)}`;
     if (this.pending || this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
-    if (this.hero.mp < a.skill.mp) return "MP ไม่พอ";
+    if (this.hero.mp < mpCost(id, this.progress.skillRank(id))) return "MP ไม่พอ";
     return null;
   }
 
@@ -261,7 +261,7 @@ export class Skills {
       this.notice(s, dir, aim, lock);
       return null;
     }
-    if (!this.hero.spend(s.mp)) return "MP ไม่พอ";
+    if (!this.hero.spend(mpCost(id, rank))) return "MP ไม่พอ";
     this.goOff(id, s, rank, dir, aim, lock);
     return null;
   }
@@ -361,7 +361,7 @@ export class Skills {
     c.circle.release();
     const p = this.player, m = c.mark?.alive && this.monsters.includes(c.mark) ? c.mark : null;
     if (c.locked && !m) return void this.floaters.add(p.x, p.y, 150, "เป้าหมายหายไป", "info");
-    if (!this.hero.spend(c.s.mp)) return void this.floaters.add(p.x, p.y, 150, "MP ไม่พอ", "info");
+    if (!this.hero.spend(mpCost(c.id, c.rank))) return void this.floaters.add(p.x, p.y, 150, "MP ไม่พอ", "info");
     let { dir, aim } = c;
     if (m) {
       dir = toward(p, m) ?? dir;

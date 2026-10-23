@@ -47,6 +47,9 @@ import type { Spell } from "./spell";
 import { Quests } from "./quests";
 import { TalkDialog, QuestLog, QuestTracker } from "./questui";
 import type { Speaker } from "./questui";
+import { nextHop, questDest } from "./guide";
+import type { Dest } from "./guide";
+import type { QuestDef } from "./quests";
 import { LOOKS, circleTextures } from "./circles";
 import type { Atlas, Img, Textures, View } from "./types";
 
@@ -589,13 +592,13 @@ async function boot(): Promise<void> {
     });
   }
   inv.onChange(refreshBar);
-  let rosterLine = `${progress.level}|${progress.cls}`;
+  let rosterLine = `${progress.level}|${progress.cls}|${progress.job}`;
   progress.onChange(() => {
     refreshBar();
     hero.recompute();
     fitBag();
     // keep the title screen's line for this character up to date
-    const line = `${progress.level}|${progress.cls}`;
+    const line = `${progress.level}|${progress.cls}|${progress.job}`;
     if (line !== rosterLine && progress.cls) {
       rosterLine = line;
       touchCharacter({ level: progress.level, cls: progress.cls });
@@ -734,7 +737,7 @@ async function boot(): Promise<void> {
   const shopUI = new ShopUI(inv, iconFor, () => ({ buy: hero.stats.buyDisc, sell: hero.stats.sellBonus }));
   const talkDialog = new TalkDialog(quests);
   const questLog = new QuestLog(quests);
-  new QuestTracker(quests, () => questLog.toggle(true));
+  const questTracker = new QuestTracker(quests, () => questLog.toggle(true));
   inv.onChange(() => quests.onBag()); // collect steps count the bag
   // the minimap and the map window (M); each map's picture from above is taken while it loads
   // and kept
@@ -878,6 +881,7 @@ async function boot(): Promise<void> {
     loaded();
     travelling = false;
     quests.onEnter(current.id);
+    guideStep(); // a quest guide under way goes on from here
     savePlace(); // the new map at once, in case the page closes right away
     banner.textContent = current.name;
     banner.classList.add("show");
@@ -889,6 +893,49 @@ async function boot(): Promise<void> {
     applyLook();
     hero.recompute();
   });
+
+  // ---- the quest guide: walking to where a quest's step leads, map after map ----
+  // (guideWalk: the walk the guide set going; any other walk, a key or a click, ends the guide)
+  let guide: Dest | null = null;
+  let guideWalk: { path: { x: number; y: number }[]; stuck: number } | null = null;
+  function startGuide(q: QuestDef): void {
+    const d = questDest(quests, q);
+    if (!d) return void floaters.add(player.x, player.y, 160, "เควสนี้ไม่มีที่ให้เดินไป", "info");
+    if (!hero.alive) return;
+    bot.noteManual();
+    player.target = null;
+    guide = d;
+    guideStep();
+  }
+  // The next leg: up to whoever it is in this map, or out by the way that leads on (or to the
+  // ship's captain where only a ship goes there).
+  function guideStep(): void {
+    const d = guide;
+    if (!d || travelling) return;
+    const say = (text: string) => floaters.add(player.x, player.y, 160, text, "info");
+    guide = null;
+    if (current.id === d.map) {
+      if (!d.npc) return say(`ถึง${d.name}แล้ว`);
+      const n = npcs.find((x) => x.spec.id === d.npc);
+      if (!n) return say(`ไม่เห็น${d.name}ในแผนที่นี้`);
+      return talkTo(n);
+    }
+    const hop = nextHop(current.id, d.map);
+    if (!hop) return say(`เดินไปหา${d.name}ไม่ได้ ให้ผู้นำทางวาร์ปไปแทน`);
+    if ("ship" in hop) {
+      const n = npcs.find((x) => x.spec.id === hop.ship);
+      say(`ไป${MAP_NAMES[d.map]}ต้องนั่งเรือ`);
+      return void (n && talkTo(n));
+    }
+    const w = current.warps.find((x) => x.to === hop.walk);
+    const path = w && findPath(player, w, RADIUS);
+    if (!path) return say(`หาทางออกไป${MAP_NAMES[hop.walk]}ไม่เจอ`);
+    walkTo = guideWalk = { path, stuck: 0 };
+    guide = d;
+    say(`นำทางไป${d.name} · ผ่าน${MAP_NAMES[hop.walk]}`);
+  }
+  talkDialog.onGuide = questLog.onGuide = questTracker.onGuide = startGuide;
+  questTracker.render();
 
   // The ground point under the mouse, or null without a mouse.
   function aimPoint(): { x: number; y: number } | null {
@@ -1374,6 +1421,7 @@ async function boot(): Promise<void> {
       bot.noteManual();
       walkTo = null;
     }
+    if (guide && walkTo !== guideWalk && !travelling) guide = null; // walked off somewhere else
     potionCd = Math.max(0, potionCd - dt);
     if ((noteClock -= dt) <= 0 && questNotes.length) {
       floaters.add(player.x, player.y, 165, questNotes.shift()!, "info");
@@ -1556,7 +1604,7 @@ async function boot(): Promise<void> {
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand
     circles: { LOOKS, circleTextures }, // and looking at the cast circles
-    quests, talkDialog, questLog, talk: (id: string) => { const n = npcs.find((x) => x.spec.id === id); if (n) act(n); } };
+    quests, talkDialog, questLog, questTracker, startGuide, get guide() { return guide; }, talk: (id: string) => { const n = npcs.find((x) => x.spec.id === id); if (n) act(n); } };
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).

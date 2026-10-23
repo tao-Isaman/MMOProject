@@ -5,7 +5,7 @@ import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
 import type { Look } from "./ui";
 import { skillIcon, hasArt } from "./icons";
 import {
-  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName,
+  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, mpCost,
 } from "./progression";
 import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
 import type { WeaponId } from "./items";
@@ -13,12 +13,14 @@ import type { Inventory } from "./inventory";
 import { starterForm, defaultStart } from "./starter";
 import type { Start } from "./starter";
 import type { Progress, SkillDef, StatBag, TreeNode } from "./progression";
+import { REGEN_TICK } from "./hero";
 import type { Hero } from "./hero";
 import { skillPower } from "./stats";
 import type { Stats } from "./stats";
 import type { Img } from "./types";
 
-const fmt = (key: string, v: number) => (PERCENT_STATS.has(key) ? `${(v * 100).toFixed(1)}%` : key.endsWith("Regen") ? v.toFixed(1) : Math.round(v).toString());
+// (regen arrives every REGEN_TICK seconds: shown as what each tick brings)
+const fmt = (key: string, v: number) => (PERCENT_STATS.has(key) ? `${(v * 100).toFixed(1)}%` : key.endsWith("Regen") ? `${Math.round(v * REGEN_TICK)} / ${REGEN_TICK} วิ` : Math.round(v).toString());
 
 // Tooltip text for an active skill at a rank.
 export function skillTip(id: string, rank: number): string {
@@ -28,7 +30,7 @@ export function skillTip(id: string, rank: number): string {
   const where = a.source.tree ? `ต้น${TREES[a.source.tree].name}` : `ความเชี่ยวชาญ${MASTERIES[a.source.mastery!].name} ระดับ ${a.source.at}`;
   // what its hits are made of, for the skills that do damage
   const element = s.mult ? ` · ${s.element ? `<span style="color:${ELEMENTS[s.element].color}">ธาตุ${ELEMENTS[s.element].name}</span>` : "ไร้ธาตุ"}` : "";
-  return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}${element}<br>${desc}`;
+  return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>MP ${mpCost(id, r)} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}${element}<br>${desc}`;
 }
 
 // ---- HP / MP / EXP ----
@@ -76,7 +78,7 @@ export class Vitals {
   update(): void {
     const p = this.progress, h = this.hero, s = h.stats;
     const xpNeed = p.xpNeed;
-    const key = [p.level, p.cls, p.free, Math.ceil(h.hp), Math.ceil(h.mp), Math.round(s.maxHp), Math.round(s.maxMp), p.xp,
+    const key = [p.level, p.cls, p.job, p.free, Math.ceil(h.hp), Math.ceil(h.mp), Math.round(s.maxHp), Math.round(s.maxMp), p.xp,
       Math.round(h.shield?.amount ?? 0), h.buffs.map((b) => `${b.id}${Math.ceil(b.t)}`).join()].join("|");
     if (key === this.last) return;
     this.last = key;
@@ -339,6 +341,7 @@ function rankParts(node: TreeNode, r: number): string[] {
   if (s.expose) out.push(`ศัตรูโดนแรงขึ้น ${pct(s.expose(r))}`);
   if (s.blind) out.push(`ตาบอด ${num(s.blind(r))} วิ`);
   if (s.buff) out.push(bagText(s.buff(r)));
+  out.push(`MP ${mpCost(node.id, r)}`);
   return out;
 }
 
@@ -723,7 +726,9 @@ export class SkillUI {
       // the cast time as this hero reads it out (its castRed), and the plain one beside it
       const red = s.type === "flower" ? 0 : this.hero.stats.castRed;
       const cast = s.cast ? ` · ร่าย ${+(s.cast * (1 - red)).toFixed(2)} วิ${red ? ` (ปกติ ${s.cast})` : ""}` : "";
-      el("p", "sk-meta", panel).textContent = `MP ${s.mp} · คูลดาวน์ ${s.cd} วิ${cast}`;
+      // (MP grows with the rank: the next rank's is shown while it can still be raised)
+      const mpNow = mpCost(n.id, Math.max(1, rank)), mpNext = rank && rank < n.max ? mpCost(n.id, rank + 1) : mpNow;
+      el("p", "sk-meta", panel).textContent = `MP ${mpNow}${mpNext !== mpNow ? ` (ระดับถัดไป ${mpNext})` : ""} · คูลดาวน์ ${s.cd} วิ${cast}`;
     }
 
     // requirements

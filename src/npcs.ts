@@ -5,7 +5,6 @@
 import { mapX, mapY } from "./projection";
 import { directionIndex, viewRow } from "./player";
 import type { Img, Vec2, View } from "./types";
-import { isTouch } from "./touch";
 
 const CELL = 96;
 const HEIGHT = 128;   // on-screen height, like the player
@@ -88,7 +87,7 @@ export class Npc {
       ctx.drawImage(this.sheet, 0, row * CELL, CELL, CELL, gx - (CELL / 2) * s, gy - CELL * s, CELL * s, CELL * s);
       ctx.imageSmoothingEnabled = true;
     }
-    // name and role over the head
+    // name and title over the head (the title lights up within talking range)
     const top = gy - HEIGHT * k - 12 * k;
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
@@ -99,7 +98,7 @@ export class Npc {
     ctx.fillStyle = "#ffe6a8";
     ctx.fillText(this.spec.name, gx, top);
     ctx.font = `${12 * k}px Kanit, sans-serif`;
-    const label = near ? `${this.spec.title} · ${isTouch() ? "แตะเพื่อคุย" : "คลิกหรือกด F"}` : this.spec.title;
+    const label = this.spec.title;
     ctx.strokeText(label, gx, top - 17 * k);
     ctx.fillStyle = near ? "#9df0b4" : "#d8d2bf";
     ctx.fillText(label, gx, top - 17 * k);

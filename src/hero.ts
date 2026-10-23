@@ -15,6 +15,9 @@ export interface Buff {
 
 export const RESPAWN_TIME = 4;
 
+// HP and MP regen arrive every this many seconds (potions are what heals at once).
+export const REGEN_TICK = 5;
+
 export class Hero {
   progress: Progress;
   weapon: () => string | null;
@@ -28,6 +31,9 @@ export class Hero {
   hurt = 0;  // red flash after being hit
   stats!: Stats;
   hp = Infinity;
+  regenClock = 0; // seconds since the last regen tick
+  regenHp = 0;    // what has built up since then
+  regenMp = 0;
   mp = Infinity;
 
   // weapon(), offhand(): what each hand holds; worn(): the hat, shoes, rings and trinkets
@@ -78,8 +84,16 @@ export class Hero {
     this.buffs = this.buffs.filter((b) => (b.t -= dt) > 0);
     if (this.buffs.length !== before) this.recompute();
     if (this.shield && (this.shield.t -= dt) <= 0) this.shield = null;
-    this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.hpRegen * dt);
-    this.mp = Math.min(this.stats.maxMp, this.mp + this.stats.mpRegen * dt);
+    // HP and MP come back in a lump every REGEN_TICK seconds: what the rates added up to since
+    // the last tick (a regen buff that ends between ticks still pays in full at the next)
+    this.regenHp += this.stats.hpRegen * dt;
+    this.regenMp += this.stats.mpRegen * dt;
+    if ((this.regenClock += dt) >= REGEN_TICK) {
+      this.regenClock -= REGEN_TICK;
+      this.hp = Math.min(this.stats.maxHp, this.hp + this.regenHp);
+      this.mp = Math.min(this.stats.maxMp, this.mp + this.regenMp);
+      this.regenHp = this.regenMp = 0;
+    }
     return null;
   }
 
