@@ -458,7 +458,7 @@ function edenNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
       lines: ["ยา เสื้อผ้า คัมภีร์ มีครบ เข้ามาดูก่อนได้"] },
     { id: "eden_smith", ...at(690, 790), face: 90, name: "กุนเธอร์", title: "ช่างตีเหล็ก · ตีบวก สร้างไอเทม", role: "smith", look: guard("top_warrior"),
       lines: ["เอาหินนภามาตีบวกอาวุธ หินดารามาตีบวกชุด ข้าคิดค่าจ้างไม่แพง", "มีแร่ หนัง หรือเศษอัญมณีพอเมื่อไร ข้าสร้างอุปกรณ์ให้ได้ ไม่เกินเลเวลของเจ้านะ"] },
-    { id: "sailor", ...at(1105, 515), face: 90, name: "กัปตันมาร์โก", title: "เรือโดยสาร · โยเดีย โอซากิ", role: "travel", ports: ["yodia", "osaki"],
+    { id: "sailor", ...at(1105, 515), face: 90, name: "กัปตันมาร์โก", title: "เรือโดยสาร · โยเดีย โอซากิ เวนิชเซีย ซูโจว", role: "travel", ports: ["yodia", "osaki", "venezia", "suzhou"],
       look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior" },
       lines: ["ขึ้นเรือไหม ลงใต้ไปโยเดีย หรือข้ามทะเลไปเกาะโอซากิ", "เรือไปไอซ์เบิร์กยังไม่เปิด ทะเลเหนือน้ำแข็งเยอะเกินไป"] },
   ];

@@ -2,9 +2,11 @@
 // of the town kits (src/world3d/kits) where their regions say they lie. Eden sits in the
 // central plains on the inner sea, Iceberg in the snowy north, Trunrada on the cold north-east
 // steppe, Kradia on the eastern frontier facing the demon lands, Bahamas in the desert south of
-// the capital, Yodia on the southern coast by the jungle and Osaki on its island out east; the
-// fields lie along the roads between them (src/maps.ts). Only the places that have a map in the
-// game are open.
+// the capital, Yodia on the southern coast by the jungle and Osaki on its island out east; west
+// of Eden the west lands (docs/west_lands.md): the old capital Noa at their crossroads, Highland
+// Hill under the snowy mountains, the port of Suzhou at the far west and Venezia on its lagoon.
+// The fields lie along the roads between them (src/maps.ts). Only the places that have a map in
+// the game are open.
 //
 // Coordinates are the map's own: 1000 x 640, north up. paintWorld() makes the land, sea and
 // scenery once; the window draws the places, names and "you are here" over it every frame.
@@ -43,6 +45,14 @@ export const PLACES: Place[] = [
     desc: "เมืองท่าค้าขายใหญ่อันดับสอง โกดังไม้และด่านศุลกากรเรียงริมท่า บ้านใต้ถุนสูงหลังคามุงจากชิดชายป่า" },
   { id: "osaki", name: "โอซากิ", region: "เกาะทางตะวันออก ไปได้ทางเรือเท่านั้น", kind: "town", open: true, x: 856, y: 558, side: "left",
     desc: "เมืองเกาะแบบญี่ปุ่น หลังคากระเบื้องปลายงอน เสาแดงชาด ซากุระ เจดีย์ห้าชั้น" },
+  { id: "noa", name: "โนอา", region: "เมืองหลวงเก่า ชุมทางแดนตะวันตก", kind: "town", open: true, x: 330, y: 300,
+    desc: "เมืองหลวงแรกของอาณาจักร ตึกหินเก่าแก่แบบอีเดน ซากวังเก่า ท่อส่งน้ำโบราณ ถนนจากทุกทิศของแดนตะวันตกมาบรรจบที่นี่" },
+  { id: "suzhou", name: "ซูโจว", region: "เมืองท่าตะวันตกสุดของทวีป", kind: "town", open: true, x: 104, y: 318,
+    desc: "เมืองท่าแบบจีน หลังคาโค้งปลายงอน เสาแดง คลอง สะพานโค้ง เจดีย์ริมท่า และเรือสำเภาจากทะเลตะวันตก" },
+  { id: "highland", name: "ไฮแลนด์ ฮิล", region: "เชิงเขาหิมะ ถิ่นกำเนิดบรรพบุรุษ", kind: "town", open: true, x: 262, y: 158,
+    desc: "เมืองโบราณเชิงเขาที่หิมะคลุม ตึกหินหลังคาชัน เรือนกระจกปลูกผัก และหินบรรพบุรุษกลางเมือง" },
+  { id: "venezia", name: "เวนิชเซีย", region: "เมืองท่าบนลากูน ชายฝั่งตะวันตกเฉียงใต้", kind: "town", open: true, x: 218, y: 494,
+    desc: "เมืองแห่งสายน้ำ คลองแทนถนน กอนโดลา สะพานโค้ง ตึกสีพาสเทล จัตุรัสมหาวิหาร และท่าเรือใหญ่" },
   // ---- the fields along the roads ----
   { id: "west_woods", name: "ป่าใหญ่ตะวันตก", region: "ตะวันตกของทุ่งหญ้าตะวันตก · Lv 8-15", kind: "field", open: true, x: 418, y: 352, side: "left",
     desc: "ป่าโอ๊กทึบ ลำธารกับสะพานไม้ ลึกเข้าไปมีของดีซ่อนอยู่" },
@@ -82,17 +92,50 @@ export const PLACES: Place[] = [
     desc: "ป่าไผ่ ทุ่งซากุระ และศาลเจ้าร้างบนเนิน" },
   { id: "volcano", name: "ยอดภูเขาไฟ", region: "กลางเกาะโอซากิ · Lv 60-75", kind: "field", open: true, x: 898, y: 528,
     desc: "หินลาวาดำ บ่อน้ำร้อน ควันกำมะถัน และปล่องภูเขาไฟเรืองแดง" },
+  // ---- the west lands (docs/west_lands.md) ----
+  { id: "noa_meadow", name: "ทุ่งหญ้าโนอา", region: "ตะวันออกเฉียงเหนือของโนอา · Lv 30-40", kind: "field", open: true, x: 385, y: 262,
+    desc: "ทุ่งหญ้ากว้างลมแรง ดอกไม้ป่า กำแพงหินเตี้ย กังหันลม และฝูงแกะ" },
+  { id: "noa_plains", name: "ที่ราบใต้โนอา", region: "ระหว่างโนอากับเวนิชเซีย · Lv 40-50", kind: "field", open: true, x: 280, y: 395,
+    desc: "ไร่องุ่นกับทุ่งข้าวสาลี ถนนหินโบราณ หลักไมล์ และซากท่อส่งน้ำ" },
+  { id: "dry_plains", name: "ที่ราบแห้งแล้ง", region: "ระหว่างเวนิชเซียกับบาฮามัส · Lv 50-62", kind: "field", open: true, x: 330, y: 455,
+    desc: "ทุ่งหญ้าแห้งติดทะเลทราย พุ่มไม้แห้ง เนินหินยอดตัด และเส้นทางคาราวาน" },
+  { id: "elder_forest", name: "ป่าโบราณ", region: "ตะวันตกของโนอา · Lv 62-74", kind: "field", open: true, x: 215, y: 300,
+    desc: "ต้นไม้ยักษ์อายุพันปี มอสหนา เห็ดเรืองแสง และศาลหินยุคโนอา" },
+  { id: "rice_terraces", name: "นาขั้นบันได", region: "ใต้ซูโจว · Lv 74-86", kind: "field", open: true, x: 138, y: 385,
+    desc: "นาขั้นบันไดมีน้ำขัง กระท่อมชาวนา ควาย และกังหันน้ำ" },
+  { id: "highland_downs", name: "ที่ราบเนินเขา", region: "ตะวันตกของไฮแลนด์ ฮิล · Lv 86-98", kind: "field", open: true, x: 178, y: 172, side: "left",
+    desc: "เนินลอนคลื่นหิมะบาง กองหินบอกทาง กำแพงหินแห้ง และวงหินโบราณ" },
+  { id: "karst_peaks", name: "ภูผาหินปูน", region: "ระหว่างที่ราบเนินเขากับช่องเขาตะวันตก · Lv 98-110", kind: "field", open: true, x: 118, y: 228,
+    desc: "ยอดเขาหินปูนเป็นแท่ง หมอกลอย ลำธาร และศาลาบนผา" },
+  { id: "ancient_plain", name: "ที่ราบโบราณ", region: "ตะวันออกเฉียงใต้ของเวนิชเซีย · Lv 110-122", kind: "field", open: true, x: 300, y: 522,
+    desc: "ซากเมืองยุคก่อน รูปปั้นยักษ์ล้ม แนวเสา และประตูชัยพัง" },
+  { id: "frozen_river", name: "แม่น้ำเยือกแข็ง", region: "ระหว่างโนอากับไฮแลนด์ ฮิล · Lv 122-134", kind: "field", open: true, x: 300, y: 222,
+    desc: "แม่น้ำกว้างที่แข็งเป็นน้ำแข็ง สะพานหินเก่าครึ่งพัง ฝั่งเหนือหิมะเริ่มตก" },
+  { id: "west_pass", name: "ช่องเขาตะวันตก", region: "ระหว่างป่าโบราณกับซูโจว · Lv 134-146", kind: "field", open: true, x: 140, y: 285,
+    desc: "ทางคดเคี้ยวผ่านหน้าผา ด่านเก่า และสะพานเชือก" },
+  { id: "tangled_hills", name: "เนินเขาวงกต", region: "ตะวันออกของไฮแลนด์ ฮิล · Lv 146-158", kind: "field", open: true, x: 350, y: 140,
+    desc: "เนินและหุบแคบซ้อนกันเหมือนเขาวงกต ไต่ขึ้นลงหลายชั้น" },
+  { id: "lagoon_marsh", name: "บึงลากูน", region: "ระหว่างนาขั้นบันไดกับที่ราบใต้โนอา · Lv 158-170", kind: "field", open: true, x: 200, y: 425,
+    desc: "บึงกว้าง กกสูง ทางเดินไม้ ซากบ้านใต้ถุนสูง และหมอกพิษ" },
+  { id: "royal_necropolis", name: "สุสานหลวงโบราณ", region: "ระหว่างที่ราบโบราณกับป่าดิบแดนใต้ · Lv 170-182", kind: "field", open: true, x: 375, y: 548,
+    desc: "สุสานกษัตริย์ยุคแรก หลุมศพหิน รูปปั้นเฝ้าสุสาน ที่ป่าแดนใต้เริ่มกลืน" },
+  { id: "north_cliffs", name: "หน้าผาทะเลเหนือ", region: "เหนือไฮแลนด์ ฮิล · Lv 182-192", kind: "field", open: true, x: 232, y: 92,
+    desc: "หน้าผาริมทะเลน้ำแข็ง แท่งหินกลางทะเล และประภาคารร้าง" },
+  { id: "west_cape", name: "แหลมทะเลตะวันตก", region: "ตะวันตกสุดของทวีป · Lv 188-200", kind: "field", open: true, x: 58, y: 360,
+    desc: "แหลมสุดทวีป ทะเลคลั่ง ซากเรือ และศาลมังกรทะเล" },
 ];
 
 // names over the land and sea
 export const REGIONS: { x: number; y: number; text: string; sea?: boolean }[] = [
-  { x: 300, y: 112, text: "แดนเหนือ" },
+  { x: 372, y: 104, text: "แดนเหนือ" },
+  { x: 200, y: 350, text: "แดนตะวันตก" },
+  { x: 160, y: 132, text: "ที่ราบสูง" },
   { x: 790, y: 108, text: "ทุ่งสเตปป์" },
   { x: 885, y: 300, text: "ดินแดนอสูร" },
   { x: 770, y: 420, text: "ชายแดนตะวันออก" },
-  { x: 300, y: 290, text: "ที่ราบภาคกลาง" },
-  { x: 360, y: 505, text: "ทะเลทราย" },
-  { x: 410, y: 572, text: "ป่าแดนใต้" },
+  { x: 446, y: 298, text: "ที่ราบภาคกลาง" },
+  { x: 392, y: 494, text: "ทะเลทราย" },
+  { x: 432, y: 580, text: "ป่าแดนใต้" },
   { x: 618, y: 360, text: "ทะเลใน", sea: true },
   { x: 700, y: 22, text: "ทะเลเหนือ", sea: true },
   { x: 770, y: 600, text: "มหาสมุทรใต้", sea: true },
@@ -202,6 +245,11 @@ export function paintWorld(k: number): HTMLCanvasElement {
   };
   blob(450, 320, 130, "rgba(170, 204, 118, 1)");    // central plains, a little lighter
   blob(200, 300, 120, "rgba(110, 160, 86, 1)");     // western woods
+  blob(320, 400, 60, "rgba(176, 196, 112, 1)");     // Noa's farmland
+  blob(330, 450, 55, "rgba(204, 188, 128, 1)");     // the dry plains
+  blob(200, 430, 45, "rgba(96, 140, 104, 1)");      // the lagoon marsh
+  blob(140, 385, 40, "rgba(150, 196, 104, 1)");     // rice terraces
+  blob(310, 535, 50, "rgba(184, 178, 136, 1)");     // the ancient plain
   blob(440, 480, 120, "rgba(230, 206, 146, 1)");    // desert
   blob(370, 460, 90, "rgba(226, 198, 132, 1)");
   blob(520, 470, 70, "rgba(226, 204, 140, 1)");
@@ -213,7 +261,7 @@ export function paintWorld(k: number): HTMLCanvasElement {
   blob(780, 340, 90, "rgba(132, 150, 118, 1)");     // the frontier
   blob(895, 320, 100, "rgba(92, 74, 102, 1)");      // demon lands
   blob(900, 400, 70, "rgba(98, 76, 104, 1)");
-  for (const [x, y, r] of [[300, 80, 170], [440, 60, 150], [180, 120, 110], [580, 70, 110]]) blob(x, y, r, "rgba(238, 243, 246, 1)"); // snow
+  for (const [x, y, r] of [[300, 80, 170], [440, 60, 150], [180, 120, 110], [580, 70, 110], [300, 200, 50]]) blob(x, y, r, "rgba(238, 243, 246, 1)"); // snow
   blob(872, 550, 40, "rgba(166, 200, 120, 1)");     // Osaki's green island
   // a painterly grain
   for (let i = 0; i < 5000; i++) {
@@ -248,6 +296,12 @@ export function paintWorld(k: number): HTMLCanvasElement {
   g.ellipse(432, 470, 7, 4, 0.3, 0, Math.PI * 2);
   g.fill();
 
+  // Venezia's lagoon
+  g.fillStyle = "#4f9cc4";
+  g.beginPath();
+  g.ellipse(214, 470, 16, 9, 0.6, 0, Math.PI * 2);
+  g.fill();
+
   // ---- rivers ----
   const river = (pts: Pt[]) => {
     for (const [w, col] of [[3, "#3d7fa3"], [1.4, "#7cc0df"]] as [number, string][]) {
@@ -265,7 +319,8 @@ export function paintWorld(k: number): HTMLCanvasElement {
     }
   };
   river([[430, 165], [450, 220], [475, 270], [505, 300], [536, 312]]);
-  river([[300, 150], [255, 205], [190, 245], [140, 268], [88, 272]]);
+  river([[345, 170], [318, 205], [285, 222], [235, 236], [180, 250], [135, 266], [88, 272]]);
+  river([[322, 318], [296, 365], [262, 420], [230, 462]]);
   river([[845, 255], [800, 262], [745, 290], [700, 318]]);
   river([[640, 120], [610, 160], [600, 200], [612, 238]]);
   g.restore();
@@ -318,14 +373,16 @@ export function paintWorld(k: number): HTMLCanvasElement {
       else tree(x, y, "#3f7a3c", "#79b062");
     }
   };
-  forest(200, 300, 62, 50, 46, "wood");
+  forest(200, 300, 42, 34, 34, "wood");
+  forest(372, 548, 26, 14, 12, "jungle");
+  forest(120, 225, 20, 16, 8, "pine");
   forest(150, 400, 30, 30, 14, "wood");
   forest(420, 220, 34, 22, 16, "wood");
   forest(470, 575, 70, 22, 44, "jungle");
   forest(370, 560, 40, 20, 22, "jungle");
   forest(585, 545, 30, 20, 16, "jungle");
   forest(590, 112, 40, 22, 22, "pine");
-  forest(250, 130, 40, 18, 16, "pine");
+  forest(224, 204, 24, 10, 9, "pine");
   forest(760, 380, 26, 18, 12, "wood");
   forest(878, 548, 14, 8, 8, "wood");
   const mountain = (x: number, y: number, h: number, rock: [string, string], snow: boolean) => glyphs.push({ x, y, draw: () => {
@@ -373,9 +430,11 @@ export function paintWorld(k: number): HTMLCanvasElement {
       }
     }
   };
-  range([[190, 160], [300, 145], [390, 158], [470, 172], [560, 160], [640, 175]], 15, [14, 24], ["#b9ab8f", "#887a63"], true);
+  range([[300, 128], [390, 158], [470, 172], [560, 160], [640, 175]], 15, [14, 24], ["#b9ab8f", "#887a63"], true);
+  // the karst towers west of the highlands
+  for (const [x, y] of [[104, 214], [116, 236], [128, 218], [110, 246], [132, 240], [98, 230]]) mountain(x, y, 11 + rnd() * 5, ["#9fae8c", "#748463"], false);
   range([[870, 190], [858, 260], [848, 330], [830, 400]], 12, [12, 21], ["#8a7d8c", "#5f5463"], false);
-  range([[150, 230], [138, 290], [128, 340]], 18, [9, 14], ["#a69a7e", "#7d715b"], false);
+  range([[160, 262], [150, 300], [140, 340]], 14, [9, 14], ["#a69a7e", "#7d715b"], false);
   range([[680, 520], [700, 470]], 14, [7, 10], ["#a69a7e", "#7d715b"], false);
   glyphs.sort((a, b) => a.y - b.y);
   for (const gl of glyphs) gl.draw();
@@ -414,9 +473,25 @@ export function paintWorld(k: number): HTMLCanvasElement {
   road([[445, 458], [512, 462]]);
   road([[505, 584], [566, 584]]);
   road([[856, 558], [884, 546], [898, 528]]);
+  // the west lands: Noa at the crossroads
+  road([[418, 352], [380, 328], [330, 300]]);
+  road([[330, 300], [385, 262]]);
+  road([[330, 300], [300, 222], [262, 158]]);
+  road([[262, 158], [232, 92]]);
+  road([[262, 158], [178, 172], [118, 228], [140, 285]]);
+  road([[262, 158], [350, 140], [410, 165], [466, 182]]);
+  road([[330, 300], [215, 300], [140, 285], [104, 318]]);
+  road([[104, 318], [58, 360]]);
+  road([[104, 318], [138, 385], [200, 425], [280, 395]]);
+  road([[330, 300], [280, 395], [218, 494]]);
+  road([[218, 494], [330, 455], [445, 458]]);
+  road([[218, 494], [300, 522], [375, 548], [470, 524]]);
   // the ships out of Eden's harbour
   sail([[540, 340], [600, 420], [690, 495], [790, 525], [836, 552]]);
   sail([[540, 340], [610, 430], [680, 510], [665, 600], [570, 622], [510, 610]]);
+  // on west along the south coast to Venezia, and up the west coast to Suzhou
+  sail([[510, 612], [420, 630], [320, 616], [262, 590], [226, 556], [206, 516]]);
+  sail([[206, 516], [160, 482], [120, 444], [80, 418], [40, 392], [30, 350], [60, 322], [92, 318]]);
 
   // ---- a compass rose and the frame ----
   const cx = 80, cy = 560;

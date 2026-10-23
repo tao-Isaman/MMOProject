@@ -19,7 +19,7 @@ import type { NpcSpec } from "./npcs";
 import type { Level } from "./world3d/view";
 import type { Vec2 } from "./types";
 
-export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki";
+export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki" | "noa" | "suzhou" | "highland" | "venezia";
 
 // The fields: name, monster levels, and the builder (src/world3d/field_<id>.ts).
 export const FIELDS = {
@@ -42,17 +42,33 @@ export const FIELDS = {
   mangrove_coast: { name: "ชายฝั่งป่าชายเลน", levels: [35, 45], load: () => import("./world3d/field_mangrove_coast") },
   sakura_hills: { name: "เนินซากุระและป่าไผ่", levels: [45, 60], load: () => import("./world3d/field_sakura_hills") },
   volcano: { name: "ยอดภูเขาไฟ", levels: [60, 75], load: () => import("./world3d/field_volcano") },
+  // the west lands (docs/west_lands.md): fields next door to each other far apart in level
+  noa_meadow: { name: "ทุ่งหญ้าโนอา", levels: [30, 40], load: () => import("./world3d/field_noa_meadow") },
+  noa_plains: { name: "ที่ราบใต้โนอา", levels: [40, 50], load: () => import("./world3d/field_noa_plains") },
+  dry_plains: { name: "ที่ราบแห้งแล้ง", levels: [50, 62], load: () => import("./world3d/field_dry_plains") },
+  elder_forest: { name: "ป่าโบราณ", levels: [62, 74], load: () => import("./world3d/field_elder_forest") },
+  rice_terraces: { name: "นาขั้นบันได", levels: [74, 86], load: () => import("./world3d/field_rice_terraces") },
+  highland_downs: { name: "ที่ราบเนินเขา", levels: [86, 98], load: () => import("./world3d/field_highland_downs") },
+  karst_peaks: { name: "ภูผาหินปูน", levels: [98, 110], load: () => import("./world3d/field_karst_peaks") },
+  ancient_plain: { name: "ที่ราบโบราณ", levels: [110, 122], load: () => import("./world3d/field_ancient_plain") },
+  frozen_river: { name: "แม่น้ำเยือกแข็ง", levels: [122, 134], load: () => import("./world3d/field_frozen_river") },
+  west_pass: { name: "ช่องเขาตะวันตก", levels: [134, 146], load: () => import("./world3d/field_west_pass") },
+  tangled_hills: { name: "เนินเขาวงกต", levels: [146, 158], load: () => import("./world3d/field_tangled_hills") },
+  lagoon_marsh: { name: "บึงลากูน", levels: [158, 170], load: () => import("./world3d/field_lagoon_marsh") },
+  royal_necropolis: { name: "สุสานหลวงโบราณ", levels: [170, 182], load: () => import("./world3d/field_royal_necropolis") },
+  north_cliffs: { name: "หน้าผาทะเลเหนือ", levels: [182, 192], load: () => import("./world3d/field_north_cliffs") },
+  west_cape: { name: "แหลมทะเลตะวันตก", levels: [188, 200], load: () => import("./world3d/field_west_cape") },
 } satisfies Record<string, { name: string; levels: [number, number]; load: () => Promise<{ build: (quality: { flowers: number }) => Town }> }>;
 export type FieldId = keyof typeof FIELDS;
 export type MapId = TownId | FieldId | "field";
 
 export const MAP_NAMES = {
   eden: "อีเดน", field: "ทุ่งหญ้าตะวันตก", iceberg: "ไอซ์เบิร์ก", trunrada: "ทรุนราดา", kradia: "คราเดีย",
-  bahamas: "บาฮามัส", yodia: "โยเดีย", osaki: "โอซากิ",
+  bahamas: "บาฮามัส", yodia: "โยเดีย", osaki: "โอซากิ", noa: "โนอา", suzhou: "ซูโจว", highland: "ไฮแลนด์ ฮิล", venezia: "เวนิชเซีย",
   ...(Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.name])) as Record<FieldId, string>),
 } as Record<MapId, string>;
 // the towns a travel guide can send you to (every town)
-export const TOWNS: TownId[] = ["eden", "iceberg", "trunrada", "kradia", "bahamas", "yodia", "osaki"];
+export const TOWNS: TownId[] = ["eden", "iceberg", "trunrada", "kradia", "bahamas", "yodia", "osaki", "noa", "suzhou", "highland", "venezia"];
 
 // Each town's builder; all but Eden load with their kits when first entered.
 const BUILDERS: Record<TownId, () => Promise<(quality: { flowers: number }) => Town>> = {
@@ -63,6 +79,10 @@ const BUILDERS: Record<TownId, () => Promise<(quality: { flowers: number }) => T
   bahamas: () => import("./world3d/town_bahamas").then((m) => m.buildBahamas),
   yodia: () => import("./world3d/town_yodia").then((m) => m.buildYodia),
   osaki: () => import("./world3d/town_osaki").then((m) => m.buildOsaki),
+  noa: () => import("./world3d/town_noa").then((m) => m.buildNoa),
+  suzhou: () => import("./world3d/town_suzhou").then((m) => m.buildSuzhou),
+  highland: () => import("./world3d/town_highland").then((m) => m.buildHighland),
+  venezia: () => import("./world3d/town_venezia").then((m) => m.buildVenezia),
 };
 
 // A name written on the map window: a place (big), a corner of it (small) or a gate.

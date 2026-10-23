@@ -471,7 +471,7 @@ function yodiaNpcs(): NpcSpec[] {
     { id: "yodia_fruit", ...at(500, 384), face: 180, name: "มะปราง", title: "แม่ค้าผลไม้", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "mint", eyes: "teal", top: "top_mint", bottom: "bottom_forest" },
       lines: ["มะม่วง สับปะรด มะพร้าว กล้วย ส่งตรงจากสวนชายป่า", "ลานตลาดนี้คึกคักที่สุดตอนเรือสินค้าเข้าเทียบท่า"] },
-    { id: "yodia_captain", ...at(505, 690), face: -45, name: "กัปตันสมุทร", title: "เรือโดยสาร · อีเดน", role: "travel", ports: ["eden"],
+    { id: "yodia_captain", ...at(505, 690), face: -45, name: "กัปตันสมุทร", title: "เรือโดยสาร · อีเดน เวนิชเซีย", role: "travel", ports: ["eden", "venezia"],
       look: { gender: "male", hair: "", hairColor: "silver", eyes: "blue", top: "top_warrior_navy", bottom: "bottom_warrior_black" },
       lines: ["โยเดียเป็นเมืองท่าใหญ่อันดับสองของอาณาจักร รองจากอีเดนเท่านั้น", "ขึ้นเรือข้าไหม แล่นขึ้นเหนือไปท่าเรืออีเดน เมืองหลวงของอาณาจักร", "ไม้สักกับเครื่องเทศจากโยเดียขายดีทุกท่า"] },
     { id: "yodia_customs", ...at(470, 658), face: 180, name: "ขุนด่านเพชร", title: "นายด่านศุลกากร", role: "talk",

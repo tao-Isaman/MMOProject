@@ -149,14 +149,15 @@ export class FieldBuilder extends TownBuilder {
 }
 
 // A placeholder field until the real one is built: flat grass, a ring of trees, a way back to
-// each map next door along the edges.
-export function placeholderField(seed: number, ways: { to: string; side: "n" | "s" | "e" | "w" }[]): Town {
+// each map next door along the edges (`shift` cm along its edge from the middle, for two on a side).
+export function placeholderField(seed: number, ways: { to: string; side: "n" | "s" | "e" | "w"; shift?: number }[]): Town {
   const f = new FieldBuilder(seed, {});
   const R = 4000;
   const ground = f.ground({ area: { x0: -R - 3000, y0: -R - 3000, x1: R + 3000, y1: R + 3000 }, roads: [] as Poly[], plazas: [] });
   for (const w of ways) {
     const d: XY = w.side === "n" ? [1, 0] : w.side === "s" ? [-1, 0] : w.side === "w" ? [0, 1] : [0, -1];
-    f.exit(w.to, [d[0] * (R - 200), d[1] * (R - 200)], [d[0] * (R - 900), d[1] * (R - 900)]);
+    const sx = (w.shift ?? 0) * Math.abs(d[1]), sy = (w.shift ?? 0) * Math.abs(d[0]);
+    f.exit(w.to, [d[0] * (R - 200) + sx, d[1] * (R - 200) + sy], [d[0] * (R - 900) + sx, d[1] * (R - 900) + sy]);
   }
   f.woods({ x0: -R - 3000, x1: R + 3000, y0: -R - 3000, y1: R + 3000 }, ["BigOak", "RoundTree", "SmallTree"], (x, y) => Math.abs(x) < R + 300 && Math.abs(y) < R + 300, { count: 160 });
   f.monsterSpots(ground, { x0: -R + 400, x1: R - 400, y0: -R + 400, y1: R - 400 });
