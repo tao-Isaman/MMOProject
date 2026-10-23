@@ -154,6 +154,12 @@ export function rollDie(stats: { luck: number }): number {
   const first = roll();
   return Math.random() < Math.min(0.8, Math.max(0, stats.luck) / 100) ? Math.max(first, roll()) : first;
 }
+// A coin (the magician's): heads or tails, with luck now and then flipped again on a tails the
+// way a die is rolled twice (at most 70% heads).
+export function flipCoin(stats: { luck: number }): boolean {
+  const heads = () => Math.random() < 0.5;
+  return heads() || (Math.random() < Math.min(0.8, Math.max(0, stats.luck) / 100) && heads());
+}
 
 // How strong the player's poison is: poison damage stats, doubled at poison element 50.
 export function poisonScale(stats: Stats, elements: Record<string, number>): number {

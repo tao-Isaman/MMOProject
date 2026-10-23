@@ -43,6 +43,7 @@
 //   combo   more damage right after another skill (the chain: casts below)
 //   manaBurn  more on casters, and the monster's casting and shooting stop (`silence`)
 //   terrain on a buff: stats by the kind of map (hero.ts)
+//   coin    a coin flipped on every hit, as `dice` rolls a die: heads more, tails as much less
 //
 // A spell with a cast time (SkillDef.cast, shortened by the castRed stat) is read out first: the
 // caster stands still under a cast bar, and it goes off when the bar fills, only then costing its
@@ -53,7 +54,7 @@
 import { ACTIVES, AUTOCAST, MASTERIES, mpCost, needMet, needText } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
 import type { Allies } from "./allies";
-import { mitigate, poisonScale, skillDamage, lucky, rollDie } from "./stats";
+import { mitigate, poisonScale, skillDamage, lucky, rollDie, flipCoin } from "./stats";
 import { shapeTargets } from "./combat";
 import type { Combat, Floaters } from "./combat";
 import { AIR_GLOW, GROUND_GLOW, SORTED, rand } from "./particles";
@@ -517,6 +518,12 @@ export class Skills {
       const die = rollDie(this.hero.stats);
       more *= die / 3.5;
       this.floaters.add(m.x, m.y, m.height + 50, `เต๋า ${die}`, die >= 5 ? "level" : "info");
+    }
+    // a coin on every hit: heads, `coin` more; tails, as much less
+    if (s.coin) {
+      const heads = flipCoin(this.hero.stats);
+      more *= heads ? 1 + s.coin(rank) : 1 - s.coin(rank);
+      this.floaters.add(m.x, m.y, m.height + (s.dice ? 75 : 50), heads ? "หัว!" : "ก้อย", heads ? "level" : "info");
     }
     // a mana burn: harder on a caster, and whatever casts or shoots stops for a moment
     if (s.manaBurn) {

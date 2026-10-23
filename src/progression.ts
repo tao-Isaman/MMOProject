@@ -167,6 +167,9 @@ export interface SkillDef {
   // of map she is on (they change as she goes from map to map)
   terrain?: ByRank<Partial<Record<TerrainKind, StatBag>>>;
   make?: { item: string; count: ByRank<number>; from: [string, number][] };
+  // a coin is flipped on every hit (flipCoin; luck helps it come up heads): heads, the hit does
+  // this much more (0.5: +50%); tails, as much less
+  coin?: ByRank<number>;
 }
 
 export interface TreeNode {

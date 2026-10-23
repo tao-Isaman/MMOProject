@@ -121,7 +121,7 @@ for (const [id, t] of Object.entries(P.TREES)) {
       if (s.element && !P.ELEMENT_IDS.includes(s.element)) bad(where, `element ${s.element}`);
       if (s.enchant && !P.ELEMENT_IDS.includes(s.enchant)) bad(where, `enchant ${s.enchant}`);
       for (const r of Object.keys(s.vs || {})) if (!P.RACES.includes(r)) bad(where, `race ${r}`);
-      for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance"]) {
+      for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance", "coin"]) {
         if (s[key] === undefined) continue;
         if (typeof s[key] !== "function") { bad(where, `${key} must be a function of rank`); continue; }
         for (let k = 1; k <= n.max; k++) if (badNum(s[key](k))) bad(where, `${key}(${k}) = ${s[key](k)}`);
