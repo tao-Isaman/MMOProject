@@ -49,6 +49,7 @@ type Offsets = Record<string, [number, number][][]>; // clip -> direction -> fra
 export interface HandAnchor {
   r: [number, number] | null;
   l: [number, number] | null;
+  lh?: number; // the off hand is hidden behind the body ("l" borrowed from a frame where it shows)
   c: [number, number];
 }
 export type Hands = Record<string, HandAnchor[][]>;
@@ -594,7 +595,10 @@ export class Looks {
       const style = this.hair.styles[hair];
       sheets = this.attachHead(sheets, def.head, head, style, moved, style.from === topBody ? 0 : def.lift);
     }
-    return { sheets, hands: shiftHands(def.hands, moved), builtin: topBody === bottomBody ? def.builtin ?? {} : {} };
+    // a mixed outfit's top still swings the sword drawn into it (so every weapon takes the thrust
+    // instead, see Player.clipFor), but its bow is cut at the waist: the bow's art is drawn over
+    const builtin = same ? def.builtin ?? {} : def.builtin?.swing ? { swing: true } : {};
+    return { sheets, hands: shiftHands(def.hands, moved), builtin };
   }
 
   // Which frame of the bottom's clip goes with frame f of the top's (clips may differ in length).
@@ -706,7 +710,7 @@ function shiftHands(hands: Hands | undefined, moved: (clip: string, dir: number,
       const dy = Math.round(moved(clip, d, f));
       if (!dy) return a;
       const mv = (p: [number, number] | null): [number, number] | null => (p ? [p[0], p[1] + dy] : null);
-      return { r: mv(a.r), l: mv(a.l), c: mv(a.c)! };
+      return { ...a, r: mv(a.r), l: mv(a.l), c: mv(a.c)! };
     }));
   }
   return out;

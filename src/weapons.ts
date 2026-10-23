@@ -16,17 +16,18 @@ export interface WeaponArt {
   grip: number;     // fraction of the sprite's height from the top where the hand holds it
   art?: string;     // another weapon's image
   pair?: boolean;   // one in each hand
+  twoHand?: boolean; // held in both hands: the grip between them, along the line through them
   scale?: number;
   upright?: boolean;
 }
 
 export const WEAPON_ART: Record<WeaponId, WeaponArt> = {
   sword_1h: { grip: 0.81 },
-  sword_2h: { grip: 0.83 },
+  sword_2h: { grip: 0.83, twoHand: true },
   axe: { grip: 0.82 },
   mace: { grip: 0.84 },
   spear_1h: { grip: 0.75 },
-  spear_2h: { grip: 0.69 },
+  spear_2h: { grip: 0.69, twoHand: true },
   dagger: { grip: 0.75 },
   staff: { grip: 0.6, scale: 0.75, upright: true }, // drawn at the 128 px sprite's pixel size
   bow: { grip: 0.5, upright: true },
@@ -44,7 +45,7 @@ export function weaponAngle(h: [number, number], c: [number, number], facingAngl
   return lerpAngle(facingAngle, arm, w);
 }
 
-function lerpAngle(a: number, b: number, t: number): number {
+export function lerpAngle(a: number, b: number, t: number): number {
   const d = ((b - a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
   return a + d * t;
 }

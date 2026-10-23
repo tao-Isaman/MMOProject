@@ -9,7 +9,7 @@
 import { mapX, mapY, yawEighths } from "./projection";
 import { resolve } from "./world";
 import { attackRange } from "./combat";
-import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip } from "./weapons";
+import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip, lerpAngle } from "./weapons";
 import { silhouette } from "./recolor";
 import type { WeaponArt } from "./weapons";
 import type { WeaponType } from "./items";
@@ -115,8 +115,8 @@ export class Player {
     this.gemGlow = gemGlow;
   }
 
-  // builtin: clips whose Oriverse animation already draws the weapon (the mage's swing has a
-  // sword, her shoot a bow); other bodies get the weapon art drawn in for those too
+  // builtin: clips whose Oriverse animation already draws a weapon (the swing a sword, the shoot
+  // a bow), played as drawn only with that weapon in hand (see clipFor)
   setSheets(sheets: Record<string, Img>, anchors: Hands | undefined, builtin: Record<string, boolean> = {}): void {
     this.sheets = sheets;
     this.flashes = {};
@@ -146,10 +146,18 @@ export class Player {
   }
 
   // A skill's animation: play `motion` toward `dir` without a weapon hit of its own.
+  // The clip to play `motion` with w in hand: one with a weapon drawn in (builtin: the swing's
+  // sword, the shoot's bow) only for the weapon it draws, since anything else in hand would show
+  // beside it (a third weapon with an off hand); otherwise the empty-handed thrust.
+  clipFor(motion: string, w: AttackWeapon): string {
+    return !this.sheets[motion] || (this.builtin[motion] && !(w.builtin && w.motion === motion)) ? "thrust" : motion;
+  }
+
   startMotion(motion: string, dir: Vec2 | null, w: AttackWeapon, dur = 0.45): void {
-    const sheet = this.sheets[motion] ?? this.sheets.thrust;
+    motion = this.clipFor(motion, w);
+    const sheet = this.sheets[motion];
     if (dir) this.dir = directionIndex(dir.x, dir.y);
-    this.attack = { t: 0, motion: this.sheets[motion] ? motion : "thrust", dur, frames: sheet.width / this.cell, hit: true,
+    this.attack = { t: 0, motion, dur, frames: sheet.width / this.cell, hit: true,
       w: { ...w, motion, skill: true }, aim: dir ?? this.facing() };
   }
 
@@ -190,11 +198,11 @@ export class Player {
         aim = { x: dx / d, y: dy / d };
       }
     }
-    const sheet = this.sheets[w.motion];
-    const frames = sheet.width / this.cell;
+    const motion = this.clipFor(w.motion, w);
+    const frames = this.sheets[motion].width / this.cell;
     // the clip plays faster for quick weapons
     const dur = Math.min(w.interval * 0.92, ATTACK_TIME);
-    this.attack = { t: 0, motion: w.motion, dur, frames, hit: false, w, aim };
+    this.attack = { t: 0, motion, dur, frames, hit: false, w, aim };
     this.cooldown = w.interval;
     return true;
   }
@@ -282,7 +290,8 @@ export class Player {
     const cols = (s: Img) => s.width / this.cell;
     if (this.cast && this.cast.t < this.cast.duration + 0.5) {
       // raise the hands while the cast bar fills, then let them fall on release
-      const clip = this.sheets.cast ? "cast" : "swing";
+      // (without a cast clip, the swing unless a sword is drawn into it: hers is drawn in hand)
+      const clip = this.sheets.cast ? "cast" : this.builtin.swing ? "thrust" : "swing";
       const n = cols(this.sheets[clip]);
       const c = this.cast;
       const windup = Math.floor(WINDUP_AT * n);
@@ -337,21 +346,34 @@ export class Player {
     const hand = showWeapon ? this.handFor(clip, col) : null;
     const row = viewRow(this.dir);
     const behind = row >= 3 && row <= 5;
-    const drawHeld = () => {
-      if (!hand) return;
-      const toScreen = ([hx, hy]: [number, number]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
-      const facing = screenAngle(this.aimDir());
+    const toScreen = ([hx, hy]: [number, number]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
+    const facing = screenAngle(this.aimDir());
+    // an off hand hidden behind her (or never seen in this direction) holds its gear behind her
+    const offHidden = !hand?.l || !!hand.lh;
+    const offBehind = behind || offHidden;
+    const drawOff = () => {
+      if (!hand || !offhand) return;
+      const l: [number, number] = hand.l ?? [hand.c[0], hand.c[1] + 4];
+      const [lx, ly] = toScreen(l);
+      drawWeapon(ctx, offhand.img, offhand.art, lx, ly, weaponAngle(l, hand.c, facing), s * (offhand.art.scale ?? 1));
+    };
+    const drawMain = () => {
+      if (!hand || !weapon || !mainShown) return;
       // swords drawn into a swing come down from overhead like axes
       const chop = a && (a.w.chop || a.motion === "swing");
-      const angle = chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
-      const [x, y] = toScreen(hand.r);
-      // the off hand: its own anchor, or mirrored beside the body
-      if (offhand) {
-        const l: [number, number] = hand.l ?? [2 * hand.c[0] - hand.r[0], hand.r[1]];
-        const [lx, ly] = toScreen(l);
-        drawWeapon(ctx, offhand.img, offhand.art, lx, ly, weaponAngle(l, hand.c, facing), s * (offhand.art.scale ?? 1));
+      let angle = chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
+      let [x, y] = toScreen(hand.r);
+      // a two-handed sword or spear is held in both hands: its grip between them, lying along
+      // the line through them (the way of that line its swing points), not off one hand alone
+      if (weapon.art.twoHand && hand.l && !offHidden) {
+        const [rx, ry] = hand.r, [lx, ly] = hand.l, d = Math.hypot(rx - lx, ry - ly);
+        [x, y] = toScreen([(rx + lx) / 2, (ry + ly) / 2]);
+        if (d >= 4) {
+          const along = Math.atan2(rx - lx, -(ry - ly));
+          const turn = Math.abs(((along - angle + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+          angle = lerpAngle(angle, turn <= Math.PI / 2 ? along : along + Math.PI, Math.min(1, (d - 4) / 6));
+        }
       }
-      if (!weapon || !mainShown) return;
       const wscale = s * (weapon.art.scale ?? 1);
       drawWeapon(ctx, weapon.img, weapon.art, x, y, angle, wscale);
       if (weapon.art.pair && hand.l) {
@@ -368,7 +390,8 @@ export class Player {
     };
 
     if (this.dead) ctx.globalAlpha = 0.45;
-    if (behind) drawHeld();
+    if (offBehind) drawOff();
+    if (behind) drawMain();
     // pivot (bottom centre of the cell) on the feet; breathing stretches up from the ground
     ctx.setTransform(s, 0, 0, s * breathe, gx, fy);
     ctx.drawImage(sheet, col * cell, row * cell, cell, cell, -cell / 2, -cell, cell, cell);
@@ -379,7 +402,8 @@ export class Player {
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
-    if (!behind) drawHeld();
+    if (!offBehind) drawOff();
+    if (!behind) drawMain();
 
     if (this.casting) this.drawCastBar(ctx, gx, fy - HEIGHT * HEAD * k - 6 * k, k);
   }
@@ -395,12 +419,14 @@ export class Player {
   }
 
   // Hand positions (sprite px) for a frame; falls back to a point beside the body.
-  handFor(clip: string, col: number): { r: [number, number]; l: [number, number] | null; c: [number, number] } {
+  // lh: the off hand is hidden behind the body in this frame (its place borrowed from a frame
+  // where it shows).
+  handFor(clip: string, col: number): { r: [number, number]; l: [number, number] | null; lh?: number; c: [number, number] } {
     const row = viewRow(this.dir);
     const a = this.anchors?.[clip]?.[row]?.[col];
     const c: [number, number] = a?.c ?? [this.cell / 2, this.cell * 0.62];
     const r: [number, number] = a?.r ?? [c[0] + (row >= 5 ? 10 : -10), c[1] + 6];
-    return { r, l: a?.l ?? null, c };
+    return { r, l: a?.l ?? null, lh: a?.lh, c };
   }
 
   // Ragnarok-style cast bar over the head.

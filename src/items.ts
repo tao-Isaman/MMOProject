@@ -34,18 +34,19 @@ export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "mace" | "spear_1h" | "
 export const OFFHAND_DAMAGE = 0.5;
 export const DUAL_WIELD_SLOWDOWN = 1.15;
 
-// Swords and the bow use clips where Oriverse drew the weapon in (swing: a sword and its slash,
-// shoot: a bow and arrow), so nothing is drawn over them (builtin). Every other weapon uses the
-// empty-handed thrust clip with its art drawn into the hand; "chop" swings that art down from
-// overhead instead of pointing it along the arm. hit: "arc" (in front) or "line" (straight ahead).
+// The bow uses the shoot clip, where Oriverse drew the bow and arrow in, so nothing is drawn over
+// it (builtin). Every other weapon has its art drawn into the hand, in an empty-handed clip (a
+// swing with a sword drawn in plays the thrust instead: see Player.clipFor); "chop" swings that
+// art down from overhead instead of pointing it along the arm. hit: "arc" (in front) or "line"
+// (straight ahead).
 
 export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
   sword_1h: {
-    name: "ดาบมือเดียว", motion: "swing", builtin: true, hit: "arc", reach: 125, arc: 110, interval: 0.62, damage: [18, 24],
+    name: "ดาบมือเดียว", motion: "swing", chop: true, hit: "arc", reach: 125, arc: 110, interval: 0.62, damage: [18, 24],
     note: "ฟันเป็นแนวโค้งหน้าตัว",
   },
   sword_2h: {
-    name: "ดาบสองมือ", motion: "swing", builtin: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], twoHanded: true,
+    name: "ดาบสองมือ", motion: "swing", chop: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], twoHanded: true,
     note: "ฟันกว้าง ช้าแต่แรง",
   },
   axe: {
