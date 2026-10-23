@@ -139,6 +139,13 @@
   "walk": 4,
   "attack": 4
  },
+ "paper_lantern": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
  "pharaoh_shade": {
   "cell": 128,
   "foot": 0,
