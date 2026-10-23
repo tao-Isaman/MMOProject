@@ -107,7 +107,7 @@ export function build(_quality: { flowers: number }): Town {
     ...smooth([beyond(R_TOP.bottom, R_TOP.top, 350), [3400, -3500]]),
   ];
   const KNOLL_WAY: XY[] = [...smooth([[400, 2450], beyond(R_KNOLL.top, R_KNOLL.bottom, 450)]), R_KNOLL.bottom, R_KNOLL.top, ...smooth([beyond(R_KNOLL.bottom, R_KNOLL.top, 400), [3000, 3500], [3550, 3700]])];
-  const STONES_WAY: XY[] = [...smooth([[450, 2150], beyond(R_STONES.top, R_STONES.bottom, 400)]), R_STONES.bottom, R_STONES.top, ...smooth([beyond(R_STONES.bottom, R_STONES.top, 350), [-2300, 2700], [-2500, 2850]])];
+  const STONES_WAY: XY[] = [...smooth([[450, 2150], beyond(R_STONES.top, R_STONES.bottom, 400)]), R_STONES.bottom, R_STONES.top, ...smooth([beyond(R_STONES.bottom, R_STONES.top, 350), [-2300, 2700], [-2750, 2950]])];
   const HOLLOW_WAY: XY[] = smooth([[-300, -3000], [-1300, -2950], [-2300, -2500], [-2900, -1600], [-2400, -800]]);
   const TRACKS = [MAIN, NORTH, LOOP, SHRINE_WAY, KNOLL_WAY, STONES_WAY, HOLLOW_WAY];
   const roads = TRACKS.map((t, i) => band(t, i === 0 ? 470 : i === 1 ? 430 : 380));
@@ -175,10 +175,12 @@ export function build(_quality: { flowers: number }): Town {
   prop("westmount:fallen_giant", [5000, 4700], 120, 0, { solid: FALLEN_SOLID, s: 0.8 });
   take(5000, 4700, 900);
 
-  // ---- the ring of standing stones round the old hollow giant ----
-  prop("westmount:elder_tree_old", CIRCLE, -90, 1000, { s: 1.05, ...ELDER_SOLID(560) });
+  // ---- the ring of standing stones about a great rune stone, the old hollow giant over them ----
+  prop("westmount:root_stone", CIRCLE, 200, 200, { s: 1.45, ...ring(90) });
+  prop("westmount:glow_mushrooms", [CIRCLE[0] - 450, CIRCLE[1] + 250], 30, 0, { solid: "none", s: 0.7 });
+  prop("westmount:elder_tree_old", [-2650, 4150], -60, 900, { s: 0.95, ...ELDER_SOLID(560) });
   for (let k = 0; k < 8; k++) {
-    if (k === 2) continue; // (the gap where the path comes in)
+    if (k === 1 || k === 7) continue; // (where the giant stands in the ring, and the gap where the path comes in)
     const a = (k / 8) * Math.PI * 2 + 0.35, at: XY = [CIRCLE[0] + Math.cos(a) * 1150, CIRCLE[1] + Math.sin(a) * 1150];
     put("westmount:root_stone", at, (a * 180) / Math.PI + 180, { s: 0.85 + (k % 3) * 0.08, ...ring(70) });
   }
@@ -188,7 +190,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the misty hollow: a fallen giant, mushrooms, mist ----
   prop("westmount:fallen_giant", [-2300, -3400], 20, 0, { solid: FALLEN_SOLID });
   take(-2300, -3400, 1000);
-  for (const [at, h, s] of [[[-2600, -2200], 10, 1.1], [[-3300, -1600], 60, 0.9], [[-1900, -3000], 100, 0.8], [[-3100, -3000], 160, 1], [[-2200, -1500], 0, 0.7], [[-3800, -2500], 90, 0.8]] as [XY, number, number][])
+  for (const [at, h, s] of [[[-2600, -2200], 10, 1.1], [[-3300, -1600], 60, 0.9], [[-3100, -3000], 160, 1], [[-3800, -2500], 90, 0.8]] as [XY, number, number][])
     put("westmount:mist_bank", at, h, { solid: "none", s });
   for (const at of [[-2000, -2300], [-3500, -2000], [-2900, -2700], [-1700, -1900]] as XY[]) if (free(at[0], at[1], 160)) prop("westmount:glow_mushrooms", at, rnd() * 360, 180, ring(90, "plant"));
 

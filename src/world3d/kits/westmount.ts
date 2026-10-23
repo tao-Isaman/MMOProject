@@ -259,23 +259,23 @@ function elderTree(s: ElderSpec): THREE.Group {
     const a = ((k + rnd() * 0.4) / s.limbs) * Math.PI * 2 + 0.3, R = s.reach * (0.78 + rnd() * 0.35);
     const z0 = s.fork - 60 - rnd() * 200;
     const base: V3 = [F[0] + Math.cos(a) * s.r * 0.2, F[1] + Math.sin(a) * s.r * 0.2, z0];
-    const tip: V3 = [F[0] + Math.cos(a) * R, F[1] + Math.sin(a) * R, s.crown + (rnd() - 0.5) * 240];
+    const tip: V3 = [F[0] + Math.cos(a) * R, F[1] + Math.sin(a) * R, s.crown + (rnd() - 0.5) * 140];
     const mid: V3 = [F[0] + Math.cos(a + 0.14) * R * 0.45, F[1] + Math.sin(a + 0.14) * R * 0.45, z0 + (tip[2] - z0) * 0.42 + 70];
     const pts = [base, mid, tip], dead = k < (s.dead ?? 0);
     wood.push(limb(pts, s.r * 0.36, s.r * 0.1, s.bark, { seg: 10, gnarl: 0.7, step: 80, maxRings: 10, seed: s.seed + 40 + k }));
     if (dead) wood.push(grow({ mat: s.bark, seed: s.seed + 60 + k, at: tip, dir: [Math.cos(a) * 0.6, Math.sin(a) * 0.6, 1], len: 260, r: s.r * 0.1, depth: 2, spread: 0.7, tipR: 0.2 }));
-    else crowns.push([tip[0], tip[1], tip[2] + 150, 400 + rnd() * 120, 380 + rnd() * 120, 220 + rnd() * 60]);
+    else crowns.push([tip[0], tip[1], tip[2] + 110, 420 + rnd() * 120, 400 + rnd() * 120, 150 + rnd() * 40]);
     const sp = along(pts, 0.55), sa = a + (rnd() < 0.5 ? -1 : 1) * (0.65 + rnd() * 0.3), sr = R * 0.5;
-    const stip: V3 = [sp[0] + Math.cos(sa) * sr, sp[1] + Math.sin(sa) * sr, sp[2] + 170 + rnd() * 160];
+    const stip: V3 = [sp[0] + Math.cos(sa) * sr, sp[1] + Math.sin(sa) * sr, Math.max(sp[2] + 120, s.crown - 120 + rnd() * 120)];
     wood.push(limb([sp, [(sp[0] + stip[0]) / 2, (sp[1] + stip[1]) / 2, (sp[2] + stip[2]) / 2 + 40], stip], s.r * 0.15, s.r * 0.05, s.bark, { seg: 7, maxRings: 6, gnarl: 0.5, seed: s.seed + 80 + k }));
-    if (!dead || k === 0) crowns.push([stip[0], stip[1], stip[2] + 80, 280 + rnd() * 60, 270 + rnd() * 60, 160]);
+    if (!dead || k === 0) crowns.push([stip[0], stip[1], stip[2] + 60, 290 + rnd() * 60, 280 + rnd() * 60, 115]);
     // beard lichen hanging under the limb
     for (let j = 0; j < 4; j++) {
       const p = along(pts, 0.3 + j * 0.17 + rnd() * 0.05), L = 110 + rnd() * 190, rr = s.r * (0.3 - j * 0.04);
       extra.push(cylinderAt({ rBot: 1.5, rTop: 7 + rnd() * 4, height: L, segments: 5, bottom: [p[0] + (rnd() - 0.5) * 20, p[1] + (rnd() - 0.5) * 20, p[2] - rr - L + 6] }, "Westmount_Lichen"));
     }
   }
-  crowns.push([F[0] * 1.15, F[1] * 1.15, s.crown + 380, s.reach * 0.62, s.reach * 0.58, 280]);
+  crowns.push([F[0] * 1.15, F[1] * 1.15, s.crown + 260, s.reach * 0.62, s.reach * 0.58, 190]);
   // moss on the upper faces of the trunk, buttresses and limbs
   const moss = coverTop(wood.flat().filter((p) => p.mat === s.bark), "Westmount_MossBark", { amount: s.hollow ? 0.45 : 0.32, thick: 3.5, seed: s.seed + 3, grain: 55, ragged: 0.45, patches: 0.8 });
   // glowing bracket fungi up the trunk
@@ -495,12 +495,12 @@ function logBridge(): THREE.Group {
 // hollows of the forest and round the karst towers.
 function mistBank(): THREE.Group {
   const rnd = seeded(291), parts: Geo[] = [];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 10; i++) {
     const x = (rnd() - 0.5) * 1100, y = (rnd() - 0.5) * 420, rx = 160 + rnd() * 200, ry = 120 + rnd() * 140;
     parts.push(ellipsoid([rx, ry, 45 + rnd() * 50], [x, y, 20 + rnd() * 80], "mist", 12));
   }
-  for (let i = 0; i < 6; i++) parts.push(ellipsoid([220 + rnd() * 150, 150 + rnd() * 80, 30], [(rnd() - 0.5) * 900, (rnd() - 0.5) * 300, 150 + rnd() * 50], "mist", 10));
-  const mat = new THREE.MeshStandardMaterial({ color: "#e6eee8", transparent: true, opacity: 0.11, roughness: 1, depthWrite: false, emissive: new THREE.Color("#a7b7ae"), emissiveIntensity: 0.35 });
+  for (let i = 0; i < 3; i++) parts.push(ellipsoid([240 + rnd() * 150, 160 + rnd() * 80, 30], [(rnd() - 0.5) * 900, (rnd() - 0.5) * 300, 150 + rnd() * 50], "mist", 10));
+  const mat = new THREE.MeshStandardMaterial({ color: "#e6eee8", transparent: true, opacity: 0.14, roughness: 1, depthWrite: false, emissive: new THREE.Color("#a7b7ae"), emissiveIntensity: 0.35 });
   const g = toThree(merge(...parts), () => mat);
   g.traverse((o) => {
     o.castShadow = false;
@@ -1140,8 +1140,6 @@ export const KIT: Kit = {
     put("noa_shrine", [-300, -100, 0], 0);
     put("fallen_giant", [900, -300, 0], 75);
     put("log_bridge", [-1600, -1100, 0], 90);
-    put("root_stone", [700, 600, 0], 20);
-    put("root_stone", [200, 1100, 0], -60, 0.85);
     put("glow_mushrooms", [-1500, 0, 0], 0);
     put("glow_mushrooms", [400, -1000, 0], 90, 0.8);
     put("moss_mound", [-1700, 1600, 0], 30);
@@ -1158,6 +1156,16 @@ export const KIT: Kit = {
     put("glow_mushrooms", [-600, 1900, 0], 200, 0.7);
     put("jungle:giant_fern", [-200, 700, 0], 30);
     put("jungle:tree_fern", [1500, 600, 0], 0);
+    for (const [x, y, h, s] of [[-2000, -400, 0, 1.2], [1900, 1900, 40, 1.1], [-1900, 2000, 80, 1.3], [300, 2100, 20, 1]] as const) put("flora:BigOak", [x, y, 0], h, s);
+    for (const [x, y, h] of [[-2100, -1900, 0], [600, -2100, 50], [2100, -300, 90]] as const) put("flora:RoundTree", [x, y, 0], h, 1.1);
+    for (const [x, y] of [[-1200, 300], [-600, -900], [200, -600], [1000, 200], [-1700, 900], [-300, 1300], [800, 1500], [1300, -1300], [-2000, 1400], [1700, 1300], [-800, -1700], [0, -1400]] as const) put("plains:fern_clump", [x, y, 0], x + y, 1.2);
+    for (const [x, y] of [[-1300, -600], [500, 1000], [1200, 1100], [-2100, 300]] as const) put("jungle:giant_fern", [x, y, 0], x);
+    for (const [x, y, h] of [[-1000, -1500, 20], [1500, 1700, 120], [-1800, -300, 70]] as const) put("moss_mound", [x, y, 0], h, 0.8);
+    for (const [x, y, h] of [[1100, -700, 0], [-2100, 1300, 90], [200, -2000, 40]] as const) put("plains:stump", [x, y, 0], h);
+    for (const [x, y, h] of [[900, 1800, 0], [-1500, -2000, 60], [2000, 400, 120]] as const) put("plains:boulder", [x, y, 0], h, 0.8);
+    put("wind_pine", [1200, -2100, 0], 170, 0.8);
+    put("glow_mushrooms", [1300, 300, 0], 60, 0.8);
+    for (let k = 0; k < 4; k++) put("root_stone", [600 + Math.cos(k * 1.4) * 450, 600 + Math.sin(k * 1.4) * 450, 0], k * 70, 0.6);
   },
 };
 
