@@ -152,7 +152,7 @@ export const MONSTERS: MonsterDef[] = [
   { id: "crimson_stag", name: "กวางเขาแดง", field: "border_woods", levels: [60, 63], kind: "normal", element: "plant", eleDef: { plant: 30, fire: 15 },
     aggro: false, size: 170, behave: ["charge"],
     look: "กวางขนแดง เขาแตกกิ่งเหมือนใบเมเปิล" },
-  { id: "shadow_imp", name: "อิมป์เงา", field: "border_woods", levels: [63, 67], kind: "fast", element: "dark", eleDef: { dark: 40, light: -20 },
+  { id: "shadow_imp", name: "อิมป์เงา", field: "border_woods", levels: [63, 67], kind: "fast", element: "shadow", eleDef: { shadow: 40, dark: 25, light: -20 },
     aggro: true, size: 80, behave: ["fly"],
     look: "ปีศาจตัวเล็กสีม่วงดำ ปีกค้างคาว หางแหลม" },
   { id: "cursed_deserter", name: "ทหารหนีทัพต้องสาป", field: "border_woods", levels: [67, 70], kind: "rare", element: "dark", eleDef: { dark: 30, metal: 30 },
@@ -194,7 +194,7 @@ export const MONSTERS: MonsterDef[] = [
   { id: "sandstone_golem", name: "โกเลมหินทราย", field: "great_desert", levels: [40, 45], kind: "tank", element: "stone", eleDef: { stone: 45, earth: 30 },
     aggro: false, size: 230, behave: ["petrify"],
     look: "รูปปั้นเฝ้าวิหาร อักษรโบราณเรืองแสง" },
-  { id: "pharaoh_shade", name: "วิญญาณฟาโรห์", field: "great_desert", levels: [45, 45], kind: "rare", element: "dark", eleDef: { dark: 40, light: 20 },
+  { id: "pharaoh_shade", name: "วิญญาณฟาโรห์", field: "great_desert", levels: [45, 45], kind: "rare", element: "dark", eleDef: { dark: 40, light: 20, shadow: 20 },
     aggro: true, size: 170, behave: ["ranged:curse", "fly"],
     look: "ร่างโปร่งใสสวมหน้ากากทองคำ ลอยเหนือพื้น" },
   { id: "tiger_frog", name: "กบพิษลายเสือ", field: "south_jungle", levels: [25, 28], kind: "fast", element: "plant", eleDef: { plant: 25, water: 25 },
@@ -218,7 +218,7 @@ export const MONSTERS: MonsterDef[] = [
   { id: "tanuki", name: "ทานุกิแปลงกาย", field: "sakura_hills", levels: [45, 49], kind: "normal", element: "earth", eleDef: { earth: 25, plant: 20 },
     aggro: false, size: 80, behave: ["dodge"],
     look: "ทานุกิพุงกลม ใบไม้บนหัว" },
-  { id: "bamboo_ninja", name: "นินจาไผ่", field: "sakura_hills", levels: [50, 55], kind: "fast", element: "wind", eleDef: { wind: 35 },
+  { id: "bamboo_ninja", name: "นินจาไผ่", field: "sakura_hills", levels: [50, 55], kind: "fast", element: "wind", eleDef: { wind: 35, shadow: 25 },
     aggro: true, size: 160, behave: ["human", "ranged:shuriken"],
     look: "นินจาชุดเขียวไผ่ ผ้าปิดหน้า" },
   { id: "paper_lantern", name: "วิญญาณโคมกระดาษ", field: "sakura_hills", levels: [54, 58], kind: "caster", element: "fire", eleDef: { fire: 35, dark: 25 },
@@ -239,7 +239,7 @@ export const MONSTERS: MonsterDef[] = [
   { id: "grove_guardian", name: "ผู้พิทักษ์ศาลป่า", field: "west_woods", levels: [20, 20], kind: "boss", element: "plant", eleDef: { plant: 50, earth: 30 },
     aggro: true, size: 340, behave: ["boss", "summon:oak_sprite", "heal"],
     look: "ต้นโอ๊กโบราณเดินได้ เกิดบนผาศาลเจ้า ป่าใหญ่ตะวันตก" },
-  { id: "risen_pharaoh", name: "ฟาโรห์คืนชีพ", field: "great_desert", levels: [48, 48], kind: "boss", element: "dark", eleDef: { dark: 50, light: 30 },
+  { id: "risen_pharaoh", name: "ฟาโรห์คืนชีพ", field: "great_desert", levels: [48, 48], kind: "boss", element: "dark", eleDef: { dark: 50, light: 30, gold: 30 },
     aggro: true, size: 260, behave: ["boss", "summon:mummy_slave", "ranged:curse"],
     look: "ฟาโรห์หน้ากากทอง ในวิหาร ทะเลทรายใหญ่" },
   { id: "ghost_captain", name: "กัปตันโจรสลัดผี", field: "mangrove_coast", levels: [48, 48], kind: "boss", element: "water", eleDef: { water: 45, dark: 40 },
@@ -319,10 +319,10 @@ export const MONSTERS: MonsterDef[] = [
   { id: "mist_crane", name: "กระเรียนหมอก", field: "karst_peaks", levels: [98, 103], kind: "fast", element: "wind", eleDef: { wind: 40, smoke: 25, lightning: -20 },
     aggro: true, size: 150, behave: ["fly", "charge"],
     look: "กระเรียนขาวคอยาว หงอนแดง ปลายปีกจางเป็นหมอก" },
-  { id: "money_toad", name: "คางคกสามขา", field: "karst_peaks", levels: [103, 108], kind: "caster", element: "water", eleDef: { water: 40, metal: 25, earth: -20 },
+  { id: "money_toad", name: "คางคกสามขา", field: "karst_peaks", levels: [103, 108], kind: "caster", element: "water", eleDef: { water: 40, metal: 25, gold: 35, earth: -20 },
     aggro: false, size: 110, behave: ["ranged:water", "steal"],
     look: "คางคกทองสามขา คาบเหรียญรูสี่เหลี่ยมไว้ในปาก นั่งบนกองเหรียญ" },
-  { id: "cloud_qilin", name: "กิเลนเมฆ", field: "karst_peaks", levels: [109, 110], kind: "rare", element: "lightning", eleDef: { lightning: 45, light: 30, earth: -20 },
+  { id: "cloud_qilin", name: "กิเลนเมฆ", field: "karst_peaks", levels: [109, 110], kind: "rare", element: "lightning", eleDef: { lightning: 45, light: 30, gold: 25, earth: -20 },
     aggro: true, size: 220, behave: ["fly", "charge", "heal"],
     look: "กิเลนเกล็ดทอง แผงคอกับหางเป็นเมฆครึ้ม เขาเดียวมีสายฟ้าแลบ เหยียบเมฆเดิน" },
   // ancient_plain (110–122): the ghosts and the broken giants of the city before Noa
@@ -353,7 +353,7 @@ export const MONSTERS: MonsterDef[] = [
     aggro: true, size: 170, behave: ["human", "slam", "steal"],
     look: "ชายร่างใหญ่ในชุดทหารด่านเก่า แบกดาบใหญ่ ขู่เก็บค่าผ่านทาง" },
   // tangled_hills (146–158): what waits in the maze of hills
-  { id: "lost_wisp", name: "ดวงไฟหลงทาง", field: "tangled_hills", levels: [146, 152], kind: "caster", element: "dark", eleDef: { dark: 50, smoke: 30, light: -25 },
+  { id: "lost_wisp", name: "ดวงไฟหลงทาง", field: "tangled_hills", levels: [146, 152], kind: "caster", element: "dark", eleDef: { dark: 50, smoke: 30, shadow: 25, light: -25 },
     aggro: true, size: 100, behave: ["fly", "ranged:curse", "dodge"],
     look: "ดวงไฟสีม่วงฟ้าลอยเรี่ยพื้น หน้ายิ้มเลือนราง หางเป็นควัน" },
   { id: "maze_minotaur", name: "มิโนทอร์เนินวงกต", field: "tangled_hills", levels: [152, 158], kind: "tank", element: "metal", eleDef: { metal: 45, earth: 35, lightning: -20 },
@@ -376,7 +376,7 @@ export const MONSTERS: MonsterDef[] = [
   { id: "corpse_bloom", name: "บุปผากินศพ", field: "royal_necropolis", levels: [175, 181], kind: "caster", element: "poison", eleDef: { poison: 55, plant: 40, fire: -30 },
     aggro: true, size: 180, behave: ["ranged:vine", "explode"],
     look: "ดอกไม้ยักษ์กลีบแดงจุดขาว กลิ่นเหมือนศพ เถารากเลื้อยแทนขา" },
-  { id: "first_king", name: "ปฐมกษัตริย์ผู้ไม่หลับ", field: "royal_necropolis", levels: [182, 182], kind: "boss", element: "dark", eleDef: { dark: 65, metal: 45, light: -25 },
+  { id: "first_king", name: "ปฐมกษัตริย์ผู้ไม่หลับ", field: "royal_necropolis", levels: [182, 182], kind: "boss", element: "dark", eleDef: { dark: 65, metal: 45, gold: 35, light: -25 },
     aggro: true, size: 300, behave: ["boss", "summon:bone_royal_guard", "slam", "ranged:curse"],
     look: "กษัตริย์โครงกระดูกสวมมงกุฎทองกับผ้าคลุมแดงขาด ในห้องพระศพชั้นใน สุสานหลวงโบราณ" },
   // north_cliffs (182–192): the icy sea's fliers and the lamp that wrecks ships
@@ -412,11 +412,26 @@ const KIND: Record<MonsterKind, [number, number, number, number, number]> = {
   boss: [18, 1.8, 1.7, 1.7, 40],
 };
 export function statsFor(level: number, kind: MonsterKind): { hp: number; atk: number; def: number; mdef: number; xp: number } {
-  const r = (level + 4) / 13, [h, a, d, m, x] = KIND[kind];
+  const r = (level + 4) / 13, [h, a, d, m, x] = KIND[kind], k = monsterMight(level);
   return {
-    hp: Math.round(320 * r ** 1.6 * h), atk: Math.round(28 * r ** 1.1 * a),
-    def: Math.round(12 * r * d), mdef: Math.round(12 * r * m), xp: Math.round(48 * r ** 1.65 * x),
+    hp: Math.round(320 * r ** 1.6 * h * k), atk: Math.round(28 * r ** 1.1 * a * k),
+    def: Math.round(12 * r * d * k), mdef: Math.round(12 * r * m * k), xp: Math.round(48 * r ** 1.65 * x),
   };
+}
+
+// Monsters hit harder and last longer than the curve alone, more the higher their level, so a
+// player leans on items, skills and (later) a party: HP, attack, defence and magic defence times
+// 1.2 up to level 30, 1.4 to 70, 1.6 to 100, 1.8 to 150 and 2 to 200 (experience stays as it is).
+// Each step is spread over the four levels round its edge (+0.04 a level: level 30 is 1.28, 31
+// 1.32), so no monster is suddenly a fifth stronger than one a level below it.
+export const MIGHT_BANDS: [number, number][] = [[30, 1.2], [70, 1.4], [100, 1.6], [150, 1.8], [Infinity, 2]];
+export function monsterMight(level: number): number {
+  let k = MIGHT_BANDS[0][1];
+  for (let i = 1; i < MIGHT_BANDS.length; i++) {
+    const edge = MIGHT_BANDS[i - 1][0], step = MIGHT_BANDS[i][1] - MIGHT_BANDS[i - 1][1];
+    k += step * Math.min(1, Math.max(0, (level - edge + 2) / 5));
+  }
+  return +k.toFixed(3);
 }
 
 // A behaviour's value ("ranged:fire" -> "fire"), or null when it hasn't that behaviour.

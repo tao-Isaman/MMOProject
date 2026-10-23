@@ -26,8 +26,8 @@ export type StatBag = Partial<Record<string, number>>;
 type ByRank<T> = (rank: number) => T;
 
 // Every element: the first five came first, the rest with element attack and defence, poison
-// with the second jobs.
-export const ELEMENT_IDS = ["earth", "water", "wind", "fire", "lightning", "ice", "light", "dark", "plant", "stone", "mud", "lava", "metal", "poison", "smoke"] as const;
+// with the second jobs, smoke later, shadow and gold with the third jobs.
+export const ELEMENT_IDS = ["earth", "water", "wind", "fire", "lightning", "ice", "light", "dark", "plant", "stone", "mud", "lava", "metal", "poison", "smoke", "shadow", "gold"] as const;
 export type ElementId = (typeof ELEMENT_IDS)[number];
 
 // What a monster is (bestiary.ts): some skills and passives hit one kind harder.
@@ -249,9 +249,9 @@ export const STAT_NAMES: Record<string, string> = {
   maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", atk: "พลังโจมตี", matk: "พลังเวท", def: "ป้องกัน", mdef: "ต้านเวท",
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
-  luck: "โชคดี", magicDodge: "หลบเวท", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
+  luck: "โชคดี", magicDodge: "หลบเวท", statusRes: "ต้านสถานะ", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
 };
-export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "doubleHit", "ambush"]);
+export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush"]);
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
@@ -596,19 +596,19 @@ export const TREES: Record<string, Tree> = {
     note: "สายบัฟ เพิ่มพลังโจมตี ความเร็ว และเกราะ บัฟอยู่ได้นาน ปิดท้ายด้วยพรสูงสุด",
     nodes: [
       { id: "bless", name: "อวยพร", kind: "active", max: 10, pos: [0, 0], glyph: "up",
-        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ atkPct: 0.02 * r, matkPct: 0.02 * r }), color: "#d8ecff" },
-        desc: (r) => `40 วิ: พลังโจมตีและพลังเวท +${pct(0.02 * r)}` },
+        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 180, buff: (r) => ({ atkPct: 0.02 * r, matkPct: 0.02 * r }), color: "#d8ecff" },
+        desc: (r) => `3 นาที: พลังโจมตีและพลังเวท +${pct(0.02 * r)}` },
       { id: "agility_up", name: "เพิ่มความคล่อง", kind: "active", max: 10, pos: [1, 0], glyph: "wing",
-        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ aspd: 0.015 * r, move: 0.02 * r, flee: 2 * r }), color: "#d8ffe8" },
-        desc: (r) => `40 วิ: ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.02 * r)} หลบหลีก +${2 * r}` },
+        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 180, buff: (r) => ({ aspd: 0.015 * r, move: 0.02 * r, flee: 2 * r }), color: "#d8ffe8" },
+        desc: (r) => `3 นาที: ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.02 * r)} หลบหลีก +${2 * r}` },
       { id: "angelus", name: "เกราะเทวา", kind: "active", max: 10, pos: [2, 0], glyph: "shield",
-        skill: { type: "buff", mp: 18, cd: 40, motion: "cast", duration: 40, buff: (r) => ({ defPct: 0.04 * r, mdefPct: 0.03 * r }), color: "#e8f0ff" },
-        desc: (r) => `40 วิ: ป้องกัน +${pct(0.04 * r)} ต้านเวท +${pct(0.03 * r)}` },
+        skill: { type: "buff", mp: 18, cd: 40, motion: "cast", duration: 180, buff: (r) => ({ defPct: 0.04 * r, mdefPct: 0.03 * r }), color: "#e8f0ff" },
+        desc: (r) => `3 นาที: ป้องกัน +${pct(0.04 * r)} ต้านเวท +${pct(0.03 * r)}` },
       { id: "buff_lore", name: "ผู้รู้แห่งพร", kind: "passive", max: 5, pos: [3, 0], glyph: "star",
         stats: (r) => ({ buffTime: 0.1 * r }), desc: (r) => `บัฟทุกอย่างอยู่นานขึ้น ${pct(0.1 * r)}` },
       { id: "benediction", name: "พรสูงสุด", kind: "active", max: 5, pos: [1, 1], req: [["bless", 5], ["agility_up", 3]], glyph: "star",
-        skill: { type: "buff", mp: 60, cd: 90, motion: "cast", duration: 20, heal: () => 0.2, buff: (r) => ({ atkPct: 0.1 + 0.03 * r, matkPct: 0.1 + 0.03 * r, aspd: 0.1, move: 0.1, dmgRed: 0.1 }), color: "#fffbe0" },
-        desc: (r) => `20 วิ: พลังโจมตีและพลังเวท +${pct(0.1 + 0.03 * r)} ความเร็วโจมตีและเดิน +10% ลดความเสียหาย 10% และฟื้น HP ทันที 20%` },
+        skill: { type: "buff", mp: 60, cd: 90, motion: "cast", duration: 120, heal: () => 0.2, buff: (r) => ({ atkPct: 0.1 + 0.03 * r, matkPct: 0.1 + 0.03 * r, aspd: 0.1, move: 0.1, dmgRed: 0.1 }), color: "#fffbe0" },
+        desc: (r) => `2 นาที: พลังโจมตีและพลังเวท +${pct(0.1 + 0.03 * r)} ความเร็วโจมตีและเดิน +10% ลดความเสียหาย 10% และฟื้น HP ทันที 20%` },
     ],
   },
   crusade: {
@@ -812,6 +812,34 @@ export const MASTERIES: Record<string, Mastery> = {
     p50: { name: "ศรพันดอก", stats: { multiShot: 0.1, crit: 0.02 }, desc: "โอกาสยิงซ้อน +10% โอกาสคริติคอล +2% เมื่อถือธนู" },
     p60: { name: "เทพธนู", stats: { atkPct: 0.15, critDmg: 0.3, reach: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ระยะยิง +10% เมื่อถือธนู" },
   }),
+  // the fist fighter's: quick blunt blows that daze and go through armour, a sturdy body
+  knuckle: weaponMastery("สนับมือ", ["knuckle"], "slam", {
+    per: { atk: 1.6, aspd: 0.01, def: 0.6 }, perDesc: "พลังโจมตี +1.6 ความเร็วโจมตี +1% ป้องกัน +0.6",
+    p5: { name: "หมัดหนัก", stats: { stunHit: 0.1 }, desc: "ตีปกติมีโอกาส 10% ทำให้มึน 1 วิ เมื่อถือสนับมือ" },
+    p10: { name: "หมัดต่อเนื่อง", stats: { aspd: 0.1 }, desc: "ความเร็วโจมตี +10% เมื่อถือสนับมือ" },
+    s15: { id: "knuckle_barrage", name: "หมัดพายุ", glyph: "bash",
+      skill: { type: "cone", stat: "atk", mult: () => 1.3, hits: 3, mp: 14, cd: 6, motion: "thrust", reach: 140, arc: 60, color: "#ffd9a0" },
+      desc: "ต่อยรัวใส่ด้านหน้า 3 ครั้ง ครั้งละ 130% ของพลังโจมตี" },
+    p20: { name: "กำปั้นเหล็ก", stats: { pierce: 0.15, maxHpPct: 0.05 }, desc: "เจาะเกราะ +15% HP สูงสุด +5% เมื่อถือสนับมือ" },
+    p30: { name: "ปรมาจารย์หมัด", stats: { atkPct: 0.12, stunHit: 0.05 }, desc: "พลังโจมตี +12% โอกาสตีให้มึน +5% เมื่อถือสนับมือ" },
+    p40: { name: "หมัดสายฟ้า", stats: { aspd: 0.06, hit: 20 }, desc: "ความเร็วโจมตี +6% ความแม่นยำ +20 เมื่อถือสนับมือ" },
+    p50: { name: "หมัดทะลวง", stats: { pierce: 0.1, critDmg: 0.2 }, desc: "เจาะเกราะ +10% แรงคริติคอล +20% เมื่อถือสนับมือ" },
+    p60: { name: "เทพหมัด", stats: { atkPct: 0.15, aspd: 0.06, dmgRed: 0.05 }, desc: "พลังโจมตี +15% ความเร็วโจมตี +6% ลดความเสียหาย 5% เมื่อถือสนับมือ" },
+  }),
+  // the beast's: quick slashes, criticals that tear, wounds that bleed, a light step
+  claw: weaponMastery("กรงเล็บ", ["claw"], "twin", {
+    per: { atk: 1.5, aspd: 0.006, crit: 0.002 }, perDesc: "พลังโจมตี +1.5 ความเร็วโจมตี +0.6% โอกาสคริติคอล +0.2%",
+    p5: { name: "เล็บคม", stats: { critDmg: 0.2 }, desc: "แรงคริติคอล +20% เมื่อถือกรงเล็บ" },
+    p10: { name: "ข่วนรัว", stats: { aspd: 0.1 }, desc: "ความเร็วโจมตี +10% เมื่อถือกรงเล็บ" },
+    s15: { id: "claw_rend", name: "กรงเล็บฉีก", glyph: "twin",
+      skill: { type: "cone", stat: "atk", mult: () => 1.8, hits: 2, poison: () => 0.3, mp: 13, cd: 6, motion: "thrust", reach: 150, arc: 100, color: "#ffc8c0" },
+      desc: "ตะปบด้านหน้า 2 ครั้ง ครั้งละ 180% ของพลังโจมตี แผลเลือดไหลอีก 30% ของดาเมจใน 4 วิ" },
+    p20: { name: "สัญชาตญาณนักล่า", stats: { flee: 15, move: 0.05 }, desc: "หลบหลีก +15 ความเร็วเดิน +5% เมื่อถือกรงเล็บ" },
+    p30: { name: "นักล่ากรงเล็บ", stats: { atkPct: 0.12, crit: 0.04 }, desc: "พลังโจมตี +12% โอกาสคริติคอล +4% เมื่อถือกรงเล็บ" },
+    p40: { name: "เงากรงเล็บ", stats: { aspd: 0.06, flee: 15 }, desc: "ความเร็วโจมตี +6% หลบหลีก +15 เมื่อถือกรงเล็บ" },
+    p50: { name: "ฉีกจุดตาย", stats: { critDmg: 0.25, crit: 0.02 }, desc: "แรงคริติคอล +25% โอกาสคริติคอล +2% เมื่อถือกรงเล็บ" },
+    p60: { name: "ราชสีห์", stats: { atkPct: 0.15, critDmg: 0.3, poisonHit: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ตีปกติมีโอกาส 10% ติดพิษ (เลือดไหล) เมื่อถือกรงเล็บ" },
+  }),
   // opened by a mastery book
   gathering: {
     name: "เก็บเกี่ยว", kind: "life", book: "book_gathering", glyph: "leaf", max: 20,
@@ -832,205 +860,238 @@ export const MASTERIES: Record<string, Mastery> = {
 // ---- elements ----
 // Each level adds that element's attack and defence (every hit adds the attacker's attack in each
 // element over the target's defence in it, and a hit in an element swings with half again its
-// attack in it: stats.ts elementBonus), a little of the element's strong side, and the
-// line's effect (skill line); milestones along the line add stats or effects (skills.ts, stats.ts).
-// The first five also strengthen every skill (their old effects); the rest work through the
-// hits of their own element (SkillDef.element), or on their own (plant, lava, metal).
+// attack in it: stats.ts elementBonus), a little of both attack and defence, and the line's
+// effect (skill line); milestones along the line add stats or effects (skills.ts, stats.ts).
+// The first five (and plant) strengthen every skill; ice, light, dark, stone, mud, lava and poison
+// work through the hits of their own element (SkillDef.element); metal, smoke, shadow and gold
+// through stats of their own (reflect, magicDodge, flee and attack, magic defence and statusRes).
+//
+// Balance (README "ธาตุ"; tools/tree_check.cjs weighs every line with ELEMENT_WORTH): every element
+// is worth about the same. Its own attack and defence are 2 and 1.5 a level for all. The rest of a
+// level is weighed in points (1 point: 1 attack, 10 HP, 0.4% attack...), split between attack and
+// defence with at least 30% on the lesser side: 2 points for the elements whose effect works on
+// every skill, 2.6 for those that need their own element's hits, 2.2 plus about 1 point of their
+// own stat for the four whose speciality is a stat. Milestones: 20 is the element's defence +15
+// and about 12 points; 50 about 30 points with 10 or more on each side (and its effect, if any);
+// 80 about 25 points of its strong side.
 export const ELEMENT_MAX = 50;
 export const ELEMENT_MAX2 = 100;
 const ea = (id: string, atk = 2, def = 1.5): StatBag => ({ [`${id}Atk`]: atk, [`${id}Def`]: def });
 export const ELEMENTS: Record<string, ElementDef> = {
   earth: {
     name: "ดิน", color: "#d6a35c", glyph: "earth", max: ELEMENT_MAX, side: "ป้องกัน",
-    per: { ...ea("earth"), def: 0.7, mdef: 0.4, maxHp: 5 },
+    per: { ...ea("earth"), atk: 0.4, matk: 0.4, def: 0.8, mdef: 0.3, maxHp: 3 },
     skill: "สกิลสร้างโล่ 0.4% ของ HP สูงสุดต่อระดับตอนใช้ (นาน 4 วิ สูงสุด 60%)",
     marks: [
       { at: 10, name: "หินผา", desc: "สกิลที่ทำให้มึน ช้า หรือแช่แข็ง นานขึ้น 30%" },
-      { at: 20, name: "เปลือกหิน", desc: "ลดความเสียหายที่ได้รับ 5%", stats: { dmgRed: 0.05 } },
+      { at: 20, name: "เปลือกหิน", desc: "ป้องกันธาตุดิน +15 ลดความเสียหายที่ได้รับ 4%", stats: { earthDef: 15, dmgRed: 0.04 } },
       { at: 35, name: "ภูผามั่น", desc: "โล่จากธาตุดินตอนใช้สกิลหนาขึ้นเท่าตัว" },
-      { at: 50, name: "แก่นพสุธา", desc: "HP สูงสุด +10% ป้องกัน +10%", stats: { maxHpPct: 0.1, defPct: 0.1 } },
+      { at: 50, name: "แก่นพสุธา", desc: "HP สูงสุด +5% ป้องกัน +3% พลังโจมตีและพลังเวท +3%", stats: { maxHpPct: 0.05, defPct: 0.03, atkPct: 0.03, matkPct: 0.03 } },
     ],
   },
   water: {
     name: "น้ำ", color: "#6fc3ff", glyph: "drop", max: ELEMENT_MAX, side: "ฟื้นฟู",
-    per: { ...ea("water"), hpRegen: 0.15, mpRegen: 0.12, maxMp: 3, maxHp: 2 },
+    per: { ...ea("water"), atk: 0.4, matk: 0.4, hpRegen: 0.1, mpRegen: 0.07, maxMp: 2, maxHp: 2 },
     skill: "สกิลรักษาแรงขึ้น 2% ต่อระดับ",
     marks: [
       { at: 10, name: "สายน้ำ", desc: "สกิลที่ตีโดนดูด HP 5% ของดาเมจ" },
-      { at: 20, name: "ธารใส", desc: "ฟื้น MP +15%", stats: { mpRegenPct: 0.15 } },
+      { at: 20, name: "ธารใส", desc: "ป้องกันธาตุน้ำ +15 ฟื้น MP +12%", stats: { waterDef: 15, mpRegenPct: 0.12 } },
       { at: 35, name: "คลื่นชุบชีวิต", desc: "ใช้สกิลแล้วฟื้น HP 3% ของ HP สูงสุด" },
-      { at: 50, name: "มหาสมุทร", desc: "ดูด HP จากสกิลเพิ่มเป็น 10% และ HP สูงสุด +8%", stats: { maxHpPct: 0.08 } },
+      { at: 50, name: "มหาสมุทร", desc: "ดูด HP จากสกิลเพิ่มเป็น 10% HP สูงสุด +7% พลังโจมตีและพลังเวท +3%", stats: { maxHpPct: 0.07, atkPct: 0.03, matkPct: 0.03 } },
     ],
   },
   wind: {
     name: "ลม", color: "#9ef0c0", glyph: "swirl", max: ELEMENT_MAX, side: "ความเร็ว",
-    per: { ...ea("wind"), move: 0.003, aspd: 0.004, crit: 0.0004, cdr: 0.003, flee: 0.3 },
+    per: { ...ea("wind"), aspd: 0.003, atk: 0.15, matk: 0.15, flee: 0.75, move: 0.0025, cdr: 0.003 },
     skill: "คูลดาวน์สกิลลดลง 0.3% ต่อระดับ (รวมในค่าลดคูลดาวน์)",
     marks: [
       { at: 10, name: "สายลม", desc: "หลังใช้สกิล เดินเร็วขึ้น 25% นาน 2 วิ" },
-      { at: 20, name: "ลมหนุน", desc: "ความเร็วโจมตี +6%", stats: { aspd: 0.06 } },
+      { at: 20, name: "ลมหนุน", desc: "ป้องกันธาตุลม +15 ความเร็วโจมตี +5%", stats: { windDef: 15, aspd: 0.05 } },
       { at: 35, name: "พายุหมุน", desc: "ใช้สกิลแล้วมีโอกาส 15% ที่คูลดาวน์ของสกิลนั้นหายทันที" },
-      { at: 50, name: "เจ้าแห่งลม", desc: "ลดคูลดาวน์ +8% ความเร็วเดิน +8%", stats: { cdr: 0.08, move: 0.08 } },
+      { at: 50, name: "เจ้าแห่งลม", desc: "ลดคูลดาวน์ +5% ความเร็วเดิน +5% หลบหลีก +9", stats: { cdr: 0.05, move: 0.05, flee: 9 } },
     ],
   },
   fire: {
     name: "ไฟ", color: "#ff8a5c", glyph: "flame", max: ELEMENT_MAX, side: "โจมตี",
-    per: { ...ea("fire"), atk: 0.55, matk: 0.55, critDmg: 0.005, maxHp: 1 },
+    per: { ...ea("fire"), atk: 0.7, matk: 0.7, maxHp: 4, def: 0.3, mdef: 0.25 },
     skill: "ดาเมจสกิลแรงขึ้น 1% ต่อระดับ",
     marks: [
       { at: 10, name: "เผาไหม้", desc: "สกิลที่ตีโดนเผาศัตรู 20% ของดาเมจใน 3 วิ" },
-      { at: 20, name: "เปลวร้อน", desc: "พลังโจมตีและพลังเวท +5%", stats: { atkPct: 0.05, matkPct: 0.05 } },
+      { at: 20, name: "เปลวร้อน", desc: "ป้องกันธาตุไฟ +15 HP สูงสุด +5%", stats: { fireDef: 15, maxHpPct: 0.05 } },
       { at: 35, name: "ไฟลามทุ่ง", desc: "การเผาแรงขึ้นเป็น 40% ของดาเมจ" },
-      { at: 50, name: "อัคนี", desc: "ดาเมจสกิลแรงขึ้นอีก 15%" },
+      { at: 50, name: "อัคนี", desc: "ดาเมจสกิลแรงขึ้นอีก 15% พลังโจมตีและพลังเวท +4% HP สูงสุด +6%", stats: { atkPct: 0.04, matkPct: 0.04, maxHpPct: 0.06 } },
     ],
   },
   ice: {
     name: "น้ำแข็ง", color: "#9fe0ff", glyph: "freeze", max: ELEMENT_MAX, side: "ลดความเร็วโจมตีและร่ายของศัตรู",
-    per: { ...ea("ice"), mdef: 0.3, maxMp: 2 },
+    per: { ...ea("ice"), matk: 0.7, atk: 0.5, mdef: 0.7, maxMp: 3, maxHp: 4.5 },
     skill: "การโจมตีธาตุน้ำแข็งทำให้ศัตรูหนาวสั่น โจมตีและร่ายช้าลง 10% +0.6% ต่อระดับ นาน 3 วิ",
     marks: [
       { at: 10, name: "ลมหนาว", desc: "หนาวสั่นนานขึ้นเป็น 5 วิ" },
       { at: 20, name: "ผิวน้ำแข็ง", desc: "ป้องกันธาตุน้ำแข็ง +15 ต้านเวท +5%", stats: { iceDef: 15, mdefPct: 0.05 } },
       { at: 35, name: "เยือกแข็ง", desc: "การโจมตีธาตุน้ำแข็งมีโอกาส 10% แช่แข็งศัตรู 1.5 วิ" },
-      { at: 50, name: "ยุคน้ำแข็ง", desc: "หนาวสั่นแรงขึ้นเท่าตัว พลังโจมตีธาตุน้ำแข็ง +20", stats: { iceAtk: 20 } },
+      { at: 50, name: "ยุคน้ำแข็ง", desc: "หนาวสั่นแรงขึ้นเท่าตัว พลังเวท +4% พลังโจมตี +3% ต้านเวท +4% MP สูงสุด +3%", stats: { matkPct: 0.04, atkPct: 0.03, mdefPct: 0.04, maxMpPct: 0.03 } },
     ],
   },
   light: {
     name: "แสง", color: "#fff1a8", glyph: "star", max: ELEMENT_MAX, side: "ความเสียหายจริง",
-    per: { ...ea("light"), matk: 0.3, hit: 0.4 },
+    per: { ...ea("light"), matk: 0.7, atk: 0.4, hit: 0.75, mdef: 0.5, maxHp: 7 },
     skill: "การโจมตีธาตุแสงไม่สนเกราะ 20% +1.6% ต่อระดับ (ระดับ 50: ไม่สนเกราะเลย)",
     marks: [
       { at: 10, name: "แสงนำทาง", desc: "ความแม่นยำ +10", stats: { hit: 10 } },
       { at: 20, name: "รัศมี", desc: "ป้องกันธาตุแสง +15 ต้านเวท +5%", stats: { lightDef: 15, mdefPct: 0.05 } },
       { at: 35, name: "แสงทะลวง", desc: "การโจมตีธาตุแสงไม่สนเกราะเพิ่มอีก 20%" },
-      { at: 50, name: "สุริยะ", desc: "พลังโจมตีธาตุแสง +30", stats: { lightAtk: 30 } },
+      { at: 50, name: "สุริยะ", desc: "พลังเวท +4% พลังโจมตี +3% ความแม่นยำ +10 HP สูงสุด +4%", stats: { matkPct: 0.04, atkPct: 0.03, hit: 10, maxHpPct: 0.04 } },
     ],
   },
   dark: {
     name: "ความมืด", color: "#a98cff", glyph: "eye", max: ELEMENT_MAX, side: "สถานะผิดปกติ",
-    per: { ...ea("dark"), matk: 0.3, atk: 0.2 },
+    per: { ...ea("dark"), matk: 0.7, atk: 0.5, crit: 0.001, flee: 0.6, mdef: 0.5, maxHp: 5 },
     skill: "การโจมตีธาตุความมืดมีโอกาส 10% +0.6% ต่อระดับ (สูงสุด 60%) ทำให้ศัตรูติดสถานะ (ตาบอด อ่อนแรง หรือพิษ) 4 วิ",
     marks: [
       { at: 10, name: "เงามืด", desc: "สถานะจากธาตุความมืดนานขึ้นเป็น 6 วิ" },
-      { at: 20, name: "ม่านเงา", desc: "ป้องกันธาตุความมืด +15 หลบหลีก +10", stats: { darkDef: 15, flee: 10 } },
+      { at: 20, name: "ม่านเงา", desc: "ป้องกันธาตุความมืด +15 หลบหลีก +10 ต้านเวท +2%", stats: { darkDef: 15, flee: 10, mdefPct: 0.02 } },
       { at: 35, name: "คำสาป", desc: "ติดสถานะทีละ 2 อย่าง" },
-      { at: 50, name: "ราตรีนิรันดร์", desc: "ดาเมจใส่ศัตรูที่ติดสถานะ +15%", stats: { huntDmg: 0.15 } },
+      { at: 50, name: "ราตรีนิรันดร์", desc: "ดาเมจใส่ศัตรูที่ติดสถานะ +12% HP สูงสุด +4%", stats: { huntDmg: 0.12, maxHpPct: 0.04 } },
     ],
   },
   plant: {
     name: "พืช", color: "#8ee06a", glyph: "leaf", max: ELEMENT_MAX, side: "รักษาสถานะ",
-    per: { ...ea("plant"), hpRegen: 0.15, maxHp: 2 },
+    per: { ...ea("plant"), atk: 0.4, matk: 0.4, hpRegen: 0.12, maxHp: 6, mdef: 0.3 },
     skill: "ใช้สกิลแล้วฟื้น HP 0.1% ของ HP สูงสุดต่อระดับ · สถานะผิดปกติบนตัวหมดเร็วขึ้น 1% ต่อระดับ",
     marks: [
       { at: 10, name: "รากแก้ว", desc: "ใช้สกิลแล้วล้างสถานะผิดปกติบนตัวทั้งหมด" },
       { at: 20, name: "ใบเขียว", desc: "ป้องกันธาตุพืช +15 พลังรักษา +10%", stats: { plantDef: 15, healPct: 0.1 } },
       { at: 35, name: "ผลิใบ", desc: "ฟื้น HP จากธาตุพืชตอนใช้สกิลแรงขึ้นเท่าตัว" },
-      { at: 50, name: "พฤกษาพิทักษ์", desc: "ไม่ติดสถานะผิดปกติ HP สูงสุด +5%", stats: { maxHpPct: 0.05 } },
+      { at: 50, name: "พฤกษาพิทักษ์", desc: "ไม่ติดสถานะผิดปกติ HP สูงสุด +6% พลังโจมตีและพลังเวท +3% ฟื้น HP +1/วิ", stats: { maxHpPct: 0.06, atkPct: 0.03, matkPct: 0.03, hpRegen: 1 } },
     ],
   },
   stone: {
     name: "หิน", color: "#b4ada2", glyph: "slam", max: ELEMENT_MAX, side: "สาปเป็นหิน",
-    per: { ...ea("stone"), def: 0.4, maxHp: 3 },
+    per: { ...ea("stone"), atk: 0.6, matk: 0.4, def: 0.8, maxHp: 7, mdef: 0.3 },
     skill: "การโจมตีธาตุหินมีโอกาส 4% +0.3% ต่อระดับ (สูงสุด 40%) สาปศัตรูเป็นหิน 2 วิ (ขยับและโจมตีไม่ได้)",
     marks: [
       { at: 10, name: "ศิลาสาป", desc: "เป็นหินนานขึ้นเป็น 3 วิ" },
       { at: 20, name: "ผิวศิลา", desc: "ป้องกันธาตุหิน +15 ป้องกัน +5%", stats: { stoneDef: 15, defPct: 0.05 } },
       { at: 35, name: "เมดูซ่า", desc: "โอกาสสาปเป็นหินเพิ่มขึ้นครึ่งหนึ่ง" },
-      { at: 50, name: "รูปสลัก", desc: "ศัตรูที่เป็นหินโดนแรงขึ้น 25%" },
+      { at: 50, name: "รูปสลัก", desc: "ศัตรูที่เป็นหินโดนแรงขึ้น 25% ป้องกัน +4% พลังโจมตี +4% พลังเวท +2% HP สูงสุด +3%", stats: { defPct: 0.04, atkPct: 0.04, matkPct: 0.02, maxHpPct: 0.03 } },
     ],
   },
   mud: {
     name: "โคลน", color: "#b08860", glyph: "down", max: ELEMENT_MAX, side: "ลดความเร็วเคลื่อนที่",
-    per: { ...ea("mud"), maxHp: 4, hpRegen: 0.05 },
+    per: { ...ea("mud"), atk: 0.5, matk: 0.5, hit: 0.3, maxHp: 8, hpRegen: 0.1, def: 0.45 },
     skill: "การโจมตีธาตุโคลนทำให้ศัตรูเดินช้าลง 20% +0.8% ต่อระดับ นาน 3 วิ",
     marks: [
       { at: 10, name: "หล่มลึก", desc: "เดินช้านานขึ้นเป็น 5 วิ" },
-      { at: 20, name: "เกราะโคลน", desc: "ป้องกันธาตุโคลน +15 HP สูงสุด +3%", stats: { mudDef: 15, maxHpPct: 0.03 } },
+      { at: 20, name: "เกราะโคลน", desc: "ป้องกันธาตุโคลน +15 HP สูงสุด +5%", stats: { mudDef: 15, maxHpPct: 0.05 } },
       { at: 35, name: "โคลนดูด", desc: "การโจมตีธาตุโคลนตรึงศัตรูอยู่กับที่ 0.5 วิ" },
-      { at: 50, name: "บึงมรณะ", desc: "เดินช้าแรงขึ้นอีกครึ่งหนึ่ง" },
+      { at: 50, name: "บึงมรณะ", desc: "เดินช้าแรงขึ้นอีกครึ่งหนึ่ง HP สูงสุด +5% ลดความเสียหาย 2% พลังโจมตีและพลังเวท +3%", stats: { maxHpPct: 0.05, dmgRed: 0.02, atkPct: 0.03, matkPct: 0.03 } },
     ],
   },
   lava: {
     name: "ลาวา", color: "#ff7438", glyph: "burst", max: ELEMENT_MAX, side: "เผาต่อเนื่องและป้องกัน",
-    per: { ...ea("lava"), def: 0.6, matk: 0.2 },
+    per: { ...ea("lava"), matk: 0.5, atk: 0.45, def: 0.7, maxHp: 4, mdef: 0.3 },
     skill: "การโจมตีธาตุลาวาเผาศัตรู 15% +0.7% ต่อระดับของดาเมจ ใน 3 วิ",
     marks: [
       { at: 10, name: "เปลือกลาวา", desc: "ป้องกัน +5%", stats: { defPct: 0.05 } },
-      { at: 20, name: "หินหนืด", desc: "การเผาจากธาตุลาวานานขึ้นเป็น 5 วิ ป้องกันธาตุลาวา +15", stats: { lavaDef: 15 } },
+      { at: 20, name: "หินหนืด", desc: "การเผาจากธาตุลาวานานขึ้นเป็น 5 วิ ป้องกันธาตุลาวา +15 HP สูงสุด +5%", stats: { lavaDef: 15, maxHpPct: 0.05 } },
       { at: 35, name: "ภูเขาไฟ", desc: "ลดความเสียหายที่ได้รับ 5%", stats: { dmgRed: 0.05 } },
-      { at: 50, name: "แกนโลก", desc: "การเผาจากธาตุลาวาแรงขึ้นเท่าตัว" },
+      { at: 50, name: "แกนโลก", desc: "การเผาจากธาตุลาวาแรงขึ้นเท่าตัว พลังโจมตีและพลังเวท +3% HP สูงสุด +4% ป้องกัน +3%", stats: { atkPct: 0.03, matkPct: 0.03, maxHpPct: 0.04, defPct: 0.03 } },
     ],
   },
   metal: {
     name: "โลหะ", color: "#cdd6e2", glyph: "shield", max: ELEMENT_MAX, side: "HP สูงสุดและสะท้อน",
-    per: { ...ea("metal"), maxHp: 6, maxHpPct: 0.002, reflect: 0.004 },
-    skill: "สะท้อนความเสียหายที่โดนโจมตีกลับไป 0.4% ต่อระดับ (รวมในค่าสะท้อน)",
+    per: { ...ea("metal"), atk: 0.45, matk: 0.35, maxHp: 7, def: 0.4, mdef: 0.2, reflect: 0.005 },
+    skill: "สะท้อนความเสียหายที่โดนโจมตีกลับไป 0.5% ต่อระดับ (รวมในค่าสะท้อน สูงสุด 60%)",
     marks: [
       { at: 10, name: "ผิวเหล็ก", desc: "สะท้อนความเสียหาย +5%", stats: { reflect: 0.05 } },
       { at: 20, name: "เกราะเหล็ก", desc: "ป้องกันธาตุโลหะ +15 HP สูงสุด +5%", stats: { metalDef: 15, maxHpPct: 0.05 } },
       { at: 35, name: "หนามเหล็ก", desc: "สะท้อนความเสียหาย +10%", stats: { reflect: 0.1 } },
-      { at: 50, name: "ป้อมปราการ", desc: "HP สูงสุด +10% ป้องกันทุกธาตุ +10", stats: { maxHpPct: 0.1, ...Object.fromEntries(ELEMENT_IDS.map((e) => [`${e}Def`, 10])) } },
+      { at: 50, name: "ป้อมปราการ", desc: "HP สูงสุด +4% ป้องกันทุกธาตุ +10 พลังโจมตีและพลังเวท +3%", stats: { maxHpPct: 0.04, atkPct: 0.03, matkPct: 0.03, ...Object.fromEntries(ELEMENT_IDS.map((e) => [`${e}Def`, 10])) } },
     ],
   },
   // opened by an element book
   poison: {
     name: "พิษ", color: "#8fdc4a", glyph: "drop", max: ELEMENT_MAX, side: "ติดพิษ", book: "book_poison",
-    per: { ...ea("poison"), poisonPct: 0.01, atk: 0.2, matk: 0.2 },
+    per: { ...ea("poison"), poisonPct: 0.008, atk: 0.4, matk: 0.4, hit: 0.2, maxHp: 4, def: 0.3, mdef: 0.3, hpRegen: 0.04 },
     skill: "การโจมตีธาตุพิษทำให้ติดพิษ 30% +1% ต่อระดับของดาเมจ ใน 4 วิ (ติดซ้อนได้)",
     marks: [
       { at: 10, name: "พิษซึม", desc: "พิษจากธาตุพิษนานขึ้นเป็น 6 วิ" },
-      { at: 20, name: "ภูมิต้านพิษ", desc: "ป้องกันธาตุพิษ +15 พิษแรงขึ้น 10%", stats: { poisonDef: 15, poisonPct: 0.1 } },
+      { at: 20, name: "ภูมิต้านพิษ", desc: "ป้องกันธาตุพิษ +15 HP สูงสุด +5%", stats: { poisonDef: 15, maxHpPct: 0.05 } },
       { at: 35, name: "พิษสองชั้น", desc: "การโจมตีธาตุพิษติดพิษสองชั้นในครั้งเดียว" },
-      { at: 50, name: "พิษร้ายแรง", desc: "พิษทุกอย่างแรงขึ้นเท่าตัว" },
+      { at: 50, name: "พิษร้ายแรง", desc: "พิษทุกอย่างแรงขึ้นเท่าตัว พลังโจมตีและพลังเวท +3% HP สูงสุด +4% ความแม่นยำ +10", stats: { atkPct: 0.03, matkPct: 0.03, maxHpPct: 0.04, hit: 10 } },
     ],
   },
   lightning: {
     name: "สายฟ้า", color: "#fff27a", glyph: "bolt", max: ELEMENT_MAX, side: "คริติคอล", book: "book_lightning",
-    per: { ...ea("lightning"), crit: 0.001, critDmg: 0.006, aspd: 0.002, atk: 0.25, matk: 0.25 },
+    per: { ...ea("lightning"), crit: 0.001, critDmg: 0.004, aspd: 0.0015, atk: 0.3, matk: 0.3, flee: 0.6, maxHp: 3 },
     skill: "สกิลกายภาพ: โอกาสคริติคอล +0.1% ต่อระดับ · สกิลเวท: ดาเมจ +0.3% ต่อระดับ",
     marks: [
       { at: 10, name: "ฟ้าผ่า", desc: "สกิลที่ตีโดนกระโดดไปโดนอีก 1 ตัวใกล้ๆ 30%" },
-      { at: 20, name: "ประจุไฟฟ้า", desc: "แรงคริติคอล +15%", stats: { critDmg: 0.15 } },
+      { at: 20, name: "ประจุไฟฟ้า", desc: "ป้องกันธาตุสายฟ้า +15 แรงคริติคอล +10% หลบหลีก +8", stats: { lightningDef: 15, critDmg: 0.1, flee: 8 } },
       { at: 35, name: "สายฟ้าแตกแขนง", desc: "กระโดดไปโดน 2 ตัว" },
-      { at: 50, name: "อสุนีบาต", desc: "ดาเมจที่กระโดดแรงขึ้นเป็น 60% โอกาสคริติคอล +2%", stats: { crit: 0.02 } },
+      { at: 50, name: "อสุนีบาต", desc: "ดาเมจที่กระโดดแรงขึ้นเป็น 60% โอกาสคริติคอล +2% แรงคริติคอล +10% HP สูงสุด +7%", stats: { crit: 0.02, critDmg: 0.1, maxHpPct: 0.07 } },
     ],
   },
   smoke: {
     name: "ควัน", color: "#b9b2cc", glyph: "cloud", max: ELEMENT_MAX, side: "หลบหลีก",
-    per: { ...ea("smoke"), flee: 0.4, magicDodge: 0.0027 },
+    per: { ...ea("smoke"), magicDodge: 0.004, flee: 0.75, move: 0.002, maxHp: 3, atk: 0.45, matk: 0.45 },
     skill: "หลบหลีกเวทมนตร์ได้ 0.4% ต่อระดับ (ระดับ 50: 20%) เวทที่หลบได้ไม่โดนเลย",
     marks: [
       { at: 10, name: "ม่านหมอก", desc: "หลบหลีก +10", stats: { flee: 10 } },
-      { at: 20, name: "ร่างควัน", desc: "ความเร็วเดิน +5%", stats: { move: 0.05 } },
+      { at: 20, name: "ร่างควัน", desc: "ป้องกันธาตุควัน +15 ความเร็วเดิน +5%", stats: { smokeDef: 15, move: 0.05 } },
       { at: 35, name: "หมอกลวงตา", desc: "หลบเวทอีก +10%", stats: { magicDodge: 0.1 } },
-      { at: 50, name: "จ้าวแห่งควัน", desc: "หลบหลีก +20 หลบเวทอีก +5%", stats: { flee: 20, magicDodge: 0.05 } },
+      { at: 50, name: "จ้าวแห่งควัน", desc: "หลบหลีก +10 พลังโจมตีและพลังเวท +3% HP สูงสุด +4%", stats: { flee: 10, atkPct: 0.03, matkPct: 0.03, maxHpPct: 0.04 } },
+    ],
+  },
+  // v0.3: slipping physical blows and striking back hard; shrugging off spells and ailments
+  shadow: {
+    name: "เงา", color: "#7c86b4", glyph: "dash", max: ELEMENT_MAX, side: "หลบหลีกกายภาพและโจมตีกายภาพ",
+    per: { ...ea("shadow"), flee: 1.5, atk: 0.9, crit: 0.001, maxHp: 4, mdef: 0.3 },
+    skill: "หลบหลีก +1.5 และพลังโจมตี +0.9 ต่อระดับ (หลบการโจมตีกายภาพของมอนสเตอร์ได้บ่อยขึ้น)",
+    marks: [
+      { at: 10, name: "เงาพราง", desc: "หลบหลีก +10", stats: { flee: 10 } },
+      { at: 20, name: "ร่างเงา", desc: "ป้องกันธาตุเงา +15 หลบหลีก +8 HP สูงสุด +3%", stats: { shadowDef: 15, flee: 8, maxHpPct: 0.03 } },
+      { at: 35, name: "เงาจู่โจม", desc: "พลังโจมตี +6%", stats: { atkPct: 0.06 } },
+      { at: 50, name: "เจ้าแห่งเงา", desc: "หลบหลีก +15 พลังโจมตี +4% โอกาสคริติคอล +2% HP สูงสุด +2%", stats: { flee: 15, atkPct: 0.04, crit: 0.02, maxHpPct: 0.02 } },
+    ],
+  },
+  gold: {
+    name: "ทอง", color: "#e8b84a", glyph: "coin", max: ELEMENT_MAX, side: "ต้านเวทและต้านสถานะ",
+    per: { ...ea("gold"), mdef: 0.4, statusRes: 0.004, atk: 0.45, matk: 0.45, def: 0.4, maxHp: 5, hpRegen: 0.05 },
+    skill: "ต้านสถานะ 0.4% ต่อระดับ: โอกาสไม่ติดสถานะผิดปกติจากมอนสเตอร์ (ช้า ไฟลวก หิน หนาวสั่น โคลน ตาพร่า) และต้านเวท +0.4 ต่อระดับ",
+    marks: [
+      { at: 10, name: "ผิวทอง", desc: "ต้านสถานะ +5%", stats: { statusRes: 0.05 } },
+      { at: 20, name: "เกราะทอง", desc: "ป้องกันธาตุทอง +15 ต้านเวท +5%", stats: { goldDef: 15, mdefPct: 0.05 } },
+      { at: 35, name: "ทองแท้", desc: "ต้านสถานะ +10%", stats: { statusRes: 0.1 } },
+      { at: 50, name: "ราชันทองคำ", desc: "ต้านเวท +4% พลังโจมตีและพลังเวท +3% HP สูงสุด +4%", stats: { mdefPct: 0.04, atkPct: 0.03, matkPct: 0.03, maxHpPct: 0.04 } },
     ],
   },
 };
 
 // Past the first book's 50 (ELEMENT_MAX) the second book opens up to 100 (ELEMENT_MAX2), with three
-// more milestones: 65 more attack and defence in the element, 80 more of its strong side, 100 the
-// crown. The strong-side stats each level adds are half again what they were (the element's own
-// attack and defence stay as they are).
+// more milestones: 65 more attack and defence in the element, 80 more of its strong side (about
+// 25 points), 100 the crown. Every level keeps adding what it did.
 const ELEMENT_TOP: Record<string, [string, string, string, StatBag, string]> = {
-  earth: ["แผ่นดินตื่น", "ขุนเขา", "พระแม่ธรณี", { defPct: 0.1, maxHpPct: 0.05 }, "ป้องกัน +10% HP สูงสุด +5%"],
+  earth: ["แผ่นดินตื่น", "ขุนเขา", "พระแม่ธรณี", { defPct: 0.06, maxHpPct: 0.04 }, "ป้องกัน +6% HP สูงสุด +4%"],
   water: ["น้ำวน", "ธารชีวา", "เจ้าสมุทร", { mpRegenPct: 0.15, healPct: 0.1 }, "ฟื้น MP +15% พลังรักษา +10%"],
   wind: ["ลมกรด", "พายุคลั่ง", "เทพวายุ", { aspd: 0.06, move: 0.05 }, "ความเร็วโจมตี +6% ความเร็วเดิน +5%"],
-  fire: ["เพลิงโหม", "ไฟบรรลัย", "เทพอัคคี", { atkPct: 0.06, matkPct: 0.06 }, "พลังโจมตีและพลังเวท +6%"],
-  ice: ["หิมะกัด", "ธารน้ำแข็ง", "ราชินีหิมะ", { mdefPct: 0.1, maxMpPct: 0.08 }, "ต้านเวท +10% MP สูงสุด +8%"],
-  light: ["แสงเจิดจ้า", "รุ่งอรุณ", "บุตรแห่งสุริยะ", { hit: 20, matkPct: 0.06 }, "ความแม่นยำ +20 พลังเวท +6%"],
+  fire: ["เพลิงโหม", "ไฟบรรลัย", "เทพอัคคี", { atkPct: 0.07, matkPct: 0.07 }, "พลังโจมตีและพลังเวท +7%"],
+  ice: ["หิมะกัด", "ธารน้ำแข็ง", "ราชินีหิมะ", { mdefPct: 0.06, maxMpPct: 0.05 }, "ต้านเวท +6% MP สูงสุด +5%"],
+  light: ["แสงเจิดจ้า", "รุ่งอรุณ", "บุตรแห่งสุริยะ", { hit: 15, matkPct: 0.06 }, "ความแม่นยำ +15 พลังเวท +6%"],
   dark: ["เงาลึก", "จันทร์ดับ", "เจ้าแห่งราตรี", { huntDmg: 0.1, flee: 15 }, "ดาเมจใส่ศัตรูที่ติดสถานะ +10% หลบหลีก +15"],
   plant: ["ไม้เลื้อย", "ป่าดึกดำบรรพ์", "ต้นไม้แห่งโลก", { healPct: 0.1, maxHpPct: 0.05 }, "พลังรักษา +10% HP สูงสุด +5%"],
-  stone: ["หินผาแกร่ง", "ศิลาอาถรรพ์", "เทพศิลา", { defPct: 0.1, maxHpPct: 0.05 }, "ป้องกัน +10% HP สูงสุด +5%"],
-  mud: ["ดินโคลนหนา", "หล่มมรณะ", "เจ้าแห่งบึง", { maxHpPct: 0.08, dmgRed: 0.03 }, "HP สูงสุด +8% ลดความเสียหาย 3%"],
-  lava: ["หินหลอมเหลว", "ปล่องภูเขาไฟ", "หัวใจโลก", { defPct: 0.08, dmgRed: 0.03 }, "ป้องกัน +8% ลดความเสียหาย 3%"],
+  stone: ["หินผาแกร่ง", "ศิลาอาถรรพ์", "เทพศิลา", { defPct: 0.06, maxHpPct: 0.04 }, "ป้องกัน +6% HP สูงสุด +4%"],
+  mud: ["ดินโคลนหนา", "หล่มมรณะ", "เจ้าแห่งบึง", { maxHpPct: 0.06, dmgRed: 0.03 }, "HP สูงสุด +6% ลดความเสียหาย 3%"],
+  lava: ["หินหลอมเหลว", "ปล่องภูเขาไฟ", "หัวใจโลก", { defPct: 0.06, dmgRed: 0.03 }, "ป้องกัน +6% ลดความเสียหาย 3%"],
   metal: ["เหล็กกล้า", "ปราการเหล็ก", "เทพโลหะ", { reflect: 0.08, maxHpPct: 0.05 }, "สะท้อนความเสียหาย +8% HP สูงสุด +5%"],
-  poison: ["พิษกัดกร่อน", "พิษมรณะ", "ราชาอสรพิษ", { poisonPct: 0.2, atkPct: 0.04, matkPct: 0.04 }, "พิษแรงขึ้น 20% พลังโจมตีและพลังเวท +4%"],
-  lightning: ["ฟ้าคำราม", "พายุสายฟ้า", "เทพอสนี", { crit: 0.02, critDmg: 0.15 }, "โอกาสคริติคอล +2% แรงคริติคอล +15%"],
+  poison: ["พิษกัดกร่อน", "พิษมรณะ", "ราชาอสรพิษ", { poisonPct: 0.15, atkPct: 0.03, matkPct: 0.03 }, "พิษแรงขึ้น 15% พลังโจมตีและพลังเวท +3%"],
+  lightning: ["ฟ้าคำราม", "พายุสายฟ้า", "เทพอสนี", { crit: 0.03, critDmg: 0.25 }, "โอกาสคริติคอล +3% แรงคริติคอล +25%"],
   smoke: ["หมอกหนา", "ควันมายา", "เงาไร้ร่าง", { flee: 20, magicDodge: 0.05 }, "หลบหลีก +20 หลบเวท +5%"],
+  shadow: ["เงาซ้อน", "ราตรีไร้เงา", "เงาสังหาร", { flee: 20, atkPct: 0.05 }, "หลบหลีก +20 พลังโจมตี +5%"],
+  gold: ["ทองคำเปลว", "หีบสมบัติ", "เทพแห่งทองคำ", { mdefPct: 0.06, statusRes: 0.06 }, "ต้านเวท +6% ต้านสถานะ +6%"],
 };
 for (const [id, e] of Object.entries(ELEMENTS)) {
-  for (const k of Object.keys(e.per)) if (k !== `${id}Atk` && k !== `${id}Def`) e.per[k] = +(e.per[k]! * 1.5).toFixed(4);
   const [n65, n80, n100, side, sideDesc] = ELEMENT_TOP[id];
   e.max2 = ELEMENT_MAX2;
   e.marks.push(

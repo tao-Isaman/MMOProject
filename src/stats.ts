@@ -20,8 +20,9 @@ const ZERO = {
   // a share of the damage a bite does sent back at the biter
   reflect: 0,
   // luck: every chance the player rolls is this many percent likelier (luckFactor); the chance
-  // a monster's spell misses outright (smoke)
-  luck: 0, magicDodge: 0,
+  // a monster's spell misses outright (smoke); the chance an ailment a monster leaves (slow,
+  // burn, stone, chill...) doesn't take at all (gold; resists)
+  luck: 0, magicDodge: 0, statusRes: 0,
   // a normal hit landing twice (the thief's dagger); hidden from monsters while above 0 (a hide
   // buff) and how much harder the first blow from hiding lands
   doubleHit: 0, stealth: 0, ambush: 0,
@@ -125,8 +126,17 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
   s.poisonHit = Math.min(0.6, s.poisonHit);
   s.reflect = Math.min(0.6, s.reflect);
   s.magicDodge = Math.min(0.6, s.magicDodge);
+  s.statusRes = Math.min(STATUS_RES_CAP, s.statusRes);
   s.doubleHit = Math.min(0.6, s.doubleHit);
   return s;
+}
+
+// The most statusRes can be: some ailments still land (plant 50 is what makes a character immune).
+export const STATUS_RES_CAP = 0.75;
+// Whether the player shrugs off an ailment about to land on it (statusRes; luck helps like every
+// other chance in its favour).
+export function resists(stats: { statusRes: number; luck: number }): boolean {
+  return stats.statusRes > 0 && lucky(stats.statusRes, stats);
 }
 
 // Luck (the jester's new stat, gear): every chance in the player's favour is this much likelier

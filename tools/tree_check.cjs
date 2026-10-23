@@ -8,7 +8,14 @@
 //   - an active without a skill, a passive without stats, a desc or number that comes out as
 //     NaN, undefined or not a number at some rank, a skill type skills.ts doesn't know
 //   - a job branch or book the jobs table (JOBS) and the trees disagree about
-// Usage: node tools/tree_check.cjs [tree id ...]   (no ids: every tree)
+// and, run without ids, the masteries and the elements:
+//   - a weapon without a mastery or without its in-hand picture (public/assets/weapons/<id>.png),
+//     a mastery for an unknown weapon, an unknown glyph or stat, a reward skill that's broken
+//   - an element missing from ELEMENT_IDS or ELEMENTS, an unknown glyph or stat, milestones out
+//     of order, and the balance: every element's line weighed in points (ELEMENT_WORTH, README
+//     "ธาตุ") must come to within 8% of the others' at 50 and at 100, with at least a quarter of
+//     its every-level stats on its lesser side (attack or defence)
+// Usage: node tools/tree_check.cjs [tree id ...]   (no ids: every tree, mastery and element)
 const { execSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
@@ -35,7 +42,7 @@ const statKeys = new Set([
   "maxHp", "maxMp", "atk", "matk", "def", "mdef", "hit", "flee", "crit", "critDmg", "aspd", "move", "hpRegen", "mpRegen", "cdr", "dmgRed", "castRed",
   "dmg", "reach", "stunHit", "xpPct", "drop", "pierce", "potion", "healPct", "multiShot", "poisonHit", "huntDmg", "buffTime", "reflect",
   "atkPct", "matkPct", "defPct", "mdefPct", "maxHpPct", "maxMpPct", "mpRegenPct", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "poisonPct",
-  "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "doubleHit", "stealth", "ambush",
+  "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "statusRes", "doubleHit", "stealth", "ambush",
   ...P.ELEMENT_IDS.flatMap((e) => [`${e}Atk`, `${e}Def`]), ...P.RACES.map((r) => `${r}Dmg`),
 ]);
 const weapons = new Set(Object.keys(items.WEAPON_TYPES));
@@ -119,6 +126,107 @@ for (const [jid, j] of Object.entries(P.JOBS)) for (const b of j.branches) {
   if (!P.TREES[b]) bad(jid, `branch ${b} has no tree yet`);
   else if (P.TREES[b].job !== jid) bad(b, `tree must say job: "${jid}"`);
 }
+
+// ---- masteries ----
+const checkSkill = (where, s) => {
+  if (!TYPES.has(s.type)) bad(where, `skill type ${s.type}`);
+  if (badNum(s.mp) || badNum(s.cd)) bad(where, "mp and cd must be numbers");
+  if (!/^#[0-9a-f]{6}$/i.test(s.color || "")) bad(where, "skill color must be #rrggbb");
+  for (const key of ["mult", "stun", "slow", "freeze", "poison"]) if (s[key] !== undefined && badNum(s[key](1))) bad(where, `${key}(1) = ${s[key](1)}`);
+};
+const checkBag = (where, bag) => {
+  for (const [key, v] of Object.entries(bag || {})) {
+    if (!statKeys.has(key)) bad(where, `unknown stat ${key}`);
+    if (badNum(v)) bad(where, `stat ${key}: ${v}`);
+  }
+};
+if (!only.length) {
+  for (const [id, m] of Object.entries(P.MASTERIES)) {
+    // (a weapon mastery shows its weapon's picture; its glyph only marks its books)
+    if (m.kind !== "weapon" && !glyphs.has(m.glyph)) bad(`mastery ${id}`, `glyph "${m.glyph}" unknown`);
+    for (const w of m.weapons || []) if (!weapons.has(w)) bad(`mastery ${id}`, `unknown weapon ${w}`);
+    checkBag(`mastery ${id}`, m.per);
+    for (const r of m.rewards) {
+      const where = `mastery ${id} at ${r.at}`;
+      if (r.glyph && !glyphs.has(r.glyph)) bad(where, `glyph "${r.glyph}" unknown`);
+      if (badText(r.desc) || !r.name) bad(where, "needs a name and a desc");
+      checkBag(where, r.stats);
+      if (r.kind === "active") {
+        if (!r.id || !r.skill) bad(where, "an active needs an id and a skill");
+        else if (P.NODES[r.id]) bad(where, `skill id ${r.id} is a tree skill's too`);
+        else checkSkill(where, r.skill);
+      }
+    }
+  }
+  for (const w of weapons) {
+    if (!Object.values(P.MASTERIES).some((m) => m.weapons?.includes(w))) bad(`weapon ${w}`, "no mastery covers it");
+    if (!fs.existsSync(path.join(root, "public/assets/weapons", `${w}.png`))) bad(`weapon ${w}`, "no in-hand picture (tools/draw_items.py)");
+  }
+}
+
+// ---- elements ----
+// What a point of each stat is (the README's table): 1 attack, 10 HP, 0.4% attack... Attack and
+// magic attack given together count the larger in full and half the smaller (a character fights
+// with one of them), and so do their percents; another element's defence (metal's) counts a
+// share for each element. The elements' own attack and defence (the same for all) don't count.
+const ELEMENT_WORTH = {
+  atk: 1, matk: 1, def: 1, mdef: 1, maxHp: 10, maxMp: 6, hit: 1.5, flee: 1.5, hpRegen: 0.25, mpRegen: 0.15,
+  crit: 0.004, critDmg: 0.015, aspd: 0.004, move: 0.005, cdr: 0.0035, castRed: 0.004, atkPct: 0.004, matkPct: 0.004,
+  defPct: 0.004, mdefPct: 0.004, maxHpPct: 0.004, maxMpPct: 0.004, mpRegenPct: 0.01, healPct: 0.008, dmgRed: 0.003, dmg: 0.003,
+  reflect: 0.006, magicDodge: 0.004, statusRes: 0.006, huntDmg: 0.006, poisonPct: 0.01, pierce: 0.004,
+};
+const ATTACK_STATS = new Set(["atk", "matk", "hit", "crit", "critDmg", "aspd", "cdr", "castRed", "atkPct", "matkPct", "dmg", "huntDmg", "poisonPct", "pierce"]);
+// What each element's effect (its skill line and the milestones without stats) is worth a level:
+// on every skill 1.2 (wind's own share is its cooldown stat), on its own element's hits 0.6; the
+// four whose speciality is a stat have it in their numbers. Their own stats, not weighed for the
+// attack/defence split: wind's cooldown, metal's reflect, smoke's spell dodge, gold's magic
+// defence and statusRes, poison's poison.
+const EFFECT_WORTH = { earth: 1.2, water: 1.2, wind: 0.4, fire: 1.2, lightning: 1.2, plant: 1.2, ice: 0.6, light: 0.6, dark: 0.6, stone: 0.6, mud: 0.6, lava: 0.6, poison: 0.6 };
+const SIDE_STATS = { wind: ["cdr"], metal: ["reflect"], smoke: ["magicDodge"], gold: ["mdef", "statusRes"], poison: ["poisonPct"] };
+function elementWorth(id, bag, side = []) {
+  const b = { ...bag }, w = { atk: 0, def: 0, side: 0 };
+  const put = (key, v) => (side.includes(key) ? (w.side += v) : ATTACK_STATS.has(key) ? (w.atk += v) : (w.def += v));
+  const pair = (x, y) => Math.max(x, y) + 0.5 * Math.min(x, y);
+  if (b.atk || b.matk) put("atk", pair(b.atk ?? 0, b.matk ?? 0));
+  if (b.atkPct || b.matkPct) put("atkPct", pair(b.atkPct ?? 0, b.matkPct ?? 0) / ELEMENT_WORTH.atkPct);
+  for (const k of ["atk", "matk", "atkPct", "matkPct"]) delete b[k];
+  for (const [k, v] of Object.entries(b)) {
+    if (k === `${id}Atk` || k === `${id}Def`) continue;
+    if (/(Atk|Def)$/.test(k)) put(k.endsWith("Atk") ? "atk" : "def", v / P.ELEMENT_IDS.length);
+    else if (ELEMENT_WORTH[k]) put(k, v / ELEMENT_WORTH[k]);
+    else bad(`element ${id}`, `no worth for ${k} (tools/tree_check.cjs ELEMENT_WORTH)`);
+  }
+  return w;
+}
+if (!only.length) {
+  for (const id of P.ELEMENT_IDS) if (!P.ELEMENTS[id]) bad(`element ${id}`, "in ELEMENT_IDS but not in ELEMENTS");
+  const lines = [];
+  for (const [id, e] of Object.entries(P.ELEMENTS)) {
+    const where = `element ${id}`;
+    if (!P.ELEMENT_IDS.includes(id)) bad(where, "not in ELEMENT_IDS");
+    if (!glyphs.has(e.glyph)) bad(where, `glyph "${e.glyph}" unknown`);
+    if (!e.name || !e.side || badText(e.skill) || !/^#[0-9a-f]{6}$/i.test(e.color || "")) bad(where, "needs a name, side, skill line and a #rrggbb color");
+    checkBag(where, e.per);
+    e.marks.forEach((m, i) => {
+      checkBag(`${where} at ${m.at}`, m.stats);
+      if (badText(m.desc) || !m.name) bad(`${where} at ${m.at}`, "needs a name and a desc");
+      if (i && m.at <= e.marks[i - 1].at) bad(where, `milestone ${m.at} out of order`);
+    });
+    const side = SIDE_STATS[id] ?? [];
+    const per = elementWorth(id, e.per, side), effect = EFFECT_WORTH[id] ?? 0;
+    const lesser = Math.min(per.atk, per.def) / (per.atk + per.def);
+    if (lesser < 0.25) bad(where, `${(lesser * 100).toFixed(0)}% of a level's stats on its lesser side (attack ${per.atk.toFixed(2)}, defence ${per.def.toFixed(2)})`);
+    const upTo = (lv) => lv * (per.atk + per.def + per.side + effect) + e.marks.filter((m) => m.at <= lv && m.stats)
+      .reduce((a, m) => { const w = elementWorth(id, m.stats); return a + w.atk + w.def + w.side; }, 0);
+    lines.push({ id, at50: upTo(50), at100: upTo(100) });
+  }
+  for (const lv of ["at50", "at100"]) {
+    const mean = lines.reduce((a, l) => a + l[lv], 0) / lines.length;
+    for (const l of lines) if (Math.abs(l[lv] / mean - 1) > 0.08) bad(`element ${l.id}`, `worth ${l[lv].toFixed(0)} ${lv.replace("at", "at level ")}, ${((l[lv] / mean - 1) * 100).toFixed(0)}% off the elements' ${mean.toFixed(0)}`);
+  }
+}
+
 fs.rmSync(out, { recursive: true, force: true });
-console.log(problems ? `${problems} problem(s)` : `ok: ${Object.keys(P.TREES).length} trees, ${Object.keys(P.NODES).length} skills`);
+console.log(problems ? `${problems} problem(s)` : `ok: ${Object.keys(P.TREES).length} trees, ${Object.keys(P.NODES).length} skills`
+  + (only.length ? "" : `, ${Object.keys(P.MASTERIES).length} masteries, ${Object.keys(P.ELEMENTS).length} elements`));
 process.exit(problems ? 1 : 0);

@@ -1,6 +1,6 @@
 """Draw the weapon and item pixel art.
 
-usage: python3 tools/draw_items.py public/assets
+usage: python3 tools/draw_items.py public/assets [name ...]   (names: only those)
 
 Writes <out>/weapons/<type>.png (upright: tip at the top, grip at the bottom, at the
 character's pixel size) and <out>/items/<name>.png (inventory icons and the arrow). The art
@@ -289,6 +289,62 @@ def dagger():
     return cv.outline()
 
 
+def knuckle():
+    """Knuckle-duster seen from the thumb side, its striking face up (the way the arm points):
+    four studs on a steel plate across the fingers, the finger rings and the palm bar under it.
+    Small enough to sit on the fist."""
+    cv = Canvas(12, 11)
+    for i, x in enumerate((2, 4, 7, 9)):
+        # a stud over each knuckle, lit from the upper left
+        cv.set(x, 1, STEEL[3] if i < 2 else STEEL[2])
+        cv.set(x, 2, STEEL[4] if i == 0 else STEEL[3])
+        cv.set(x + 1, 2, STEEL[2])
+    for y in range(3, 6):
+        for x in range(1, 11):
+            t = (x - 1) / 9
+            c = STEEL[3] if y == 3 else shade(STEEL, t)
+            cv.set(x, y, c)
+    cv.set(2, 3, STEEL[4])
+    # the finger rings: gold bands with dark holes between
+    for x in range(1, 11):
+        cv.set(x, 6, GOLD[1] if x in (3, 6, 8) else GOLD[2] if x < 6 else GOLD[1])
+    for x in (2, 5, 7, 9):
+        cv.set(x, 7, GOLD[2])
+    # the palm bar under the rings
+    for x in range(2, 10):
+        cv.set(x, 8, GOLD[3] if x < 5 else GOLD[2])
+        cv.set(x, 9, GOLD[1])
+    return cv.outline()
+
+
+def claw():
+    """Claw: three blades over the knuckles, curving out a little to one side, on a steel band
+    with a gold rim that sits on the fist (the grip)."""
+    cv = Canvas(15, 28)
+    for i, x0 in enumerate((3, 7, 11)):
+        top = 1 + abs(i - 1) * 3  # the middle blade is the longest
+        for y in range(top, 21):
+            k = (21 - y) / 20
+            x = x0 + round(k * k * 2)  # bends toward the tip
+            if y < top + 3:
+                cv.set(x + 1, y, STEEL[3] if y > top else STEEL[2])
+                continue
+            cv.set(x, y, STEEL[4] if y > top + 4 else STEEL[3])
+            cv.set(x + 1, y, STEEL[2] if (y + i) % 5 else STEEL[3])
+    # the band over the knuckles: gold rims round steel
+    for x in range(1, 14):
+        cv.set(x, 21, GOLD[3] if x < 7 else GOLD[2])
+        for y in (22, 23):
+            cv.set(x, y, STEEL[3] if x < 5 else STEEL[2] if x < 10 else STEEL[1])
+        cv.set(x, 24, GOLD[1])
+    cv.set(2, 22, STEEL[4])
+    # the grip bar held in the fist
+    for y in (25, 26):
+        for x in range(4, 11):
+            cv.set(x, y, LEATHER[3] if x < 7 else LEATHER[2])
+    return cv.outline()
+
+
 def bow():
     """Recurve bow standing upright: limbs bow out to the left, string straight on the right."""
     cv = Canvas(16, 52)
@@ -426,12 +482,16 @@ def sprout():
 
 
 WEAPONS = {"sword_1h": sword_1h, "sword_2h": sword_2h, "axe": axe, "axe_2h": axe_2h, "mace": mace, "spear_1h": spear_1h,
-           "spear_2h": spear_2h, "dagger": dagger, "bow": bow}
+           "spear_2h": spear_2h, "dagger": dagger, "bow": bow, "knuckle": knuckle, "claw": claw}
 ITEMS = {"arrow": arrow, "coat": coat, "legs": leggings, "jelly": jelly, "sprout": sprout}
 
 if __name__ == "__main__":
-    for name, fn in WEAPONS.items():
+    # more arguments: draw only those (e.g. "knuckle claw"), leaving the other files as they are
+    only = set(sys.argv[2:])
+    weapons = {k: f for k, f in WEAPONS.items() if not only or k in only}
+    items = {k: f for k, f in ITEMS.items() if not only or k in only}
+    for name, fn in weapons.items():
         fn().save(f"{OUT}/weapons/{name}.png")
-    for name, fn in ITEMS.items():
+    for name, fn in items.items():
         fn().save(f"{OUT}/items/{name}.png")
-    print("drew", len(WEAPONS), "weapons and", len(ITEMS), "items into", OUT)
+    print("drew", len(weapons), "weapons and", len(items), "items into", OUT)

@@ -21,7 +21,7 @@ import { resolve, SOLIDS, BOUNDS } from "./world";
 import { hueShift, silhouette } from "./recolor";
 import { loadImage } from "./assets";
 import { rand } from "./particles";
-import { behaviour, statsFor, PEOPLE } from "./bestiary";
+import { behaviour, statsFor, monsterMight, PEOPLE } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { fieldDrops } from "./drops";
 import { Player, directionIndex, directionVector } from "./player";
@@ -116,6 +116,15 @@ export const VARIANTS: Variant[] = [
     element: "dark", eleDef: { dark: 40, metal: 15, stone: 10 },
     drops: [["sprout", 0.2], ["jelly", 0.6], ["book_survivor", 0.002], ["book_gathering", 0.002], ["book_lightning", 0.002]] },
 ];
+// The slimes get stronger with their level like every bestiary monster (bestiary.ts
+// monsterMight): their numbers above are the curve's, the might goes on top here.
+for (const v of VARIANTS) {
+  const k = monsterMight(v.level);
+  v.hp = Math.round(v.hp * k);
+  v.atk = Math.round(v.atk * k);
+  v.def = Math.round(v.def * k);
+  v.mdef = Math.round(v.mdef * k);
+}
 const BITE_REACH = 95;   // cm between centres
 const BITE_TIME = 1.6;   // s between bites
 const CHASE_LEASH = 900; // gives up past this far from home
@@ -217,7 +226,7 @@ function personLook(p: Person): Look {
 const STAND_IN: Partial<Record<ElementId, string>> = {
   plant: "green", earth: "green", wind: "green", mud: "green",
   water: "blue", ice: "blue", lightning: "blue", light: "blue",
-  dark: "violet", metal: "violet", stone: "violet",
+  dark: "violet", metal: "violet", stone: "violet", shadow: "violet",
 };
 
 // Every monster's look: the slimes', and the bestiary's sheets loaded a field at a time.
@@ -1065,11 +1074,11 @@ export function variantOf(def: MonsterDef, level: number): Variant {
 // A variant grown (or shrunk) to another level: its HP, attack, defences and experience follow
 // the level the way a character's do, so a slime of a far field is a fair fight there.
 export function atLevel(v: Variant, level: number): Variant {
-  const r = (level + 4) / (v.level + 4);
+  const r = (level + 4) / (v.level + 4), k = monsterMight(level) / monsterMight(v.level);
   return {
     ...v, level,
-    hp: Math.round(v.hp * r ** 1.6), atk: Math.round(v.atk * r ** 1.1),
-    def: Math.round(v.def * r), mdef: Math.round(v.mdef * r), xp: Math.round(v.xp * r ** 1.65),
+    hp: Math.round(v.hp * r ** 1.6 * k), atk: Math.round(v.atk * r ** 1.1 * k),
+    def: Math.round(v.def * r * k), mdef: Math.round(v.mdef * r * k), xp: Math.round(v.xp * r ** 1.65),
   };
 }
 
