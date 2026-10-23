@@ -428,7 +428,7 @@ async function boot(): Promise<void> {
     } else if (item.kind === "offhand") {
       c = makeIcon(offhandArt[item.art!].img);
     } else if (item.kind === "potion" && !hasArt(id)) {
-      c = potionIcon(item.icon.color ?? "#ff6a5a", (item.restore?.hp ?? item.restore?.mp ?? 0) > 0.3);
+      c = potionIcon(item.icon.color ?? "#ff6a5a", id.endsWith("_big"));
     } else if (item.icon.glyph) {
       // books, hairstyles, hats, shoes, rings, trinkets, quest items, potions: their picture, else
       // a glyph on a gem; a badge ("II": a second book) in the bottom corner
@@ -666,10 +666,10 @@ async function boot(): Promise<void> {
     if ((!r.hp || hero.hp >= hero.stats.maxHp) && (!r.mp || hero.mp >= hero.stats.maxMp)) return "เต็มอยู่แล้ว";
     potionCd = 0.8;
     const boost = 1 + hero.stats.potion; // the alchemy flask
-    if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(hero.stats.maxHp * r.hp * boost))}`, "heal");
+    if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(r.hp * boost))}`, "heal");
     if (r.mp) {
       const before = hero.mp;
-      hero.mp = Math.min(hero.stats.maxMp, hero.mp + hero.stats.maxMp * r.mp * boost);
+      hero.mp = Math.min(hero.stats.maxMp, hero.mp + r.mp * boost);
       floaters.add(player.x, player.y, 150, `+${Math.round(hero.mp - before)} MP`, "magic");
     }
     skills.sparkleUp(player.x, player.y, r.hp ? tex.glowFor("#ff8a7a") : tex.glowFor("#8cc8ff"), 14);
@@ -678,7 +678,7 @@ async function boot(): Promise<void> {
   }
   // The bot's sip: the smallest potion of that kind that still covers what's missing.
   function drink(kind: "hp" | "mp"): boolean {
-    const missing = kind === "hp" ? 1 - hero.hp / hero.stats.maxHp : 1 - hero.mp / hero.stats.maxMp;
+    const missing = (kind === "hp" ? hero.stats.maxHp - hero.hp : hero.stats.maxMp - hero.mp) / (1 + hero.stats.potion);
     const options = inv.slots.map((s, i) => [s, i] as const).filter(([s]) => s && ITEMS[s.id].restore?.[kind])
       .sort((a, b) => ITEMS[a[0]!.id].restore![kind]! - ITEMS[b[0]!.id].restore![kind]!);
     const pick = options.find(([s]) => ITEMS[s!.id].restore![kind]! >= missing * 0.8) ?? options[options.length - 1];

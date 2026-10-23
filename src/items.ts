@@ -163,7 +163,7 @@ export interface Item {
   note?: string;
   price?: number;                       // shop price in gold; selling pays 40%
   sell?: number;                        // what the shop pays, when not 40% of price
-  restore?: { hp?: number; mp?: number }; // potions: fraction of max HP / MP
+  restore?: { hp?: number; mp?: number }; // potions: HP / MP points
   stats?: Partial<Record<string, number>>; // off-hand gear while held
   art?: OffhandArt;
   style?: string;                       // a hairstyle item: the hairstyle it teaches
@@ -233,10 +233,10 @@ export const ITEMS: Record<string, Item> = {
   alchemy_flask: offhand("ขวดแปรธาตุ", "flask", { potion: 0.25, mpRegen: 1.5 }, 700, "ยาที่ดื่มฟื้นมากขึ้น ฟื้น MP เร็วขึ้น"),
   spell_tome: offhand("สมุดเวท", "tome", { matkPct: 0.08, cdr: 0.04, castRed: 0.05 }, 650, "สมุดคาถาของนักเวทฝึกหัด"),
   grimoire: offhand("คัมภีร์โบราณ", "grimoire", { matkPct: 0.14, maxMpPct: 0.1, cdr: 0.06, castRed: 0.1 }, 1800, "คัมภีร์เวทเล่มหนา พลังเวทสูง"),
-  potion_red: potion("ยาแดง", { hp: 0.25 }, "#ff6a5a", 25, "ฟื้น HP 25% ของ HP สูงสุด"),
-  potion_red_big: potion("ยาแดงเข้มข้น", { hp: 0.5 }, "#d8343a", 80, "ฟื้น HP 50% ของ HP สูงสุด"),
-  potion_blue: potion("ยาฟ้า", { mp: 0.25 }, "#6ab4ff", 30, "ฟื้น MP 25% ของ MP สูงสุด"),
-  potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 0.5 }, "#2f6fd0", 90, "ฟื้น MP 50% ของ MP สูงสุด"),
+  potion_red: potion("ยาแดง", { hp: 150 }, "#ff6a5a", 25, "ฟื้น HP 150"),
+  potion_red_big: potion("ยาแดงเข้มข้น", { hp: 500 }, "#d8343a", 80, "ฟื้น HP 500"),
+  potion_blue: potion("ยาฟ้า", { mp: 60 }, "#6ab4ff", 30, "ฟื้น MP 60"),
+  potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 200 }, "#2f6fd0", 90, "ฟื้น MP 200"),
   // (the books, one per skill tree, mastery and element, are added by src/progression.ts)
   style_twintail: style("twintail", "ทวินเทลยาว", 1500),
   style_hime: style("hime", "ยาวหน้าม้าตรง", 1500),
