@@ -32,17 +32,17 @@ useKits(WESTMOUNT, SNOW, STEPPE, TRUNRADA, ICEBERG);
 const R = 5500; // the walkable box
 const A = 9000; // the ground
 
-// ---- the levels: the east foot (0), terrace A (350), the crest (700), terrace B (350), the west
-// valley (0); each extends in under the walls and the next step ----
-const TA: XY[] = [[-2200, -3300], [-800, -3400], [600, -3250], [2000, -3400], [3200, -3250], [4400, -3350], [4400, -1000], [-2200, -1000]];
-const CREST: XY[] = [[-2200, -1600], [-600, -1650], [800, -1550], [2200, -1700], [3400, -1550], [4400, -1600], [4400, 400], [3200, 450], [1800, 350], [400, 450], [-1000, 350], [-2200, 400]];
-const TB: XY[] = [[-2200, -200], [4400, -200], [4400, 2100], [3000, 2200], [1600, 2050], [200, 2150], [-1000, 2050], [-1400, 1800], [-2200, 1700]];
+// ---- the levels: one shelf (350) over the whole pass with the crest (700) a step on it, so the
+// east foot (0), terrace A (the shelf east of the crest), the crest, terrace B (the shelf west of
+// it) and the west valley (0); both run in under the walls ----
+const SHELF: XY[] = [[-2200, -3300], [-800, -3400], [600, -3250], [2000, -3400], [3200, -3250], [4400, -3350], [4400, 2100], [3000, 2200], [1600, 2050], [200, 2150], [-1000, 2050], [-1400, 1800], [-2200, 1700]];
+const CREST: XY[] = [[-2000, -1600], [-600, -1650], [800, -1550], [2200, -1700], [3400, -1550], [4200, -1600], [4200, 400], [3200, 450], [1800, 350], [400, 450], [-1000, 350], [-2000, 400]];
 const RA1 = rampOff([2000, -3400], [3200, -3250], [2600, -2000], 1100, 460);
 const RC1 = rampOff([-600, -1650], [800, -1550], [100, -500], 950, 440);
 const RC2 = rampOff([1800, 350], [3200, 450], [2500, -500], 950, 440);
 const RB1 = rampOff([-1000, 2050], [200, 2150], [-400, 800], 1000, 460);
 // the walls: the south (S1) and north (N1) massifs, their spurs at the gatehouse, the peaks behind
-// them (S2, N2) and the western walls past the valley (W1, W2)
+// them (S2, N2) and the western wall past the valley (W1)
 const S1: XY[] = [[-A, -A], [-1500, -A], [-1400, -6000], [-1700, -4600], [-1300, -3400], [-1600, -2200], [-1300, -1400], [-1500, -500], [-1300, 350], [-1500, 1000], [-1300, 1800], [-2000, 2000], [-3500, 1850], [-5000, 2000], [-6500, 1900], [-A, 2000]];
 const S_SPUR: XY[] = [[-1700, -1700], [-1200, -1450], [-100, -1150], [50, -500], [-150, 150], [-1200, 450], [-1800, 300], [-1900, -800]];
 const N1: XY[] = [[3800, -A], [A, -A], [A, A], [3900, A], [4100, 5000], [3700, 3200], [4000, 1800], [3800, 900], [3800, -300], [3900, -1600], [4000, -2600], [3800, -3600], [4100, -4800], [3700, -6000]];
@@ -50,7 +50,6 @@ const N_SPUR: XY[] = [[4200, -1900], [3400, -1500], [2700, -1250], [2600, -800],
 const S2: XY[] = [[-A, -A], [-3200, -A], [-3000, -5000], [-3400, -2500], [-3000, -600], [-3600, 800], [-6000, 900], [-A, 800]];
 const N2: XY[] = [[5400, -A], [A, -A], [A, A], [5600, A], [5800, 4000], [5300, 1500], [5600, -500], [5200, -3000], [5600, -6000]];
 const W1: XY[] = [[-A, A], [-A, 6300], [-5000, 6000], [-2000, 6300], [1000, 5900], [3900, 6200], [4200, A]];
-const W2: XY[] = [[-A, A], [-A, 7500], [-3000, 7300], [0, 7600], [3000, 7300], [4200, A]];
 
 // ---- the gorge across the valley, from the south wall to the western wall ----
 const GORGE: XY[] = smooth([[-2450, 2150], [-2750, 2900], [-2600, 3700], [-2900, 4700], [-2700, 5500], [-2850, 6050]], 6);
@@ -66,17 +65,15 @@ export function build(_quality: { flowers: number }): Town {
       { x: -1200, y: 4800, r: 800, h: -80 }, { x: 2800, y: 2700, r: 700, h: 70 }, { x: -4400, y: 4700, r: 800, h: 90 },
     ],
     plateaus: [
-      { poly: dense(TA), h: 350, ramps: [RA1] },
-      { poly: dense(TB), h: 350, ramps: [RB1] },
+      { poly: dense(SHELF), h: 350, ramps: [RA1, RB1] },
       { poly: dense(CREST), h: 700, ramps: [RC1, RC2] },
       { poly: dense(S1, 700), h: 1000 },
       { poly: dense(N1, 700), h: 1200 },
-      { poly: dense(S_SPUR), h: 1400 },
-      { poly: dense(N_SPUR), h: 1600 },
+      { poly: dense(S_SPUR), h: 1150 },
+      { poly: dense(N_SPUR), h: 1350 },
       { poly: dense(S2, 900), h: 1800 },
       { poly: dense(N2, 900), h: 1900 },
       { poly: dense(W1, 800), h: 900 },
-      { poly: dense(W2, 900), h: 1500 },
     ],
     rock: "Westmount_CliffGranite",
   });
@@ -109,16 +106,16 @@ export function build(_quality: { flowers: number }): Town {
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const gorgeHole = band(GORGE, GW + 50);
-  const ground = f.ground({ area, roads, plazas: [], water: [gorgeHole], base: "rock", road: [0.95, 0.88, 0.78] });
+  const ground = f.ground({ area, roads, plazas: [], water: [gorgeHole], base: "steppe", road: [0.8, 0.74, 0.66], tint: "#d4d6c8" });
 
   // ---- the gorge: its walls going down out of sight, a torrent far below, the bridges ----
-  const torrent = f.waterSheet({ x0: -3600, x1: -1800, y0: 1800, y1: 6600 }, -700, "Westmount_Torrent");
+  const torrent = f.waterSheet({ x0: -3600, x1: -1800, y0: 1800, y1: 6600 }, -560, "Westmount_Torrent");
   const sunk = { solid: "none" as const, z: -CHASM_DEPTH };
   {
     const cum = [0];
     for (let i = 1; i < GORGE.length; i++) cum.push(cum[i - 1] + Math.hypot(GORGE[i][0] - GORGE[i - 1][0], GORGE[i][1] - GORGE[i - 1][1]));
     const L = cum[cum.length - 1];
-    for (let s = 250; s < L - 200; s += 540) {
+    for (let s = 200; s < L - 150; s += 400) {
       let i = 1;
       while (i < GORGE.length - 1 && cum[i] < s) i++;
       const t = (s - cum[i - 1]) / (cum[i] - cum[i - 1] || 1), a = GORGE[i - 1], b = GORGE[i];
@@ -171,11 +168,12 @@ export function build(_quality: { flowers: number }): Town {
   prop("westmount:frontier_fort", FORT, 90, 1100, { solid: FORT_SOLIDS });
   prop("westmount:fort_wall", [2420, FORT[1]], 90, 300, { sy: 0.62 });
   prop("westmount:fort_wall", [80, FORT[1]], 90, 200, { sy: 0.4 });
-  for (const [at, h, s] of [[[300, -1300], 20, 0.8], [[2200, 300], 200, 0.7]] as [XY, number, number][]) prop("westmount:rockfall", at, h, 450 * s, { s, ...ring(330 * s) });
   prop("iceberg:brazier", [FORT[0] - 400, FORT[1] - 650], 0, 60, ring(40, "post"));
   prop("iceberg:brazier", [FORT[0] + 400, FORT[1] - 650], 0, 60, ring(40, "post"));
   if (free(-200, -1350, 90)) prop("westmount:prayer_cairn", [-200, -1350], 40, 160, { s: 0.75, ...ring(90) });
-  prop("snowland:supply_cache", [2200, -1250], 120, 220, { solid: [{ kind: "box", x: -10, y: 0, w: 330, d: 140, rot: 0 }] });
+  prop("trunrada:cart", [2200, -1250], 120, 200);
+  prop("common:crate", [2450, -1050], 20, 60);
+  prop("common:crate", [2380, -980], 65, 60);
   prop("trunrada:banner_pole", [1900, -1350], 0, 60, ring(25, "post"));
 
   // ---- the cairns in the valley: a pilgrims' ground under the north wall ----
@@ -201,9 +199,9 @@ export function build(_quality: { flowers: number }): Town {
     [[-4600, 2500], 0.75, 150], [[-4300, 5200], 0.8, 250], [[-200, 5200], 0.85, 10], [[3200, -2200], 0.7, 90], [[-900, 700], 0.6, 0],
   ];
   for (const [at, s, h] of ROCKFALLS) if (free(at[0], at[1], 330 * s)) prop("westmount:rockfall", at, h, 460 * s, { s, ...ring(320 * s) });
-  scatter("snowland:snow_boulder", [0, 0], 5200, 8, 130, (s) => ring(110 * s));
-  scatter("steppe:boulder", [0, 0], 5200, 10, 130, (s) => ring(110 * s));
-  scatter("steppe:rock_cluster", [0, 0], 5200, 8, 160, (s) => ring(130 * s));
+  scatter("snowland:snow_boulder", [0, 0], 5200, 5, 130, (s) => ring(110 * s));
+  scatter("steppe:boulder", [0, 0], 5200, 7, 130, (s) => ring(110 * s));
+  scatter("steppe:rock_cluster", [0, 0], 5200, 5, 160, (s) => ring(130 * s));
   scatter("steppe:boulder_flat", [0, 0], 5200, 8, 140, () => ({ solid: "none" }));
 
   // ---- wind-bent pines on the terraces and in the valley, leaning away from the west wind ----
@@ -239,7 +237,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- monsters ----
   const quiet = (x: number, y: number) => Math.hypot(x - FORT[0], y - FORT[1]) < 900 || Math.hypot(x - CAIRNS[0], y - CAIRNS[1]) < 700;
-  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 720, keepOut: quiet });
+  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 600, keepOut: quiet });
 
   const npcs: NpcSpec[] = [
     { id: "west_pass_veteran", x: 500, y: -1250, face: 200, name: "เกรเกอร์", title: "ยามเฒ่าแห่งด่านชายแดน", role: "talk",
@@ -268,11 +266,11 @@ export function build(_quality: { flowers: number }): Town {
     labels: [
       { x: E_EXIT[0], y: E_EXIT[1] + 250, text: "ทางไปป่าโบราณ", kind: "gate" },
       { x: S_EXIT[0] + 200, y: S_EXIT[1], text: "ทางไปซูโจว", kind: "gate" },
-      { x: FORT[0] + 1300, y: FORT[1] - 300, text: "ด่านชายแดนเก่า" },
+      { x: FORT[0] + 500, y: FORT[1] - 750, text: "ด่านชายแดนเก่า" },
       { x: B1.at[0] + 300, y: B1.at[1] + 900, text: "หุบเหวสะพานเชือก" },
       { x: CAIRNS[0] + 300, y: CAIRNS[1] + 300, text: "ลานธงมนต์" },
       { x: 1500, y: -2300, text: "ทางขึ้นช่องเขา", kind: "small" },
-      { x: 2600, y: -800, text: "สันช่องเขา", kind: "small" },
+      { x: 600, y: 150, text: "สันช่องเขา", kind: "small" },
       { x: 1000, y: 3000, text: "หุบเขาตะวันตก" },
       { x: 1500, y: -4300, text: "เชิงเขาตะวันออก", kind: "small" },
     ],

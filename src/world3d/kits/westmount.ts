@@ -527,7 +527,7 @@ export const FORT_SOLIDS: SolidSpec[] = [
   { kind: "rock", x: 60, y: -1060, r: 150 },
 ];
 function frontierFort(): Geo {
-  const ST = "Westmount_FortStone", SD = "Westmount_FortDark", g: Geo[] = [], rnd = seeded(401);
+  const ST = "Westmount_FortStone", SD = "Westmount_FortDark", g: Geo[] = [];
   // the gate block and its way through
   g.push(prism(shapeOf([[-330, 0], [-220, 0], [-220, 380]]).absarc(0, 380, 220, Math.PI, 0, true).lineTo(220, 0).lineTo(330, 0).lineTo(330, 860).lineTo(-330, 860).lineTo(-330, 0) as THREE.Shape, -380, 380, ST));
   const band = (r0: number, r1: number, x0: number, x1: number): Geo => {
@@ -614,7 +614,6 @@ function frontierFort(): Geo {
   for (const [a, b] of [[[-300, -500, 520], [-120, -620, 380]], [[260, -880, 640], [80, -760, 420]], [[300, -400, 460], [80, -560, 120]]] as [V3, V3][]) g.push(beamBetween(a, b, 18, 16, "Westmount_GateWood"));
   // weeds and lichen over the ruin's ledges
   g.push(coverTop(merge(...g).filter((p) => p.mat === ST || p.mat === SD), "Westmount_FortMoss", { amount: 0.25, thick: 1.5, seed: 430, patches: 0.35 }));
-  void rnd;
   return merge(...g);
 }
 defineMaterial("Westmount_Rubble2", { map: "stone", tint: "#9a9384", bump: 2.5 });
@@ -853,7 +852,10 @@ function karstSpire(): THREE.Group {
 // A swept roof of n sides over a ring of columns: concave slopes, the corners curling up at the
 // eaves, the underside painted; ridges down each corner with a curl at the end.
 function sweptRoof(n: number, rE: number, rT: number, h: number, lift: number, z0: number, rot: number): Geo {
-  const U = 8, V = 6, top: number[] = [], under: number[] = [], fascia: number[] = [], ridges: Geo[] = [];
+  const U = 8, V = 6, ridges: Geo[] = [];
+  const E = (2 * rE * Math.sin(Math.PI / n)) / 100, S = Math.hypot(rE - rT, h) / 100; // an eave's length, a slope's (m)
+  type Buf = { pos: number[]; uv: number[] };
+  const top: Buf = { pos: [], uv: [] }, under: Buf = { pos: [], uv: [] }, fascia: Buf = { pos: [], uv: [] };
   const P = (k: number, u: number, v: number, dz = 0): V3 => {
     const a0 = rot + (k / n) * Math.PI * 2, a1 = rot + ((k + 1) / n) * Math.PI * 2;
     const ex = Math.cos(a0) * rE + (Math.cos(a1) - Math.cos(a0)) * rE * u, ey = Math.sin(a0) * rE + (Math.sin(a1) - Math.sin(a0)) * rE * u;
@@ -861,38 +863,38 @@ function sweptRoof(n: number, rE: number, rT: number, h: number, lift: number, z
     const corner = Math.abs(2 * u - 1) ** 4, out = 1 + 0.1 * corner * (1 - v) ** 2;
     return [(ex + (tx - ex) * v) * out, (ey + (ty - ey) * v) * out, z0 + h * Math.pow(v, 1.7) + lift * corner * Math.pow(1 - v, 2.2) + dz];
   };
-  const quad = (arr: number[], a: V3, b: V3, c: V3, d: V3, flip: boolean) => (flip ? arr.push(...a, ...c, ...b, ...a, ...d, ...c) : arr.push(...a, ...b, ...c, ...a, ...c, ...d));
+  // a quad of the grid (u0..u1, v0..v1) on face k; its texture runs along the eave (U) and up the slope (V)
+  const quad = (b: Buf, k: number, u0: number, u1: number, v0: number, v1: number, dz0: number, dz1: number, flip: boolean, vScale = S) => {
+    const c: [number, number, number][] = [[u0, v0, dz0], [u1, v0, dz0], [u1, v1, dz1], [u0, v1, dz1]];
+    for (const q of flip ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3]) {
+      const [u, v, dz] = c[q];
+      b.pos.push(...P(k, u, v, dz));
+      b.uv.push((k + u) * E * (1 - v * 0.6), v * vScale + (dz ? 0.1 : 0));
+    }
+  };
   for (let k = 0; k < n; k++) {
     for (let i = 0; i < U; i++)
       for (let j = 0; j < V; j++) {
         const u0 = i / U, u1 = (i + 1) / U, v0 = j / V, v1 = (j + 1) / V;
-        quad(top, P(k, u0, v0), P(k, u1, v0), P(k, u1, v1), P(k, u0, v1), false);
-        quad(under, P(k, u0, v0, -12), P(k, u1, v0, -12), P(k, u1, v1, -12), P(k, u0, v1, -12), true);
+        quad(top, k, u0, u1, v0, v1, 0, 0, false);
+        quad(under, k, u0, u1, v0, v1, -12, -12, true);
       }
-    for (let i = 0; i < U; i++) quad(fascia, P(k, i / U, 0, -12), P(k, (i + 1) / U, 0, -12), P(k, (i + 1) / U, 0), P(k, i / U, 0), false);
+    for (let i = 0; i < U; i++) quad(fascia, k, i / U, (i + 1) / U, 0, 0, -12, 0, false, 0);
     const ridge: V3[] = [];
-    for (let j = V; j >= 0; j--) {
-      const p = P(k, 0, j / V, 8);
-      ridge.push(p);
-    }
+    for (let j = V; j >= 0; j--) ridge.push(P(k, 0, j / V, 8));
     const e = ridge[ridge.length - 1], dir = [e[0] / Math.hypot(e[0], e[1]), e[1] / Math.hypot(e[0], e[1])];
     ridge.push([e[0] + dir[0] * 30, e[1] + dir[1] * 30, e[2] + 22]);
     ridges.push(limb(ridge, 9, 6, "Westmount_RidgeTile", { seg: 6, maxRings: 14 }));
     ridges.push(sphereCenter(8, [e[0] + dir[0] * 34, e[1] + dir[1] * 34, e[2] + 30], "GoldTrim", 6));
   }
-  const mk = (arr: number[], mat: string, uvAlong: boolean): Geo => {
+  const mk = (b: Buf, mat: string): Geo => {
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3));
-    const uv: number[] = [];
-    for (let k = 0; k < arr.length; k += 3) {
-      const a = Math.atan2(arr[k + 1], arr[k]), r = Math.hypot(arr[k], arr[k + 1]);
-      uv.push(uvAlong ? (a * r) / 100 : (a * rE) / 100, uvAlong ? arr[k + 2] / 100 : (rE - r) / 100 + arr[k + 2] / 200);
-    }
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(b.pos, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(b.uv, 2));
     geo.computeVertexNormals();
     return [{ geo, mat }];
   };
-  return merge(mk(top, "Westmount_GreenTile", false), mk(under, "Westmount_Lacquer", false), mk(fascia, "WoodRed", true), ...ridges);
+  return merge(mk(top, "Westmount_GreenTile"), mk(under, "Westmount_Lacquer"), mk(fascia, "WoodRed"), ...ridges);
 }
 
 // A pavilion for a cliff top (7.6 m across, 7 m tall): a six-sided stone platform with steps at
@@ -1153,7 +1155,9 @@ export const KIT: Kit = {
     put("wind_pine", [1900, -1300, 0], 180, 0.9);
     put("rockfall", [-300, -1800, 0], 40, 0.6);
     put("karst_spire", [2000, 900, 0], 0, 0.7);
-    put("lotus_pond", [-1600, -1100, 0], 0, 0.5);
+    put("glow_mushrooms", [-600, 1900, 0], 200, 0.7);
+    put("jungle:giant_fern", [-200, 700, 0], 30);
+    put("jungle:tree_fern", [1500, 600, 0], 0);
   },
 };
 

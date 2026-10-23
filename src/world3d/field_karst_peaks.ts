@@ -98,7 +98,7 @@ export function build(quality: { flowers: number }): Town {
   const roads = TRACKS.map((t, i) => band(t, i === 0 ? 460 : i === 2 ? 420 : 380));
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
-  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND], base: "grass", road: [1.04, 0.95, 0.8] });
+  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND], base: "grass", road: [0.86, 0.78, 0.66] });
 
   // ---- the river and the pond: green water over a dark bed ----
   const bed = sheet(band(RIVER, RW + 160), -70, "Westmount_CliffMoss");
@@ -212,8 +212,8 @@ export function build(quality: { flowers: number }): Town {
   scatter("westmount:karst_spire", [0, 0], 5000, 3, 420, (s) => ring(260 * s));
   scatter("flora:RoundTree", [0, 0], 5200, 12, 200, () => ({}));
   scatter("flora:SmallTree", [0, 0], 5200, 10, 160, () => ({}));
-  scatter("flora:Bush", [0, 0], 5300, 30, 80, () => ({ solid: "none" }));
-  scatter("plains:tall_grass", [0, 0], 5300, 50, 60, () => ({ solid: "none" }));
+  scatter("flora:Bush", [0, 0], 5300, 45, 80, () => ({ solid: "none" }));
+  scatter("plains:tall_grass", [0, 0], 5300, 80, 60, () => ({ solid: "none" }));
   scatter("plains:fern_clump", [0, 0], 5300, 30, 60, () => ({ solid: "none" }));
   // spires standing in the river
   for (const g of [[4900, 3000], [-2900, 2050], [-6500, 2050], [6800, 2850]] as XY[]) {
@@ -240,7 +240,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- monsters ----
   const quiet = (x: number, y: number) => Math.hypot(x - PAVILION[0], y - PAVILION[1]) < 650 || Math.hypot(x - LANDING[0], y - LANDING[1]) < 800;
-  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 740, keepOut: quiet });
+  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 790, keepOut: quiet });
 
   const npcs: NpcSpec[] = [
     { id: "karst_raftsman", x: LANDING[0] - 500, y: LANDING[1] - 300, face: 120, name: "ลุงหลี่", title: "คนถ่อแพแห่งแม่น้ำหยก", role: "talk",
@@ -271,7 +271,7 @@ export function build(quality: { flowers: number }): Town {
       { x: N_EXIT[0] - 200, y: N_EXIT[1], text: "ทางไปที่ราบเนินเขา", kind: "gate" },
       { x: PAVILION[0] - 500, y: PAVILION[1], text: "ศาลาริมผา" },
       { x: -600, y: 2100, text: "แม่น้ำหยก" },
-      { x: POND_C[0], y: POND_C[1], text: "สระบัว", kind: "small" },
+      { x: POND_C[0] + 300, y: POND_C[1] - 1050, text: "สระบัว", kind: "small" },
       { x: P3[0], y: P3[1] + 300, text: "ยอดผาชมวิว" },
       { x: LANDING[0], y: LANDING[1] - 400, text: "ท่าแพ", kind: "small" },
       { x: BR.at[0] - 500, y: BR.at[1], text: "สะพานแผ่นหิน", kind: "small" },
