@@ -483,6 +483,8 @@ export function buildBahamas(quality: { flowers: number }): Town {
       // the caravan camp
       { id: "bh_caravan", ...spot(600, 580), face: toward(600, 580, 470, 600), name: "ซาลิม", title: "หัวหน้ากองคาราวาน", role: "talk", look: guard("top_warrior", "ink"),
         lines: ["กองคาราวานของข้าเดินทางจากอีเดนลงไปถึงโยเดีย", "ข้ามทะเลทรายต้องเดินตอนกลางคืน ดูดาวนำทางเอา", "เส้นทางใต้ยังปิดอยู่ พวกข้าเลยต้องพักที่นี่ไปก่อน"] },
+      { id: "job_mercenary", ...spot(628, 600), face: toward(628, 600, 470, 600), name: "กัปตันคาลิด", title: "หัวหน้าทหารรับจ้าง · เปลี่ยนอาชีพทหารรับจ้าง", role: "talk", look: guard("top_warrior_navy", "ink"),
+        lines: ["คาราวานจ้างพวกข้าคุ้มกันข้ามทะเลทรายทุกเที่ยว", "ทหารรับจ้างรับทุกคนที่สู้เป็น เลเวล 30 แล้วมาหาข้า หอก อาวุธสองมือ หรือธนู เลือกเอา"] },
       { id: "bh_camel", ...spot(532, 629), face: 90, name: "ดาเลีย", title: "เด็กเลี้ยงอูฐ", role: "talk",
         look: { gender: "female", hair: "twintail", hairColor: "amber", eyes: "blue", top: "top_adventurer_ochre", bottom: "bottom_adventurer_cocoa" },
         lines: ["อูฐกินน้ำทีละมากๆ แต่อดน้ำได้ตั้งหลายวัน", "พออูฐพักเต็มที่ กองคาราวานก็จะออกเดินทางกันอีก"] },

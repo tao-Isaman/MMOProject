@@ -7,7 +7,7 @@ import { skillIcon, hasArt } from "./icons";
 import {
   TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
 } from "./progression";
-import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
+import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText, offhandKind } from "./items";
 import type { WeaponId } from "./items";
 import type { Inventory } from "./inventory";
 import { starterForm, defaultStart } from "./starter";
@@ -482,8 +482,7 @@ export class SkillUI {
   // `id`: the skill whose picture to show if it has one (null for trees, masteries, elements)
   // The weapon type in the off hand (null: empty, or not a weapon).
   offWeapon(): string | null {
-    const off = this.hero.offhand();
-    return off ? ITEMS[off]?.weapon ?? null : null;
+    return offhandKind(this.hero.offhand());
   }
 
   skillIcon(parent: HTMLElement, id: string | null, glyph: string, color: string, activeId: string | null | undefined, learned: boolean): HTMLElement {

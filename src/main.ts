@@ -14,6 +14,7 @@ import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { gearTierAt, TIER_DROP, tierPool } from "./drops";
 import { WorkshopUI } from "./workshop";
+import type { Craft } from "./workshop";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
 import { Ground } from "./loot";
 import type { MonsterCtx, Person } from "./monsters";
@@ -632,7 +633,30 @@ async function boot(): Promise<void> {
       if (progress.addXp(xp) > 0) levelUp();
     },
   });
-  const skills = new Skills({ progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => weaponType(inv.equipped.weapon) });
+  const skills = new Skills({
+    progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => weaponType(inv.equipped.weapon),
+    // the thief's stealing blows: gold by the monster's level, or one of its drops (by their chances)
+    steal(m, what) {
+      if (what === "gold") {
+        const got = Math.round(m.level * (4 + Math.random() * 4) * (1 + hero.stats.goldPct));
+        inv.gold += got;
+        inv.changed();
+        floaters.add(m.x, m.y, m.height + 70, `ขโมย +${got} ทอง`, "level");
+        return;
+      }
+      const list = m.variant.drops, total = list.reduce((t, [, c]) => t + c, 0);
+      let pick = Math.random() * total;
+      const got = list.find(([, c]) => (pick -= c) <= 0)?.[0];
+      if (!got) return void floaters.add(m.x, m.y, m.height + 70, "ไม่มีอะไรให้ขโมย", "info");
+      ground.drop(got, m);
+      floaters.add(m.x, m.y, m.height + 70, `ขโมย ${ITEMS[got].name}`, "level");
+    },
+    decoy(x, y, hp, t) {
+      decoy = { x, y, hp, t };
+    },
+    // a craft's skill: the workshop on the spot, free of fees
+    workshop: (b) => workshopUI.show({ craft: b.craft as Craft, tab: b.tab }),
+  });
   // an enchanted weapon's element riders and the falcon after a normal hit
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
@@ -863,6 +887,7 @@ async function boot(): Promise<void> {
   // them), or to a spot picked on the map window; `stuck` counts the seconds without moving
   let walkTo: { path: { x: number; y: number }[]; npc?: Npc; stuck: number } | null = null;
   let shopKeeper: Npc | null = null;
+  let smithAt: Npc | null = null; // the smith whose workshop is open
   let talkingTo: Npc | null = null; // whom the talk window is with
   // Anyone spoken to opens the talk window: what they say, their business (buying and selling,
   // healing, travel, keeping the save point) and their quests.
@@ -884,6 +909,13 @@ async function boot(): Promise<void> {
     const role = npc.spec.role;
     if (role === "shop") actions.push({ label: "ซื้อของ", run: shop("buy") }, { label: "ขายของ", run: shop("sell") });
     if (role === "heal") actions.push({ label: "รักษา (HP และ MP เต็ม)", run: heal });
+    if (role === "smith") {
+      const bench = (tab: "refine" | "craft") => () => {
+        smithAt = npc;
+        workshopUI.show({ smith: npc.name, tab });
+      };
+      actions.push({ label: "ตีบวก (เสียค่าจ้าง)", run: bench("refine") }, { label: "สร้างไอเทม (เสียค่าจ้าง)", run: bench("craft") });
+    }
     if (role === "travel" && npc.spec.ports) actions.push({ label: "ขึ้นเรือ", run: () => mapUI.travel(npc.spec.ports) });
     if (role === "travel" && !npc.spec.ports) {
       actions.push({ label: "เซฟจุดเกิด", run: saveSpawn });
@@ -1172,10 +1204,10 @@ async function boot(): Promise<void> {
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
     if (e.code === "KeyJ" && !e.repeat) questLog.toggle();
-    if (e.code === "KeyU" && !e.repeat) workshopUI.toggle();
     if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
+      else if (workshopUI.open) workshopUI.toggle(false);
       else if (talkDialog.open) talkDialog.close();
       else {
         const n = nearestNpc(TALK_RANGE * 1.6);
@@ -1199,8 +1231,7 @@ async function boot(): Promise<void> {
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()], ["btn-settings", () => settingsUI.toggle()],
-    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()], ["btn-quests", () => questLog.toggle()],
-    ["btn-workshop", () => workshopUI.toggle()]];
+    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()], ["btn-quests", () => questLog.toggle()]];
   for (const [id, fn] of buttons) {
     document.getElementById(id)?.addEventListener("click", (e) => {
       (e.currentTarget as HTMLElement).blur();
@@ -1404,11 +1435,28 @@ async function boot(): Promise<void> {
   });
   const deathNote = document.getElementById("death")!;
   let burning = { t: 0, acc: 0, dmg: 0 };
+  // the jester's copy: while it stands every monster goes for it, and its bites land on it
+  let decoy: { x: number; y: number; hp: number; t: number } | null = null;
   // what monsters need from the player: where to chase and how a bite lands
   const monsterCtx: MonsterCtx = {
-    player,
+    get player() {
+      return decoy ?? player;
+    },
     hero,
+    unseen: () => hero.hidden,
     bite(m: Monster) {
+      if (decoy) {
+        const hit = monsterDamage(m, hero.stats);
+        if (!hit) return void floaters.add(decoy.x, decoy.y, 120, "พลาด", "miss");
+        decoy.hp -= hit.dmg;
+        floaters.add(decoy.x, decoy.y, 110, `-${hit.dmg}`, "hurt");
+        if (decoy.hp <= 0) {
+          skills.ring(decoy.x, decoy.y, "#ffb8e0", 160, 0.4);
+          decoy = null;
+        }
+        return;
+      }
+      if (hero.hidden) return; // a blow already on its way finds nobody
       // a spell may miss outright (smoke); a blinded monster misses half its bites (more with
       // luck); a weakened one bites softer
       if (m.magical && hero.stats.magicDodge > 0 && lucky(hero.stats.magicDodge, hero.stats)) {
@@ -1547,6 +1595,7 @@ async function boot(): Promise<void> {
     }
     for (const n of npcs) n.update(dt, player);
     if (shopUI.open && shopKeeper && shopKeeper.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
+    if (workshopUI.open && workshopUI.smith && smithAt && smithAt.distance(player) > TALK_RANGE * 2.5) workshopUI.toggle(false);
     if (talkDialog.open && (!talkingTo || !npcs.includes(talkingTo) || talkingTo.distance(player) > TALK_RANGE * 2.5)) talkDialog.close();
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
@@ -1563,6 +1612,7 @@ async function boot(): Promise<void> {
       walkTo.stuck = Math.hypot(player.x - was.x, player.y - was.y) < 0.5 ? walkTo.stuck + dt : 0;
       if (walkTo.stuck > 1.2) walkTo = null;
     }
+    if (decoy && ((decoy.t -= dt) <= 0 || !hero.alive)) decoy = null;
     for (const m of monsters) m.update(dt, monsterCtx);
     pickUp(dt);
     updateShots(dt, monsterCtx);
@@ -1663,6 +1713,21 @@ async function boot(): Promise<void> {
     }
     for (const l of ground.items) {
       if (onScreen(l.x, l.y, 100)) w3d.actor(l, Ground.box(l), vw, (c, v) => ground.draw(c, v, l, iconFor(l.id)));
+    }
+    if (decoy) {
+      // the copy: the player drawn where it stands, faded
+      const d = decoy;
+      w3d.actor(d, { x: d.x, y: d.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => {
+        const at = { x: player.x, y: player.y };
+        player.x = d.x;
+        player.y = d.y;
+        player.draw(c, v, inHand, inOff);
+        Object.assign(player, at);
+        c.globalCompositeOperation = "destination-in";
+        c.fillStyle = "rgba(0, 0, 0, 0.55)";
+        c.fillRect(0, 0, c.canvas.width, c.canvas.height);
+        c.globalCompositeOperation = "source-over";
+      });
     }
     w3d.actor(player, { x: player.x, y: player.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => player.draw(c, v, inHand, inOff), true);
     w3d.endActors();

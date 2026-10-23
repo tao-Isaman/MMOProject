@@ -394,7 +394,7 @@ function kradiaNpcs(): NpcSpec[] {
     { id: "kradia_witch", ...at(241, 254), face: 180, name: "ยายกริเซลดา", title: "แม่มดเฒ่า", role: "talk",
       look: { gender: "female", hair: "hime", hairColor: "silver", eyes: "violet", top: "top_priestess_black", bottom: "bottom_priestess_black" },
       lines: ["ข้าเฝ้ากำแพงเมืองนี้มาตั้งแต่ยังสาว เห็นอสูรบุกมาแล้วสามครั้ง", "ธงสีม่วงคือสีของสภาจอมเวท สีทองคือคำสัตย์ที่จะปกป้องแผ่นดิน"] },
-    { id: "kradia_smith", ...at(568, 506), face: 90, name: "ฮันส์", title: "ช่างตีเหล็ก", role: "talk",
+    { id: "kradia_smith", ...at(568, 506), face: 90, name: "ฮันส์", title: "ช่างตีเหล็ก · ตีบวก สร้างไอเทม", role: "smith",
       look: { gender: "male", hair: "", hairColor: "ink", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior_cocoa" },
       lines: ["โรงตีเหล็กข้างหลังนี้ตีดาบให้ทหารทั้งป้อม", "ดาบที่ชุบน้ำผลึกฟันอสูรเข้า ดาบธรรมดาน่ะทำได้แค่ข่วน"] },
   ];

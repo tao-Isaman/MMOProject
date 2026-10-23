@@ -81,6 +81,8 @@ const RYOKAN = W("osaki", "osaki_monk", "หลวงพี่เรียวค
 const TEMUR = W("trunrada", "job_ranger", "นายพรานเตมูร์"), LEON = W("kradia", "job_swordsman", "ปรมาจารย์ลีออน");
 const ZAHARA = W("bahamas", "job_wizard", "จอมเวทซาฮาร่า"), CELESTE = W("eden", "job_bishop", "มารดาเซเลสต์");
 const KENSHIN = W("osaki", "job_battlemage", "อาจารย์เคนชิน"), RAGNAR = W("iceberg", "job_warlord", "ราโกนาร์ผู้คลั่ง");
+const RAWEE = W("yodia", "job_thief", "ราวีจิ้งจอกเงา"), PIERRE = W("eden", "job_jester", "ปิแอร์ตัวตลก");
+const KHALID = W("bahamas", "job_mercenary", "กัปตันคาลิด"), SIGRID = W("iceberg", "job_inventor", "ซิกริดนักประดิษฐ์");
 
 const kill = (what: string | string[], count: number): Goal => ({ kind: "kill", what: typeof what === "string" ? [what] : what, count });
 const collect = (item: string, count: number, from?: string, chance = 0.5): Goal => ({ kind: "collect", item, count, from: from ? [from] : undefined, chance });
@@ -315,6 +317,38 @@ export const QUESTS: QuestDef[] = [
       { goal: talk, to: RAGNAR, task: "กลับไปหาราโกนาร์ แล้วเลือกสายของนักรบคลั่ง", say: "สนามรบรอเจ้าอยู่ นักรบคลั่ง!" },
     ],
     reward: { gold: 3000, xp: 8000, items: [["potion_red", 10]] } },
+  { id: "job_thief", name: "บททดสอบหัวขโมย", giver: RAWEE, level: 30, job: "thief",
+    offer: "อยากเข้ากลุ่มเงางั้นหรือ ใครก็ได้ที่เลเวล 30 ขึ้นไป ไปไล่ลิงเถาวัลย์ในป่าทางใต้ พวกมันขโมยของเก่งกว่าเจ้าเสียอีก",
+    steps: [
+      { goal: kill("vine_monkey", 12), to: RAWEE, task: "ไล่ลิงเถาวัลย์ 12 ตัวที่ป่าทางใต้", say: "ไวพอตัว ไปสืบข่าวจากป้าจำปีที่ตลาดปลา นางรู้ทุกเรื่องในเมืองนี้ ห้ามให้ใครรู้ว่าข้าส่งไป" },
+      { goal: talk, to: JAMPEE, task: "ไปสืบข่าวจากป้าจำปีที่ตลาดปลา", say: "ราวีส่งมาสินะ ดูจากท่าเดินก็รู้ บอกเขาว่าเรือเข้าคืนพรุ่งนี้ แล้วรีบไปเถอะ" },
+      { goal: talk, to: RAWEE, task: "กลับไปหาราวีจิ้งจอกเงา แล้วเลือกสายของหัวขโมย", say: "ยินดีต้อนรับสู่เงา อย่าขโมยจากคนจนก็พอ" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 10]] } },
+  { id: "job_jester", name: "บททดสอบตัวตลก", giver: PIERRE, level: 30, job: "jester",
+    offer: "ตัวตลกต้องกล้าเสี่ยง! ใครก็ได้ที่เลเวล 30 ขึ้นไป ไปแกล้งภูตลำธารที่แม่น้ำป่าสนให้หัวเราะสักหน่อย",
+    steps: [
+      { goal: kill("brook_spirit", 10), to: PIERRE, task: "แกล้งภูตลำธาร 10 ตัวที่แม่น้ำป่าสน", say: "ฮ่าๆ เยี่ยม! ไปขายมุกให้ทอมเด็กส่งของฟังดู ถ้าเขาหัวเราะ เจ้าผ่าน" },
+      { goal: talk, to: TOM, task: "ไปเล่ามุกให้ทอมเด็กส่งของฟัง", say: "ฮ่าๆๆ! ขำจนท้องแข็ง บอกลุงปิแอร์ว่าข้าให้ผ่าน" },
+      { goal: talk, to: PIERRE, task: "กลับไปหาปิแอร์ตัวตลก แล้วเลือกสายของตัวตลก", say: "เวทีเป็นของเจ้าแล้ว โชคดีจงอยู่กับเจ้า!" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 5], ["potion_blue", 5]] } },
+  { id: "job_mercenary", name: "บททดสอบทหารรับจ้าง", giver: KHALID, level: 30, job: "mercenary",
+    offer: "ทหารรับจ้างรับทุกคนที่เลเวล 30 ขึ้นไป งานแรกของเจ้า: ไล่นกแร้งที่ขอบทะเลทรายที่คอยโฉบคาราวาน",
+    steps: [
+      { goal: kill("desert_vulture", 12), to: KHALID, task: "ไล่นกแร้งทะเลทราย 12 ตัวที่ขอบทะเลทราย", say: "งานเรียบร้อย ไปรายงานซาลิมหัวหน้าคาราวาน เขาเป็นคนจ่ายค่าจ้าง" },
+      { goal: talk, to: SALIM, task: "ไปรายงานซาลิมหัวหน้ากองคาราวาน", say: "เส้นทางปลอดภัยแล้ว ดีมาก บอกคาลิดว่าข้าพอใจ" },
+      { goal: talk, to: KHALID, task: "กลับไปหากัปตันคาลิด แล้วเลือกสายของทหารรับจ้าง", say: "ยินดีต้อนรับเข้ากองร้อย ค่าจ้างดีถ้าเจ้ารอดกลับมา" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 10]] } },
+  { id: "job_inventor", name: "บททดสอบนักประดิษฐ์", giver: SIGRID, level: 30, job: "inventor",
+    offer: "นักประดิษฐ์เป็นได้ทุกคนที่เลเวล 30 ขึ้นไป ขอแค่มือไม่เกะกะ หาแร่เหล็กมาให้ข้า 5 ก้อน ภูต โกเลม หรือพวกโจรมักพกติดตัว",
+    steps: [
+      { goal: collect("iron_ore", 5), to: SIGRID, task: "หาแร่เหล็ก 5 ก้อน (ภูตลำธาร โกเลม โจร และอันเดดดรอป)", say: "แร่ดีนี่ เอาไปให้บียอร์นช่างตีเหล็กดูหน่อย ว่าตีเป็นอะไรได้บ้าง" },
+      { goal: talk, to: BJORN, task: "ไปหาบียอร์นช่างตีเหล็ก", say: "แร่ชั้นดี ตีเป็นดาบได้สามเล่ม ไปบอกซิกริดว่าเจ้าเลือกแร่เป็น" },
+      { goal: talk, to: SIGRID, task: "กลับไปหาซิกริดนักประดิษฐ์ แล้วเลือกสายของนักประดิษฐ์", say: "ยินดีต้อนรับสู่โรงประดิษฐ์! ลองสร้างอะไรสักอย่างที่ไม่ระเบิดดูนะ" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_red", 5], ["potion_blue", 5]] } },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

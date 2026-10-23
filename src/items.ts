@@ -423,6 +423,14 @@ export const ITEMS: Record<string, Item> = new Proxy(BASE, {
   has: (t, k) => k in t || (typeof k === "string" && !!derive(k)),
 });
 
+// What the off hand holds, for the skills that need something there: a weapon type, "shield" for
+// a shield, null for anything else or nothing.
+export function offhandKind(id: string | null | undefined): string | null {
+  const item = id ? ITEMS[id] : undefined;
+  if (!item) return null;
+  return item.weapon ?? (item.art === "buckler" || item.art === "kite" ? "shield" : null);
+}
+
 // The weapon type an item is (null: not a weapon, or nothing).
 export function weaponType(id: string | null | undefined): WeaponId | null {
   return (id && ITEMS[id]?.weapon) || null;

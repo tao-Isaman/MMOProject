@@ -64,7 +64,7 @@ export const STATE_TEXT: Record<BotState, string> = {
   rest: "นั่งพักฟื้น", return: "กลับเขตล่า", paused: "ผู้เล่นควบคุมอยู่",
 };
 
-const SUPPORT = new Set(["heal", "shield", "buff"]);
+const SUPPORT = new Set(["heal", "shield", "buff", "decoy"]);
 export const isSupport = (s: SkillDef) => SUPPORT.has(s.type);
 
 // A new rule for a skill, with a sensible default condition for its type.
@@ -73,7 +73,7 @@ export function defaultRule(id: string): SkillRule {
   if (s.type === "heal") return { id, on: true, cond: "hp", value: 55 };
   if (s.type === "shield") return { id, on: true, cond: "hp", value: 75 };
   if (s.type === "nova" || s.type === "storm") return { id, on: true, cond: "mobs", value: 2 };
-  if (s.type === "dash" && !s.mult) return { id, on: false, cond: "ready", value: 50 };
+  if ((s.type === "dash" && !s.mult) || s.type === "workshop") return { id, on: false, cond: "ready", value: 50 };
   return { id, on: true, cond: "ready", value: s.type === "flower" ? 2 : 50 };
 }
 
@@ -519,7 +519,7 @@ export class Bot {
     let reserve = 0;
     for (const r of this.settings.rules) {
       const a = ACTIVES[r.id];
-      if (!r.on || !a || isSupport(a.skill) || !this.usable(r.id)) continue;
+      if (!r.on || !a || isSupport(a.skill) || a.skill.type === "workshop" || !this.usable(r.id)) continue;
       const { reach, area, self } = skillReach(a.skill);
       if (dist > reach) continue;
       let go = r.cond === "ready";

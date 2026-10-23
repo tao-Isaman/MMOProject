@@ -286,8 +286,9 @@ export class Combat {
   }
 
   // A normal attack lands on a monster (scale < 1 for the off hand). An enchanted weapon hits in
-  // its element (with that element's riders); the falcon may dive in after it.
-  damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1): void {
+  // its element (with that element's riders); the falcon may dive in after it; a thief's dagger
+  // may land twice (again: this is that second blow).
+  damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1, again = false): void {
     const st = this.hero.stats, el = isMagic(w) ? null : this.hero.enchant, r = basicDamage(st, w, m, el);
     if (r.miss) return void this.apply(m, r, dir);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
@@ -298,6 +299,7 @@ export class Combat {
     this.apply(m, r, dir);
     if (el) this.onElement?.(m, el, r.dmg);
     if (st.falconChance && m.alive && lucky(st.falconChance, st)) this.onFalcon?.(m);
+    if (!again && st.doubleHit && m.alive && lucky(st.doubleHit, st)) this.damage(m, w, dir, scale, true);
   }
 
   // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it. Only a
@@ -314,8 +316,11 @@ export class Combat {
     // more the lower the player's HP (blood rage)
     const st = this.hero.stats, stone = this.hero.progress.elements.stone ?? 0;
     const low = st.lowHpDmg ? 1 + st.lowHpDmg * Math.max(0, 1 - this.hero.hp / st.maxHp) : 1;
+    // the first blow from hiding lands harder, and ends the hiding
+    const ambush = this.hero.hidden ? 1 + st.ambush : 1;
+    if (this.hero.hidden) this.hero.reveal();
     const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + st.huntDmg : 1) * (m.petrify > 0 && stone >= 50 ? 1.25 : 1)
-      * (1 + st[`${m.race}Dmg`]) * low;
+      * (1 + st[`${m.race}Dmg`]) * low * ambush;
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
     if (st.lifesteal > 0 && this.hero.alive) this.hero.heal(r.dmg * st.lifesteal);

@@ -484,7 +484,7 @@ function trunradaNpcs(chiefV: number): NpcSpec[] {
     { id: "trunrada_girl", ...at(420, 460), face: -50, name: "ทูยา", title: "เด็กเลี้ยงแกะ", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "auburn", eyes: "amber", top: "top_rose", bottom: "bottom_cocoa" },
       lines: ["กังหันลมบนเนินบดแป้งให้ทั้งเมืองเลยนะ", "โตขึ้นฉันจะเป็นนักธนูบนหลังม้าเหมือนพี่ๆ", "โอโบตรงทางแยกนี่ ใครผ่านต้องวางหินเพิ่มหนึ่งก้อนแล้วเดินวนสามรอบ"] },
-    { id: "trunrada_tanner", ...at(570, 498), face: 180, name: "ซอลองโก", title: "ช่างฟอกหนัง", role: "talk",
+    { id: "trunrada_tanner", ...at(570, 498), face: 180, name: "ซอลองโก", title: "ช่างฟอกหนัง · ตีบวก สร้างไอเทม", role: "smith",
       look: { gender: "female", hair: "hime", hairColor: "ink", eyes: "blue", top: "top_adventurer_ochre", bottom: "bottom_adventurer_cocoa" },
       lines: ["ย่านนี้ตากหนังกับปลาไว้เต็มราว กลิ่นแรงหน่อยนะ", "ขนหมาป่าสีเทาจากทุ่งเหนืออุ่นที่สุดในหน้าหนาว", "หนังดีๆ ส่งลงใต้ไปขายถึงอีเดนเลย"] },
     { id: "trunrada_saddler", ...at(346, 597), face: -90, name: "บัตตูลกา", title: "ช่างทำอานม้า", role: "talk", look: guard("top_warrior", "teal"),

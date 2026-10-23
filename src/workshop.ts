@@ -1,5 +1,9 @@
-// The workshop (U): refining gear with the sky and star stones (anyone can), and making tier gear
-// (whoever knows a craft: an inventor's branch, or the craft's book).
+// The workshop: refining gear with the sky and star stones, and making tier gear from materials.
+// A smith in town (npcs role "smith") does both for anyone, for a fee: gold for each refine, and
+// for each piece made (any tier up to the player's level, with no name on it). Whoever knows a
+// craft (an inventor's branch, or the craft's book) opens it anywhere with the craft's skills
+// (progression.ts craftMastery), free of fees: making what the craft makes, at the tiers its level
+// opens, with the maker's name and a chance of +1, and refining what it makes.
 
 import { ITEMS, WEAPON_TYPES, GEAR_TIERS, TIER_NAMES, tierId, joinId, splitId, stoneFor, refineStats, REFINE_MAX, statText, EQUIP_SLOTS } from "./items";
 import type { EquipSlot, WeaponId } from "./items";
@@ -73,7 +77,10 @@ export class WorkshopUI {
   icons: (id: string) => Img | null;
   maker: string;
   win: HTMLElement;
+  title: HTMLElement;
   tab: "refine" | "craft" = "refine";
+  smith: string | null = null; // at a smith's (fees), else opened by a craft's skill
+  only: Craft | null = null;   // the craft whose skill opened it
   tier = 30;
   tabs: HTMLElement;
   gold: HTMLElement;
@@ -88,7 +95,8 @@ export class WorkshopUI {
     this.stats = stats;
     this.icons = icons;
     this.maker = makerName(maker);
-    this.win = makeWindow("workshop", "โรงช่าง", "U");
+    this.win = makeWindow("workshop", "โรงช่าง", "F");
+    this.title = this.win.querySelector(".window-bar h2")!;
     const top = el("div", "shop-top", this.win);
     this.tabs = el("div", "sk-tabs", top);
     for (const [id, name] of [["refine", "ตีบวก"], ["craft", "สร้างไอเทม"]] as const) {
@@ -120,12 +128,20 @@ export class WorkshopUI {
 
   toggle(show = !this.open): void {
     this.win.classList.toggle("hidden", !show);
-    if (show) {
-      this.status.textContent = this.tab === "refine"
-        ? "ตีบวกด้วยหินนภา (อาวุธ แหวน) หรือหินดารา (ชุด หมวก รองเท้า จี้ มือรอง) ถึง +4 สำเร็จเสมอ พลาดแล้วเสียแค่หินกับทอง"
-        : "สร้างอุปกรณ์ตามเลเวลจากวัตถุดิบที่มอนสเตอร์ดรอป ของที่สร้างมีชื่อผู้สร้างติดอยู่";
-      this.render();
-    }
+    if (show) this.render();
+  }
+
+  // Open at a smith's (smith: its name), or from a craft's skill (craft) on one tab.
+  show(o: { smith?: string; craft?: Craft; tab: "refine" | "craft" }): void {
+    this.smith = o.smith ?? null;
+    this.only = o.smith ? null : o.craft ?? null;
+    this.tab = o.tab;
+    this.title.textContent = this.smith ? `โรงช่าง · ${this.smith}` : this.tab === "craft" ? `${MASTERIES[this.only!].name} (สกิล)` : "ตีบวก (สกิล)";
+    this.tabs.classList.toggle("hidden", !this.smith);
+    this.status.textContent = this.tab === "refine"
+      ? `ตีบวกด้วยหินนภา (อาวุธ แหวน) หรือหินดารา (ชุด หมวก รองเท้า จี้ มือรอง) ถึง +4 สำเร็จเสมอ พลาดแล้วเสียหิน${this.smith ? "กับค่าจ้าง" : ""} ของยังเหมือนเดิม`
+      : this.smith ? "ช่างสร้างอุปกรณ์ตามเลเวลให้จากวัตถุดิบ (ไม่เกินเลเวลของเจ้า) คิดค่าจ้างเป็นทอง" : "สร้างอุปกรณ์จากวัตถุดิบ ไม่เสียค่าจ้าง ของที่สร้างมีชื่อเจ้า";
+    this.toggle(true);
   }
 
   say(msg: string, good = false): void {
@@ -174,21 +190,28 @@ export class WorkshopUI {
 
   // ---- refining ----
   // The gear that can be refined: what is worn first, then the bag.
+  // (a craft's skill refines only what that craft makes)
   pieces(): { id: string; where: Where }[] {
     const out: { id: string; where: Where }[] = [];
+    const ok = (id: string) => !!stoneFor(id) && (!!this.smith || craftOf(id) === this.only);
     for (const { slot } of EQUIP_SLOTS) {
       const id = this.inv.equipped[slot];
-      if (id && stoneFor(id)) out.push({ id, where: slot });
+      if (id && ok(id)) out.push({ id, where: slot });
     }
     this.inv.slots.forEach((s, i) => {
-      if (s && stoneFor(s.id)) out.push({ id: s.id, where: i });
+      if (s && ok(s.id)) out.push({ id: s.id, where: i });
     });
     return out;
   }
 
+  // What a refine costs in gold: the smith's fee, nothing by a skill.
+  fee(id: string): number {
+    return this.smith ? refineGold(id) : 0;
+  }
+
   renderRefine(): void {
     const list = this.pieces();
-    if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่ตีบวกได้";
+    if (!list.length) el("p", "wr-note", this.list).textContent = this.smith ? "ไม่มีอุปกรณ์ที่ตีบวกได้" : `ไม่มีของที่${MASTERIES[this.only!].name}ตีบวกได้`;
     for (const { id, where } of list) {
       const item = ITEMS[id], plus = item.refine ?? 0, stone = stoneFor(id)!;
       const row = this.row(id, `refine:${where}:${id}`);
@@ -202,16 +225,16 @@ export class WorkshopUI {
       }
       const base = ITEMS[splitId(id).base];
       const step = refineStats(base, 1);
-      const have = this.inv.count(stone), gold = refineGold(id), chance = refineChance(id, this.progress, this.stats());
+      const have = this.inv.count(stone), gold = this.fee(id), chance = refineChance(id, this.progress, this.stats());
       sub.innerHTML = `+${plus + 1}: ${statText(step)} · <span class="${have ? "" : "ws-short"}">${ITEMS[stone].name} ${have}/1</span>`
-        + ` · <span class="${this.inv.gold >= gold ? "" : "ws-short"}">${gold.toLocaleString()} ทอง</span> · โอกาส ${pct(chance)}`;
+        + (gold ? ` · <span class="${this.inv.gold >= gold ? "" : "ws-short"}">ค่าจ้าง ${gold.toLocaleString()} ทอง</span>` : "") + ` · โอกาส ${pct(chance)}`;
       this.button(row, "ตีบวก", have > 0 && this.inv.gold >= gold, () => this.refine(id, where));
       this.detail(row, id);
     }
   }
 
   refine(id: string, where: Where): void {
-    const stone = stoneFor(id), gold = refineGold(id), chance = refineChance(id, this.progress, this.stats());
+    const stone = stoneFor(id), gold = this.fee(id), chance = refineChance(id, this.progress, this.stats());
     const now = typeof where === "string" ? this.inv.equipped[where] : this.inv.slots[where]?.id;
     if (!stone || now !== id || !chance) return;
     if (this.inv.gold < gold) return this.say("ทองไม่พอ");
@@ -231,41 +254,47 @@ export class WorkshopUI {
   }
 
   // ---- crafting ----
+  // What can be made here: everything at a smith's, the skill's craft otherwise; and the tiers
+  // (a smith's: up to the player's level; a craft's: what its level opens).
   crafts(): Craft[] {
-    return (Object.keys(CRAFTS) as Craft[]).filter((c) => this.progress.masteries().includes(c));
+    return this.smith ? (Object.keys(CRAFTS) as Craft[]) : this.only && this.progress.masteries().includes(this.only) ? [this.only] : [];
+  }
+
+  tiersFor(c: Craft): number[] {
+    return this.smith ? GEAR_TIERS.filter((t) => t <= this.progress.level) : craftTiers(this.progress.mastery[c] ?? 0);
   }
 
   renderCraft(): void {
     const known = this.crafts();
     if (!known.length) {
-      el("p", "wr-note", this.list).textContent = "ยังสร้างไอเทมไม่ได้: ต้องเรียนความเชี่ยวชาญการสร้าง (สร้างอาวุธ สร้างชุด หรือสร้างประดับ) จากอาชีพนักประดิษฐ์ หรือจากตำราที่มอนสเตอร์ดรอป";
+      el("p", "wr-note", this.list).textContent = "ยังสร้างไอเทมไม่ได้";
       return;
     }
     const level = (c: Craft) => this.progress.mastery[c] ?? 0;
-    const open = new Set(known.flatMap((c) => craftTiers(level(c))));
+    const open = new Set(known.flatMap((c) => this.tiersFor(c)));
     const tiers = el("div", "ws-tiers", this.list);
     for (const t of GEAR_TIERS) {
       const b = el("button", `wr-choice${this.tier === t ? " on" : ""}`, tiers);
       b.type = "button";
       b.textContent = `Lv ${t}`;
       b.disabled = !open.has(t);
-      b.title = open.has(t) ? TIER_NAMES[t] : `ต้องความเชี่ยวชาญการสร้างระดับ ${CRAFT_TIER_AT[t]}`;
+      b.title = open.has(t) ? TIER_NAMES[t] : this.smith ? `ต้องเลเวล ${t}` : `ต้องความเชี่ยวชาญการสร้างระดับ ${CRAFT_TIER_AT[t]}`;
       b.addEventListener("click", () => {
         this.tier = t;
         this.render();
       });
     }
     if (!open.has(this.tier)) {
-      el("p", "wr-note", this.list).textContent = open.size
-        ? "เลือกเลเวลของที่จะสร้าง"
-        : `อัปความเชี่ยวชาญการสร้างถึงระดับ ${CRAFT_TIER_AT[30]} เพื่อสร้างของเลเวล 30 (หน้าต่างสกิล K แท็บความเชี่ยวชาญ)`;
+      el("p", "wr-note", this.list).textContent = open.size ? "เลือกเลเวลของที่จะสร้าง" : this.smith ? "ช่างสร้างของเลเวล 30 ขึ้นไป ต้องเลเวล 30 ก่อน" : "ยังสร้างไม่ได้";
       return;
     }
     for (const c of known) {
-      if (!craftTiers(level(c)).includes(this.tier)) continue;
-      el("h4", "ws-craft", this.list).textContent = `${MASTERIES[c].name} (ระดับ ${level(c)}) · ได้ +1 ${pct(Math.min(1, level(c) * CRAFT_BONUS * luckFactor(this.stats())))}`;
+      if (!this.tiersFor(c).includes(this.tier)) continue;
+      el("h4", "ws-craft", this.list).textContent = this.smith
+        ? MASTERIES[c].name
+        : `${MASTERIES[c].name} (ระดับ ${level(c)}) · ได้ +1 ${pct(Math.min(1, level(c) * CRAFT_BONUS * luckFactor(this.stats())))}`;
       for (const slot of CRAFTS[c]) {
-        const id = tierId(this.tier, slot), { mats, gold } = recipe(this.tier, slot);
+        const id = tierId(this.tier, slot), { mats } = recipe(this.tier, slot), gold = this.craftFee(slot);
         const row = this.row(id, `craft:${id}`);
         const info = el("div", "shop-info", row);
         el("strong", "", info).textContent = ITEMS[id].name;
@@ -273,23 +302,29 @@ export class WorkshopUI {
         el("span", "sk-sub", info).innerHTML = [...mats.map(([m, n]) => {
           const have = this.inv.count(m);
           return `<span class="${have >= n ? "" : "ws-short"}">${ITEMS[m].name} ${have}/${n}</span>`;
-        }), `<span class="${this.inv.gold >= gold ? "" : "ws-short"}">${gold.toLocaleString()} ทอง</span>`].join(" · ");
+        }), ...(gold ? [`<span class="${this.inv.gold >= gold ? "" : "ws-short"}">ค่าจ้าง ${gold.toLocaleString()} ทอง</span>`] : [])].join(" · ");
         this.button(row, "สร้าง", enough, () => this.craft(c, slot));
         this.detail(row, id);
       }
     }
   }
 
+  // A smith's fee for making a piece (nothing by a skill).
+  craftFee(slot: string): number {
+    return this.smith ? recipe(this.tier, slot).gold : 0;
+  }
+
   craft(c: Craft, slot: string): void {
-    const tier = this.tier, { mats, gold } = recipe(tier, slot), lv = this.progress.mastery[c] ?? 0;
-    if (!craftTiers(lv).includes(tier)) return;
+    const tier = this.tier, { mats } = recipe(tier, slot), gold = this.craftFee(slot), lv = this.progress.mastery[c] ?? 0;
+    if (!this.tiersFor(c).includes(tier)) return;
     if (!mats.every(([m, n]) => this.inv.count(m) >= n)) return this.say("วัตถุดิบไม่พอ");
     if (this.inv.gold < gold) return this.say("ทองไม่พอ");
     if (this.inv.full) return this.say("กระเป๋าเต็ม");
     for (const [m, n] of mats) this.inv.take(m, n);
     this.inv.gold -= gold;
-    const fine = Math.random() < lv * CRAFT_BONUS * luckFactor(this.stats());
-    const id = joinId(tierId(tier, slot), fine ? 1 : 0, this.maker);
+    // made by the player's own hand: its name, and a chance of +1
+    const fine = !this.smith && Math.random() < lv * CRAFT_BONUS * luckFactor(this.stats());
+    const id = joinId(tierId(tier, slot), fine ? 1 : 0, this.smith ? null : this.maker);
     this.inv.add(id, 1, { silent: true });
     this.inv.changed();
     this.say(fine ? `ฝีมือเยี่ยม! สร้างได้ ${ITEMS[id].name}` : `สร้าง ${ITEMS[id].name} สำเร็จ`, true);

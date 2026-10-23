@@ -17,6 +17,7 @@ import { BLADE_TREES } from "./trees/blades";
 import { CASTER_TREES } from "./trees/casters";
 import { BATTLEMAGE_TREES } from "./trees/battlemage";
 import { BOOK_TREES } from "./trees/books";
+import { V02_JOB_TREES } from "./trees/v02jobs";
 
 export const MAX_LEVEL = 200;
 
@@ -49,15 +50,20 @@ export const RACE_ICONS: Record<Race, [string, string]> = {
 export interface Need {
   weapons?: WeaponId[];
   dual?: true | WeaponId[];
+  shield?: boolean; // a shield (buckler, kite shield) in the off hand
 }
 
-export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon";
+export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon" | "decoy" | "workshop";
 
 // An active skill's numbers; which fields matter depends on `type` (skills.ts).
 //   trap    laid at the aimed spot (`range` at most, `radius` wide); the first monster to step in
 //           sets it off (its hit, with stun, slow, poison...). It waits `duration` s (default
 //           20); three at most at a time, the oldest goes.
 //   falcon  the falcon dives at the locked target `hits` times.
+//   decoy   a copy of the player in front of it for `duration` s, with `base` of the player's HP:
+//           monsters go for it instead of the player while it stands.
+//   workshop  opens the workshop on the spot (`bench`: its tab and the craft it serves), free of
+//           the smiths' fees.
 // stat "both": attack and magic attack together (0.6 of each), a spell's sure hit.
 export interface SkillDef {
   type: SkillType;
@@ -105,6 +111,12 @@ export interface SkillDef {
   detonate?: ByRank<number>; // sets off the poison on the target: this much of what it had left at once
   enchant?: ElementId;       // buff: the weapon hits in this element for the buff's time (normal attacks
                              // and physical skills without an element of their own)
+  steal?: "gold" | "item";   // a hit may take gold, or one of the monster's drops (once a monster)
+  stealChance?: ByRank<number>;
+  dice?: boolean;            // a die is rolled (rollDie): a hit does die / 3.5 of its damage; a buff
+                             // adds `roll` times (die - 3) / 3 (a 1 takes away, a 6 gives it all)
+  roll?: ByRank<StatBag>;
+  bench?: { tab: "craft" | "refine"; craft: string };
 }
 
 export interface TreeNode {
@@ -125,6 +137,7 @@ export interface Tree {
   name: string;
   cls: ClassId | null;
   job?: JobId;      // a second job's branch: learned on taking the job, no book
+  opens?: string;   // a mastery the branch teaches on taking it (an inventor's craft)
   book?: string;
   color: string;
   glyph: string;
@@ -178,7 +191,7 @@ export interface ElementDef {
 }
 
 export type ClassId = "mage" | "warrior" | "archer" | "priest";
-export type JobId = "ranger" | "swordsman" | "wizard" | "bishop" | "battlemage" | "warlord";
+export type JobId = "ranger" | "swordsman" | "wizard" | "bishop" | "battlemage" | "warlord" | "thief" | "jester" | "mercenary" | "inventor";
 
 // Whether the hands hold what `need` asks for (main: the main-hand weapon type, off: the off
 // hand's, null when empty or not a weapon).
@@ -186,9 +199,10 @@ export function needMet(need: Need | undefined, main: string | null, off: string
   if (!need) return true;
   if (need.weapons && !need.weapons.includes(main as WeaponId)) return false;
   if (need.dual) {
-    const ok = (w: string | null) => !!w && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
+    const ok = (w: string | null) => !!w && w !== "shield" && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
     if (!ok(main) || !ok(off)) return false;
   }
+  if (need.shield && off !== "shield") return false;
   return true;
 }
 
@@ -199,6 +213,7 @@ export function needText(need: Need | undefined, weaponName: (w: WeaponId) => st
   if (need.weapons) parts.push(need.weapons.map(weaponName).join(" หรือ "));
   if (need.dual === true) parts.push("อาวุธมือเดียวทั้งสองมือ");
   else if (need.dual) parts.push(`${need.dual.map(weaponName).join(" หรือ ")} ทั้งสองมือ`);
+  if (need.shield) parts.push("โล่ในมือรอง");
   return parts.join(" และ ");
 }
 
@@ -234,9 +249,9 @@ export const STAT_NAMES: Record<string, string> = {
   maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", atk: "พลังโจมตี", matk: "พลังเวท", def: "ป้องกัน", mdef: "ต้านเวท",
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
-  luck: "โชคดี", magicDodge: "หลบเวท",
+  luck: "โชคดี", magicDodge: "หลบเวท", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
 };
-export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge"]);
+export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "doubleHit", "ambush"]);
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
@@ -322,6 +337,27 @@ export const JOBS: Record<JobId, JobDef> = {
     note: "นักรบที่บ้าคลั่งในสนามรบ ชำนาญอาวุธหรือเลือดเดือด",
     bonus: { atk: 10.5, maxHp: 140, hpRegen: 1.4 }, growth: { atk: 0.6, maxHp: 6, hpRegen: 0.03 },
   },
+  // v0.2: four more, open to every class
+  thief: {
+    name: "หัวขโมย", from: null, branches: ["dagger_art", "shadow"],
+    note: "มือไวใจกล้า ขโมยเงินและของจากมอนสเตอร์ด้วยมีดสั้น หรือซ่อนตัวในเงาแล้วแทงทีเดียวจอด",
+    bonus: { atk: 8.4, flee: 10.5, aspd: 0.05, luck: 3 }, growth: { atk: 0.48, flee: 0.42, maxHp: 2.4 },
+  },
+  jester: {
+    name: "ตัวตลก", from: null, branches: ["trickster", "gambler"],
+    note: "นักแสดงผู้เล่นกับโชค ได้ค่าโชคดีที่ทำให้ทุกอย่างที่สุ่มเข้าทาง หลอกล่อศัตรูด้วยร่างแยก หรือฝากชีวิตไว้กับลูกเต๋า",
+    bonus: { luck: 10, flee: 7, maxHp: 56, atk: 5.6, matk: 5.6 }, growth: { luck: 0.3, flee: 0.3, maxHp: 2.4, atk: 0.3, matk: 0.3 },
+  },
+  mercenary: {
+    name: "ทหารรับจ้าง", from: null, branches: ["lancer", "breaker", "scout"],
+    note: "นักสู้รับจ้างผู้ช่ำชองอาวุธ ทหารหอก (หอกยาว หรือหอกกับโล่) นักบุกทะลวงอาวุธสองมือ หรือนักลาดตระเวนธนู",
+    bonus: { atk: 9.8, maxHp: 98, def: 4.2, hit: 7 }, growth: { atk: 0.54, maxHp: 4.2, def: 0.2, hit: 0.24 },
+  },
+  inventor: {
+    name: "นักประดิษฐ์", from: null, branches: ["weaponsmith", "armorsmith", "jeweler"],
+    note: "ช่างผู้สร้างอุปกรณ์ได้เอง แต่ละสายได้ความเชี่ยวชาญการสร้างของตัวเองทันที (อาวุธ ชุด หรือประดับ) พร้อมสกิลต่อสู้และบัฟ",
+    bonus: { atk: 7, matk: 7, def: 4.2, maxHp: 70 }, growth: { atk: 0.36, matk: 0.36, def: 0.18, maxHp: 3 },
+  },
 };
 
 // What to call a character: its job, else its class.
@@ -329,9 +365,12 @@ export function jobName(p: { cls: ClassId | null; job: JobId | null }): string {
   return p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
 }
 
-// The emblem shown with that name: assets/skills/job_<id>.png, else class_<id>.png (null: no class).
+// The emblem shown with that name: assets/skills/job_<id>.png for a job drawn already (JOB_ART),
+// else class_<id>.png (null: no class).
+const JOB_ART = new Set<JobId>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord"]);
 export function jobIcon(p: { cls: ClassId | null; job: JobId | null }): string | null {
-  return p.job ? `assets/skills/job_${p.job}.png` : p.cls ? `assets/skills/class_${p.cls}.png` : null;
+  if (p.job && JOB_ART.has(p.job)) return `assets/skills/job_${p.job}.png`;
+  return p.cls ? `assets/skills/class_${p.cls}.png` : null;
 }
 
 // The four elements a new character picks one of (the rest are found in the game).
@@ -652,17 +691,25 @@ const weaponMastery = (name: string, weapons: WeaponId[], glyph: string, w: Weap
 
 // A craft (workshop.ts): its levels open the gear tiers it makes (CRAFT_TIER_AT: tier 30 at level 1,
 // 60 at 5 ... 180 at 25), and every level makes a piece likelier to come out +1 and refining what
-// it makes surer.
+// it makes surer. Level 1 brings a skill that opens the workshop's crafting anywhere, level 3 one
+// that refines what the craft makes anywhere, both without the smiths' fees.
 export const CRAFT_MAX = 30;
 export const CRAFT_TIER_AT: Record<number, number> = { 30: 1, 60: 5, 90: 10, 120: 15, 150: 20, 180: 25 };
 export const CRAFT_BONUS = 0.01;   // a level: the chance a made piece comes out +1
 export const CRAFT_REFINE = 0.005; // a level: the chance refining what the craft makes succeeds
-function craftMastery(name: string, glyph: string, what: string): Mastery {
+function craftMastery(id: string, name: string, glyph: string, what: string, make: string, refine: string): Mastery {
+  const bench = (tab: "craft" | "refine"): SkillDef => ({ type: "workshop", mp: 0, cd: 2, motion: "cast", bench: { tab, craft: id }, color: "#ffd8a0" });
   return {
     name, kind: "life", glyph, max: CRAFT_MAX, per: {},
     perDesc: `ของที่สร้างออกมาเป็น +1 ได้ 1% ต่อระดับ · ตีบวก${what}สำเร็จง่ายขึ้น 0.5% ต่อระดับ`,
-    rewards: Object.entries(CRAFT_TIER_AT).map(([tier, at]) =>
-      ({ at, kind: "passive" as const, name: `ช่างเลเวล ${tier}`, glyph: "up", desc: `สร้าง${what}เลเวล ${tier} ได้ที่โรงช่าง (U)` })),
+    rewards: [
+      { at: 1, kind: "active", id: `${id}_make`, name: make, glyph, skill: bench("craft"),
+        desc: `เปิดโรงช่างได้ทุกที่ สร้าง${what}จากวัตถุดิบโดยไม่เสียค่าจ้างช่าง (เลเวล 30 ก่อน ได้เลเวลสูงขึ้นตามระดับ) ของที่สร้างมีชื่อเจ้า` },
+      { at: 3, kind: "active", id: `${id}_refine`, name: refine, glyph: "up", skill: bench("refine"),
+        desc: `ตีบวก${what}ได้ทุกที่ ใช้แค่หิน ไม่เสียค่าจ้างช่าง` },
+      ...Object.entries(CRAFT_TIER_AT).filter(([, at]) => at > 1).map(([tier, at]) =>
+        ({ at, kind: "passive" as const, name: `ช่างเลเวล ${tier}`, glyph: "up", desc: `สร้าง${what}เลเวล ${tier} ได้` })),
+    ],
   };
 }
 
@@ -777,9 +824,9 @@ export const MASTERIES: Record<string, Mastery> = {
     ],
   },
   // the crafts, opened by an inventor's branch or a book
-  weaponcraft: craftMastery("สร้างอาวุธ", "sword", "อาวุธ"),
-  armorcraft: craftMastery("สร้างชุด", "shield", "ชุด หมวก และรองเท้า"),
-  jewelcraft: craftMastery("สร้างประดับ", "ring", "แหวนและจี้"),
+  weaponcraft: craftMastery("weaponcraft", "สร้างอาวุธ", "sword", "อาวุธ", "เตาหลอมพกพา", "ทั่งตีบวก"),
+  armorcraft: craftMastery("armorcraft", "สร้างชุด", "shield", "ชุด หมวก และรองเท้า", "โต๊ะช่างเกราะ", "ตีบวกเกราะ"),
+  jewelcraft: craftMastery("jewelcraft", "สร้างประดับ", "ring", "แหวนและจี้", "โต๊ะเจียระไน", "ตีบวกอัญมณี"),
 };
 
 // ---- elements ----
@@ -1013,7 +1060,7 @@ export const ELEMENT_STAT_NAMES: Record<string, string> = Object.fromEntries(
 );
 
 // The second jobs' branches and the later books (src/trees/).
-for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, BOOK_TREES]) {
+for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, V02_JOB_TREES, BOOK_TREES]) {
   for (const [id, t] of Object.entries(more)) {
     if (TREES[id]) throw new Error(`tree ${id} twice`);
     TREES[id] = t;
@@ -1178,6 +1225,8 @@ export class Progress {
     this.job = id;
     this.branch = branch;
     if (!this.unlocked.trees.includes(branch)) this.unlocked.trees.push(branch);
+    const craft = TREES[branch].opens;
+    if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
     this.bonus += JOB_POINTS;
     this.changed();
     return true;

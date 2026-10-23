@@ -136,6 +136,17 @@ export class Hero {
     this.recompute();
   }
 
+  // Hidden from monsters (a hide buff); the first blow from hiding ends it.
+  get hidden(): boolean {
+    return this.stats.stealth > 0;
+  }
+
+  reveal(): void {
+    const before = this.buffs.length;
+    this.buffs = this.buffs.filter((b) => !b.stats.stealth);
+    if (this.buffs.length !== before) this.recompute();
+  }
+
   // The element the weapon hits in (an enchant buff), or null.
   get enchant(): ElementId | null {
     return this.buffs.find((b) => b.enchant)?.enchant ?? null;

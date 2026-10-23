@@ -42,7 +42,7 @@
 
 import { ACTIVES, MASTERIES, mpCost, needMet, needText } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
-import { mitigate, poisonScale, skillDamage, lucky } from "./stats";
+import { mitigate, poisonScale, skillDamage, lucky, rollDie } from "./stats";
 import { shapeTargets } from "./combat";
 import type { Combat, Floaters } from "./combat";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
@@ -52,7 +52,7 @@ import type { Spell } from "./spell";
 import { CastCircle } from "./castfx";
 import type { CastTarget } from "./castfx";
 import { lookFor } from "./circles";
-import { ITEMS, WEAPON_TYPES } from "./items";
+import { WEAPON_TYPES, offhandKind } from "./items";
 import type { WeaponId } from "./items";
 import type { Hero } from "./hero";
 import type { Player, AttackWeapon } from "./player";
@@ -70,6 +70,9 @@ interface SkillDeps {
   floaters: Floaters;
   spells: Spell[];
   weapon: () => string | null;
+  steal?: (m: Monster, what: "gold" | "item") => void; // a stealing hit took something
+  decoy?: (x: number, y: number, hp: number, t: number) => void; // a copy that draws the monsters
+  workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void; // a craft's skill opens it
 }
 
 // The unit vector from a to b (null when they stand on each other).
@@ -160,6 +163,9 @@ export class Skills {
   floaters: Floaters;
   spells: Spell[];
   weapon: () => string | null;
+  steal?: (m: Monster, what: "gold" | "item") => void;
+  decoy?: (x: number, y: number, hp: number, t: number) => void;
+  workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void;
   timers: { t: number; fn: () => void }[] = [];
   pending: Casting | null = null;
   traps: Trap[] = [];
@@ -175,6 +181,9 @@ export class Skills {
     this.floaters = deps.floaters;
     this.spells = deps.spells;
     this.weapon = deps.weapon;
+    this.steal = deps.steal;
+    this.decoy = deps.decoy;
+    this.workshop = deps.workshop;
   }
 
   get el(): Record<string, number> {
@@ -183,8 +192,7 @@ export class Skills {
 
   // The weapon type in the off hand (null: empty, or not a weapon).
   offWeapon(): string | null {
-    const off = this.hero.offhand();
-    return off ? ITEMS[off]?.weapon ?? null : null;
+    return offhandKind(this.hero.offhand());
   }
 
   // Whether the hands hold what a skill needs.
@@ -282,7 +290,7 @@ export class Skills {
     if (s.type === "flower") p.startCast(s.cast ?? CAST_TIME, HOVER_END);
     else if (!cast) p.startMotion(s.motion, dir, this.weaponStats());
     this.effect(id, s, rank, dir, aim, lock);
-    this.afterCast();
+    if (s.type !== "workshop") this.afterCast();
   }
 
   // The monster an area spell being cast follows: the target, else the one nearest the aimed
@@ -433,6 +441,12 @@ export class Skills {
         this.burst(m.x, m.y, "#8fdc4a", 70);
       }
     }
+    // a die on every hit: die / 3.5 of the damage
+    if (s.dice) {
+      const die = rollDie(this.hero.stats);
+      more *= die / 3.5;
+      this.floaters.add(m.x, m.y, m.height + 50, `เต๋า ${die}`, die >= 5 ? "level" : "info");
+    }
     r.dmg = Math.max(1, Math.round(r.dmg * more));
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
     if (s.stun) m.stun = Math.max(m.stun, s.stun(rank) * earth);
@@ -443,6 +457,11 @@ export class Skills {
     if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
     if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank) * poisonScale(this.hero.stats, this.el)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock);
+    // a stealing blow: once a monster, gold or one of its drops
+    if (s.steal && !m.stolen && lucky(at(s.stealChance, rank) ?? 0, this.hero.stats)) {
+      m.stolen = true;
+      this.steal?.(m, s.steal);
+    }
     if (s.drain && this.hero.alive) {
       const got = this.hero.heal(r.dmg * s.drain(rank));
       if (got >= 1) this.floaters.add(this.player.x, this.player.y, 130, `+${Math.round(got)}`, "heal");
@@ -623,7 +642,14 @@ export class Skills {
         break;
       case "buff":
         this.later(LEAD, () => {
-          this.hero.addBuff(id, ACTIVES[id].name, s.buff?.(rank) ?? {}, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant);
+          // a dice buff adds its roll, times (die - 3) / 3: a 1 takes away, a 6 gives it all
+          const stats = { ...(s.buff?.(rank) ?? {}) };
+          if (s.dice && s.roll) {
+            const die = rollDie(this.hero.stats), k = (die - 3) / 3;
+            for (const [key, v = 0] of Object.entries(s.roll(rank))) stats[key] = (stats[key] ?? 0) + v * k;
+            this.floaters.add(p.x, p.y, 190, `เต๋า ${die}${k > 0 ? " โชคดี!" : k < 0 ? " ซวยแล้ว" : ""}`, k > 0 ? "level" : "info");
+          }
+          this.hero.addBuff(id, ACTIVES[id].name, stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant);
           if (s.heal) {
             const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
             if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
@@ -644,6 +670,15 @@ export class Skills {
         });
         break;
       }
+      case "workshop":
+        if (s.bench) this.workshop?.(s.bench);
+        break;
+      case "decoy":
+        this.later(LEAD, () => {
+          this.decoy?.(p.x + dir.x * 70, p.y + dir.y * 70, this.hero.stats.maxHp * (at(s.base, rank) ?? 0.3), s.duration ?? 10);
+          this.ring(p.x + dir.x * 70, p.y + dir.y * 70, s.color, 140, 0.5);
+        });
+        break;
       case "falcon":
         if (!lock) break;
         for (let i = 0; i < (s.hits ?? 1); i++) {

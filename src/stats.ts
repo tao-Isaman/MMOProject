@@ -2,7 +2,7 @@
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
 import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet } from "./progression";
-import { ITEMS, OFFHAND_DAMAGE } from "./items";
+import { ITEMS, OFFHAND_DAMAGE, offhandKind } from "./items";
 import type { ElementId, Progress, Race, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
 import { rand } from "./particles";
@@ -22,6 +22,9 @@ const ZERO = {
   // luck: every chance the player rolls is this many percent likelier (luckFactor); the chance
   // a monster's spell misses outright (smoke)
   luck: 0, magicDodge: 0,
+  // a normal hit landing twice (the thief's dagger); hidden from monsters while above 0 (a hide
+  // buff) and how much harder the first blow from hiding lands
+  doubleHit: 0, stealth: 0, ambush: 0,
   // a share of the damage done healed back; up to this much more damage as HP runs low (all of
   // it at 0 HP); the falcon's chance to dive in after a normal hit and its strength (of attack);
   // poison damage
@@ -78,7 +81,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
     add(bag, job.bonus);
     add(bag, job.growth, Math.max(0, progress.level - JOB_LEVEL));
   }
-  const offWeapon = offhandId ? ITEMS[offhandId]?.weapon ?? null : null;
+  const offWeapon = offhandKind(offhandId);
   for (const [id, lv] of Object.entries(progress.elements)) {
     add(bag, ELEMENTS[id].per, lv);
     for (const m of ELEMENTS[id].marks) if (m.stats && lv >= m.at) add(bag, m.stats);
@@ -122,6 +125,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
   s.poisonHit = Math.min(0.6, s.poisonHit);
   s.reflect = Math.min(0.6, s.reflect);
   s.magicDodge = Math.min(0.6, s.magicDodge);
+  s.doubleHit = Math.min(0.6, s.doubleHit);
   return s;
 }
 

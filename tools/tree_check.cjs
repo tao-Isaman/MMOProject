@@ -30,12 +30,12 @@ const P = require(path.join(out, "progression.js"));
 const items = require(path.join(out, "items.js"));
 const icons = fs.readFileSync(path.join(root, "src/icons.ts"), "utf8");
 const glyphs = new Set([...icons.slice(icons.indexOf("const GLYPHS")).matchAll(/^  ([a-z_]+): \(g/gm)].map((m) => m[1]));
-const TYPES = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "beam", "dash", "heal", "shield", "buff", "flower", "trap", "falcon"]);
+const TYPES = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "beam", "dash", "heal", "shield", "buff", "flower", "trap", "falcon", "decoy", "workshop"]);
 const statKeys = new Set([
   "maxHp", "maxMp", "atk", "matk", "def", "mdef", "hit", "flee", "crit", "critDmg", "aspd", "move", "hpRegen", "mpRegen", "cdr", "dmgRed", "castRed",
   "dmg", "reach", "stunHit", "xpPct", "drop", "pierce", "potion", "healPct", "multiShot", "poisonHit", "huntDmg", "buffTime", "reflect",
   "atkPct", "matkPct", "defPct", "mdefPct", "maxHpPct", "maxMpPct", "mpRegenPct", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "poisonPct",
-  "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc",
+  "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "doubleHit", "stealth", "ambush",
   ...P.ELEMENT_IDS.flatMap((e) => [`${e}Atk`, `${e}Def`]), ...P.RACES.map((r) => `${r}Dmg`),
 ]);
 const weapons = new Set(Object.keys(items.WEAPON_TYPES));
@@ -94,16 +94,20 @@ for (const [id, t] of Object.entries(P.TREES)) {
       if (s.element && !P.ELEMENT_IDS.includes(s.element)) bad(where, `element ${s.element}`);
       if (s.enchant && !P.ELEMENT_IDS.includes(s.enchant)) bad(where, `enchant ${s.enchant}`);
       for (const r of Object.keys(s.vs || {})) if (!P.RACES.includes(r)) bad(where, `race ${r}`);
-      for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate"]) {
+      for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance"]) {
         if (s[key] === undefined) continue;
         if (typeof s[key] !== "function") { bad(where, `${key} must be a function of rank`); continue; }
         for (let k = 1; k <= n.max; k++) if (badNum(s[key](k))) bad(where, `${key}(${k}) = ${s[key](k)}`);
       }
+      if (s.roll) for (let k = 1; k <= n.max; k++) for (const [key, v] of Object.entries(s.roll(k))) {
+        if (!statKeys.has(key) || badNum(v)) bad(where, `roll ${key} at rank ${k}: ${v}`);
+      }
+      if (s.steal && !s.stealChance) bad(where, "steal without stealChance");
       if (s.buff) for (let k = 1; k <= n.max; k++) for (const [key, v] of Object.entries(s.buff(k))) {
         if (!statKeys.has(key)) bad(where, `unknown buff stat ${key}`);
         if (badNum(v)) bad(where, `buff ${key} at rank ${k}: ${v}`);
       }
-      const damaging = !["heal", "shield", "buff"].includes(s.type) && !(s.type === "dash" && !s.mult);
+      const damaging = !["heal", "shield", "buff", "decoy", "workshop"].includes(s.type) && !(s.type === "dash" && !s.mult);
       if (damaging && !s.mult) bad(where, `${s.type} skill without mult`);
       if (["heal", "buff", "shield"].includes(s.type) && s.cast) bad(where, "support skills have no cast time");
     }

@@ -89,6 +89,7 @@ export interface MonsterCtx {
   bite: (m: Monster) => void; // a bite, shot, slam or burst lands (m.boost: how much harder)
   note?: (m: Monster, text: string) => void;            // it healed itself
   summon?: (m: Monster, id: string, n: number) => void; // a boss calls for help
+  unseen?: () => boolean; // the player hides: no monster goes for it
 }
 
 const CELL = 64;
@@ -366,6 +367,7 @@ export class Monster {
   healCd = 0;
   fleeT = 0;     // s left running off
   fled = false;
+  stolen = false; // a thief has taken something from it already
   called = 0;    // how many calls for help so far
   burst = false;
   person: Person | null;
@@ -612,8 +614,9 @@ export class Monster {
       return;
     }
     const fromHome = Math.hypot(this.x - this.home.x, this.y - this.home.y);
-    if (alive && this.variant.aggro && toPlayer < this.variant.aggro) this.angry = Math.max(this.angry, 2);
-    if (!alive || fromHome > CHASE_LEASH + this.radius * 2) this.angry = this.rush = 0;
+    const unseen = ctx.unseen?.() ?? false;
+    if (alive && !unseen && this.variant.aggro && toPlayer < this.variant.aggro) this.angry = Math.max(this.angry, 2);
+    if (!alive || unseen || fromHome > CHASE_LEASH + this.radius * 2) this.angry = this.rush = 0;
     // hurt: heal up, call for help, run off
     if (this.heals && this.healCd <= 0 && this.hp < this.maxHp * 0.45) {
       const n = Math.round(this.maxHp * 0.3);
