@@ -107,7 +107,7 @@ export function silhouette(img: Img, color = "#ffffff"): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = img.width;
   c.height = img.height;
-  const g = c.getContext("2d")!;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
   g.drawImage(img, 0, 0);
   g.globalCompositeOperation = "source-in";
   g.fillStyle = color;

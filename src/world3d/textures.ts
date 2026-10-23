@@ -1211,22 +1211,31 @@ export function material(name: string): THREE.MeshStandardMaterial {
   return m;
 }
 
+// The ground maps are painted once (a 512 px canvas each, a fair part of a second) and wrapped in a
+// fresh texture each time they are asked for (callers may set its repeat).
+const painted = new Map<string, HTMLCanvasElement>();
+function once(key: string, make: () => HTMLCanvasElement): HTMLCanvasElement {
+  let c = painted.get(key);
+  if (!c) painted.set(key, (c = make()));
+  return c;
+}
+
 // Ground detail maps (raw colour, decoded in the ground shader).
 export function grassMap(): THREE.CanvasTexture {
   const n = fbm([[6, 1], [24, 0.6], [96, 0.35]], 23), m = noise(48, 29);
-  return texture(paint((u, v) => {
+  return texture(once("grass", () => paint((u, v) => {
     const t = n(u, v), speck = m(u, v) > 0.8 ? 0.08 : 0;
     const a = [79, 143, 42], b = [127, 191, 60];
     return a.map((x, i) => (x + (b[i] - x) * t) * (0.92 + speck + (m(u * 2, v * 2) - 0.5) * 0.12));
-  }, 512), false);
+  }, 512)), false);
 }
 export function dirtMap(): THREE.CanvasTexture {
   const n = fbm([[6, 1], [24, 0.5], [96, 0.3]], 31), p = noise(40, 37);
-  return texture(paint((u, v) => {
+  return texture(once("dirt", () => paint((u, v) => {
     const t = n(u, v), pebble = p(u, v) > 0.82 ? 1.12 : p(u, v) < 0.12 ? 0.86 : 1;
     const a = [201, 159, 90], b = [232, 199, 132];
     return a.map((x, i) => (x + (b[i] - x) * t) * pebble);
-  }, 512), false);
+  }, 512)), false);
 }
 
 // Ground colour maps for the other lands (sRGB, one tile per metre; the gallery repeats them).
@@ -1243,10 +1252,10 @@ const GROUNDS: Record<string, { a: number[]; b: number[]; seed: number; speck?: 
 export function groundTexture(kind: string, srgb = true): THREE.CanvasTexture {
   const g = GROUNDS[kind] ?? GROUNDS.grass;
   const n = fbm([[6, 1], [24, 0.6], [96, 0.35]], g.seed), m = noise(48, g.seed + 6);
-  return texture(paint((u, v) => {
+  return texture(once(`ground:${kind in GROUNDS ? kind : "grass"}`, () => paint((u, v) => {
     let t = n(u, v);
     if (g.ripple) t = t * 0.7 + 0.3 * (0.5 + 0.5 * Math.sin((v * 9 + n(u, v) * 3) * Math.PI * 2));
     if (g.speck && m(u, v) > 0.84) return g.speck;
     return g.a.map((x, i) => (x + (g.b[i] - x) * t) * (0.94 + (m(u * 2, v * 2) - 0.5) * 0.1));
-  }, 512), srgb);
+  }, 512)), srgb);
 }

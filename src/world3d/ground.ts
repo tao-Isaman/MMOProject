@@ -3,6 +3,7 @@
 
 import * as THREE from "three";
 import { grassMap, dirtMap } from "./textures";
+import { blurChannels } from "./paved";
 
 // Dirt paths: the paint polygons of courtyard.weave, world metres.
 const PATHS: [number, number][][] = [
@@ -25,11 +26,10 @@ export interface Ground {
 function splatCanvas(): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = c.height = SPLAT.px;
-  const g = c.getContext("2d")!;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
   g.fillStyle = "#000";
   g.fillRect(0, 0, SPLAT.px, SPLAT.px);
   g.fillStyle = "#fff";
-  g.filter = "blur(3px)"; // the paint's fade (ignored where unsupported: the texture filter softens it)
   const k = SPLAT.px / SPLAT.w;
   for (const poly of PATHS) {
     g.beginPath();
@@ -41,12 +41,16 @@ function splatCanvas(): HTMLCanvasElement {
     g.closePath();
     g.fill();
   }
+  // the paint's fade
+  const img = g.getImageData(0, 0, SPLAT.px, SPLAT.px);
+  blurChannels(img.data, SPLAT.px, SPLAT.px, [0, 1, 2], 3);
+  g.putImageData(img, 0, 0);
   return c;
 }
 
 export function buildGround(): Ground {
   const splat = splatCanvas();
-  const data = splat.getContext("2d")!.getImageData(0, 0, SPLAT.px, SPLAT.px).data;
+  const data = splat.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, SPLAT.px, SPLAT.px).data;
   const dirt = (x: number, y: number) => {
     const px = Math.floor(((x - SPLAT.x) / SPLAT.w) * SPLAT.px), py = Math.floor(((y - SPLAT.y) / SPLAT.h) * SPLAT.px);
     if (px < 0 || py < 0 || px >= SPLAT.px || py >= SPLAT.px) return 0;

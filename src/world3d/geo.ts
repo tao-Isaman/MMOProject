@@ -88,7 +88,16 @@ export function boxBounds(min: V3, max: V3, mat: string, bevel = 0): Geo {
 
 // A box with chamfered edges and corners: the convex hull of three boxes, each shrunk by `b`
 // along one axis.
+// The hull of 24 points is slow to find and the same few sizes recur by the hundred (bricks,
+// merlons, planks), so each size is worked out once and copied.
+const chamfers = new Map<string, THREE.BufferGeometry>();
 function chamferBox(sx: number, sy: number, sz: number, b: number): THREE.BufferGeometry {
+  const key = `${sx.toFixed(2)}|${sy.toFixed(2)}|${sz.toFixed(2)}|${b.toFixed(2)}`;
+  let g = chamfers.get(key);
+  if (!g) chamfers.set(key, (g = chamferHull(sx, sy, sz, b)));
+  return g.clone();
+}
+function chamferHull(sx: number, sy: number, sz: number, b: number): THREE.BufferGeometry {
   const hx = sx / 2, hy = sy / 2, hz = sz / 2;
   const pts: THREE.Vector3[] = [];
   for (const [ax, ay, az] of [[hx - b, hy - b, hz], [hx - b, hy, hz - b], [hx, hy - b, hz - b]])

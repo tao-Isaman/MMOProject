@@ -350,7 +350,7 @@ function stretchSheet(img: Img, st: [number, number, number]): HTMLCanvasElement
   const c = document.createElement("canvas");
   c.width = img.width;
   c.height = img.height;
-  const g = c.getContext("2d")!;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
   for (let d = 0; d < img.height / CELL; d++)
     for (let y = 0; y < CELL; y++) {
       // the source row each row comes from (stretchRow, backwards)
@@ -613,7 +613,7 @@ export class Looks {
       const c = document.createElement("canvas");
       c.width = sheet.width;
       c.height = sheet.height;
-      const g = c.getContext("2d")!;
+      const g = c.getContext("2d", { willReadFrequently: true })!;
       const frames = sheet.width / CELL;
       for (let d = 0; d < 8; d++) {
         for (let f = 0; f < frames; f++) {
@@ -651,7 +651,7 @@ export class Looks {
       const c = document.createElement("canvas");
       c.width = sheet.width;
       c.height = sheet.height;
-      const g = c.getContext("2d")!;
+      const g = c.getContext("2d", { willReadFrequently: true })!;
       const frames = sheet.width / CELL;
       for (let d = 0; d < 8; d++) {
         const [ax, ay] = head.anchor[d];

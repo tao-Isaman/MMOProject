@@ -33,6 +33,34 @@ export interface Paved {
   kind: (x: number, y: number) => number;
 }
 
+// Blur some channels of an RGBA image in place: `passes` box blurs of radius r across and down
+// (three passes come close to a gaussian of that radius). Canvas filter blurs over a whole field's
+// mask stall the page for seconds when the pixels are read back; this takes milliseconds.
+export function blurChannels(data: Uint8ClampedArray, w: number, h: number, channels: number[], r: number, passes = 3): void {
+  const n = Math.max(w, h), line = new Float32Array(n), out = new Float32Array(n), k = 2 * r + 1;
+  const box = (len: number) => {
+    let sum = 0;
+    for (let i = -r; i <= r; i++) sum += line[Math.min(len - 1, Math.max(0, i))];
+    for (let i = 0; i < len; i++) {
+      out[i] = sum / k;
+      sum += line[Math.min(len - 1, i + r + 1)] - line[Math.max(0, i - r)];
+    }
+  };
+  for (const ch of channels)
+    for (let p = 0; p < passes; p++) {
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) line[x] = data[(y * w + x) * 4 + ch];
+        box(w);
+        for (let x = 0; x < w; x++) data[(y * w + x) * 4 + ch] = out[x];
+      }
+      for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) line[y] = data[(y * w + x) * 4 + ch];
+        box(h);
+        for (let y = 0; y < h; y++) data[(y * w + x) * 4 + ch] = out[y];
+      }
+    }
+}
+
 function texture(c: HTMLCanvasElement): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -48,7 +76,7 @@ export function buildPaved(spec: PavedSpec): Paved {
   const c = document.createElement("canvas");
   c.width = W;
   c.height = H;
-  const g = c.getContext("2d")!;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
   g.fillStyle = "#000";
   g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = "lighter";
@@ -61,13 +89,16 @@ export function buildPaved(spec: PavedSpec): Paved {
       g.fill();
     }
   };
-  // a track's edge fades into the grass
-  if (spec.track) g.filter = `blur(${Math.max(1, 60 / cm)}px)`;
   fill(spec.roads, "#ff0000");
-  g.filter = "none";
   fill(spec.plazas, "#00ff00");
   fill(spec.water ?? [], "#0000ff");
-  const data = g.getImageData(0, 0, W, H).data;
+  const img = g.getImageData(0, 0, W, H);
+  // a track's edge fades into the grass (roads are the red channel)
+  if (spec.track) {
+    blurChannels(img.data, W, H, [0], Math.max(1, Math.round(60 / cm)));
+    g.putImageData(img, 0, 0);
+  }
+  const data = img.data;
   const kind = (x: number, y: number) => {
     const px = Math.floor((x - x0) / cm), py = Math.floor((y - y0) / cm);
     if (px < 0 || py < 0 || px >= W || py >= H) return 0;
