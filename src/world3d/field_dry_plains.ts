@@ -158,23 +158,24 @@ export function build(quality: { flowers: number }): Town {
   // the south wall: the gatehouse in its middle, a short piece each side
   prop("westfarm:fort_gate", [FORT[0] - H, FORT[1]], 0, 360, { solid: [{ kind: "gate", x: -25, y: -240, w: 350, d: 160, rot: 0 }, { kind: "gate", x: -25, y: 240, w: 350, d: 160, rot: 0 }] });
   for (const s of [-1, 1]) prop("westfarm:fort_wall", [FORT[0] - H, FORT[1] + s * 460], 0, 160, { sy: 280 / 600, solid: wallSolid(280) });
-  // inside: a fallen barrack, a dry well, relics of the last fight, a broken cart
+  // inside: a fallen barrack, a dry well, relics of the last fight, abandoned stores
   prop("desert:ruin_wall", [FORT[0] + 450, FORT[1] + 250], 90, 300, { s: 0.8 });
   prop("desert:column_fallen", [FORT[0] + 100, FORT[1] - 450], 30, 260, { s: 0.7 });
   prop("frontier:battle_relics", [FORT[0] - 250, FORT[1] + 350], 20, 160, { solid: "none" });
   prop("bahamas:well", [FORT[0] + 150, FORT[1] + 50], 0, 140, { s: 0.9 });
   prop("frontier:rubble_pile", [FORT[0] + 550, FORT[1] - 500], 10, 200, { s: 0.7 });
-  prop("desert:cart_wreck", [FORT[0] - 1700, FORT[1] + 400], 60, 300);
+  prop("common:crate", [FORT[0] - 300, FORT[1] + 520], 20, 60);
+  prop("common:crate", [FORT[0] - 230, FORT[1] + 600], 55, 60);
   prop("trunrada:banner_pole", [FORT[0] - 1350, FORT[1] - 450], 0, 60);
   // the mesa top round the fort: scrub, bones, rocks
   scatter(["desert:dry_bush", "desert:dry_bush", "desert:grass_tuft"], 10, { x0: 1900, x1: 5200, y0: -4200, y1: -600 }, 100, { s: [0.7, 1.1], keep: (x, y) => Math.max(Math.abs(x - FORT[0]), Math.abs(y - FORT[1])) > H + 450 });
-  prop("desert:bones", [4700, -1300], 50, 200);
+  prop("desert:bones", [4850, -2200], 50, 200, { solid: "none" });
   prop("desert:hoodoo", [4300, -3900], 20, 180, { s: 0.8 });
 
   // ---- the south-west mesa and the beacon on its butte ----
   prop("steppe:beacon_tower", BEACON, towards(1, -0.6), 400, { solid: STEPPE_SHAPES.beacon_tower });
   prop("trunrada:cairn", [BEACON[0] + 450, BEACON[1] + 450], 0, 100);
-  prop("desert:bones", [BEACON[0] - 300, BEACON[1] - 800], 120, 200, { s: 0.8 });
+  prop("desert:bones", [BEACON[0] - 300, BEACON[1] - 800], 120, 200, { s: 0.8, solid: "none" });
   prop("bahamas:rock_arch", [-4300, 1500], 40, 0, { s: 0.6, solid: "none" });
   taken.push([-4300, 1500, 450]);
   prop("desert:cart_wreck", [-2300, 3300], 140, 300);
@@ -192,8 +193,8 @@ export function build(quality: { flowers: number }): Town {
     put("westfarm:cracked_earth", [x + (rnd() - 0.5) * 300, y + (rnd() - 0.5) * 300], rnd() * 360, { s: 0.8 + rnd() * 0.3 });
   }
   for (const at of [[-2400, -3400], [-3500, -2400], [-1600, -1100]] as XY[]) put("westfarm:cracked_earth", at, rnd() * 360, { s: 0.7 });
-  prop("desert:bones", [-2100, -2000], 30, 200);
-  prop("steppe:bones", [-3600, -3900], 80, 180);
+  prop("desert:bones", [-2100, -2000], 30, 200, { solid: "none" });
+  prop("steppe:bones", [-3600, -3900], 80, 180, { solid: "none" });
   prop("desert:dead_tree", [-2500, -1500], 30, 150, ring(26, "tree"));
 
   // ---- the plain: cracked earth, thorn scrub, dry grass, dead trees, rocks, bones ----
@@ -210,7 +211,7 @@ export function build(quality: { flowers: number }): Town {
   scatter(["desert:dead_tree"], 9, IN, 150, { s: [0.8, 1.1], solid: [{ kind: "tree", x: 0, y: 0, r: 26 }] });
   scatter(["desert:acacia"], 5, IN, 260, { s: [0.8, 1.05], solid: [{ kind: "tree", x: 0, y: 0, r: 34 }] });
   scatter(["desert:dry_bush"], 46, IN, 110, { s: [0.7, 1.15] });
-  scatter(["desert:bones", "steppe:bones", "desert:bones"], 8, IN, 200, { keep: (x, y) => !nearExit(x, y) });
+  scatter(["desert:bones", "steppe:bones", "desert:bones"], 8, IN, 200, { solid: "none", keep: (x, y) => !nearExit(x, y) });
   scatter(["desert:fallen_log", "desert:stump"], 6, IN, 200);
   scatter(["steppe:scrub", "steppe:scrub"], 14, IN, 110, { s: [0.7, 1] });
   // dry grass everywhere it can grow
@@ -225,7 +226,11 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- monsters: the plain, the wash, both mesas, the fort's courtyard ----
   const busy = (x: number, y: number) => Math.hypot(x - WS[0] + 300, y - WS[1]) < 1500 || Math.hypot(x - BEACON[0], y - BEACON[1]) < 500;
-  f.monsterSpots(ground, IN, { step: 820, keepOut: busy, max: 54 });
+  f.monsterSpots(ground, IN, { step: 820, keepOut: busy, max: 46 });
+  // and closer together over the fort's mesa, its courtyard too (the field's grid finds little
+  // room up there between the walls)
+  const taken0 = f.spots.length;
+  f.monsterSpots(ground, { x0: 1900, x1: 5200, y0: -4100, y1: -700 }, { step: 520, max: 10, keepOut: (x, y) => f.spots.slice(0, taken0).some((p) => Math.hypot(p.x - x, p.y - y) < 500) });
 
   // ---- people ----
   const npcs: NpcSpec[] = [
@@ -259,7 +264,7 @@ export function build(quality: { flowers: number }): Town {
       { x: WAY_W[0], y: WAY_W[1] - 250, text: "ทางไปเวนิชเซีย", kind: "gate" },
       { x: WAY_E[0], y: WAY_E[1] + 250, text: "ทางไปขอบทะเลทราย", kind: "gate" },
       { x: WS[0] - 300, y: WS[1], text: "ศาลาพักคาราวาน" },
-      { x: FORT[0], y: FORT[1], text: "ป้อมร้างบนผา" },
+      { x: FORT[0] - 450, y: FORT[1], text: "ป้อมร้างบนผา" },
       { x: BEACON[0] + 400, y: BEACON[1], text: "หอไฟบนภูหิน" },
       { x: SKELETON[0], y: SKELETON[1] - 500, text: "โครงกระดูกยักษ์", kind: "small" },
       { x: -3500, y: -4100, text: "ลำธารแห้ง", kind: "small" },

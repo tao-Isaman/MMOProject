@@ -597,19 +597,18 @@ function vineyardRow(): Geo {
   for (let y = -L + 50; y < L; y += 100) {
     // the trunk, twisting up to the lower wire, two canes along it
     const tx = (rnd() - 0.5) * 10;
-    out.push(cylinderBetween([tx, y, 0], [tx * 0.4, y + (rnd() - 0.5) * 10, 40], 5, 6, "Westfarm_VineWood", 4.5));
-    out.push(cylinderBetween([tx * 0.4, y, 40], [0, y, 72], 4.5, 6, "Westfarm_VineWood", 3.5));
-    for (const s of [-1, 1]) out.push(cylinderBetween([0, y, 72], [0, y + s * 48, 74], 2.5, 5, "Westfarm_VineWood", 1.8));
+    out.push(cylinderBetween([tx, y, 0], [tx * 0.4, y + (rnd() - 0.5) * 10, 40], 5, 5, "Westfarm_VineWood", 4.5));
+    out.push(cylinderBetween([tx * 0.4, y, 40], [0, y, 72], 4.5, 5, "Westfarm_VineWood", 3.5));
+    for (const s of [-1, 1]) out.push(cylinderBetween([0, y, 72], [0, y + s * 48, 74], 2.5, 4, "Westfarm_VineWood", 1.8));
     lobes.push([0, y, 104, 26, 54, 34]);
-    // bunches hanging under the leaves
+    // bunches hanging under the leaves: a tapering cluster with a few grapes standing out
     for (let b = 0; b < 2; b++) {
       const by = y + (rnd() - 0.5) * 70, bx = (rnd() < 0.5 ? -1 : 1) * (12 + rnd() * 8), bz = 66 + rnd() * 12;
-      const g: Geo[] = [];
-      for (let k = 0; k < 7; k++) g.push(sphereCenter(5.5, [(rnd() - 0.5) * 8, (rnd() - 0.5) * 8, -k * 3.4 - (k > 3 ? 2 : 0)], "Westfarm_Grape", 5));
-      out.push(translate(merge(...g), [bx, by, bz]));
+      out.push(cylinderAt({ rBot: 2, rTop: 7.5, height: 20, segments: 6, bottom: [bx, by, bz - 22] }, "Westfarm_Grape"));
+      out.push(sphereCenter(5, [bx + (rnd() - 0.5) * 6, by + (rnd() - 0.5) * 6, bz - 6], "Westfarm_Grape", 5));
     }
   }
-  out.push(shrub({ seed: 173, leaf: 26, look: VINE, ragged: 0.55, core: 0.62, density: 0.8, lobes }));
+  out.push(shrub({ seed: 173, leaf: 30, look: VINE, ragged: 0.55, core: 0.62, density: 0.7, lobes }));
   return merge(...out);
 }
 
@@ -1008,7 +1007,7 @@ function fortGate(): Geo {
   out.push(translate(rotateY(leaf(), 82), [40, -150, 4]));
   out.push(translate(rotateZ(rotateX(leaf(), 8), -40), [-T / 2 + 30, 150, 10]));
   // sand blown in through the passage, stones fallen
-  out.push(translate(lump([0, 0, 0], [T / 2 + 60, 150, 26], 265, "Westfarm_Sand", 1, 0.2, 60), [0, 0, -8]));
+  out.push(translate(lump([0, 0, 0], [T / 2 + 40, 110, 12], 265, "Westfarm_Sand", 1, 0.2, 60), [20, 30, -6]));
   for (let i = 0; i < 5; i++) out.push(translate(rotateZ(box([60, 40, 34], [0, 0, 14], rnd() < 0.5 ? F : FD, 4), rnd() * 360), [-T / 2 - 80 - rnd() * 100, (rnd() < 0.5 ? -1 : 1) * (200 + rnd() * 150), -4]));
   return merge(...out);
 }
@@ -1161,36 +1160,33 @@ export function wallRun(f: FieldBuilder, pts: XY[], o: { skip?: (x: number, y: n
   }
 }
 
-// ---- the sample: where the meadow meets the farmland on the road south of Noa ----
+// ---- the sample: a corner of the downs where they meet the farmland south of Noa ----
 function sample(put: Put): void {
   const rnd = seeded(301);
-  // a field of vines behind a dry-stone wall, the farmstead beyond
-  for (let i = 0; i < 4; i++) put("vineyard_row", [-1500 + i * 250, 1300, 0], 0);
-  for (const y of [-1300, -900, -500, -100]) put("drystone_wall", [-400, y, 0], 0);
-  put("drystone_wall_broken", [-400, 300, 0], 0);
-  put("drystone_wall", [-400, 700, 0], 0);
-  put("farmhouse", [-1400, -1300, 0], 90);
-  put("cypress", [-650, -1900, 0], 0);
-  put("cypress", [-650, -1500, 0], 40, 0.9);
-  // the road past them: the shrine, the bridge over a stream, a cypress pair
-  put("wayside_shrine", [200, 600, 0], 90);
-  put("stone_bridge", [1300, 0, 0], 90, 0.9);
-  put("cypress", [400, 1200, 0], 0, 1.1);
-  put("cypress", [400, -1200, 0], 60, 1.05);
-  // the aqueduct striding over the downs behind
-  for (let i = -2; i <= 1; i++) put("aqueduct", [1900, i * 800 + 400, 0], 0);
-  put("aqueduct_ruin", [1900, 2000, 0], 0);
-  // sheep at the wall, flowers, the old windmill on its rise
-  put("sheep_flock", [400, -500, 0], 30);
-  put("sheep_flock", [800, -1700, 0], -60, 0.9);
-  put("stone_windmill", [1500, -1900, 0], 0, 0.6);
-  put("shepherd_hut", [-200, -1800, 0], 180, 0.9);
-  for (let i = 0; i < 14; i++) put("wildflowers", [-2000 + rnd() * 4000, -2000 + rnd() * 1600, 0], rnd() * 360, 0.7 + rnd() * 0.5);
-  put("flora:BigOak", [-1900, 300, 0], 30, 0.9);
-  // a corner of the dry plains: cracked earth, the camel post, the skeleton, a fort wall
-  put("cracked_earth", [1400, 1700, 0], 20);
-  put("camel_post", [700, 1900, 0], 0);
-  put("giant_skeleton", [-1300, 2000, 0], 160, 0.5);
+  // the aqueduct striding across the back, its last bay fallen
+  for (const y of [-1600, -800, 0, 800]) put("aqueduct", [1750, y, 0], 0);
+  put("aqueduct_ruin", [1750, 1600, 0], 0);
+  // vines in rows on the west side, the farmstead beyond them
+  for (let i = 0; i < 5; i++) put("vineyard_row", [-50 + i * 250, 1450, 0], 0);
+  put("farmhouse", [-1500, 1750, 0], 90);
+  put("cypress", [-650, 2050, 0], 0, 1.05);
+  put("cypress", [-650, 900, 0], 40, 0.95);
+  // a dry-stone wall across the middle (one stretch tumbled), the sheepfold and the flocks
+  for (const y of [-1700, -1300, -500, -100, 300]) put("drystone_wall", [300, y, 0], 0);
+  put("drystone_wall_broken", [300, -900, 0], 0);
+  put("sheepfold", [1000, -1000, 0], 90);
+  put("sheep_flock", [-250, -500, 0], 30);
+  put("sheep_flock", [750, 50, 0], -60, 0.9);
+  // the shepherd's hut and the old windmill on the east side, the shrine by the way
+  put("shepherd_hut", [-350, -1750, 0], 0);
+  put("stone_windmill", [-1350, -1550, 0], 20, 0.6);
+  put("wayside_shrine", [-700, 300, 0], 0);
+  put("flora:BigOak", [-350, 1050, 0], 30, 0.75);
+  for (let i = 0; i < 12; i++) put("wildflowers", [-2000 + rnd() * 1900, -2000 + rnd() * 2600, 0], rnd() * 360, 0.7 + rnd() * 0.5);
+  // and in front, the dry plains beginning: cracked mud, a camel at its post, old bones
+  put("cracked_earth", [-1950, -650, 0], 20);
+  put("camel_post", [-1900, 150, 0], 90);
+  put("giant_skeleton", [-1950, 950, 0], 80, 0.5);
 }
 
 const items: KitItem[] = [

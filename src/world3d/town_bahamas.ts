@@ -95,7 +95,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
     road: [0.97, 0.83, 0.62], plaza: [1.0, 0.91, 0.74],
   });
 
-  // ---- the city wall: 8 m pieces between watchtowers, three gates ----
+  // ---- the city wall: 8 m pieces between watchtowers, four gates ----
   const NORTH = P(0, WALL.v0)[0], SOUTH = P(0, WALL.v1)[0], WEST = P(WALL.u0, 0)[1], EAST = P(WALL.u1, 0)[1];
   const GATE_N = at(...GATE_N_UV), GATE_E = at(...GATE_E_UV), GATE_S = at(...GATE_S_UV), GATE_W = at(...GATE_W_UV);
   const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) => town.wall(a, b, out, "bahamas:city_wall", { gaps, gap: 1200 });
