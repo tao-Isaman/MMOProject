@@ -87,15 +87,17 @@ export function buildSuzhou(quality: { flowers: number }): Town {
 
   // ---- ground: streets (cobbles), squares and quays (flagstones), the sea and the canals ----
   const roads: Poly[] = [
-    rect(330, MS[0], 742, MS[1]),                // the main street, from the pailou to the yamen
-    rect(AV[0], -500, AV[1], 1400),              // the avenue, out of both gates
-    rect(AV[1], LL[0], E - 6, LL[1]),            // lantern lane
-    rect(QUAY + 42, CA[0] - 15, CA_END, CA[0]),  // the Grand Canal's north walk
-    rect(250, CA[1], CA_END, CA[1] + 15),        // and its south walk
+    // (each paved right up to the house fronts along it)
+    rect(330, MS[0] - 5, 742, MS[1] + 5),        // the main street, from the pailou to the yamen
+    rect(AV[0] - 4, -500, AV[1] + 4, 1400),      // the avenue, out of both gates
+    rect(AV[1], LL[0] - 4, E - 6, LL[1] + 4),    // lantern lane
+    rect(QUAY + 42, CA[0] - 19, CA_END, CA[0]),  // the Grand Canal's north walk
+    rect(250, CA[1], CA_END, CA[1] + 19),        // and its south walk
     rect(CB[0] - 15, CB_END, CB[0], CA[0]),      // the north canal's west walk
-    rect(CB[1], CB_END, CB[1] + 15, CA[0]),      // and its east walk
-    rect(250, FL[0], AV[0], FL[1]),              // the fish lane
-    rect(-420, WR[0], AV[0], WR[1]),             // the causeway and the west road
+    rect(CB[1], CB_END, CB[1] + 19, CA[0]),      // and its east walk
+    rect(250, FL[0] - 4, AV[0], FL[1] + 4),      // the fish lane
+    rect(-420, WR[0], QUAY, WR[1]),              // the causeway
+    rect(QUAY, WR[0] - 4, AV[0], WR[1] + 4),     // the west road
     rect(320, CA[1] + 15, 342, FL[0]),           // an alley from the canal to the fish lane
     rect(AV[1], 642, 630, 662),                  // the path to the garden's moon gate
     rect(708, CA[0] - 15, 732, CA[1] + 15), rect(708, CA[1] + 15, 732, 572), // the lane over the canal to the garden's other moon gate
@@ -304,7 +306,7 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   for (const [u, v] of [[252, 262], [252, 390], [326, 262], [326, 392]] as const) lamp(u, v, facing(290 - u, 325 - v));
   for (const v of [290, 360]) put("common:bench", P(304, v), FACE.w);
   put("common:sign_post", P(322, 308), FACE.w);
-  for (const [u, v] of [[300, 270], [318, 380]] as const) put("flora:RoundTree", P(u, v), rnd() * 360, { s: 0.6 });
+  put("flora:RoundTree", P(300, 270), rnd() * 360, { s: 0.6 });
   // stone lions at the head of the main pier, cargo waiting by the steps
   for (const v of [316, 334]) put("suzhou:stone_lion", P(QUAY + 8, v), FACE.w, { s: 0.85 });
   put("suzhou:market_stall", P(262, 390), FACE.n);
@@ -403,6 +405,8 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   };
   const WOODS = { x0: P(0, 1400)[0], x1: P(0, -700)[0], y0: P(1450, 0)[1], y1: P(QUAY, 0)[1] };
   town.woods(WOODS, ["Pine", "Pine", "PineSmall", "Bamboo", "RoundTree", "Pine"], keepOut, { count: 520, tries: 30000, spacing: 360 });
+  // (thicker close round the walls)
+  town.woods({ x0: P(0, S + 260)[0], x1: P(0, N - 260)[0], y0: P(E + 260, 0)[1], y1: P(QUAY, 0)[1] }, ["Pine", "RoundTree", "Bamboo", "PineSmall", "SmallTree"], keepOut, { count: 260, tries: 12000, spacing: 300 });
   town.woods(WOODS, ["willow"], (x, y) => keepOut(x, y) || toPlan(x, y)[1] < S + 40, { count: 30, tries: 3000, spacing: 600, kit: "suzhou" });
 
   // ---- build ----

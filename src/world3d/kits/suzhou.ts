@@ -512,7 +512,7 @@ function polyRoof(o: PolyRoofSpec): Geo {
 // crossed along X and Y, small blocks, a longer crossed pair, small blocks again (k scales it;
 // 64 k tall).
 function dougong(x: number, y: number, z: number, out: number, k = 1, arm = TEAL, block = BLUE): Geo {
-  const P: Geo[] = [boxAt([30 * k, 30 * k, 16 * k], [x, y, z], block, 1.5 * k)];
+  const P: Geo[] = [boxAt([30 * k, 30 * k, 16 * k], [x, y, z], block)];
   P.push(boxAt([out * 0.6, 12 * k, 14 * k], [x - out * 0.3 + 6 * k, y, z + 16 * k], arm));
   P.push(boxAt([12 * k, 70 * k, 14 * k], [x, y, z + 16 * k], arm));
   for (const yy of [-30 * k, 30 * k]) P.push(boxAt([16 * k, 16 * k, 10 * k], [x, y + yy, z + 30 * k], block));
@@ -579,12 +579,12 @@ function lattice(x0: number, y0: number, y1: number, z0: number, z1: number, fra
 }
 
 // A wooden railing from a to b (its foot), h tall: posts, balusters, a top rail and a sill.
-function railing(a: V3, b: V3, h: number, mat = RED, step = 22): Geo {
+function railing(a: V3, b: V3, h: number, mat = RED, step = 30): Geo {
   const L = len(sub(b, a)), n = Math.max(1, Math.round(L / 90)), m = Math.max(2, Math.round(L / step));
   const P: Geo[] = [];
   for (let i = 0; i <= n; i++) {
     const p = add(a, mul(sub(b, a), i / n));
-    P.push(boxAt([9, 9, h + 6], p, mat, 1));
+    P.push(boxAt([9, 9, h + 6], p, mat));
   }
   for (let i = 1; i < m; i++) {
     const p = add(a, mul(sub(b, a), i / m));
@@ -601,7 +601,7 @@ function balustrade(a: V3, b: V3, h = 70, mat = "Suzhou_Marble", step = 120): Ge
   const P: Geo[] = [];
   for (let i = 0; i <= n; i++) {
     const p = add(a, mul(sub(b, a), i / n));
-    P.push(boxAt([16, 16, h], p, mat, 1.5), lathe([[6, 0], [10, 3], [10, 10], [5, 18], [0, 20]], 8, mat, add(p, [0, 0, h])));
+    P.push(boxAt([16, 16, h], p, mat), lathe([[8, 0], [10, 6], [5, 16], [0, 20]], 6, mat, add(p, [0, 0, h])));
   }
   P.push(beamBetween(add(a, [0, 0, h - 14]), add(b, [0, 0, h - 14]), 10, 9, mat));
   P.push(beamBetween(add(a, [0, 0, 18]), add(b, [0, 0, 18]), 7, h - 40, mat));
@@ -664,7 +664,7 @@ function pagoda(): Geo {
     const rw = RW[i], hw = HW[i], ap = rw * C8, side = 2 * rw * S8, top = i === 6;
     // body and corner columns
     P.push(oct(rw - 8, z0, hw, top ? "Suzhou_Glow" : WHITE));
-    for (let j = 0; j < 8; j++) P.push(cylinderAt({ radius: i === 0 ? 17 : 14, height: hw, segments: 8, bottom: at(rw, j, z0) }, RED));
+    for (let j = 0; j < 8; j++) P.push(cylinderAt({ radius: i === 0 ? 17 : 14, height: hw, segments: 6, bottom: at(rw, j, z0) }, RED));
     // one side (facing -X), turned to the other seven
     const s: Geo[] = [
       bb([-ap - 7, -side / 2, z0], [-ap + 6, side / 2, z0 + 14], RED),
@@ -674,21 +674,21 @@ function pagoda(): Geo {
     ];
     // corbels under the eaves
     for (const y of [-side / 4, side / 4]) {
-      s.push(boxAt([18, 16, 12], [-ap - 8, y, z0 + hw + 10], BLUE));
-      s.push(boxAt([34, 14, 12], [-ap - 16, y, z0 + hw + 22], TEAL));
-      s.push(boxAt([52, 14, 12], [-ap - 24, y, z0 + hw + 34], BLUE));
+      s.push(boxAt([30, 16, 14], [-ap - 14, y, z0 + hw + 10], BLUE));
+      s.push(boxAt([52, 14, 14], [-ap - 24, y, z0 + hw + 24], TEAL));
     }
     const door: Geo[] = [], win: Geo[] = [];
     if (top) {
       // the lantern room: glowing lattice screens all round
-      win.push(lattice(-ap - 4, -side / 2 + 18, side / 2 - 18, z0 + 22, z0 + hw - 38, RED, "Suzhou_Glow", 13));
+      win.push(lattice(-ap - 4, -side / 2 + 18, side / 2 - 18, z0 + 22, z0 + hw - 38, RED, "Suzhou_Glow", 18));
       door.push(...win);
     } else {
       const dw = i === 0 ? 130 : 84, dh = i === 0 ? 236 : hw * 0.72;
-      door.push(translate(extrude(archPts(dw, dh), [], "x", -ap - 5, 7, "Suzhou_Ink"), [0, 0, z0 + 14]));
-      door.push(translate(extrude(archPts(dw + 26, dh + 13), [archPts(dw, dh)], "x", -ap - 9, 8, RED), [0, 0, z0 + 14]));
+      door.push(translate(extrude(archPts(dw, dh, 8), [], "x", -ap - 5, 7, "Suzhou_Ink"), [0, 0, z0 + 14]));
+      door.push(translate(extrude(archPts(dw + 26, dh + 13, 8), [archPts(dw, dh, 8)], "x", -ap - 9, 8, RED), [0, 0, z0 + 14]));
       if (i === 0) for (const yy of [-1, 1]) door.push(bb([-ap - 8, yy * (dw / 2 + 13) - 10, z0 + 14], [-ap - 5, yy * (dw / 2 + 13) + 10, z0 + 180], "FabricRed"));
-      win.push(lattice(-ap - 4, -side / 4 - 6, side / 4 + 6, z0 + hw * 0.35, z0 + hw * 0.35 + Math.min(110, side / 2 + 12), "WoodShade", "PaperShoji", 12));
+      if (i < 3) win.push(lattice(-ap - 4, -side / 4 - 6, side / 4 + 6, z0 + hw * 0.35, z0 + hw * 0.35 + Math.min(110, side / 2 + 12), "WoodShade", "PaperShoji", 17));
+      else win.push(disc(32, [-ap - 2, 0, z0 + hw * 0.5], RED, "x", 6, 12), disc(25, [-ap - 5, 0, z0 + hw * 0.5], "Suzhou_Ink", "x", 2, 12));
     }
     for (let j = 0; j < 8; j++) P.push(rotateZ(merge(...s, ...(j % 2 === 0 ? door : win)), j * 45));
     // the eaves (green glazed), a skirt up to the next storey's balcony, or the top roof
@@ -698,7 +698,7 @@ function pagoda(): Geo {
       P.push(polyRoof({ n: 8, R: Re, z: zE, h: rise / Math.pow(tMax, curve), curve, lift: 44, flare: 18, th: 16, tMax, mat: "Suzhou_TileGreen", tileEnd: "Suzhou_TileEndGreen", ridgeMat: "Suzhou_RidgeGreen", under: TEAL, horns: 40, bells: true, nt: 4, ns: 6 }));
       const zB = zE + rise + 4;
       P.push(oct(rn + 78, zB - 14, 14, "WoodShade"));
-      for (let j = 0; j < 8; j++) P.push(railing(at(rn + 70, j, zB), at(rn + 70, j + 1, zB), 56));
+      for (let j = 0; j < 8; j++) P.push(railing(at(rn + 70, j, zB), at(rn + 70, j + 1, zB), 56, RED, 46));
       z0 = zB;
     } else {
       const h = 290;
@@ -918,7 +918,7 @@ function cityGate(): Geo {
   for (const sx of [-1, 1])
     for (let b = 0; b < 5; b++) {
       const yc = -ty + bayW * (b + 0.5);
-      const front = lattice(-tx + 38, yc - bayW / 2 + 22, yc + bayW / 2 - 22, zf + 30, zf + h1 - 60, "Suzhou_Red", "PaperShoji", 14);
+      const front = lattice(-tx + 38, yc - bayW / 2 + 22, yc + bayW / 2 - 22, zf + 30, zf + h1 - 60, "Suzhou_Red", "PaperShoji", 19);
       P.push(sx < 0 ? front : rotateZ(front, 180));
     }
   for (const sx of [-1, 1]) {
@@ -945,7 +945,7 @@ function cityGate(): Geo {
   for (const sx of [-1, 1])
     for (let b = 0; b < 4; b++) {
       const yc = -uy + (uy / 2) * (b + 0.5);
-      const front = lattice(-ux + 8, yc - uy / 4 + 18, yc + uy / 4 - 18, zu + 30, zu + h2 - 46, "Suzhou_Red", "PaperShoji", 14);
+      const front = lattice(-ux + 8, yc - uy / 4 + 18, yc + uy / 4 - 18, zu + 30, zu + h2 - 46, "Suzhou_Red", "PaperShoji", 19);
       P.push(sx < 0 ? front : rotateZ(front, 180));
     }
   P.push(signboard(-ux - 30, 0, zu + h2 + 40, 170, 56, 3));
@@ -964,13 +964,13 @@ function goods(x: number, y0: number, y1: number, z: number, seed: number): Geo 
     if (k < 0.4) {
       // a stack of silk bolts
       const m = silk[Math.floor(rnd() * silk.length)];
-      for (let j = 0; j < 3; j++) P.push(cylinderBetween([x - 14, y + j * 13, z + 8], [x + 14, y + j * 13, z + 8], 6.5, 8, j % 2 ? m : silk[(silk.indexOf(m) + 2) % silk.length]));
-      P.push(cylinderBetween([x - 14, y + 6, z + 20], [x + 14, y + 6, z + 20], 6.5, 8, m));
+      for (let j = 0; j < 3; j++) P.push(cylinderBetween([x - 14, y + j * 13, z + 8], [x + 14, y + j * 13, z + 8], 6.5, 6, j % 2 ? m : silk[(silk.indexOf(m) + 2) % silk.length]));
+      P.push(cylinderBetween([x - 14, y + 6, z + 20], [x + 14, y + 6, z + 20], 6.5, 6, m));
       y += 46;
     } else if (k < 0.75) {
       // a blue-and-white jar
-      P.push(lathe([[0, 0], [9, 1], [13, 10], [12, 20], [7, 26], [7, 30], [0, 30]], 10, "Suzhou_Porcelain", [x, y + 12, z]));
-      P.push(lathe([[12.6, 0], [13.2, 4], [12.8, 10], [0, 10]], 10, "Suzhou_Cobalt", [x, y + 12, z + 9]));
+      P.push(lathe([[0, 0], [10, 1], [13, 12], [8, 26], [7, 30], [0, 30]], 8, "Suzhou_Porcelain", [x, y + 12, z]));
+      P.push(lathe([[13.1, 0], [13.4, 5], [0, 10]], 8, "Suzhou_Cobalt", [x, y + 12, z + 8]));
       y += 34;
     } else {
       // tea boxes with red labels
@@ -1019,7 +1019,7 @@ function shophouse(): Geo {
   P.push(railing([-hx - 86, -hy + 6, z2 + 14], [-hx - 86, hy - 6, z2 + 14], 66));
   for (const s of [-1, 1]) P.push(railing([-hx - 86, s * (hy - 6), z2 + 14], [-hx, s * (hy - 6), z2 + 14], 66));
   P.push(bb([-hx + 8, -hy, z2], [-hx + 20, hy, z3], "WoodDark"));
-  for (const y of [-300, -100, 100, 300]) P.push(lattice(-hx + 6, y - 92, y + 92, z2 + 34, z3 - 54, RED, "PaperShoji", 13));
+  for (const y of [-300, -100, 100, 300]) P.push(lattice(-hx + 6, y - 92, y + 92, z2 + 34, z3 - 54, RED, "PaperShoji", 18));
   for (const y of [-hy + 8, -200, 0, 200, hy - 8]) P.push(bb([-hx, y - 7, z2 + 14], [-hx + 10, y + 7, z3], RED));
   for (const y of [-260, 0, 260]) P.push(lantern(19, [-hx - 64, y, z3 - 22]));
   // the back: a door, two windows upstairs
@@ -1064,9 +1064,9 @@ function teaHouse(): Geo {
   for (let k = 0; k < 4; k++) {
     const w = k % 2 ? ix : iy, d = k % 2 ? iy : ix;
     const face: Geo[] = [];
-    for (const y of spread(-w + 70, w - 70, 4)) {
+    for (const y of spread(-w + 70, w - 70, 3)) {
       if (k === 0 && Math.abs(y) < 120) continue;
-      face.push(lattice(-d - 2, y - 60, y + 60, z1 + 40, z2 - 50, "Suzhou_Red", "PaperShoji", 13));
+      face.push(lattice(-d - 2, y - 60, y + 60, z1 + 40, z2 - 50, "Suzhou_Red", "PaperShoji", 19));
     }
     if (k === 0) face.push(bb([-d - 3, -110, z1], [-d + 1, 110, z2 - 40], "Suzhou_Ink"));
     P.push(rotateZ(merge(...face), k * 90));
@@ -1089,14 +1089,14 @@ function teaHouse(): Geo {
       sweep([[-d - 14, -w, z2 + 74], [-d - 14, w, z2 + 74]], 8, 7, RED),
     );
     const backrest: Geo[] = [];
-    for (const y of spread(-w + 10, w - 10, Math.round(w / 22))) backrest.push(beamBetween([-d, y, z2 + 48], [-d - 14, y, z2 + 74], 3, 3, RED));
+    for (const y of spread(-w + 10, w - 10, Math.round(w / 32))) backrest.push(beamBetween([-d, y, z2 + 48], [-d - 14, y, z2 + 74], 3, 3, RED));
     P.push(rotateZ(merge(side, ...backrest), k * 90));
   }
   // upstairs: lattice walls on the core
   P.push(boxAt([2 * ix + 40, 2 * iy + 40, z3 - z2 - 10], [0, 0, z2], "WoodShade"));
   for (let k = 0; k < 4; k++) {
     const w = k % 2 ? ix + 20 : iy + 20, d = k % 2 ? iy + 20 : ix + 20;
-    P.push(rotateZ(merge(...spread(-w + 60, w - 60, Math.round(w / 110)).map((y) => lattice(-d - 2, y - 46, y + 46, z2 + 30, z3 - 50, "Suzhou_Red", "PaperShoji", 12))), k * 90));
+    P.push(rotateZ(merge(...spread(-w + 60, w - 60, Math.round(w / 150)).map((y) => lattice(-d - 2, y - 46, y + 46, z2 + 30, z3 - 50, "Suzhou_Red", "PaperShoji", 18))), k * 90));
   }
   P.push(signboard(-ix - 30, 0, z3 - 30, 260, 54, 3));
   // painted beams over the columns, lanterns under the eaves
@@ -1106,7 +1106,7 @@ function teaHouse(): Geo {
     const ls = spread(-w + 120, w - 120, k % 2 ? 2 : 3);
     for (const y of ls) P.push(rotateZ(lantern(18, [-d - 40, y, z3 - 14]), k * 90));
   }
-  P.push(bracketRing(hx, hy, z3, 54, spread(-hy, hy, 9), spread(-hx, hx, 7), 0.7));
+  P.push(bracketRing(hx, hy, z3, 54, spread(-hy, hy, 7), spread(-hx, hx, 5), 0.7));
   P.push(rotateZ(roof({ kind: "xieshan", hx: hy + 200, hy: hx + 200, z: z3 + 50, h: 270, curve: 1.65, lift: 72, flare: 30, th: 20, gableAt: 0.5, curls: 1.1, nt: 8, ns: 12 }), 90));
   // the tea banner by the steps
   const bx = -hx - 120, by = -260;
@@ -1142,7 +1142,7 @@ function greatHall(): Geo {
     const y0 = cy[b] + 22, y1 = cy[b + 1] - 22, w = (y1 - y0) / 4;
     for (let d = 0; d < 4; d++) {
       const ya = y0 + d * w + 2, yb = ya + w - 4;
-      P.push(lattice(-154, ya, yb, zp + 120, zp + H - 70, RED, "PaperShoji", 12));
+      P.push(lattice(-154, ya, yb, zp + 120, zp + H - 70, RED, "PaperShoji", 16));
       P.push(bb([-158, ya - 2, zp], [-150, yb + 2, zp + 112], RED), bb([-160, ya + 8, zp + 20], [-158, yb - 8, zp + 96], "GoldTrim"));
     }
   }
