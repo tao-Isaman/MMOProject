@@ -1229,6 +1229,9 @@ for (const [id, element] of Object.entries(SKILL_ELEMENTS)) {
 export type BookKind = "tree" | "mastery" | "element" | "mastery2" | "element2";
 export const BOOKS: Record<string, { kind: BookKind; id: string }> = {};
 export const TIER2_DROP_LEVEL = 40;
+// How often a field monster leaves a book (one the player can still learn): every book is a rare
+// find, a boss's one time in four.
+export const BOOK_CHANCE = { normal: 0.0004, rare: 0.02, boss: 0.25 };
 const BOOK_WORD: Record<BookKind, string> = { tree: "ตำราสกิล", mastery: "ตำราความเชี่ยวชาญ", element: "ตำราธาตุ", mastery2: "ตำราความเชี่ยวชาญ", element2: "ตำราธาตุ" };
 function addBook(kind: BookKind, id: string, own: string | undefined, name: string, glyph: string, color: string, cls: ClassId | null, note?: string): void {
   const bookId = own ?? `book_${kind}_${id}`;

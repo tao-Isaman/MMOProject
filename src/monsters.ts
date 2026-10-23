@@ -99,7 +99,7 @@ const BLANK = document.createElement("canvas"); // a person has no staff gem to 
 
 // level, hp, atk, def, mdef and xp feed stats.js; aggro: radius (cm) in which it attacks first.
 // The slimes round Eden are the first fights: a jelly now and then, books seldom, no clothes.
-const BOOK_DROPS: [string, number][] = [["book_survivor", 0.004], ["book_gathering", 0.004], ["book_lightning", 0.004]];
+const BOOK_DROPS: [string, number][] = [["book_survivor", 0.0003], ["book_gathering", 0.0003], ["book_lightning", 0.0003]];
 export const VARIANTS: Variant[] = [
   { id: "green", name: "สไลม์เขียว", hue: 0, level: 1, hp: 60, atk: 8, def: 2, mdef: 2, xp: 8, aggro: 0, weight: 6,
     element: "plant", eleDef: { plant: 30, mud: 20, water: 10 },
@@ -112,7 +112,7 @@ export const VARIANTS: Variant[] = [
     drops: [["jelly", 0.5], ...BOOK_DROPS] },
   { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 320, atk: 28, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
     element: "dark", eleDef: { dark: 40, metal: 15, stone: 10 },
-    drops: [["sprout", 0.2], ["jelly", 0.6], ["book_survivor", 0.02], ["book_gathering", 0.02], ["book_lightning", 0.02]] },
+    drops: [["sprout", 0.2], ["jelly", 0.6], ["book_survivor", 0.002], ["book_gathering", 0.002], ["book_lightning", 0.002]] },
 ];
 const BITE_REACH = 95;   // cm between centres
 const BITE_TIME = 1.6;   // s between bites

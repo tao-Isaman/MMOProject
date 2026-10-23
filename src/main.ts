@@ -21,7 +21,7 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS, TIER2_DROP_LEVEL } from "./progression";
+import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
 import { monsterDamage } from "./stats";
@@ -586,9 +586,9 @@ async function boot(): Promise<void> {
       const kind = m.entry?.id ?? m.variant.id;
       quests.onKill(kind, m.variant.name);
       for (const [id, chance] of quests.drops(kind)) if (Math.random() < chance) ground.drop(id, m);
-      // a field monster now and then leaves a book the player can still learn (a second book only
-      // from level TIER2_DROP_LEVEL up), a hat, shoes, a ring or a trinket, or a hairstyle; a rare
-      // one more often, a boss always a book
+      // a field monster very seldom leaves a book the player can still learn (a second book only
+      // from level TIER2_DROP_LEVEL up) and now and then a hat, shoes, a ring or a trinket; a rare
+      // one more often, a boss a book one time in four (hairstyles don't drop)
       if (m.entry) {
         const k = m.entry.kind, more = 1 + hero.stats.drop;
         const roll = (chance: number, pool: string[]) => {
@@ -596,9 +596,8 @@ async function boot(): Promise<void> {
         };
         const lying = new Set(ground.items.map((l) => l.id));
         const tier2 = (b: string) => BOOKS[b].kind === "mastery2" || BOOKS[b].kind === "element2";
-        roll(k === "boss" ? 1 : k === "rare" ? 0.12 : 0.006, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b) && (!tier2(b) || m.level >= TIER2_DROP_LEVEL)));
+        roll(k === "boss" ? BOOK_CHANCE.boss : k === "rare" ? BOOK_CHANCE.rare : BOOK_CHANCE.normal, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b) && (!tier2(b) || m.level >= TIER2_DROP_LEVEL)));
         roll(k === "boss" ? 0.6 : k === "rare" ? 0.25 : 0.012, GEAR_DROPS);
-        if (look.gender === "female") roll(k === "boss" ? 0.3 : k === "rare" ? 0.05 : 0.002, Object.keys(ITEMS).filter((i) => ITEMS[i].kind === "style" && !look.styles?.includes(ITEMS[i].style!)));
       }
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
