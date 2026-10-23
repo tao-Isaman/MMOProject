@@ -244,10 +244,11 @@ const BASE: Record<string, Item> = {
   alchemy_flask: offhand("ขวดแปรธาตุ", "flask", { potion: 0.25, mpRegen: 1.5 }, 700, "ยาที่ดื่มฟื้นมากขึ้น ฟื้น MP เร็วขึ้น"),
   spell_tome: offhand("สมุดเวท", "tome", { matkPct: 0.08, cdr: 0.04, castRed: 0.05 }, 650, "สมุดคาถาของนักเวทฝึกหัด"),
   grimoire: offhand("คัมภีร์โบราณ", "grimoire", { matkPct: 0.14, maxMpPct: 0.1, cdr: 0.06, castRed: 0.1 }, 1800, "คัมภีร์เวทเล่มหนา พลังเวทสูง"),
-  potion_red: potion("ยาแดง", { hp: 150 }, "#ff6a5a", 25, "ฟื้น HP 150"),
-  potion_red_big: potion("ยาแดงเข้มข้น", { hp: 500 }, "#d8343a", 80, "ฟื้น HP 500"),
-  potion_blue: potion("ยาฟ้า", { mp: 60 }, "#6ab4ff", 30, "ฟื้น MP 60"),
-  potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 200 }, "#2f6fd0", 90, "ฟื้น MP 200"),
+  // weak and dear on purpose: healing comes mostly from skills, the potions only tide you over
+  potion_red: potion("ยาแดง", { hp: 45 }, "#ff6a5a", 50, "ฟื้น HP 45"),
+  potion_red_big: potion("ยาแดงเข้มข้น", { hp: 150 }, "#d8343a", 160, "ฟื้น HP 150"),
+  potion_blue: potion("ยาฟ้า", { mp: 18 }, "#6ab4ff", 60, "ฟื้น MP 18"),
+  potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 60 }, "#2f6fd0", 180, "ฟื้น MP 60"),
   // (the books, one per skill tree, mastery and element, are added by src/progression.ts)
   style_twintail: style("twintail", "ทวินเทลยาว", 1500),
   style_hime: style("hime", "ยาวหน้าม้าตรง", 1500),
