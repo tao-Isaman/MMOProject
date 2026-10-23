@@ -136,11 +136,20 @@ export function hitChance(hit: number, flee: number): number {
 // A critical hit goes through this much of the armour, on top of any armour piercing.
 export const CRIT_PIERCE = 0.5;
 
-// The element step, after a hit's normal damage: the attacker's attack in the hit's element
-// against the defender's defence in it, a point each a percent (no element beats another), down
-// to a tenth at most.
-export function elemental(dmg: number, attack: number, defence: number): number {
-  return dmg * Math.max(0.1, 1 + (attack - defence) / 100);
+// ---- elements: every blow carries the attacker's elemental power ----
+// After a hit's normal damage, each element adds the attacker's attack in it over the defender's
+// defence in it (an element the defender is better armoured against adds nothing, never less),
+// straight onto the damage. A hit made in an element also swings with half again its attack in
+// that element on top of its attack stat (ELEMENT_SWING), before defence.
+export const ELEMENT_SWING = 1.5;
+export function elementBonus(attack: (e: ElementId) => number, defence: (e: ElementId) => number): number {
+  let sum = 0;
+  for (const e of ELEMENT_IDS) sum += Math.max(0, attack(e) - defence(e));
+  return sum;
+}
+// The player's bonus against a monster.
+export function playerElementBonus(stats: Stats, target: Defender): number {
+  return elementBonus((e) => stats[`${e}Atk`], (e) => target.eleDef?.[e] ?? 0);
 }
 
 // How much of the armour a light hit goes through (the light element's line).
@@ -169,12 +178,19 @@ export function isMagic(w: WeaponType): boolean {
   return w.projectile?.kind === "bolt";
 }
 
-// A normal attack: weapon roll plus the matching attack stat.
-export function basicDamage(stats: Stats, w: WeaponType, target: Defender): Hit {
+// A normal attack: weapon roll plus the matching attack stat (and the swing of its element when
+// the weapon is enchanted), then the element bonus.
+export function basicDamage(stats: Stats, w: WeaponType, target: Defender, element?: ElementId | null): Hit {
   const magic = isMagic(w);
   const [a, b] = w.damage;
-  const raw = (rand(a, b) + (magic ? stats.matk : stats.atk)) * (1 + stats.dmg);
-  return magic ? spellHit(raw, stats, target) : physicalHit(raw, stats, stats.crit + (w.crit ?? 0.05) - 0.05, target);
+  const swing = element ? ELEMENT_SWING * stats[`${element}Atk`] : 0;
+  const raw = (rand(a, b) + (magic ? stats.matk : stats.atk) + swing) * (1 + stats.dmg);
+  const hit = magic ? spellHit(raw, stats, target) : physicalHit(raw, stats, stats.crit + (w.crit ?? 0.05) - 0.05, target);
+  if (!hit.miss) {
+    hit.dmg += Math.round(playerElementBonus(stats, target));
+    if (element) hit.element = element;
+  }
+  return hit;
 }
 
 // Average damage of the weapon in hand when it matches the skill's kind (a staff for spells,
@@ -184,19 +200,21 @@ export function weaponPower(w: WeaponType | null | undefined, magic: boolean): n
 }
 
 // What a skill hit does before defence, crits and the random spread: the skill's multiplier
-// of attack stat plus weapon power, with fire on top (+1% a level, +15% more at 50).
-// A skill on attack and magic attack together ("both") takes 0.6 of each and any weapon's power.
+// of attack stat plus weapon power (plus the swing of the skill's element), with fire on top
+// (+1% a level, +15% more at 50). A skill on attack and magic attack together ("both") takes 0.6
+// of each and any weapon's power.
 export function skillPower(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, weapon: WeaponType | null = null): number {
   const magic = skill.stat === "matk", fire = elements.fire ?? 0;
-  const base = skill.stat === "both"
+  const swing = skill.element ? ELEMENT_SWING * stats[`${skill.element}Atk`] : 0;
+  const base = swing + (skill.stat === "both"
     ? 0.6 * (stats.atk + stats.matk) + (weapon ? (weapon.damage[0] + weapon.damage[1]) / 2 : 0)
-    : (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic);
+    : (magic ? stats.matk : stats.atk) + weaponPower(weapon, magic));
   return base * (skill.mult?.(rank) ?? 1) * (1 + stats.dmg) * (1 + 0.01 * fire) * (fire >= 50 ? 1.15 : 1);
 }
 
 // A skill hit: skillPower and the spread, then a spell (lightning: +0.3% damage a level) or a
-// physical blow (lightning: +0.3% crit chance a level), then the skill's element if it has one
-// (a light hit also goes through some of the armour).
+// physical blow (lightning: +0.3% crit chance a level), then the element bonus (a light hit also
+// goes through some of the armour).
 export function skillDamage(stats: Stats, elements: Record<string, number>, skill: SkillDef, rank: number, target: Defender, weapon: WeaponType | null = null): Hit {
   const lightning = elements.lightning ?? 0, el = skill.element;
   const through = el === "light" ? lightPierce(elements.light ?? 0) : 0;
@@ -204,21 +222,23 @@ export function skillDamage(stats: Stats, elements: Record<string, number>, skil
   const hit = skill.stat === "matk" || skill.stat === "both"
     ? spellHit(raw * (1 + 0.003 * lightning), stats, target, through)
     : physicalHit(raw, stats, stats.crit + 0.003 * lightning, target, through);
-  if (el && !hit.miss) {
-    hit.element = el;
-    hit.dmg = Math.max(1, Math.round(elemental(hit.dmg, stats[`${el}Atk`], target.eleDef?.[el] ?? 0)));
+  if (!hit.miss) {
+    hit.dmg += Math.round(playerElementBonus(stats, target));
+    if (el) hit.element = el;
   }
   return hit;
 }
 
 // What a monster's bite does to it: a physical blow by the same rules (a crit lands, +50% and
-// through half the player's armour; any other bite can miss), then the bite's element if it has
-// one (the monster's attack in it against the player's defence). null when it misses.
+// through half the player's armour; any other bite can miss); a bite in an element swings with
+// its attack in it too and adds what that attack has over the player's defence in it. null when
+// it misses.
 export const MONSTER_CRIT_DMG = 0.5;
 export function monsterDamage(m: { power: number; accuracy: number; crit: number; element?: ElementId; eleAtk: number }, stats: Stats): { dmg: number; crit: boolean } | null {
   const crit = Math.random() < m.crit;
   if (!crit && Math.random() >= hitChance(m.accuracy, stats.flee)) return null;
-  let hit = mitigate(m.power * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);
-  if (m.element) hit = elemental(hit, m.eleAtk, stats[`${m.element}Def`]);
+  const swing = m.element ? ELEMENT_SWING * m.eleAtk : 0;
+  let hit = mitigate((m.power + swing) * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);
+  if (m.element) hit += Math.max(0, m.eleAtk - stats[`${m.element}Def`]);
   return { dmg: Math.max(1, Math.round(hit * (1 - stats.dmgRed))), crit };
 }

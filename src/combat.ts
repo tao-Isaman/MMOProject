@@ -6,7 +6,7 @@ import { WEAPON_TYPES, OFFHAND_DAMAGE } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
-import { basicDamage, elemental, poisonScale } from "./stats";
+import { basicDamage, isMagic, poisonScale } from "./stats";
 import type { Hit, Stats } from "./stats";
 import type { Hero } from "./hero";
 import type { Monster } from "./monsters";
@@ -287,14 +287,9 @@ export class Combat {
   // A normal attack lands on a monster (scale < 1 for the off hand). An enchanted weapon hits in
   // its element (with that element's riders); the falcon may dive in after it.
   damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1): void {
-    const st = this.hero.stats, r = basicDamage(st, w, m);
+    const st = this.hero.stats, el = isMagic(w) ? null : this.hero.enchant, r = basicDamage(st, w, m, el);
     if (r.miss) return void this.apply(m, r, dir);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
-    const el = r.magic ? null : this.hero.enchant;
-    if (el) {
-      r.element = el;
-      r.dmg = Math.max(1, Math.round(elemental(r.dmg, st[`${el}Atk`], m.eleDef?.[el] ?? 0)));
-    }
     if (st.stunHit && Math.random() < st.stunHit) m.stun = Math.max(m.stun, 1);
     if (st.poisonHit && Math.random() < st.poisonHit) {
       m.burns.push({ dps: (r.dmg * 0.4 * poisonScale(st, this.hero.progress.elements)) / 3, t: 3, poison: true });

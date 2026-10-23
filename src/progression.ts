@@ -976,9 +976,9 @@ export const MASTERIES: Record<string, Mastery> = {
 };
 
 // ---- elements ----
-// Each level adds that element's attack and defence (a point each a percent: after a hit's
-// normal damage, the attacker's attack in its element against the target's defence in it, no
-// element beating another; stats.ts elemental), a little of the element's strong side, and the
+// Each level adds that element's attack and defence (every hit adds the attacker's attack in each
+// element over the target's defence in it, and a hit in an element swings with half again its
+// attack in it: stats.ts elementBonus), a little of the element's strong side, and the
 // line's effect (skill line); milestones along the line add stats or effects (skills.ts, stats.ts).
 // The first five also strengthen every skill (their old effects); the rest work through the
 // hits of their own element (SkillDef.element), or on their own (plant, lava, metal).

@@ -44,7 +44,7 @@ export interface Variant {
   flee?: number;     // evasion against the player's accuracy (default: from its level)
   crit?: number;     // chance its bite crits (default: from its level)
   element?: ElementId;                         // what its bite is made of (none: no element)
-  eleDef?: Partial<Record<ElementId, number>>; // its defence in each element (stats.ts elemental)
+  eleDef?: Partial<Record<ElementId, number>>; // its defence in each element (stats.ts elementBonus)
   xp: number;
   aggro: number;
   weight: number;
