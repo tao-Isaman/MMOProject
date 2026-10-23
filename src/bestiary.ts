@@ -257,6 +257,148 @@ export const MONSTERS: MonsterDef[] = [
   { id: "demon_king", name: "ราชาอสูรแห่งประตูดำ", field: "demon_land", levels: [105, 105], kind: "boss", element: "dark", eleDef: { dark: 60, fire: 40, metal: 40 },
     aggro: true, size: 380, behave: ["boss", "summon:hellhound", "slam", "ranged:fire"],
     look: "ราชาอสูรปีกดำสวมมงกุฎหนาม หน้าประตูอสูร ดินแดนอสูร" },
+
+  // The west lands (docs/west_lands.md; their concepts and sprite prompts in
+  // docs/monsters_west.md). Each field has two of its own that come and go, some a rare one, and
+  // the three landmarks at the top (the kings' tombs and the two dead ends by the sea, the north
+  // cliffs and the cape) a boss that calls up one of its field's own. Fields next door to each
+  // other share no family and as few races and elements as can be, and their levels jump about
+  // the map as the fields' do. Element defences grow with the level, and each has a weakness.
+  // noa_meadow (30–40): the windy grassland's flock and what hides in it
+  { id: "cloud_sheep", name: "แกะขนเมฆ", field: "noa_meadow", levels: [30, 35], kind: "normal", element: "wind", eleDef: { wind: 25, fire: -20 },
+    aggro: false, size: 90, behave: ["pack"],
+    look: "แกะตัวกลมขนฟูขาวเหมือนก้อนเมฆ ขนปลิวไปตามลม" },
+  { id: "furrow_mole", name: "ตุ่นยักษ์ไถทุ่ง", field: "noa_meadow", levels: [34, 39], kind: "tank", element: "earth", eleDef: { earth: 30, plant: 10, water: -20 },
+    aggro: false, size: 80, behave: ["slow"],
+    look: "ตุ่นขนดำมันวาว จมูกชมพูแฉก อุ้งมือใหญ่เหมือนพลั่ว" },
+  { id: "sheepskin_wolf", name: "หมาป่าในคราบแกะ", field: "noa_meadow", levels: [40, 40], kind: "rare", element: "wind", eleDef: { wind: 30, earth: 15, fire: -20 },
+    aggro: true, size: 130, behave: ["charge", "dodge"],
+    look: "หมาป่าเทาคลุมหนังแกะขนฟู ปากยาวกับตาเหลืองโผล่ใต้ขนแกะ" },
+  // noa_plains (40–50): the vineyards' pests
+  { id: "vine_snail", name: "หอยทากเถาองุ่น", field: "noa_plains", levels: [40, 45], kind: "tank", element: "plant", eleDef: { plant: 30, water: 20, fire: -20 },
+    aggro: false, size: 90, behave: ["slow"],
+    look: "หอยทากตัวโต เปลือกพันเถาองุ่น พวงองุ่นม่วงห้อยข้างเปลือก" },
+  { id: "tipsy_wasp", name: "ต่อเมาองุ่น", field: "noa_plains", levels: [45, 50], kind: "fast", element: "wind", eleDef: { wind: 30, poison: 15, ice: -20 },
+    aggro: true, size: 70, behave: ["fly", "pack"],
+    look: "ตัวต่อตัวเท่าแมว ท้องลายเหลืองม่วง บินเซไปมาเพราะเมาองุ่นหมัก" },
+  // dry_plains (50–62): dry-land creatures and the caravans' bane
+  { id: "dust_devil", name: "ภูตลมหมุนฝุ่น", field: "dry_plains", levels: [50, 55], kind: "fast", element: "smoke", eleDef: { smoke: 30, wind: 20, water: -25 },
+    aggro: true, size: 150, behave: ["dodge", "slow"],
+    look: "ลมหมุนหอบฝุ่นสีน้ำตาลส้ม ตาสองดวงวาวในม่านฝุ่น หญ้าแห้งปลิววนรอบตัว" },
+  { id: "mesa_armadillo", name: "ตัวนิ่มหลังผา", field: "dry_plains", levels: [55, 60], kind: "tank", element: "stone", eleDef: { stone: 40, earth: 25, water: -20 },
+    aggro: false, size: 120, behave: ["reflect"],
+    look: "ตัวนิ่มตัวโต เกราะหลังเป็นชั้นหินสีส้มแดงยอดตัดเหมือนเนินผา" },
+  { id: "caravan_raider", name: "โจรปล้นคาราวาน", field: "dry_plains", levels: [60, 62], kind: "rare", element: "fire", eleDef: { fire: 25, earth: 20, water: -15 },
+    aggro: true, size: 160, behave: ["human", "charge", "steal"],
+    look: "โจรสาวผ้าพันหน้าสีฝุ่น ถือดาบ ถุงทองห้อยเอว" },
+  // elder_forest (62–74): the old forest's spirits
+  { id: "shrine_mask", name: "หน้ากากเทพป่า", field: "elder_forest", levels: [62, 67], kind: "fast", element: "light", eleDef: { light: 35, wind: 20, dark: -20 },
+    aggro: true, size: 110, behave: ["fly", "dodge"],
+    look: "หน้ากากไม้สลักหน้าเทพจากศาลยุคโนอา ลอยได้ แผงขนเป็นใบไม้กับมอส ตาเรืองทอง" },
+  { id: "moss_dryad", name: "นางไม้มอส", field: "elder_forest", levels: [66, 71], kind: "caster", element: "plant", eleDef: { plant: 40, water: 25, fire: -25 },
+    aggro: false, size: 160, behave: ["ranged:vine", "slow"],
+    look: "หญิงสาวผิวเปลือกไม้ ผมเป็นมอสกับเถาวัลย์ เห็ดเรืองแสงขึ้นบนไหล่" },
+  { id: "forest_turtle", name: "เต่าป่าพันปี", field: "elder_forest", levels: [72, 74], kind: "rare", element: "earth", eleDef: { earth: 40, plant: 30, lightning: -20 },
+    aggro: false, size: 200, behave: ["heal", "slam"],
+    look: "เต่ายักษ์กระดองคลุมมอส มีต้นไม้เล็กกับศาลหินบนหลัง" },
+  // rice_terraces (74–86): what lives in the flooded paddies
+  { id: "paddy_waterbug", name: "แมงดานายักษ์", field: "rice_terraces", levels: [74, 80], kind: "tank", element: "water", eleDef: { water: 40, mud: 25, lightning: -20 },
+    aggro: false, size: 100, behave: ["slow"],
+    look: "แมงดานาตัวเท่าหมู ตัวแบนสีน้ำตาลเขียว ขาหน้าเป็นตะขอหนีบ" },
+  { id: "thunder_eel", name: "ปลาไหลอัสนี", field: "rice_terraces", levels: [80, 86], kind: "caster", element: "lightning", eleDef: { lightning: 40, water: 30, earth: -20 },
+    aggro: true, size: 150, behave: ["ranged:spark", "slow"],
+    look: "ปลาไหลยาวสีน้ำเงินเข้ม ประกายไฟฟ้าแลบตามครีบหลัง" },
+  // highland_downs (86–98): the herds and the walking cairns of the snowy downs
+  { id: "woolly_mammoth", name: "แมมมอธขนยาว", field: "highland_downs", levels: [86, 92], kind: "normal", element: "ice", eleDef: { ice: 40, earth: 20, fire: -20 },
+    aggro: false, size: 240, behave: ["charge", "pack"],
+    look: "แมมมอธขนน้ำตาลแดงยาวรุงรัง งาโค้งยาว หิมะเกาะหลัง" },
+  { id: "cairn_walker", name: "กองหินเดินทาง", field: "highland_downs", levels: [92, 98], kind: "tank", element: "stone", eleDef: { stone: 50, ice: 25, plant: -20 },
+    aggro: false, size: 210, behave: ["slam", "reflect"],
+    look: "กองหินบอกทางซ้อนเป็นร่างคน หินก้อนบนสุดสลักตาเรืองฟ้า" },
+  // karst_peaks (98–110): the misty peaks' beasts of Suzhou's tales
+  { id: "mist_crane", name: "กระเรียนหมอก", field: "karst_peaks", levels: [98, 103], kind: "fast", element: "wind", eleDef: { wind: 40, smoke: 25, lightning: -20 },
+    aggro: true, size: 150, behave: ["fly", "charge"],
+    look: "กระเรียนขาวคอยาว หงอนแดง ปลายปีกจางเป็นหมอก" },
+  { id: "money_toad", name: "คางคกสามขา", field: "karst_peaks", levels: [103, 108], kind: "caster", element: "water", eleDef: { water: 40, metal: 25, earth: -20 },
+    aggro: false, size: 110, behave: ["ranged:water", "steal"],
+    look: "คางคกทองสามขา คาบเหรียญรูสี่เหลี่ยมไว้ในปาก นั่งบนกองเหรียญ" },
+  { id: "cloud_qilin", name: "กิเลนเมฆ", field: "karst_peaks", levels: [109, 110], kind: "rare", element: "lightning", eleDef: { lightning: 45, light: 30, earth: -20 },
+    aggro: true, size: 220, behave: ["fly", "charge", "heal"],
+    look: "กิเลนเกล็ดทอง แผงคอกับหางเป็นเมฆครึ้ม เขาเดียวมีสายฟ้าแลบ เหยียบเมฆเดิน" },
+  // ancient_plain (110–122): the ghosts and the broken giants of the city before Noa
+  { id: "phantom_hoplite", name: "ทหารหมอกยุคก่อน", field: "ancient_plain", levels: [110, 115], kind: "normal", element: "smoke", eleDef: { smoke: 40, dark: 30, light: -25 },
+    aggro: true, size: 170, behave: ["pack", "dodge"],
+    look: "วิญญาณทหารโปร่งแสงหมวกหงอนสูง ถือหอกกับโล่กลม ท่อนล่างเป็นหมอก" },
+  { id: "statue_hand", name: "หัตถ์รูปปั้นยักษ์", field: "ancient_plain", levels: [115, 120], kind: "tank", element: "stone", eleDef: { stone: 50, earth: 30, lightning: -20 },
+    aggro: false, size: 200, behave: ["slam", "petrify"],
+    look: "มือหินยักษ์จากรูปปั้นที่ล้ม คลานด้วยห้านิ้ว สวมแหวนตราโบราณ" },
+  { id: "ghost_charioteer", name: "สารถีรถศึกวิญญาณ", field: "ancient_plain", levels: [121, 122], kind: "rare", element: "wind", eleDef: { wind: 45, smoke: 30, light: -25 },
+    aggro: true, size: 230, behave: ["fly", "charge", "slow"],
+    look: "วิญญาณสารถีเกราะอกสำริด ขับรถศึกโปร่งแสงที่ม้าหมอกสองตัวลาก" },
+  // frozen_river (122–134): under the ice and under the old bridge
+  { id: "ice_pike", name: "ปลาไพค์เกล็ดน้ำแข็ง", field: "frozen_river", levels: [122, 128], kind: "fast", element: "ice", eleDef: { ice: 45, water: 35, lightning: -25 },
+    aggro: true, size: 130, behave: ["charge", "slow"],
+    look: "ปลาปากยาวฟันแหลม เกล็ดเป็นน้ำแข็งใส พุ่งออกจากรูน้ำแข็ง" },
+  { id: "bridge_troll", name: "โทรลล์ใต้สะพาน", field: "frozen_river", levels: [128, 134], kind: "tank", element: "earth", eleDef: { earth: 45, ice: 30, fire: -25 },
+    aggro: true, size: 260, behave: ["slam", "heal"],
+    look: "ยักษ์ผิวเทาอมเขียว จมูกโต คิ้วมีน้ำแข็งเกาะ ถือเสาสะพานหักเป็นกระบอง" },
+  // west_pass (134–146): the cliff road, its rope bridges and its old checkpoint
+  { id: "rope_spider", name: "แมงมุมสะพานเชือก", field: "west_pass", levels: [134, 139], kind: "normal", element: "poison", eleDef: { poison: 45, earth: 20, fire: -25 },
+    aggro: true, size: 120, behave: ["ranged:web", "slow"],
+    look: "แมงมุมขายาวลายเหมือนเชือกป่าน ชักใยเหนียวระหว่างเสาสะพาน" },
+  { id: "pass_gargoyle", name: "การ์กอยล์ด่านร้าง", field: "west_pass", levels: [139, 144], kind: "normal", element: "stone", eleDef: { stone: 50, dark: 25, light: -20 },
+    aggro: true, size: 170, behave: ["fly", "petrify"],
+    look: "รูปปั้นอสูรหินมีปีกจากหลังคาด่านเก่า ตะไคร่เกาะ ตาแดงก่ำ" },
+  { id: "toll_keeper", name: "นายด่านเถื่อน", field: "west_pass", levels: [145, 146], kind: "rare", element: "metal", eleDef: { metal: 40, earth: 25, lightning: -20 },
+    aggro: true, size: 170, behave: ["human", "slam", "steal"],
+    look: "ชายร่างใหญ่ในชุดทหารด่านเก่า แบกดาบใหญ่ ขู่เก็บค่าผ่านทาง" },
+  // tangled_hills (146–158): what waits in the maze of hills
+  { id: "lost_wisp", name: "ดวงไฟหลงทาง", field: "tangled_hills", levels: [146, 152], kind: "caster", element: "dark", eleDef: { dark: 50, smoke: 30, light: -25 },
+    aggro: true, size: 100, behave: ["fly", "ranged:curse", "dodge"],
+    look: "ดวงไฟสีม่วงฟ้าลอยเรี่ยพื้น หน้ายิ้มเลือนราง หางเป็นควัน" },
+  { id: "maze_minotaur", name: "มิโนทอร์เนินวงกต", field: "tangled_hills", levels: [152, 158], kind: "tank", element: "metal", eleDef: { metal: 45, earth: 35, lightning: -20 },
+    aggro: true, size: 280, behave: ["charge", "slam"],
+    look: "มนุษย์หัววัวขนดำ เขาหุ้มทองแดง ห่วงที่จมูก ถือขวานสองคม" },
+  // lagoon_marsh (158–170): the poisoned marsh
+  { id: "bog_hulk", name: "ยักษ์โคลนบึง", field: "lagoon_marsh", levels: [158, 164], kind: "tank", element: "mud", eleDef: { mud: 55, water: 35, wind: -20 },
+    aggro: false, size: 260, behave: ["slam", "slow"],
+    look: "ร่างโคลนดำเหนียวสูงท่วมหัว ต้นกกงอกตามตัว ตาเป็นฟองก๊าซเรืองเขียว" },
+  { id: "marsh_hydra", name: "ไฮดราบึงพิษ", field: "lagoon_marsh", levels: [163, 168], kind: "normal", element: "poison", eleDef: { poison: 55, water: 30, fire: -25 },
+    aggro: true, size: 230, behave: ["ranged:venom", "heal"],
+    look: "งูยักษ์สามหัวเกล็ดเขียวคล้ำ น้ำลายพิษหยดเป็นควันเขียว" },
+  { id: "bog_witch", name: "แม่มดบึงพิษ", field: "lagoon_marsh", levels: [169, 170], kind: "rare", element: "poison", eleDef: { poison: 50, mud: 30, light: -20 },
+    aggro: true, size: 160, behave: ["human", "ranged:curse", "slow"],
+    look: "แม่มดชุดคลุมสีตะไคร่ ผมเขียวหม่น ถือไม้เท้าแขวนขวดยาพิษ" },
+  // royal_necropolis (170–182): the first kings' tombs, the jungle creeping in
+  { id: "bone_royal_guard", name: "ราชองครักษ์กระดูก", field: "royal_necropolis", levels: [170, 176], kind: "normal", element: "metal", eleDef: { metal: 50, dark: 35, light: -30 },
+    aggro: true, size: 180, behave: ["pack", "reflect"],
+    look: "โครงกระดูกในเกราะทองหมอง ถือหอกยาวกับโล่ตรากษัตริย์องค์แรก" },
+  { id: "corpse_bloom", name: "บุปผากินศพ", field: "royal_necropolis", levels: [175, 181], kind: "caster", element: "poison", eleDef: { poison: 55, plant: 40, fire: -30 },
+    aggro: true, size: 180, behave: ["ranged:vine", "explode"],
+    look: "ดอกไม้ยักษ์กลีบแดงจุดขาว กลิ่นเหมือนศพ เถารากเลื้อยแทนขา" },
+  { id: "first_king", name: "ปฐมกษัตริย์ผู้ไม่หลับ", field: "royal_necropolis", levels: [182, 182], kind: "boss", element: "dark", eleDef: { dark: 65, metal: 45, light: -25 },
+    aggro: true, size: 300, behave: ["boss", "summon:bone_royal_guard", "slam", "ranged:curse"],
+    look: "กษัตริย์โครงกระดูกสวมมงกุฎทองกับผ้าคลุมแดงขาด ในห้องพระศพชั้นใน สุสานหลวงโบราณ" },
+  // north_cliffs (182–192): the icy sea's fliers and the lamp that wrecks ships
+  { id: "frost_harpy", name: "ฮาร์ปีลมเหมันต์", field: "north_cliffs", levels: [182, 187], kind: "fast", element: "wind", eleDef: { wind: 50, ice: 35, lightning: -25 },
+    aggro: true, size: 150, behave: ["fly", "pack", "dodge"],
+    look: "ปีศาจหน้าหญิงตัวนก ปีกขนเทาขาว กรงเล็บน้ำแข็ง ผมปลิวเป็นเกล็ดหิมะ" },
+  { id: "rime_wyvern", name: "ไวเวิร์นน้ำค้างแข็ง", field: "north_cliffs", levels: [186, 191], kind: "normal", element: "ice", eleDef: { ice: 55, water: 35, fire: -25 },
+    aggro: true, size: 280, behave: ["fly", "charge", "slow"],
+    look: "มังกรสองขาปีกพังผืดฟ้าซีด เกล็ดมีน้ำค้างแข็งเกาะ หางเป็นหนามน้ำแข็ง" },
+  { id: "lighthouse_fiend", name: "อสูรตะเกียงประภาคาร", field: "north_cliffs", levels: [192, 192], kind: "boss", element: "fire", eleDef: { fire: 65, dark: 45, water: -25 },
+    aggro: true, size: 340, behave: ["boss", "summon:frost_harpy", "ranged:fire", "burn"],
+    look: "อสูรเขาโค้งถือตะเกียงประภาคารที่ลุกโชน ที่ประภาคารร้าง หน้าผาทะเลเหนือ" },
+  // west_cape (188–200): the sea dragon, its cult and the storm's beasts
+  { id: "sea_cultist", name: "สาวกมังกรทะเล", field: "west_cape", levels: [188, 192], kind: "caster", element: "water", eleDef: { water: 50, dark: 20, lightning: -25 },
+    aggro: true, size: 160, behave: ["human", "ranged:water", "heal"],
+    look: "นักบวชชุดดำปักลายเกล็ดมังกร ถือไม้เท้า สวดเรียกพายุ" },
+  { id: "storm_griffin", name: "กริฟฟินพายุ", field: "west_cape", levels: [191, 194], kind: "fast", element: "lightning", eleDef: { lightning: 55, wind: 40, earth: -25 },
+    aggro: true, size: 240, behave: ["fly", "charge", "slam"],
+    look: "กริฟฟินหัวอินทรีตัวสิงโต ขนเทาฟ้า สายฟ้าแลบตามปีก" },
+  { id: "sea_dragon", name: "มังกรทะเลคลั่ง", field: "west_cape", levels: [195, 195], kind: "boss", element: "water", eleDef: { water: 70, lightning: 45, earth: -20 },
+    aggro: true, size: 460, behave: ["boss", "summon:sea_cultist", "ranged:water", "slam"],
+    look: "มังกรทะเลตัวยาวเกล็ดน้ำเงินเขียว ครีบหลังเป็นคลื่น ที่ศาลมังกรทะเล แหลมทะเลตะวันตก" },
 ];
 
 // Its numbers at a level: the violet slime's (level 9) grown along the slimes' curve, times its
@@ -293,6 +435,11 @@ export const PEOPLE: Record<string, { look: { gender: string; hair: string; hair
   nomad_raider: { look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior_cocoa" }, weapon: "bow", motion: "shoot" },
   cursed_deserter: { look: { gender: "male", hair: "", hairColor: "ink", eyes: "crimson", top: "top_warrior_navy", bottom: "bottom_warrior_black" }, weapon: "sword_1h", motion: "swing" },
   bamboo_ninja: { look: { gender: "female", hair: "twintail", hairColor: "ink", eyes: "teal", top: "top_adventurer_teal", bottom: "bottom_adventurer_black" }, weapon: "dagger", motion: "thrust" },
+  // the west lands
+  caravan_raider: { look: { gender: "female", hair: "hime", hairColor: "crimson", eyes: "amber", top: "top_adventurer_ochre", bottom: "bottom_adventurer_sand" }, weapon: "sword_1h", motion: "swing" },
+  toll_keeper: { look: { gender: "male", hair: "", hairColor: "silver", eyes: "teal", top: "top_warrior_forest", bottom: "bottom_warrior_cocoa" }, weapon: "sword_2h", motion: "swing" },
+  bog_witch: { look: { gender: "female", hair: "twintail", hairColor: "mint", eyes: "violet", top: "top_priestess_forest", bottom: "bottom_priestess_forest" }, weapon: "staff", motion: "thrust" },
+  sea_cultist: { look: { gender: "female", hair: "hime", hairColor: "blue", eyes: "teal", top: "top_priestess_black", bottom: "bottom_priestess_black" }, weapon: "staff", motion: "thrust" },
 };
 
 // What each monster is, for the skills that hit a kind harder (holy light on the undead...).
@@ -317,6 +464,22 @@ const RACE_OF: Record<string, Race> = {
   iron_crab: "fish", mudskipper: "fish", ghost_pirate: "undead", ghost_captain: "undead",
   tanuki: "brute", bamboo_ninja: "human", paper_lantern: "demon", nine_tail_fox: "angel",
   lava_salamander: "dragon", basalt_golem: "formless", sulfur_wisp: "formless", lava_lord: "demon",
+  // the west lands
+  cloud_sheep: "brute", furrow_mole: "brute", sheepskin_wolf: "brute",
+  vine_snail: "insect", tipsy_wasp: "insect",
+  dust_devil: "formless", mesa_armadillo: "brute", caravan_raider: "human",
+  shrine_mask: "formless", moss_dryad: "plant", forest_turtle: "brute",
+  paddy_waterbug: "insect", thunder_eel: "fish",
+  woolly_mammoth: "brute", cairn_walker: "formless",
+  mist_crane: "brute", money_toad: "fish", cloud_qilin: "angel",
+  phantom_hoplite: "undead", statue_hand: "formless", ghost_charioteer: "undead",
+  ice_pike: "fish", bridge_troll: "brute",
+  rope_spider: "insect", pass_gargoyle: "demon", toll_keeper: "human",
+  lost_wisp: "undead", maze_minotaur: "demon",
+  bog_hulk: "formless", marsh_hydra: "dragon", bog_witch: "human",
+  bone_royal_guard: "undead", corpse_bloom: "plant", first_king: "undead",
+  frost_harpy: "demon", rime_wyvern: "dragon", lighthouse_fiend: "demon",
+  sea_cultist: "human", storm_griffin: "brute", sea_dragon: "dragon",
 };
 for (const m of MONSTERS) {
   m.race = RACE_OF[m.id] ?? "brute";
