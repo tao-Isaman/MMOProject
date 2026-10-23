@@ -457,7 +457,7 @@ export const JOBS3: Record<Job3Id, Job3Def> = {
     bonus: { atk: 10.5, flee: 12, aspd: 0.06, crit: 0.012 }, growth: { atk: 0.56, flee: 0.48, maxHp: 2.8 }, glyph: "skull", color: "#9a7cc8",
   },
   high_bishop: {
-    name: "บาทหลวงชั้นสูง", from: ["bishop"], branches: ["hbishop_blessing", "hbishop_renewal", "hbishop_exorcist"],
+    name: "บาทหลวงชั้นสูง", from: ["bishop"], branches: ["high_bishop_grace", "high_bishop_restore", "high_bishop_exorcist"],
     note: "ผู้นำแห่งศรัทธา ให้พรและปกป้อง รักษาแรงและเป็นหมู่ หรือล่าปีศาจและอันเดดด้วยกระบองที่ร่ายเวทเองเมื่อตี",
     bonus: { matk: 10, maxMp: 56, mdef: 8, healPct: 0.08 }, growth: { matk: 0.56, maxMp: 2.2, mdef: 0.34, maxHp: 2.8 }, glyph: "cross", color: "#fff0b0",
   },
