@@ -391,6 +391,13 @@
   "walk": 4,
   "attack": 4
  },
+ "sulfur_wisp": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
  "swift_ostrich": {
   "cell": 128,
   "foot": 0,
