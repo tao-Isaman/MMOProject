@@ -1,6 +1,6 @@
 // บาฮามัส (Bahamas), the caravan city in the middle of the desert, the crossroads to the south.
 // Laid out as if drawn on paper like the player's other towns: a walled box about 166 x 161 m with
-// three gates. The main gate on the north (the road from Eden) opens onto the bazaar street, two
+// four gates. The main gate on the north (the road from Eden) opens onto the bazaar street, two
 // rows of awnings, spice stalls and rug piles in front of arcaded merchant houses, which runs down
 // to the obelisk square in the middle of town. West of the square a forecourt leads to the palace
 // under its turquoise dome, raised on a terrace against the west wall (the high side of town);
@@ -9,7 +9,9 @@
 // palm garden behind; the east road goes out to the east gate; the south road down to the south
 // gate, beside it the caravan camp (tents, camel troughs, carts) under the caravanserai along the
 // east wall; the south-west is the adobe quarter: three lanes, a well square and the potters' yard
-// by the wall. Outside: open dunes with a few palms, cacti and rock arches.
+// by the wall; the west gate opens off the lane along the west wall, where the first of those
+// lanes runs in, onto the caravan road west to the ancient plain. Outside: open dunes with a few
+// palms, cacti and rock arches.
 //
 // The plan is read in its own pixels (u right, v down, as drawn) and turned into the world:
 // north (up the page) is +X, east (right) is -Y. One plan pixel is 26 cm; the obelisk square
@@ -58,6 +60,8 @@ const { P, rect } = new Plan(26, 420, 420);
 // ---- the plan (plan pixels) ----
 const WALL = { u0: 100, u1: 740, v0: 110, v1: 730 };
 const GATE_N_UV: [number, number] = [420, WALL.v0], GATE_E_UV: [number, number] = [WALL.u1, 430], GATE_S_UV: [number, number] = [470, WALL.v1];
+// (the west gate: between the wall towers at v 430 and 590, in line with the adobe quarter's first lane)
+const GATE_W_UV: [number, number] = [WALL.u0, 526];
 const OBELISK: [number, number] = [431, 408];
 const POOL: [number, number] = [246, 226];
 const WELL_SQ: [number, number] = [270, 611];
@@ -75,6 +79,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
     rect(400, -700, 440, 104),  // outside the gates: the caravan tracks
     rect(746, 410, 1300, 450),
     rect(450, 736, 490, 1300),
+    rect(-700, 506, 100, 546), rect(100, 517, 108, 535),
     // the north-east lanes off the bazaar street, and the lane along the east wall
     rect(457, 150, 718, 168), rect(457, 236, 718, 254), rect(700, 120, 718, 405),
     // alleys: into the oasis, from the forecourt north and south, into the palm garden
@@ -90,14 +95,14 @@ export function buildBahamas(quality: { flowers: number }): Town {
     road: [0.97, 0.83, 0.62], plaza: [1.0, 0.91, 0.74],
   });
 
-  // ---- the city wall: 8 m pieces between watchtowers, three gates ----
+  // ---- the city wall: 8 m pieces between watchtowers, four gates ----
   const NORTH = P(0, WALL.v0)[0], SOUTH = P(0, WALL.v1)[0], WEST = P(WALL.u0, 0)[1], EAST = P(WALL.u1, 0)[1];
-  const GATE_N = at(...GATE_N_UV), GATE_E = at(...GATE_E_UV), GATE_S = at(...GATE_S_UV);
+  const GATE_N = at(...GATE_N_UV), GATE_E = at(...GATE_E_UV), GATE_S = at(...GATE_S_UV), GATE_W = at(...GATE_W_UV);
   const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) => town.wall(a, b, out, "bahamas:city_wall", { gaps, gap: 1200 });
   run([NORTH, WEST], [NORTH, EAST], "n", [WEST - GATE_N[1]]);
   run([NORTH, EAST], [SOUTH, EAST], "e", [NORTH - GATE_E[0]]);
   run([SOUTH, WEST], [SOUTH, EAST], "s", [WEST - GATE_S[1]]);
-  run([NORTH, WEST], [SOUTH, WEST], "w");
+  run([NORTH, WEST], [SOUTH, WEST], "w", [NORTH - GATE_W[0]]);
   const tower = (u: number, v: number) => put("bahamas:watchtower", at(u, v), 0);
   for (const [u, v] of [[WALL.u0, WALL.v0], [WALL.u1, WALL.v0], [WALL.u0, WALL.v1], [WALL.u1, WALL.v1]]) tower(u, v);
   for (const u of [260, 580]) tower(u, WALL.v0);
@@ -114,6 +119,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
   put("bahamas:city_gate", GATE_N, FACE.n, { solid: gateSolid });
   put("bahamas:city_gate", GATE_E, FACE.e, { solid: gateSolid });
   put("bahamas:city_gate", GATE_S, FACE.s, { solid: gateSolid });
+  put("bahamas:city_gate", GATE_W, FACE.w, { solid: gateSolid });
 
   // ---- houses: rows wall to wall along the streets, fronts on the plan line a -> b ----
   const row = (a: [number, number], b: [number, number], side: Side, pieces: string[], start = 0) => {
@@ -345,6 +351,8 @@ export function buildBahamas(quality: { flowers: number }): Town {
   for (const [u, v] of [[545, 562], [655, 562]]) put("bahamas:pottery_set", at(u, v), rnd() * 360);
   brazier(448, 712);
   brazier(492, 712);
+  // a brazier inside the west gate, across the lane's mouth from the lamp
+  brazier(114, 504);
 
   // ---- the adobe quarter: the well square, the potters' yard by the south wall ----
   put("bahamas:well", at(...WELL_SQ), 20);
@@ -372,7 +380,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
   };
   const ARCHES = [[-120, 260, 20, 1.2], [-200, 640, 70, 1], [960, 200, 110, 1.1], [1010, 700, 160, 1.3], [230, 990, 40, 1], [760, 1020, 100, 1.2], [640, -230, 10, 1.1], [130, -260, 150, 1]];
   for (const [u, v, h, s] of ARCHES) put("bahamas:rock_arch", at(u, v), h, { s, solid: "none" });
-  const track = (x: number, y: number, w: number) => (Math.abs(y - GATE_N[1]) < w && x > NORTH) || (Math.abs(x - GATE_E[0]) < w && y < EAST) || (Math.abs(y - GATE_S[1]) < w && x < SOUTH);
+  const track = (x: number, y: number, w: number) => (Math.abs(y - GATE_N[1]) < w && x > NORTH) || (Math.abs(x - GATE_E[0]) < w && y < EAST) || (Math.abs(y - GATE_S[1]) < w && x < SOUTH) || (Math.abs(x - GATE_W[0]) < w && y > WEST);
   const walled = (x: number, y: number, m: number) => x > SOUTH - m && x < NORTH + m && y > EAST - m && y < WEST + m;
   // crescent dunes, all lying the same way to the wind from the north-east
   const dunes: [number, number, number][] = [];
@@ -395,11 +403,13 @@ export function buildBahamas(quality: { flowers: number }): Town {
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(420, 352),
     npcs: bahamasNpcs(),
-    // north to the desert's edge (and on to Eden), east into the great desert, south into the jungle
+    // north to the desert's edge (and on to Eden), east into the great desert, south into the
+    // jungle, west to the ancient plain (and on to Venezia)
     ...waysOut([
       gateWay(GATE_N, "n", "desert_edge", 480, 420),
       gateWay(GATE_E, "e", "great_desert", 480, 420),
       gateWay(GATE_S, "s", "south_jungle", 480, 420),
+      gateWay(GATE_W, "w", "ancient_plain", 480, 420),
     ]),
     closed: [],
     // names on the map window
@@ -419,6 +429,7 @@ export function buildBahamas(quality: { flowers: number }): Town {
       { x: GATE_N[0], y: GATE_N[1], text: "ประตูเหนือ · ขอบทะเลทราย", kind: "gate" },
       { x: GATE_E[0], y: GATE_E[1], text: "ประตูตะวันออก · ทะเลทรายใหญ่", kind: "gate" },
       { x: GATE_S[0], y: GATE_S[1], text: "ประตูใต้ · ป่าดิบแดนใต้", kind: "gate" },
+      { x: GATE_W[0], y: GATE_W[1], text: "ประตูตะวันตก · ที่ราบโบราณ", kind: "gate" },
     ],
   });
 
@@ -450,6 +461,11 @@ export function buildBahamas(quality: { flowers: number }): Town {
         lines: ["ออกประตูใต้ไปคือป่าดิบแดนใต้ ฝ่าป่าลงไปจะถึงเมืองท่าโยเดีย", "บาฮามัสคือทางแยก ใครจะลงไปเมืองท่าแดนใต้ก็ต้องผ่านที่นี่"] },
       { id: "bh_guard_s2", ...spot(480, 704), face: 0, name: "ทหารยามทาริก", title: "ทหารยามประตูใต้", role: "talk", look: guard("top_warrior_forest", "ink"),
         lines: ["กองคาราวานพักอยู่ลานข้างประตูนี้ อูฐกินน้ำที่รางหิน", "ถ้าเห็นฟ้าเป็นสีส้มทางใต้ รีบเข้าเมืองเลย พายุทรายกำลังมา"] },
+      // the west gate
+      { id: "bh_guard_w1", ...spot(124, 510), face: -90, name: "ทหารยามอาซิซ", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior_navy", "ink"),
+        lines: ["ออกประตูตะวันตกไปคือที่ราบโบราณ ซากเมืองยุคก่อนกับรูปปั้นยักษ์ล้มยังนอนอยู่กลางทุ่ง", "ผ่านซากเมืองโบราณไปทางตะวันตกเรื่อยๆ จะถึงเวนิชเซีย เมืองแห่งสายน้ำริมทะเล"] },
+      { id: "bh_guard_w2", ...spot(124, 549), face: -90, name: "ทหารยามมาลิก", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior", "auburn"),
+        lines: ["ประตูนี้เพิ่งเปิดใหม่ กองคาราวานที่จะไปเวนิชเซียออกทางนี้กันทั้งนั้น", "ซากเมืองบนที่ราบโบราณมีของเฝ้าอยู่ ฝีมือยังไม่ถึงอย่าเพิ่งเดินลึกเข้าไปนะ"] },
       // the palace steps
       { id: "bh_palace_1", ...spot(246, 398), face: -90, name: "องครักษ์ฟาริด", title: "องครักษ์วังโดมฟ้า", role: "talk", look: guard("top_warrior_navy", "ink"),
         lines: ["วังโดมฟ้าคือที่ประทับของเจ้าเมืองบาฮามัส", "ยังไม่อนุญาตให้คนนอกเข้าไปข้างใน ขออภัยด้วย"] },
