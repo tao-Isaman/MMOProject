@@ -70,6 +70,11 @@ export interface BodyDef {
   builtin?: Record<string, boolean>;
   head?: { anchor: [number, number][]; offsets: Offsets };
   tails?: string[];                // regions that, below the waist, belong to the top (a long coat)
+  hem?: number;                    // rows above the waist where its bottom cloth starts: worn as a
+                                   // top over another bottom, from there down it is a leather band
+  dress?: boolean;                 // its top cloth runs on below the waist as the skirt: worn as a
+                                   // top over other bottoms the whole robe goes, open where the
+                                   // bottom's own cloth (a tabard) was
   stretch?: [number, number, number]; // rows [neck, feet] drawn from neck row [2] down (see stretchRow)
   legs?: [number, number, number]; // what the legs are (raw rgb) where a removed coat hid them
   under?: string;                  // the body whose trousers show when this one's coat isn't worn
@@ -133,8 +138,8 @@ const BELT: Dye = { hue: 25, sat: 0.35, target: 0.2 };
 // One body's sheet as one piece of a mixed outfit, frame by frame at the body's waist. As the
 // top (asTop): everything above the waist, and below it only the top's own pixels: the hands (skin
 // above the feet rows; down there it is bare ankles), what lies within 3 px of them (sleeves,
-// cuffs) unless it is the bottom's cloth, the `tails` regions and the trim and outline within 2 px
-// of them. As the bottom: below the waist without those, each
+// cuffs) unless it is the bottom's cloth, the `tails` regions (all its top cloth for a `dress`)
+// and the trim and outline within 2 px of them. As the bottom: below the waist without those, each
 // hole filled from the pixel under it (column by column, upward), so legs run on up under where a
 // coat was; with `legs` set, in that colour.
 function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.waist): HTMLCanvasElement {
@@ -157,7 +162,7 @@ function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.w
     if (k === undefined) {
       const [h, s, l] = rgbToHsl(px[i], px[i + 1], px[i + 2]);
       const region = classify(def.regions, px[i], px[i + 1], px[i + 2]);
-      k = region === def.cloth.bottom ? 3 : region && tails.includes(region) ? 2
+      k = region === def.cloth.bottom ? 3 : region && (tails.includes(region) || (asTop && def.dress && region === def.cloth.top)) ? 2
         : inRange(h, SKIN.h) && s >= SKIN.s[0] && s <= SKIN.s[1] && l >= SKIN.l[0] && l <= SKIN.l[1] ? 1
         : l < 0.16 || (h >= 12 && h <= 60 && s > 0.25 && l >= 0.2 && l <= 0.85) ? 4 : 0;
       cache.set(key, k);
@@ -202,6 +207,24 @@ function piece(img: Img, def: BodyDef, clip: string, asTop: boolean, cut = def.w
   }
   if (asTop) {
     for (let p = 0; p < W * H; p++) if (!top[p] && low(p % W, (p / W) | 0)) px[p * 4 + 3] = 0;
+    // the top of its own skirt left over at the waist (it runs down to the other bottom's lower
+    // waist) turns into a leather waistband
+    if (def.hem !== undefined) {
+      const mean = def.mean?.[def.cloth.bottom] ?? 0.5;
+      for (let p = 0; p < W * H; p++) {
+        const x = p % W, y = (p / W) | 0, i = p * 4;
+        const band = y % CELL >= Math.round(def.waist - def.hem + (def.head?.offsets[clip]?.[Math.floor(y / CELL)]?.[Math.floor(x / CELL)]?.[1] ?? 0));
+        if (kind[p] !== 3 || !px[i + 3] || !band) continue;
+        // (not a cuff at the wrist, in the same cloth)
+        let cuff = false;
+        for (let dy = -4; dy <= 4 && !cuff; dy++)
+          for (let dx = -4; dx <= 4 && !cuff; dx++) {
+            const qx = x + dx, qy = y + dy;
+            if (qx >= 0 && qy >= 0 && qx < W && qy < H && kind[qy * W + qx] === 1) cuff = true;
+          }
+        if (!cuff) [px[i], px[i + 1], px[i + 2]] = paint(px[i], px[i + 1], px[i + 2], BELT, mean);
+      }
+    }
   } else {
     // what legs grow up from: a pixel kept or filled, not light (a swing's slash, a white hem),
     // with something solid beside it (not a lone line, as a slash's outline is)
