@@ -90,6 +90,13 @@
   "walk": 4,
   "attack": 4
  },
+ "ice_golem": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
  "iron_crab": {
   "cell": 96,
   "foot": 0,
@@ -206,6 +213,13 @@
   "cell": 96,
   "foot": 0,
   "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "shadow_imp": {
+  "cell": 96,
+  "foot": 0,
+  "top": 83,
   "walk": 4,
   "attack": 4
  },
