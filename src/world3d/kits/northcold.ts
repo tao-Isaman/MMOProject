@@ -867,8 +867,12 @@ function ruinedLighthouse(): Geo {
   parts.push(cylinderBetween([Math.cos(0) * 140, 0, top + 330], [Math.cos(Math.PI / 4) * 140, Math.sin(Math.PI / 4) * 140, top + 330], 3.5, 5, "IronDark"), cylinderBetween([Math.cos(Math.PI * 1.5) * 140, Math.sin(Math.PI * 1.5) * 140, top + 330], [Math.cos(Math.PI * 1.75) * 140, Math.sin(Math.PI * 1.75) * 140, top + 330], 3.5, 5, "IronDark"));
   parts.push(cylinderAt({ rBot: 34, rTop: 26, height: 90, segments: 10, bottom: [0, 0, top + 94] }, "Bronze"), translate(scale(sphereCenter(52, [0, 0, 0], "Northcold_Glaze", 12), [1, 1, 1.25]), [0, 0, top + 240]));
   // the dome, fallen onto the gallery and tipped over its edge, its ball on top
-  const dome = merge(translate(scale(sphereCenter(165, [0, 0, 0], "CopperGreen", 12), [1, 1, 0.62]), [0, 0, 0]), cylinderAt({ radius: 14, height: 40, segments: 6, bottom: [0, 0, 95] }, "CopperGreen"), sphereCenter(22, [0, 0, 145], "CopperGreen", 8));
-  parts.push(translate(rotateZ(rotateX(dome, 118), 70), [-150, 470, 150]), mound(300, 200, 36, 312, [-140, 480, 0], 30));
+  const cap = new THREE.SphereGeometry(165, 14, 5, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2).scale(1, 1, 0.62);
+  const dome = merge(
+    [{ geo: cap.toNonIndexed(), mat: "CopperGreen" }], cylinderAt({ radius: 160, height: 4, segments: 14, bottom: [0, 0, 2] }, "Northcold_Dark"),
+    translate(torus(163, 7, 14, 4, "CopperGreen"), [0, 0, 4]), cylinderAt({ radius: 14, height: 40, segments: 6, bottom: [0, 0, 95] }, "CopperGreen"), sphereCenter(22, [0, 0, 145], "CopperGreen", 8),
+  );
+  parts.push(translate(rotateZ(rotateY(dome, -62), 20), [-150, 470, 60]), mound(300, 200, 36, 312, [-100, 480, 0], 30));
   parts.push(translate(rotateZ(rotateY(box([90, 60, 10], [0, 0, 0], "CopperGreen", 2), 20), 30), [60, 520, 8]), translate(rotateZ(rotateY(box([70, 40, 8], [0, 0, 0], "CopperGreen", 2), -15), 75), [-330, 360, 6]));
   parts.push(mound(260, 120, 26, 307, [70, -150, top + 22], 30));
   // the keeper's cottage behind (+X): roofless walls with ragged tops, a chimney, fallen beams
@@ -913,7 +917,7 @@ function seaStack(): Geo {
   }
   beds.forEach((bd, k) => {
     const next = beds[k + 1], ledge = !next || next.r < bd.r * 0.9;
-    const o = blobOutline(bd.r, bd.r * (0.82 + rnd() * 0.12), 333 + k, 0.14, 13).map(([x, y]) => [x + bd.ox, y + bd.oy] as [number, number]);
+    const o = blobOutline(bd.r, bd.r * (0.82 + rnd() * 0.12), 333 + k, 0.24, 15).map(([x, y]) => [x + bd.ox, y + bd.oy] as [number, number]);
     parts.push(slab(o, bd.z, bd.z + bd.h, ledge && bd.z > 40 ? "Snow" : "Northcold_SeaRockLight", k % 2 ? "Northcold_SeaRock" : "Northcold_SeaRockLight", 5));
   });
   const last = beds[beds.length - 1];
@@ -1045,30 +1049,31 @@ function shipwreck(): Geo {
   hull.push(rope([[420, 0, 1000], [-L / 2 + 40, 0, 330]], 1.5), rope([[420, 0, 980], [L / 2 + 60, 0, 360]], 1.5));
   hull.push(loft([[[420, -170, 760], [420, 0, 772], [420, 170, 780]], [[440, -150, 600], [470, 0, 640], [430, 130, 520]]], "Northcold_Sail"));
   hull.push(icicles(sec(0.05, 0), sec(0.95, 0), 403, 30, 50));
-  // she lies over to port and her bow is up on the shingle, her keel half buried
-  const lying = translate(rotateY(rotateX(merge(...hull), -38), -4), [0, 60, -40]);
+  // she lies over to port with her torn flank up, her bow up on the shingle, her keel half buried
+  const lying = translate(rotateY(rotateX(merge(...hull), 38), -4), [0, -60, -40]);
   parts.push(lying, snowFacets(lying, 0.75, 3));
   // the mainmast lying alongside, its sail in rags, rigging trailing
-  parts.push(cylinderBetween([-300, -420, 20], [700, -620, 30], 18, 8, "Northcold_Timber", 12), cylinderBetween([200, -520, 30], [240, -330, 140], 8, 6, "Northcold_Timber"));
-  parts.push(loft([[[-100, -460, 24], [200, -520, 28], [500, -580, 30]], [[-60, -560, 4], [220, -690, 6], [460, -700, 4]]], "Northcold_Sail"), tri([200, -520, 30], [240, -330, 140], [320, -420, 10], "Northcold_Sail"));
-  parts.push(rope(sagLine([-300, -420, 30], [-120, -130, 200], -30, 5), 1.4), rope(sagLine([700, -620, 30], [520, -200, 220], -40, 5), 1.4));
+  parts.push(cylinderBetween([-300, -620, 20], [700, -820, 30], 18, 8, "Northcold_Timber", 12), cylinderBetween([200, -720, 30], [240, -560, 140], 8, 6, "Northcold_Timber"));
+  parts.push(loft([[[-100, -660, 24], [200, -720, 28], [500, -780, 30]], [[-60, -760, 4], [220, -890, 6], [460, -900, 4]]], "Northcold_Sail"), tri([200, -720, 30], [240, -560, 140], [320, -620, 10], "Northcold_Sail"));
+  parts.push(rope(sagLine([-300, -620, 30], [-200, -300, 160], -30, 5), 1.4), rope(sagLine([700, -820, 30], [520, -320, 200], -40, 5), 1.4));
   // barrels (one stove in), timbers, a chest, the anchor half buried
-  for (const [x, y, lie] of [[-650, -380, 1], [-520, -480, 0], [820, -300, 1], [880, 200, 0]] as number[][]) {
+  for (const [x, y, lie] of [[-650, -650, 1], [-520, -730, 0], [820, -300, 1], [880, 200, 0]] as number[][]) {
     const b = merge(cylinderAt({ rBot: 26, rTop: 30, height: 40, segments: 10, bottom: [0, 0, 0] }, "WoodShade"), cylinderAt({ rBot: 30, rTop: 26, height: 40, segments: 10, bottom: [0, 0, 40] }, "WoodShade"), cylinderAt({ radius: 28.5, height: 5, segments: 10, bottom: [0, 0, 12] }, "Northcold_Rust"), cylinderAt({ radius: 28.5, height: 5, segments: 10, bottom: [0, 0, 64] }, "Northcold_Rust"));
     parts.push(translate(lie ? rotateY(b, 90) : b, [x, y, lie ? 28 : 0]));
   }
   for (let i = 0; i < 9; i++) {
-    const x = -800 + rnd() * 1700, y = -700 + rnd() * 300 + (i % 3 === 0 ? 900 : 0), a = rnd() * 180, l = 120 + rnd() * 180;
+    const x = -800 + rnd() * 1700, y = -980 + rnd() * 300 + (i % 3 === 0 ? 1300 : 0), a = rnd() * 180, l = 120 + rnd() * 180;
     parts.push(translate(rotateZ(box([l, 22, 8], [0, 0, 4], rnd() < 0.5 ? "WoodGrey" : "Northcold_Hull", 2), a), [x, y, 0]));
   }
-  parts.push(translate(rotateZ(merge(boxAt([80, 50, 40], [0, 0, 0], "WoodWarm", 3), boxAt([84, 54, 6], [0, 0, 18], "IronDark")), 25), [-760, 20, 0]));
+  parts.push(translate(rotateZ(merge(boxAt([80, 50, 40], [0, 0, 0], "WoodWarm", 3), boxAt([84, 54, 6], [0, 0, 18], "IronDark")), 25), [-880, 150, 0]));
   parts.push(translate(rotateZ(rotateX(merge(
     cylinderBetween([0, 0, 0], [0, 0, 180], 7, 6, "IronDark"), cylinderBetween([0, -70, 30], [0, 70, 30], 6, 6, "IronDark"),
     cylinderBetween([0, -70, 30], [0, -95, 75], 6, 6, "IronDark"), cylinderBetween([0, 70, 30], [0, 95, 75], 6, 6, "IronDark"),
     translate(torus(16, 3.5, 10, 4, "IronDark"), [0, 0, 195]), cylinderBetween([0, -40, 160], [0, 40, 160], 5, 6, "Northcold_Timber"),
   ), -72), 40), [-900, -200, 10]));
-  parts.push(mound(500, 220, 40, 405, [-300, 380, 0], 10), mound(420, 200, 34, 406, [500, 360, 0], -10), mound(300, 160, 24, 407, [100, -700, 0], 5));
-  return merge(...parts);
+  parts.push(mound(500, 220, 40, 405, [-300, 160, 0], 10), mound(420, 200, 34, 406, [500, 140, 0], -10), mound(300, 160, 24, 407, [100, -980, 0], 5));
+  // (about centred on its footprint; the field's solids are drawn to these numbers)
+  return translate(merge(...parts), [0, 300, 0]);
 }
 
 // A bank of shingle (ground, walked over): rounded pebbles heaped along a storm line, a few
@@ -1311,7 +1316,7 @@ export const KIT: Kit = {
     { id: "sea_stack", name: "เสาหินกลางทะเลน้ำแข็ง", make: () => centre(seaStack()), tags: ["rock", "landmark"] },
     { id: "seabird_rock", name: "โขดหินนกทะเล", make: () => centre(seabirdRock()), tags: ["rock", "decor"] },
     { id: "iced_rocks", name: "โขดหินเคลือบน้ำแข็ง", make: () => centre(icedRocks()), tags: ["rock"] },
-    { id: "shipwreck", name: "ซากเรือแตกบนหาดกรวด", make: () => centre(shipwreck()), tags: ["landmark", "wreck"] },
+    { id: "shipwreck", name: "ซากเรือแตกบนหาดกรวด", make: shipwreck, tags: ["landmark", "wreck"] },
     { id: "shingle_bank", name: "หาดกรวดกับขอนลอยน้ำ", make: () => centre(shingleBank()), tags: ["ground"] },
     { id: "flattened_grass", name: "หญ้าลู่ลมใต้หิมะ", make: () => centre(flattenedGrass()), tags: ["ground", "plant"] },
     { id: "cave_mouth", name: "ปากถ้ำฤๅษี", make: () => centre(caveMouth()), tags: ["landmark", "camp"] },

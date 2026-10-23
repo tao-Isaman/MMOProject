@@ -294,7 +294,7 @@ export function build(_quality: { flowers: number }): Town {
   const HUT: XY = [-2350, 1650];
   prop("northcold:ferry_hut", HUT, 180, 520, { solid: [{ kind: "house", x: 0, y: 0, w: 640, d: 540, rot: 0 }, { kind: "house", x: -70, y: 0, w: 140, d: 520, rot: 0 }] });
   const LAND: XY = [xs(1750) - 60 + 840, 1750];
-  prop("northcold:ferry_landing", LAND, 0, 600, { solid: [{ kind: "dock", x: -520, y: 0, w: 720, d: 280, rot: 0 }, { kind: "boat", x: 230, y: 0, w: 680, d: 420, rot: 0 }, { kind: "post", x: 670, y: 160, r: 40 }] });
+  prop("northcold:ferry_landing", LAND, 0, 600, { solid: [{ kind: "dock", x: -520, y: 0, w: 720, d: 280, rot: 0 }, { kind: "boat", x: 230, y: 0, w: 680, d: 420, rot: 0 }, { kind: "post", x: 813, y: 160, r: 40 }] });
   for (const [at, h] of [[[-800, 2450], 30], [[-1150, 1050], 160], [[-150, 2150], 290], [[200, 1200], 60]] as [XY, number][])
     prop("northcold:icebound_boat", at, h, 280, { solid: [{ kind: "boat", x: 0, y: 0, w: 480, d: 200, rot: 0 }] });
   prop("iceberg:woodpile", [-2500, 2350], 90, 170);
