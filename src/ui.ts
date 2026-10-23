@@ -37,7 +37,8 @@ export function makeWindow(id: string, title: string, key: string): HTMLElement 
   // drag by the title bar; the window is pinned where it stands first (some windows are
   // centred with a transform, which would otherwise make them jump)
   bar.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || isTouch() || (e.target instanceof Element && e.target.closest(".window-close"))) return;
+    // buttons in the bar (close, the map's tabs) keep their clicks: no drag from them
+    if (e.button !== 0 || isTouch() || (e.target instanceof Element && e.target.closest("button, input, select, a"))) return;
     e.preventDefault();
     const r = win.getBoundingClientRect();
     Object.assign(win.style, { transform: "none", left: `${r.left}px`, top: `${r.top}px`, right: "auto" });
