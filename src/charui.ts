@@ -369,7 +369,9 @@ function rankGain(node: TreeNode, r: number): string {
       return signed(k, d);
     }).join(" ");
   }
-  const s = node.skill!;
+  // (a passive with only a terrain table: its numbers differ by map, no single gain to show)
+  const s = node.skill;
+  if (!s) return "";
   if (s.mult) return `+${pct(s.mult(r) - s.mult(r - 1))}`;
   if (s.buff) {
     const a = s.buff(r), b = s.buff(r - 1);
