@@ -367,7 +367,7 @@ export function jobName(p: { cls: ClassId | null; job: JobId | null }): string {
 
 // The emblem shown with that name: assets/skills/job_<id>.png for a job drawn already (JOB_ART),
 // else class_<id>.png (null: no class).
-const JOB_ART = new Set<JobId>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord"]);
+const JOB_ART = new Set<JobId>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord", "thief", "jester", "mercenary", "inventor"]);
 export function jobIcon(p: { cls: ClassId | null; job: JobId | null }): string | null {
   if (p.job && JOB_ART.has(p.job)) return `assets/skills/job_${p.job}.png`;
   return p.cls ? `assets/skills/class_${p.cls}.png` : null;

@@ -481,6 +481,144 @@
     "job_warlord"
    ],
    "prompt": "5x2 class emblems: staff and spellbook, sword and shield, longbow, mace with halo, falcon on glove with bow / twin swords and greatsword, wizard hat with fire-ice-shadow orbs, winged holy cross, rune sword crossed with staff, horned helmet with axes and rage flames (tiles came out slightly tall: cut to the dark frame, resized to 96)"
+  },
+  {
+   "name": "skill_icons_v02_thief",
+   "done": true,
+   "ids": [
+    "dagger_art_quick",
+    "dagger_art_twin_fang",
+    "dagger_art_snatch",
+    "dagger_art_flurry",
+    "dagger_art_pilfer",
+    "dagger_art_vital",
+    "shadow_cat_step",
+    "shadow_hide",
+    "shadow_evade",
+    "shadow_mind",
+    "shadow_backstab",
+    "shadow_assassinate",
+    "tree_dagger_art",
+    "tree_shadow",
+    "job_thief",
+    "mastery_claw"
+   ],
+   "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG skill icons for a thief (steel, gold coins, deep purple shadow, dark teal), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) a quick hand flicking a dagger with blurred motion streaks; (2) two curved daggers crossed like a pair of fangs; (3) a gloved hand snatching gold coins off a dagger blade; (4) a flurry of many dagger thrusts fanning out with white streaks.\nRow 2, left to right: (5) a hand pulling a small treasure pouch out of a bag; (6) a dagger slashing across a red vital-point mark with a crimson spark; (7) soft black cat paw prints in purple shadow; (8) a hooded figure melting into dark purple smoke, one closed eye.\nRow 3, left to right: (9) a dark afterimage dodging sideways leaving ghostly copies; (10) a glowing purple shadow eye above a small crit star; (11) a dagger striking a dark silhouette from behind; (12) a purple skull pierced by a dagger in swirling shadow.\nRow 4, left to right: (13) an emblem of two crossed daggers over a gold coin; (14) an emblem of a hooded mask with a closed eye; (15) a thief emblem: hood, dagger and a coin bag; (16) steel claw blades fixed over knuckles, three sharp curved blades."
+  },
+  {
+   "name": "skill_icons_v02_jester",
+   "done": true,
+   "ids": [
+    "trickster_sidestep",
+    "trickster_mirror",
+    "trickster_jeer",
+    "trickster_vanish",
+    "trickster_confetti",
+    "trickster_grand_show",
+    "gambler_lucky_star",
+    "gambler_dice_throw",
+    "gambler_fortune",
+    "gambler_all_in",
+    "gambler_jackpot",
+    "gambler_royal_flush",
+    "tree_trickster",
+    "tree_gambler",
+    "job_jester",
+    "element_smoke"
+   ],
+   "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG skill icons for a jester trickster (magenta, lime, yellow) and a gambler (gold, red, emerald), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) a curly jester shoe stepping aside leaving a faint afterimage; (2) a jester and an identical mirror clone side by side; (3) a mocking jester mask with tongue out and angry taunt marks; (4) a jester hat vanishing in a puff of confetti smoke.\nRow 2, left to right: (5) a confetti bomb bursting into colourful paper scraps; (6) a theatre stage with red curtains and a bright spotlight; (7) a shining lucky star with a four-leaf clover; (8) two dice flying with an impact flash.\nRow 3, left to right: (9) a spinning wheel of fortune; (10) a big pile of gold chips shoved forward, all in; (11) a jackpot of gold coins bursting out of three sevens; (12) a fanned hand of five playing cards, a royal flush.\nRow 4, left to right: (13) an emblem of a two-faced jester mask, laughing and crying; (14) an emblem of a die and an ace card crossed; (15) a jester emblem: a three-pointed hat with golden bells; (16) a swirling grey-violet smoke orb, the element of smoke."
+  },
+  {
+   "name": "skill_icons_v02_mercenary",
+   "done": true,
+   "ids": [
+    "lancer_drill",
+    "lancer_pierce",
+    "lancer_phalanx",
+    "lancer_whirl",
+    "lancer_shield_charge",
+    "lancer_dragon_spear",
+    "breaker_heft",
+    "breaker_cleave",
+    "breaker_rush",
+    "breaker_quake",
+    "breaker_fury",
+    "breaker_ruin",
+    "tree_lancer",
+    "tree_breaker",
+    "job_mercenary",
+    "mastery_knuckle"
+   ],
+   "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG skill icons for a mercenary lancer (steel blue, silver, red pennant) and a heavy breaker with two-handed weapons (iron, orange fire, brown), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) a spear held at the ready over a training post; (2) a spear thrusting straight through with a burst at the tip; (3) a wall of spears behind tower shields; (4) a spear whirling in a circle with motion arcs.\nRow 2, left to right: (5) a tower shield charging forward with dust and speed lines; (6) a spear wreathed in a rising golden dragon; (7) a muscular iron-banded arm gripping a heavy hilt; (8) a great axe cleaving a block in two.\nRow 3, left to right: (9) a two-handed greatsword rushing forward with orange speed lines; (10) a huge hammer smashing the ground with cracks and rocks flying; (11) a roaring warrior face in orange fury flames; (12) a broken stone fortress wall shattered by a greatsword.\nRow 4, left to right: (13) an emblem of a spear crossed with a kite shield; (14) an emblem of a great axe crossed with a greatsword; (15) a mercenary emblem: a coin purse over crossed spear and sword; (16) brass knuckle-dusters on a clenched fist."
+  },
+  {
+   "name": "skill_icons_v02_scout_smith",
+   "done": true,
+   "ids": [
+    "scout_swift",
+    "scout_snipe",
+    "scout_mark",
+    "scout_retreat",
+    "scout_eagle_eye",
+    "scout_heart_piercer",
+    "tree_scout",
+    "weaponsmith_temper",
+    "weaponsmith_hammer",
+    "weaponsmith_sharpen",
+    "weaponsmith_balance",
+    "weaponsmith_spark",
+    "weaponsmith_masterwork",
+    "tree_weaponsmith",
+    "knuckle_barrage",
+    "claw_rend"
+   ],
+   "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG skill icons for a ranging scout archer (forest green, leather brown, sky blue) and a weaponsmith (forge orange, steel, gold), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) a running boot with green wind swirls; (2) an arrow flying straight at a distant bullseye; (3) a red hunter's mark painted over a target; (4) a hooded scout leaping backwards with an arrow nocked.\nRow 2, left to right: (5) a sharp eagle eye over a longbow; (6) an arrow piercing a red heart with a golden glint; (7) an emblem of a longbow crossed with a feathered arrow; (8) a glowing hot sword blade being quenched in steam.\nRow 3, left to right: (9) a smith's hammer striking an anvil with sparks; (10) a whetstone sharpening a gleaming blade edge; (11) a sword balanced level on a fingertip, perfectly poised; (12) a burst of bright forge sparks from a furnace mouth.\nRow 4, left to right: (13) a masterwork sword glowing gold on an anvil; (14) an emblem of a hammer crossed with a sword over an anvil; (15) a fist of knuckle-dusters throwing three rapid punches with impact rings; (16) three steel claw blades ripping red slash marks."
+  },
+  {
+   "name": "skill_icons_v02_armor_jewel",
+   "done": true,
+   "ids": [
+    "armorsmith_plating",
+    "armorsmith_bash",
+    "armorsmith_fortify",
+    "armorsmith_endure",
+    "armorsmith_rivet",
+    "armorsmith_iron_fort",
+    "jeweler_glimmer",
+    "jeweler_facet",
+    "jeweler_ward",
+    "jeweler_prism",
+    "jeweler_shatter",
+    "jeweler_crown",
+    "tree_armorsmith",
+    "tree_jeweler",
+    "job_inventor",
+    "element_shadow"
+   ],
+   "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG skill icons for an armorsmith (steel grey, iron, bronze rivets) and a jeweler (sparkling gems: sapphire, ruby, emerald, gold), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) steel plates riveted onto a breastplate; (2) an armoured shoulder slamming forward with an impact burst; (3) a breastplate glowing with a blue reinforcing aura; (4) a sturdy iron helmet with a shield behind it, unbreakable.\nRow 2, left to right: (5) red-hot iron rivets shooting out like bolts; (6) a small iron fortress tower with a raised gate; (7) a gem glinting with a bright white sparkle; (8) a gem being cut on a wheel into neat facets.\nRow 3, left to right: (9) a protective ring of floating gems around a heart; (10) a prism splitting a beam of light into a rainbow; (11) a crystal shattering into sharp glowing shards; (12) a golden crown studded with star-shaped jewels.\nRow 4, left to right: (13) an emblem of a breastplate over a hammer; (14) an emblem of a cut diamond in a gold ring; (15) an inventor emblem: a gear, a wrench and a small hammer; (16) a dark violet shadow orb with a fading silhouette, the element of shadow."
+  },
+  {
+   "name": "skill_icons_v02_craft_mats",
+   "done": true,
+   "ids": [
+    "mastery_weaponcraft",
+    "mastery_armorcraft",
+    "mastery_jewelcraft",
+    "weaponcraft_make",
+    "weaponcraft_refine",
+    "armorcraft_make",
+    "armorcraft_refine",
+    "jewelcraft_make",
+    "jewelcraft_refine",
+    "element_gold",
+    "iron_ore",
+    "beast_hide",
+    "gem_shard",
+    "monster_core",
+    "sky_stone",
+    "star_stone"
+   ],
+   "prompt": "An icon sheet: a perfectly regular 4 by 4 grid of sixteen separate square fantasy MMORPG icons for crafting and materials (forge orange, steel, leather brown, gem colours), all exactly the same size, in straight rows and columns with wide even gaps of flat plain mid-grey background between them and around the edge. Every icon is a square tile with a thin dark bevelled frame and a dark softly graded background, one bold readable symbol filling the middle, lit from the top left, readable at 40 pixels. No text, no numbers, no labels.\nRow 1, left to right: (1) an open book with a sword drawn on its page, weaponcraft; (2) an open book with a breastplate drawn on its page, armorcraft; (3) an open book with a ring drawn on its page, jewelcraft; (4) a hammer forging a new sword on an anvil with sparks.\nRow 2, left to right: (5) a sword glowing blue with a small plus sign of light, being refined; (6) a needle and leather stitching a new breastplate; (7) a breastplate glowing gold with a small plus sign of light, being refined; (8) tweezers setting a gem into a new ring.\nRow 3, left to right: (9) a ring glowing violet with a small plus sign of light, being refined; (10) a radiant golden orb with a coin rim, the element of gold; (11) a lump of grey iron ore with metallic flecks; (12) a folded brown beast hide with fur edge.\nRow 4, left to right: (13) a few sharp pink gem shards; (14) a glowing red monster core pulsing with energy; (15) a clear sky-blue stone with a cloud inside; (16) a golden star-shaped stone with sparkles."
   }
  ]
 }
