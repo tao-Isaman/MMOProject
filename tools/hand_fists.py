@@ -29,6 +29,9 @@ OTHER = 12    # px at least between the two hands
 SHOULDER = 8  # px below the neck to the shoulders
 NECK = 5      # px around the neck that its stump reaches
 RAISED = 10   # skin px at least in a fist up beside the head
+GAP = 16      # px a cuff or a wrapping may part the skin of one arm by
+BEND = -0.6   # cosine of the sharpest turn from the shoulders an arm takes at the elbow
+INWARD = 6    # px an arm followed past its wrapping may come in toward the middle
 
 
 def skin_mask(cell):
@@ -95,6 +98,70 @@ def fist(p, shoulder):
     return [float(end[:, 0].mean()), float(end[:, 1].mean())], float(d.max())
 
 
+def solid(a, p, q):
+    """The figure runs unbroken from p to q (an arm, not a gap beside one)."""
+    n = int(np.hypot(q[0] - p[0], q[1] - p[1]) * 2) + 1
+    for k in range(n + 1):
+        x, y = p[0] + (q[0] - p[0]) * k / n, p[1] + (q[1] - p[1]) * k / n
+        if not a[int(round(y)), int(round(x))]:
+            return False
+    return True
+
+
+def wrapped(cell, p, q):
+    """Between p and q lies a wrapping or a cuff (near-white or greyish cloth and its dark
+    outline), not the shirt across the body to the other hand."""
+    n = int(np.hypot(q[0] - p[0], q[1] - p[1]) * 2) + 1
+    seen = wrap = 0
+    for k in range(1, n):
+        x, y = p[0] + (q[0] - p[0]) * k / n, p[1] + (q[1] - p[1]) * k / n
+        r, g, b, a = [int(v) / 255 for v in cell[int(round(y)), int(round(x))]]
+        if not a:
+            return False
+        hi, lo = max(r, g, b), min(r, g, b)
+        l = (hi + lo) / 2
+        s = 0 if hi == lo else (hi - lo) / (2 - hi - lo if l > 0.5 else hi + lo)
+        h = 0 if hi == lo else (60 * ((g - b) / (hi - lo) % 6) if hi == r else 60 * ((b - r) / (hi - lo) + 2) if hi == g else 60 * ((r - g) / (hi - lo) + 4))
+        if (h <= 32 or h >= 345) and s >= 0.58 and 0.6 <= l <= 0.92:
+            continue  # the skin at either end
+        seen += 1
+        wrap += l < 0.2 or l >= 0.85 or (l >= 0.45 and s < 0.4)
+    return seen == 0 or wrap >= 0.75 * seen
+
+
+def along(t, found, cell, shoulder):
+    """Follow an arm past a wrapping or a cuff that hides its skin (the adventurer's bandaged
+    forearms, past which the skin of the elbow is all that shows): on to the patch that starts
+    within GAP px of this one's end, across wrapping only, not back the way the arm came nor in
+    toward the middle (a white dress between the hands is not a wrapping), and reaching about as
+    far from the shoulders or farther."""
+    def out(p):
+        return abs(p[:, 0].mean() - shoulder[0])
+    been = [t[0]]
+    while True:
+        p, (ex, ey), reach, _ = t
+        ux, uy = ex - shoulder[0], ey - shoulder[1]
+        un = np.hypot(ux, uy) or 1.0
+        best = None
+        for u in found:
+            if any(u[0] is q for q in been) or u[2] < reach - 2 or out(u[0]) < out(p) - INWARD:
+                continue
+            d = np.hypot(u[0][:, 0] - ex, u[0][:, 1] - ey)
+            i = int(np.argmin(d))
+            if d[i] > GAP or d[i] < 1.5:
+                continue
+            qx, qy = u[0][i]
+            vx, vy = qx - ex, qy - ey
+            if (ux * vx + uy * vy) / (un * d[i]) < BEND or not wrapped(cell, (ex, ey), (qx, qy)):
+                continue
+            if best is None or u[2] > best[2]:
+                best = u
+        if best is None:
+            return t
+        t = best
+        been.append(t[0])
+
+
 def frame(cell, r, neck, face, guessed):
     shoulder = (neck[0], neck[1] + SHOULDER)
     found = [(p, *fist(p, shoulder), high) for p, high in arms(cell, neck, face, guessed)]
@@ -104,12 +171,18 @@ def frame(cell, r, neck, face, guessed):
         near = [t for t in found if (not t[3] or len(t[0]) >= RAISED)
                 and np.hypot(t[0][:, 0] - r[0], t[0][:, 1] - r[1]).min() <= NEAR]
         if near:
-            r = min(near, key=lambda t: np.hypot(t[0][:, 0] - r[0], t[0][:, 1] - r[1]).min())[1]
+            first = min(near, key=lambda t: np.hypot(t[0][:, 0] - r[0], t[0][:, 1] - r[1]).min())
+            r = along(first, low, cell, shoulder)[1]
         elif low:
             # it was on the face, the neck or a skin-coloured spark: the arm reaching farthest
             r = max(low, key=lambda t: t[2])[1]
+    # the off hand: the farthest reaching other arm, followed out to its fist
     others = [t for t in low if r is None or np.hypot(t[1][0] - r[0], t[1][1] - r[1]) > OTHER]
-    l = max(others, key=lambda t: t[2])[1] if others else None
+    l = None
+    if others:
+        l = along(max(others, key=lambda t: t[2]), low, cell, shoulder)[1]
+        if r is not None and np.hypot(l[0] - r[0], l[1] - r[1]) <= OTHER:
+            l = None
     return r, l
 
 
