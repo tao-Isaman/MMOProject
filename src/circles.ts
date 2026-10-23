@@ -28,15 +28,7 @@ export const LOOKS: Record<string, CircleLook> = {
   fire_bolt:   { color: "#ff6a22", light: "#ffcf8a", figure: "triangle", script: "fire", motes: "ember", size: 230 },
   fire_ball:   { color: "#ff5e22", light: "#ffd890", figure: "sun", script: "fire", motes: "ember", size: 300, nodes: 6 },
   meteor:      { color: "#ff4a1c", light: "#ffd27a", figure: "octagram", script: "fire", motes: "ember", size: 420, nodes: 8 },
-  cold_bolt:   { color: "#4fb4ff", light: "#bfe8ff", figure: "snow", script: "ice", motes: "frost", size: 230 },
-  ice_lance:   { color: "#5cc8ff", light: "#b8ecff", figure: "hexagram", script: "ice", motes: "frost", size: 320, nodes: 6 },
-  soul_volley: { color: "#7a88ff", light: "#cfcfff", figure: "star5", script: "arcane", motes: "wisp", size: 250, nodes: 5 },
-  ruin_beam:   { color: "#6a86ff", light: "#c4d0ff", figure: "eye", script: "arcane", motes: "wisp", size: 380, nodes: 8 },
-  thorn_bind:  { color: "#3fc45a", light: "#c6f7a0", figure: "thorns", script: "nature", motes: "leaf", size: 270 },
-  vine_whip:   { color: "#4cc86a", light: "#c4f5b8", figure: "vines", script: "nature", motes: "leaf", size: 240 },
   petal_storm: { color: "#ff7cc4", light: "#ffc8e8", figure: "rose", script: "nature", motes: "petal", size: 340, nodes: 5 },
-  gravity:     { color: "#8a66ff", light: "#d2c4ff", figure: "orbits", script: "void", motes: "void", size: 320, nodes: 3 },
-  singularity: { color: "#6e44ff", light: "#cdb8ff", figure: "spiral", script: "void", motes: "void", size: 420, nodes: 6 },
 };
 
 // A look for a spell without one of its own, from its colour.

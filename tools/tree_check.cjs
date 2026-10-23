@@ -1,5 +1,6 @@
 // Checks the skill trees (src/progression.ts with src/trees/*): compiles them with tsc into a
 // temporary folder, loads them in node and reports what would break or read wrong in the game:
+//   - a class tree without TREE_SKILLS[1] skills, a job branch without TREE_SKILLS[2]
 //   - a tree that isn't laid out on the 4 x 4 grid (columns 0-3, rows 0-3), two nodes on one
 //     spot, a prerequisite outside the tree or not on a higher row, a rank asked for that the
 //     prerequisite can't reach, a max other than 1, 5 or 10
@@ -52,7 +53,10 @@ for (const [id, t] of Object.entries(P.TREES)) {
   if (!glyphs.has(t.glyph)) bad(id, `tree glyph "${t.glyph}" unknown`);
   if (!t.name || !t.note || !/^#[0-9a-f]{6}$/i.test(t.color || "")) bad(id, "tree needs name, note and a #rrggbb color");
   const spots = new Set(), byId = Object.fromEntries(t.nodes.map((n) => [n.id, n]));
-  if (t.nodes.length < 6 || t.nodes.length > 16) bad(id, `${t.nodes.length} nodes (6-16 fit the window)`);
+  // a class tree has TREE_SKILLS[1] skills, a job branch TREE_SKILLS[2]; a book tree 6-16
+  const want = t.cls ? P.TREE_SKILLS[1] : t.job ? P.TREE_SKILLS[2] : null;
+  if (want && t.nodes.length !== want) bad(id, `${t.nodes.length} nodes (a ${t.cls ? "class tree" : "job branch"} has ${want})`);
+  if (!want && (t.nodes.length < 6 || t.nodes.length > 16)) bad(id, `${t.nodes.length} nodes (6-16 fit the window)`);
   for (const n of t.nodes) {
     const where = `${id}.${n.id}`;
     const [c, r] = n.pos || [];
