@@ -39,7 +39,7 @@ const KIND: Record<AllyKind, { radius: number; speed: number; hp: number; def: n
   golem: { radius: 42, speed: 150, hp: 0.6, def: 1.3, flee: 0, every: 1.5, life: 30, name: "หุ่นปูน" },
   statue: { radius: 30, speed: 0, hp: 0.5, def: 1, flee: 0, every: 0, life: 30, name: "รูปปั้น" },
   wall: { radius: 70, speed: 0, hp: 0.8, def: 1.5, flee: 0, every: 0, life: 20, name: "กำแพง" },
-  decoy: { radius: 24, speed: 0, hp: 0.3, def: 0, flee: 0, every: 0, life: 10, name: "ร่างแยก" },
+  decoy: { radius: 24, speed: 0, hp: 0.3, def: 1, flee: 1, every: 0, life: 10, name: "ร่างแยก" }, // (as hard to hit as the player, as before)
 };
 // How much nearer (under 1) or farther a monster counts each kind when it picks whom to go for.
 const DRAW: Record<AllyKind, number> = { wolf: 1, clone: 1, golem: 0.45, statue: 1.6, wall: Infinity, decoy: 0 };
