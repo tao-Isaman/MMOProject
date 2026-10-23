@@ -98,23 +98,21 @@ const PX_PER_CM = 0.8;   // how tall a monster of `size` cm stands on screen (th
 const BLANK = document.createElement("canvas"); // a person has no staff gem to light
 
 // level, hp, atk, def, mdef and xp feed stats.js; aggro: radius (cm) in which it attacks first.
-// The slimes round Eden are the first fights: a jelly now and then, clothes and books seldom.
+// The slimes round Eden are the first fights: a jelly now and then, books seldom, no clothes.
 const BOOK_DROPS: [string, number][] = [["book_survivor", 0.004], ["book_gathering", 0.004], ["book_lightning", 0.004]];
 export const VARIANTS: Variant[] = [
   { id: "green", name: "สไลม์เขียว", hue: 0, level: 1, hp: 60, atk: 8, def: 2, mdef: 2, xp: 8, aggro: 0, weight: 6,
     element: "plant", eleDef: { plant: 30, mud: 20, water: 10 },
-    drops: [["jelly", 0.4], ["sprout", 0.03], ["top_mint", 0.008], ["bottom_forest", 0.008], ["top_priestess_forest", 0.005], ["bottom_priestess_forest", 0.005], ...BOOK_DROPS] },
+    drops: [["jelly", 0.4], ["sprout", 0.03], ...BOOK_DROPS] },
   { id: "pink", name: "สไลม์ชมพู", hue: 185, level: 3, hp: 110, atk: 13, def: 5, mdef: 4, xp: 15, aggro: 0, weight: 4,
     eleDef: { light: 20, wind: 20, plant: 10 },
-    drops: [["jelly", 0.45], ["top_rose", 0.012], ["bottom_wine", 0.012], ["top_priestess_wine", 0.008], ["bottom_priestess_wine", 0.008], ["bottom_adventurer_wine", 0.008], ...BOOK_DROPS] },
+    drops: [["jelly", 0.45], ...BOOK_DROPS] },
   { id: "blue", name: "สไลม์ฟ้า", hue: 70, level: 5, hp: 170, atk: 18, def: 8, mdef: 10, xp: 24, aggro: 0, weight: 3,
     element: "ice", eleDef: { ice: 35, water: 30 },
-    drops: [["jelly", 0.5], ["top_sky", 0.015], ["bottom_navy", 0.015], ["top_adventurer_navy", 0.008], ["bottom_adventurer_sand", 0.008], ["top_warrior_navy", 0.008], ...BOOK_DROPS] },
+    drops: [["jelly", 0.5], ...BOOK_DROPS] },
   { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 320, atk: 28, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
     element: "dark", eleDef: { dark: 40, metal: 15, stone: 10 },
-    drops: [["sprout", 0.2], ["top_lilac", 0.03], ["bottom_cocoa", 0.03], ["jelly", 0.6], ["top_priestess_black", 0.015], ["bottom_priestess_black", 0.015],
-      ["top_adventurer_plum", 0.015], ["bottom_adventurer_black", 0.015], ["top_adventurer_ochre", 0.01], ["top_warrior_forest", 0.01], ["bottom_warrior_black", 0.01],
-      ["book_survivor", 0.02], ["book_gathering", 0.02], ["book_lightning", 0.02]] },
+    drops: [["sprout", 0.2], ["jelly", 0.6], ["book_survivor", 0.02], ["book_gathering", 0.02], ["book_lightning", 0.02]] },
 ];
 const BITE_REACH = 95;   // cm between centres
 const BITE_TIME = 1.6;   // s between bites
