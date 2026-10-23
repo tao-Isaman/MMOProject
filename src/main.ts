@@ -13,6 +13,7 @@ import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
 import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
 import { gearTierAt, TIER_DROP, tierPool } from "./drops";
+import { WorkshopUI } from "./workshop";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
 import { Ground } from "./loot";
 import type { MonsterCtx, Person } from "./monsters";
@@ -804,6 +805,7 @@ async function boot(): Promise<void> {
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
   const shopUI = new ShopUI(inv, iconFor, () => ({ buy: hero.stats.buyDisc, sell: hero.stats.sellBonus }), (id) => invUI.wearable(id));
+  const workshopUI = new WorkshopUI(inv, progress, () => hero.stats, iconFor, entry?.name ?? "");
   const talkDialog = new TalkDialog(quests);
   const questLog = new QuestLog(quests);
   const questTracker = new QuestTracker(quests, () => questLog.toggle(true));
@@ -1170,6 +1172,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyK" && !e.repeat) skillUI.toggle();
     if (e.code === "KeyB" && !e.repeat) botUI.toggle();
     if (e.code === "KeyJ" && !e.repeat) questLog.toggle();
+    if (e.code === "KeyU" && !e.repeat) workshopUI.toggle();
     if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
@@ -1187,6 +1190,7 @@ async function boot(): Promise<void> {
       skillUI.toggle(false);
       botUI.toggle(false);
       shopUI.toggle(false);
+      workshopUI.toggle(false);
       mapUI.toggle(false);
       questLog.toggle(false);
       talkDialog.close();
@@ -1195,7 +1199,8 @@ async function boot(): Promise<void> {
   });
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()], ["btn-settings", () => settingsUI.toggle()],
-    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()], ["btn-quests", () => questLog.toggle()]];
+    ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()], ["btn-quests", () => questLog.toggle()],
+    ["btn-workshop", () => workshopUI.toggle()]];
   for (const [id, fn] of buttons) {
     document.getElementById(id)?.addEventListener("click", (e) => {
       (e.currentTarget as HTMLElement).blur();

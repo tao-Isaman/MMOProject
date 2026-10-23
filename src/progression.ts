@@ -650,6 +650,22 @@ const weaponMastery = (name: string, weapons: WeaponId[], glyph: string, w: Weap
   ],
 });
 
+// A craft (workshop.ts): its levels open the gear tiers it makes (CRAFT_TIER_AT: tier 30 at level 1,
+// 60 at 5 ... 180 at 25), and every level makes a piece likelier to come out +1 and refining what
+// it makes surer.
+export const CRAFT_MAX = 30;
+export const CRAFT_TIER_AT: Record<number, number> = { 30: 1, 60: 5, 90: 10, 120: 15, 150: 20, 180: 25 };
+export const CRAFT_BONUS = 0.01;   // a level: the chance a made piece comes out +1
+export const CRAFT_REFINE = 0.005; // a level: the chance refining what the craft makes succeeds
+function craftMastery(name: string, glyph: string, what: string): Mastery {
+  return {
+    name, kind: "life", glyph, max: CRAFT_MAX, per: {},
+    perDesc: `ของที่สร้างออกมาเป็น +1 ได้ 1% ต่อระดับ · ตีบวก${what}สำเร็จง่ายขึ้น 0.5% ต่อระดับ`,
+    rewards: Object.entries(CRAFT_TIER_AT).map(([tier, at]) =>
+      ({ at, kind: "passive" as const, name: `ช่างเลเวล ${tier}`, glyph: "up", desc: `สร้าง${what}เลเวล ${tier} ได้ที่โรงช่าง (U)` })),
+  };
+}
+
 export const MASTERIES: Record<string, Mastery> = {
   // all round: damage, aim and a little of everything
   sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword", {
@@ -760,6 +776,10 @@ export const MASTERIES: Record<string, Mastery> = {
       { at: 20, kind: "passive", name: "นักเดินทาง", glyph: "dash", stats: { move: 0.05 }, desc: "ความเร็วเดิน +5%" },
     ],
   },
+  // the crafts, opened by an inventor's branch or a book
+  weaponcraft: craftMastery("สร้างอาวุธ", "sword", "อาวุธ"),
+  armorcraft: craftMastery("สร้างชุด", "shield", "ชุด หมวก และรองเท้า"),
+  jewelcraft: craftMastery("สร้างประดับ", "ring", "แหวนและจี้"),
 };
 
 // ---- elements ----

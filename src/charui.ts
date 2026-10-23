@@ -847,7 +847,7 @@ export class SkillUI {
       const info = el("div", "sk-info", top);
       const cap = p.masteryMax(id);
       el("strong", "", info).textContent = `${m.name} · ระดับ ${lv}/${cap}${this.planned("mastery", id) ? ` (+${this.planned("mastery", id)})` : ""}${m.weapons?.includes(holding as WeaponId) ? " · ถืออยู่" : ""}`;
-      el("span", "sk-sub", info).textContent = `${m.perDesc}${lv ? ` · ตอนนี้ ${bagText(Object.fromEntries(Object.entries(m.per).map(([k, v = 0]) => [k, v * lv])))}` : ""}`;
+      el("span", "sk-sub", info).textContent = `${m.perDesc}${lv && Object.keys(m.per).length ? ` · ตอนนี้ ${bagText(Object.fromEntries(Object.entries(m.per).map(([k, v = 0]) => [k, v * lv])))}` : ""}`;
       const full = lv >= cap;
       if (this.planned("mastery", id)) row.classList.add("planned");
       this.minus(top, "mastery", id);
