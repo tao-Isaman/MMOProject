@@ -8,8 +8,8 @@
 import { el, makeWindow } from "./ui";
 import { ITEMS } from "./items";
 import { MAP_NAMES } from "./maps";
-import { QUESTS, QUEST_BY_ID, rewardText } from "./quests";
-import { JOBS, JOB_POINTS, TREES } from "./progression";
+import { QUESTS, QUEST_BY_ID, questJob, rewardText } from "./quests";
+import { JOB_POINTS, TREES } from "./progression";
 import { monsterField, placeOf, questDest } from "./guide";
 import type { QuestDef, Quests } from "./quests";
 import type { MapId } from "./maps";
@@ -155,7 +155,7 @@ export class TalkDialog {
         quests.accept(q.id);
         this.home();
       }, "main");
-    } else if (forMe && quests.ready(q.id) && q.job && quests.s.active[q.id].step === q.steps.length - 1) {
+    } else if (forMe && quests.ready(q.id) && questJob(q) && quests.s.active[q.id].step === q.steps.length - 1) {
       this.branches(q);
       return;
     } else if (forMe && quests.ready(q.id)) {
@@ -188,7 +188,7 @@ export class TalkDialog {
   // The last hand-in of a job quest: the master tells of the job's branches; the player picks one
   // (a second press on it confirms) and takes the job.
   branches(q: QuestDef, picked: string | null = null): void {
-    const job = JOBS[q.job!], quests = this.quests;
+    const job = questJob(q)!, quests = this.quests;
     this.header(`${job.name} · เลือกสาย`);
     this.text.textContent = `${job.name}มี ${job.branches.length} สาย เลือกได้เพียงสายเดียว และเปลี่ยนภายหลังไม่ได้ เลือกแล้วได้ต้นสกิลของสายนั้นพร้อมแต้มสกิล ${JOB_POINTS} แต้ม`;
     this.list.replaceChildren();

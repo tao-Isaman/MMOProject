@@ -10,14 +10,17 @@
 // Rewards come at the end: gold, experience, skill points (on top of a point a level) and items.
 // A step can also hand the player something to carry (`gives`, a letter) and take it back.
 // Job quests (`job`) come from each second job's master; the master tells what it takes (the
-// level, the classes) and, at the last hand-in, lets the player pick a branch of the job.
+// level, the classes) and, at the last hand-in, lets the player pick a branch of the job. The
+// third jobs' (`job3`) work the same way and live in src/quests_job3.ts.
 //
 // The state is per character (save.ts saveKey): the quests on, their step and count, how many
 // times each was finished, and when a repeatable one may be taken again.
 
 import { saveKey } from "./save";
+import { JOBS, JOBS3 } from "./progression";
 import type { MapId } from "./maps";
-import type { JobId } from "./progression";
+import type { Job3Id, JobId } from "./progression";
+import { JOB3_QUESTS } from "./quests_job3";
 
 export interface Who {
   map: MapId;
@@ -60,6 +63,12 @@ export interface QuestDef {
   reward: Reward;
   job?: JobId;       // a job change: offered only to who may take that job; on the last hand-in
                      // the player picks one of its branches and takes the job (progression.ts)
+  job3?: Job3Id;     // a third job change, the same way
+}
+
+// The job a job quest gives (a second or a third): its name and branches; null for the rest.
+export function questJob(q: QuestDef): { name: string; branches: string[] } | null {
+  return q.job3 ? JOBS3[q.job3] : q.job ? JOBS[q.job] : null;
 }
 
 // Who's who (the townsfolk the quests go through).
@@ -351,6 +360,9 @@ export const QUESTS: QuestDef[] = [
     reward: { gold: 3000, xp: 8000, items: [["potion_red", 5], ["potion_blue", 5]] } },
 ];
 
+// the third jobs' quests, kept in their own file
+QUESTS.push(...JOB3_QUESTS);
+
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 
 interface Active {
@@ -374,6 +386,8 @@ export interface QuestDeps {
   note(text: string): void; // a line over the player ("สไลม์เขียว 3/5")
   jobBlock(job: JobId): string | null;            // why the player can't take a job, or null
   takeJob(job: JobId, branch: string): boolean;   // take it with that branch
+  job3Block(job: Job3Id): string | null;          // and the same for a third job
+  takeJob3(job: Job3Id, branch: string): boolean;
 }
 
 export class Quests {
@@ -420,6 +434,10 @@ export class Quests {
       const no = this.deps.jobBlock(q.job);
       if (no) return no;
     }
+    if (q.job3) {
+      const no = this.deps.job3Block(q.job3);
+      if (no) return no;
+    }
     const missing = (q.after ?? []).filter((a) => !this.timesDone(a));
     if (missing.length) return `ต้องทำ "${missing.map((a) => QUEST_BY_ID[a]?.name ?? a).join(", ")}" ก่อน`;
     return null;
@@ -463,7 +481,7 @@ export class Quests {
   // and the job quests they would give once the player qualifies (to tell what it takes).
   optionsFor(map: MapId, npc: string): { offers: QuestDef[]; ready: QuestDef[]; busy: QuestDef[]; locked: QuestDef[] } {
     const offers = QUESTS.filter((q) => this.is(q.giver, map, npc) && this.available(q));
-    const locked = QUESTS.filter((q) => q.job && this.is(q.giver, map, npc) && !this.isActive(q.id) && !this.timesDone(q.id) && !this.available(q));
+    const locked = QUESTS.filter((q) => (q.job || q.job3) && this.is(q.giver, map, npc) && !this.isActive(q.id) && !this.timesDone(q.id) && !this.available(q));
     const ready: QuestDef[] = [], busy: QuestDef[] = [];
     for (const id of Object.keys(this.s.active)) {
       const q = QUEST_BY_ID[id], st = this.step(id);
@@ -501,6 +519,7 @@ export class Quests {
     if (!q || !a || !st || !this.ready(id)) return null;
     const last = a.step === q.steps.length - 1;
     if (q.job && last && (!branch || this.deps.jobBlock(q.job) || !this.deps.takeJob(q.job, branch))) return null;
+    if (q.job3 && last && (!branch || this.deps.job3Block(q.job3) || !this.deps.takeJob3(q.job3, branch))) return null;
     if (st.goal.kind === "collect") this.deps.take(st.goal.item, st.goal.count);
     for (const [item, n] of st.takes ?? []) this.deps.take(item, Math.min(n, this.deps.count(item)));
     this.advance(q, a);

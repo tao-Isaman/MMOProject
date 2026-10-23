@@ -18,6 +18,9 @@ import { CASTER_TREES } from "./trees/casters";
 import { BATTLEMAGE_TREES } from "./trees/battlemage";
 import { BOOK_TREES } from "./trees/books";
 import { V02_JOB_TREES } from "./trees/v02jobs";
+import { V03_JOB_TREES } from "./trees/v03";
+import { TERRAIN_KINDS } from "./terrain";
+import type { TerrainKind } from "./terrain";
 
 export const MAX_LEVEL = 200;
 
@@ -53,7 +56,19 @@ export interface Need {
   shield?: boolean; // a shield (buckler, kite shield) in the off hand
 }
 
-export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon" | "decoy" | "workshop";
+export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon" | "decoy" | "workshop"
+  | "summon" | "mimic" | "smoke" | "make";
+
+// The allies a summon calls (src/allies.ts): wolf, clone and golem fight, the statue blesses
+// whoever stands by it, the wall stands in the monsters' way; the decoy is the jester's copy.
+export const ALLY_KINDS = ["wolf", "clone", "statue", "wall", "golem", "decoy"] as const;
+export type AllyKind = (typeof ALLY_KINDS)[number];
+export { TERRAIN_KINDS };
+export type { TerrainKind };
+
+// A passive or buff stat that casts a skill by itself: `autocast_<skill id>` is the chance a
+// normal hit that lands casts that skill for free at what it hit (skills.ts autocast).
+export const AUTOCAST = "autocast_";
 
 // An active skill's numbers; which fields matter depends on `type` (skills.ts).
 //   trap    laid at the aimed spot (`range` at most, `radius` wide); the first monster to step in
@@ -64,6 +79,29 @@ export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "
 //           monsters go for it instead of the player while it stands.
 //   workshop  opens the workshop on the spot (`bench`: its tab and the craft it serves), free of
 //           the smiths' fees.
+// The third jobs' (src/allies.ts, skills.ts):
+//   summon  calls an ally of kind `ally` (ALLY_KINDS) for `duration` s (default 30), at most
+//           `count` of that kind at a time (default 1; one more sends the oldest away). `base`: its
+//           HP as a share of the player's max HP; `mult` (with `stat`): each of its blows, as a
+//           skill hit of the player's (a clone: of the player's normal attack), one every `every`
+//           s; `range`: placed on the aimed spot up to that far (else in front of the player);
+//           a statue's `buff` is the player's while within its `radius` (default 300); a wall's
+//           `radius` is its size (default 70). wolf: follows, bites what the player attacks or
+//           what attacks the player; clone: the player's look, fights the player's target; golem:
+//           walks to the nearest monster and draws the monsters to it; wall: monsters can't
+//           walk through it and hit it when it is in their way.
+//   mimic   copies the locked monster's attack (its shot and element, or its bite) for `uses`
+//           uses (default 5) or `duration` s (default 20): the same slot then fires the copy,
+//           `mult` of the player's attack (magic attack for a spell), no MP, `every` s apart
+//           (default 0.8); when it runs out the skill's own cooldown starts.
+//   smoke   a cloud of `radius` (default 220) for `duration` s (default 10), on the aimed spot
+//           (`range`) or round the player: she is hidden while she stays in it (stealth, its
+//           `buff` on top); a blow from it shows her for a moment, then the smoke hides her again.
+//   make    turns materials into an item: `make.from` taken from the bag, `make.count(rank)` of
+//           `make.item` given (poison vials, src/poisons.ts).
+// Riders any skill can carry: `combo` (stronger right after another skill), `manaBurn` (more on
+// casters, `silence` s of no casting or shooting), `hits` on nova, beam and dash too (bolt, cone
+// and blast had it), `terrain` on a buff (stats by the kind of map, src/terrain.ts).
 // stat "both": attack and magic attack together (0.6 of each), a spell's sure hit.
 export interface SkillDef {
   type: SkillType;
@@ -117,6 +155,18 @@ export interface SkillDef {
                              // adds `roll` times (die - 3) / 3 (a 1 takes away, a 6 gives it all)
   roll?: ByRank<StatBag>;
   bench?: { tab: "craft" | "refine"; craft: string };
+  // ---- the third jobs' ----
+  ally?: AllyKind;           // summon: what it calls (see above)
+  uses?: number;             // mimic: how many times the copy can be used
+  // a chain: within `within` s (default 3) of casting one of `after`, this cast does `more`
+  // more damage (0.4: +40%) and says so
+  combo?: { after: string[]; within?: number; more: ByRank<number> };
+  manaBurn?: ByRank<number>; // this much more damage to a caster (Monster.magical), and its casting
+  silence?: number;          // and shooting stop for this many s (default 3), any monster's
+  // a buff whose stats depend on where the player stands: these on top of `buff` for the kind
+  // of map she is on (they change as she goes from map to map)
+  terrain?: ByRank<Partial<Record<TerrainKind, StatBag>>>;
+  make?: { item: string; count: ByRank<number>; from: [string, number][] };
 }
 
 export interface TreeNode {
@@ -129,6 +179,7 @@ export interface TreeNode {
   glyph: string;
   desc: ByRank<string>;
   stats?: ByRank<StatBag>;
+  terrain?: ByRank<Partial<Record<TerrainKind, StatBag>>>; // a passive: these too, on that kind of map
   skill?: SkillDef;
   need?: Need;
 }
@@ -137,6 +188,8 @@ export interface Tree {
   name: string;
   cls: ClassId | null;
   job?: JobId;      // a second job's branch: learned on taking the job, no book
+  job3?: Job3Id;    // a third job's branch, the same way
+  stub?: boolean;   // not written yet: its job isn't offered (job3Open), tree_check lets it be
   opens?: string;   // a mastery the branch teaches on taking it (an inventor's craft)
   book?: string;
   color: string;
@@ -360,17 +413,117 @@ export const JOBS: Record<JobId, JobDef> = {
   },
 };
 
-// What to call a character: its job, else its class.
-export function jobName(p: { cls: ClassId | null; job: JobId | null }): string {
-  return p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
+// ---- third jobs ----
+// At level 60 (THIRD_JOB_LEVEL) a character with a second job can take a third, from its master
+// (src/jobmasters.ts) by the master's quest (src/quests_job3.ts), the same way: a branch picked at
+// the hand-in, learned on the spot with JOB_POINTS points, its first skill on the bar. `from`: the
+// second jobs that may take it (null: any). The second job and its branch stay; the third adds
+// its bonus at once and its growth on every level after THIRD_JOB_LEVEL (job3Stats), a little
+// over a second job's. Its branches have TREE_SKILLS[3] skills; a branch still being written is a
+// stub, and a job with a stub branch isn't offered yet (job3Open).
+export const THIRD_JOB_LEVEL = 60;
+export type Job3Id = "knight" | "hunter" | "archmage" | "assassin" | "high_bishop" | "monk" | "spellblade" | "sculptor" | "magician" | "historian" | "shinobi";
+
+export interface Job3Def {
+  name: string;
+  from: JobId[] | null;
+  branches: string[];
+  note: string;
+  bonus: StatBag;
+  growth: StatBag;
+  glyph: string;  // its emblem until it has a picture (icons.ts glyph)
+  color: string;
+}
+
+export const JOBS3: Record<Job3Id, Job3Def> = {
+  knight: {
+    name: "อัศวิน", from: ["swordsman", "warlord", "mercenary"], branches: ["knight_lance", "knight_blade", "knight_axe"],
+    note: "นักรบเกราะหนักผู้ภักดี ใช้หอกกวาดศัตรูหลายตัวและยืนระยะ ดาบที่เร็วทั้งมือและเท้า หรือขวานที่ผ่าเกราะและคริติคอลหนัก",
+    bonus: { atk: 12, maxHp: 140, def: 7 }, growth: { atk: 0.66, maxHp: 5.4, def: 0.28 }, glyph: "shield", color: "#c8d8f0",
+  },
+  hunter: {
+    name: "นักล่า", from: ["ranger", "thief", "jester", "mercenary"], branches: ["hunter_bow", "hunter_beast"],
+    note: "นักล่าตัวจริง ยิงธนูแรงใส่เป้าเดียวพร้อมทำให้มันวิ่งไม่ได้ หรือออกล่ากับฝูงหมาป่าที่กัดทุกตัวที่เราตี",
+    bonus: { atk: 10.5, hit: 12, flee: 8, crit: 0.012 }, growth: { atk: 0.56, hit: 0.42, flee: 0.34, maxHp: 2.8 }, glyph: "paw", color: "#b9d08a",
+  },
+  archmage: {
+    name: "จอมเวทชั้นสูง", from: ["wizard", "battlemage", "inventor", "jester"], branches: ["archmage_elements", "archmage_metal"],
+    note: "ปราชญ์แห่งเวท ร่ายเวทหลายธาตุเป็นวงกว้าง หรือเวทโลหะที่ป้องกันหนา ถือโล่ และสะท้อนการโจมตี",
+    bonus: { matk: 16, maxMp: 70, mdef: 5 }, growth: { matk: 0.8, maxMp: 2.8, mdef: 0.22 }, glyph: "star", color: "#a8b8ff",
+  },
+  assassin: {
+    name: "นักฆ่า", from: ["ranger", "thief", "swordsman", "warlord", "mercenary"], branches: ["assassin_blade", "assassin_venom", "assassin_spell"],
+    note: "เงาที่ไม่มีใครเห็น ฆ่าเร็วด้วยกรงเล็บและคริติคอล ทำยาพิษเคลือบอาวุธ หรือเผามานาของพวกร่ายเวทด้วยมีด",
+    bonus: { atk: 10.5, flee: 12, aspd: 0.06, crit: 0.012 }, growth: { atk: 0.56, flee: 0.48, maxHp: 2.8 }, glyph: "skull", color: "#9a7cc8",
+  },
+  high_bishop: {
+    name: "บาทหลวงชั้นสูง", from: ["bishop"], branches: ["hbishop_blessing", "hbishop_renewal", "hbishop_exorcist"],
+    note: "ผู้นำแห่งศรัทธา ให้พรและปกป้อง รักษาแรงและเป็นหมู่ หรือล่าปีศาจและอันเดดด้วยกระบองที่ร่ายเวทเองเมื่อตี",
+    bonus: { matk: 10, maxMp: 56, mdef: 8, healPct: 0.08 }, growth: { matk: 0.56, maxMp: 2.2, mdef: 0.34, maxHp: 2.8 }, glyph: "cross", color: "#fff0b0",
+  },
+  monk: {
+    name: "พระนักรบ", from: ["bishop", "wizard", "battlemage", "thief"], branches: ["monk_nature", "monk_martial"],
+    note: "นักบวชผู้ฝึกกาย ตีปกติผสานพลังธรรมชาติและร่ายสกิลเองเมื่อตี หรือศิลปะการต่อสู้หลายฮิตด้วยสนับมือ",
+    bonus: { atk: 9, matk: 9, maxHp: 84, aspd: 0.04 }, growth: { atk: 0.44, matk: 0.44, maxHp: 3.6 }, glyph: "bash", color: "#ffcf8a",
+  },
+  spellblade: {
+    name: "จอมเวทนักสู้ขั้นสูง", from: ["battlemage", "wizard", "swordsman"], branches: ["spellblade_rift", "spellblade_runic"],
+    note: "ดาบกับเวทเป็นหนึ่งเดียว ดาบผ่ามิติแห่งความมืด หรือดาบเสริมเวทที่เปลี่ยนธาตุและกระบวนท่าได้ตามศัตรู",
+    bonus: { atk: 8.5, matk: 8.5, maxHp: 70, maxMp: 35 }, growth: { atk: 0.42, matk: 0.42, maxHp: 3.6, maxMp: 1.4 }, glyph: "twin", color: "#b8a0ff",
+  },
+  sculptor: {
+    name: "นักประติมากรรม", from: ["inventor"], branches: ["sculptor_wood", "sculptor_stone"],
+    note: "ช่างผู้ปลุกงานสลักให้มีชีวิต รูปปั้นไม้ที่ให้พรแก่ผู้ยืนใกล้ หรือกำแพงและหุ่นปูนที่ขวางและช่วยสู้",
+    bonus: { atk: 8.5, matk: 8.5, def: 5, maxHp: 84 }, growth: { atk: 0.42, matk: 0.42, def: 0.22, maxHp: 3.6 }, glyph: "earth", color: "#d8c09a",
+  },
+  magician: {
+    name: "นักมายากล", from: null, branches: ["magician_gambler", "magician_copycat", "magician_illusion"],
+    note: "นักแสดงผู้เล่นกลกับทุกสิ่ง ทอยเต๋าและโยนเหรียญเสี่ยงดวง ก๊อปท่าของมอนสเตอร์มาใช้ หรือหลอกตาด้วยร่างปลอมและควัน",
+    bonus: { luck: 12, flee: 8, maxHp: 70, atk: 7, matk: 7 }, growth: { luck: 0.36, flee: 0.34, maxHp: 2.8, atk: 0.36, matk: 0.36 }, glyph: "swirl", color: "#ff9ad8",
+  },
+  historian: {
+    name: "นักประวัติศาสตร์", from: null, branches: ["historian_nature", "historian_archaeo"],
+    note: "ผู้รู้แห่งโลก รู้จุดอ่อนของมอนสเตอร์ทุกเผ่าและหาของได้มากขึ้น หรือรู้จักดินแดนจนได้พลังจากภูมิประเทศที่ยืนอยู่",
+    bonus: { atk: 7, matk: 7, hit: 8, drop: 0.05, maxHp: 70 }, growth: { atk: 0.36, matk: 0.36, hit: 0.3, maxHp: 2.8 }, glyph: "scroll", color: "#d8c08a",
+  },
+  shinobi: {
+    name: "ชิโนบิ", from: null, branches: ["shinobi_spy", "shinobi_combat"],
+    note: "นินจาแห่งเกาะตะวันออก สายลับที่ซ่อนตัว เคลื่อนไหว และลอบโจมตีจากระยะไกล หรือนักสู้มีดและดาบที่แยกร่างโจมตี",
+    bonus: { atk: 10, flee: 10, move: 0.04, aspd: 0.04 }, growth: { atk: 0.54, flee: 0.42, maxHp: 2.8 }, glyph: "eye", color: "#8aa0c8",
+  },
+};
+
+// A third job that can be taken: every branch written (none a stub).
+export function job3Open(id: Job3Id): boolean {
+  return JOBS3[id].branches.every((b) => TREES[b] && !TREES[b].stub);
+}
+
+// The third job's bonus and its growth since THIRD_JOB_LEVEL (hero.ts adds them with the buffs).
+export function job3Stats(p: { job3: Job3Id | null; level: number }): StatBag {
+  const j = p.job3 ? JOBS3[p.job3] : null;
+  if (!j) return {};
+  const out: StatBag = { ...j.bonus };
+  const k = Math.max(0, p.level - THIRD_JOB_LEVEL);
+  for (const [key, v = 0] of Object.entries(j.growth)) out[key] = (out[key] ?? 0) + v * k;
+  return out;
+}
+
+// What to call a character: its third job, else its second, else its class.
+export function jobName(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): string {
+  return p.job3 ? JOBS3[p.job3].name : p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
 }
 
 // The emblem shown with that name: assets/skills/job_<id>.png for a job drawn already (JOB_ART),
-// else class_<id>.png (null: no class).
-const JOB_ART = new Set<JobId>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord"]);
-export function jobIcon(p: { cls: ClassId | null; job: JobId | null }): string | null {
+// else class_<id>.png (null: no class). A third job not drawn yet has no picture: null, and
+// jobGlyph gives the glyph to draw instead.
+const JOB_ART = new Set<JobId | Job3Id>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord"]);
+export function jobIcon(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): string | null {
+  if (p.job3) return JOB_ART.has(p.job3) ? `assets/skills/job_${p.job3}.png` : null;
   if (p.job && JOB_ART.has(p.job)) return `assets/skills/job_${p.job}.png`;
   return p.cls ? `assets/skills/class_${p.cls}.png` : null;
+}
+export function jobGlyph(p: { job3?: Job3Id | null }): [string, string] | null {
+  return p.job3 && !JOB_ART.has(p.job3) ? [JOBS3[p.job3].glyph, JOBS3[p.job3].color] : null;
 }
 
 // The four elements a new character picks one of (the rest are found in the game).
@@ -386,7 +539,7 @@ export const FIRST_ELEMENTS = ["earth", "water", "wind", "fire"];
 // line, lines that need points in a neighbour, and levels of 1, 5 or 10.
 // Few skills to a tree, more with every class: the rest of a character's strength comes from its
 // masteries, elements and gear. TREE_SKILLS[n]: the skills in each tree of the n-th class (1: the
-// class picked at the start, 2: the second job; 3, 4 and 5 are the classes still to come).
+// class picked at the start, 2: the second job, 3: the third; 4 and 5 are the classes still to come).
 export const TREE_SKILLS: Record<number, number> = { 1: 5, 2: 6, 3: 7, 4: 8, 5: 9 };
 export const TREES: Record<string, Tree> = {
   arcane: {
@@ -1059,8 +1212,8 @@ export const ELEMENT_STAT_NAMES: Record<string, string> = Object.fromEntries(
   ELEMENT_IDS.flatMap((e) => [[`${e}Atk`, `พลังโจมตีธาตุ${ELEMENTS[e].name}`], [`${e}Def`, `ป้องกันธาตุ${ELEMENTS[e].name}`]]),
 );
 
-// The second jobs' branches and the later books (src/trees/).
-for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, V02_JOB_TREES, BOOK_TREES]) {
+// The second and third jobs' branches and the later books (src/trees/).
+for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, V02_JOB_TREES, V03_JOB_TREES, BOOK_TREES]) {
   for (const [id, t] of Object.entries(more)) {
     if (TREES[id]) throw new Error(`tree ${id} twice`);
     TREES[id] = t;
@@ -1107,7 +1260,7 @@ function addBook(kind: BookKind, id: string, own: string | undefined, name: stri
     note: note ?? `อ่านเพื่อเรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[kind] + name} (${who})`,
   };
 }
-for (const [id, t] of Object.entries(TREES)) if (!t.job) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
+for (const [id, t] of Object.entries(TREES)) if (!t.job && !t.job3) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
 for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.name, m.glyph, "#e8c98a", null);
 for (const [id, e] of Object.entries(ELEMENTS)) addBook("element", id, e.book, e.name, e.glyph, e.color, null);
 for (const [id, m] of Object.entries(MASTERIES)) {
@@ -1163,6 +1316,8 @@ interface SaveData {
   bonus?: number;
   job?: JobId | null;
   branch?: string | null;
+  job3?: Job3Id | null;
+  branch3?: string | null;
   treesV?: number;
   learnV?: number;
 }
@@ -1187,6 +1342,8 @@ export class Progress {
   bonus = 0;                             // skill points from quests and jobs, on top of one a level
   job: JobId | null = null;              // the second job, and the branch picked with it
   branch: string | null = null;
+  job3: Job3Id | null = null;            // the third job, and its branch
+  branch3: string | null = null;
 
   constructor() {
     if (!this.load()) this.reset(null);
@@ -1206,6 +1363,8 @@ export class Progress {
     this.bonus = 0;
     this.job = null;
     this.branch = null;
+    this.job3 = null;
+    this.branch3 = null;
     this.changed();
   }
 
@@ -1228,6 +1387,33 @@ export class Progress {
     const craft = TREES[branch].opens;
     if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
     this.bonus += JOB_POINTS;
+    this.changed();
+    return true;
+  }
+
+  // Why it can't take a third job yet, or null.
+  job3Block(id: Job3Id): string | null {
+    const j = JOBS3[id];
+    if (this.job3) return `เปลี่ยนเป็น${JOBS3[this.job3].name}ไปแล้ว`;
+    if (!job3Open(id)) return `${j.name}ยังไม่เปิดให้เปลี่ยน รออีกไม่นาน`;
+    if (!this.job) return "ต้องเปลี่ยนอาชีพที่ 2 ก่อน";
+    if (j.from && !j.from.includes(this.job)) return `ต้องเป็น${j.from.map((c) => JOBS[c].name).join(" หรือ ")}`;
+    if (this.level < THIRD_JOB_LEVEL) return `ต้องเลเวล ${THIRD_JOB_LEVEL} ขึ้นไป`;
+    return null;
+  }
+
+  // Take a third job with one of its branches, as takeJob does a second: the branch's tree,
+  // JOB_POINTS points and its first skill on the bar if there's room. False when it can't.
+  takeJob3(id: Job3Id, branch: string): boolean {
+    if (this.job3Block(id) || !JOBS3[id].branches.includes(branch) || !TREES[branch]) return false;
+    this.job3 = id;
+    this.branch3 = branch;
+    if (!this.unlocked.trees.includes(branch)) this.unlocked.trees.push(branch);
+    const craft = TREES[branch].opens;
+    if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
+    this.bonus += JOB_POINTS;
+    const first = firstActive(branch);
+    if (first) this.autoSlot(first);
     this.changed();
     return true;
   }
@@ -1259,7 +1445,7 @@ export class Progress {
     Object.assign(d, structuredClone({
       cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
       elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus,
-      job: this.job, branch: this.branch,
+      job: this.job, branch: this.branch, job3: this.job3, branch3: this.branch3,
     }));
     d.listeners = new Set();
     d.save = () => {};
@@ -1436,7 +1622,7 @@ export class Progress {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
         elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus, job: this.job, branch: this.branch,
-        treesV: TREES_VERSION, learnV: LEARN_VERSION,
+        job3: this.job3, branch3: this.branch3, treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
       // not persisted
@@ -1458,6 +1644,9 @@ export class Progress {
     this.bonus = Math.max(0, Number(d.bonus) || 0) | 0;
     this.job = d.job && JOBS[d.job] ? d.job : null;
     this.branch = this.job && d.branch && JOBS[this.job].branches.includes(d.branch) ? d.branch : null;
+    // (a save from before the third jobs has none)
+    this.job3 = this.job && d.job3 && JOBS3[d.job3] ? d.job3 : null;
+    this.branch3 = this.job3 && d.branch3 && JOBS3[this.job3].branches.includes(d.branch3) ? d.branch3 : null;
     const known = (o: Record<string, number> | undefined, ok: (k: string) => boolean) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
     const nodes = new Set(Object.values(TREES).flatMap((t) => t.nodes.map((n) => n.id)));
     this.ranks = known(d.ranks, (k) => nodes.has(k));

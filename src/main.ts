@@ -25,9 +25,13 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
+import { Progress, ACTIVES, BOOKS, JOBS, JOBS3, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
+import { Allies, Ally } from "./allies";
+import { jobMasters } from "./jobmasters";
+import { COATINGS } from "./poisons";
+import { terrainOf } from "./terrain";
 import { monsterDamage, lucky } from "./stats";
 import type { ElementId, StatBag } from "./progression";
 
@@ -499,7 +503,8 @@ async function boot(): Promise<void> {
     let list = folk.get(map.id);
     if (list) return list;
     const sheets: Promise<unknown>[] = [];
-    list = map.npcs.map((spec) => {
+    // (the third jobs' masters stand in the towns by their own list, src/jobmasters.ts)
+    list = [...map.npcs, ...jobMasters(map.id)].map((spec) => {
       const npc = new Npc(spec);
       if (spec.sprite === "merchant") npc.sheet = images.merchant;
       else if (spec.look) {
@@ -541,6 +546,7 @@ async function boot(): Promise<void> {
   }
   // the list stays the same array (combat, skills and the bot hold it)
   const monsters: Monster[] = await populate(current);
+  hero.setTerrain(terrainOf(current.id));
   // what they drop lies on the ground until it is picked up (src/loot.ts)
   const ground = new Ground();
   // quests (src/quests.ts): the bag, the level, and the rewards paid here
@@ -563,6 +569,16 @@ async function boot(): Promise<void> {
       hero.recompute();
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 60);
       skills.ring(player.x, player.y, "#ffe27a", 260, 0.9);
+      return true;
+    },
+    job3Block: (job) => progress.job3Block(job),
+    takeJob3(job, branch) {
+      if (!progress.takeJob3(job, branch)) return false;
+      floaters.add(player.x, player.y, 200, `เปลี่ยนอาชีพเป็น${JOBS3[job].name}!`, "level");
+      floaters.add(player.x, player.y, 185, `${TREES[branch].name} · แต้มสกิล +${JOB_POINTS}`, "level");
+      hero.recompute();
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 80);
+      skills.ring(player.x, player.y, "#ffe27a", 320, 1);
       return true;
     },
     reward(r, q) {
@@ -634,8 +650,10 @@ async function boot(): Promise<void> {
       if (progress.addXp(xp) > 0) levelUp();
     },
   });
+  // the player's allies: summons and the decoy (src/allies.ts)
+  const allies = new Allies({ hero, player, monsters, combat, fx, tex, floaters, weapon: () => weaponStats(inv.equipped.weapon, hero.stats) });
   const skills = new Skills({
-    progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => weaponType(inv.equipped.weapon),
+    progress, hero, player, combat, monsters, fx, tex, floaters, spells, allies, weapon: () => weaponType(inv.equipped.weapon),
     // the thief's stealing blows: gold by the monster's level, or one of its drops (by their chances)
     steal(m, what) {
       if (what === "gold") {
@@ -652,15 +670,25 @@ async function boot(): Promise<void> {
       ground.drop(got, m);
       floaters.add(m.x, m.y, m.height + 70, `ขโมย ${ITEMS[got].name}`, "level");
     },
-    decoy(x, y, hp, t) {
-      decoy = { x, y, hp, t };
-    },
     // a craft's skill: the workshop on the spot, free of fees
     workshop: (b) => workshopUI.show({ craft: b.craft as Craft, tab: b.tab }),
+    // a make skill (poison vials): the materials out of the bag, what it makes in
+    make(mk, rank, dry) {
+      const short = mk.from.filter(([id, n]) => inv.count(id) < n);
+      if (short.length) return `วัตถุดิบไม่พอ: ${short.map(([id, n]) => `${ITEMS[id].name} ${inv.count(id)}/${n}`).join(", ")}`;
+      if (dry) return null;
+      for (const [id, n] of mk.from) inv.take(id, n);
+      const n = Math.max(1, Math.round(mk.count(rank)));
+      const left = inv.add(mk.item, n);
+      for (let i = 0; i < left; i++) ground.drop(mk.item, player);
+      inv.changed();
+      return `ได้${ITEMS[mk.item].name} ×${n}`;
+    },
   });
-  // an enchanted weapon's element riders and the falcon after a normal hit
+  // an enchanted weapon's element riders, the falcon and the autocasts after a normal hit
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
+  combat.onBasicHit = (m) => skills.autocast(m);
 
   function levelUp() {
     hero.refill();
@@ -747,6 +775,16 @@ async function boot(): Promise<void> {
   const invUI = new InventoryUI(inv, iconFor, (i) => {
     const stack = inv.slots[i];
     if (!stack) return "";
+    // a poison vial: the weapon is coated (an enchant: the poison element, and its stats) for a while
+    const coat = COATINGS[stack.id];
+    if (coat) {
+      if (!hero.alive) return "ล้มอยู่";
+      const name = ITEMS[stack.id].name;
+      hero.addBuff("coating", `เคลือบ${name}`, coat.stats, coat.time * (1 + hero.stats.buffTime), coat.element);
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#8fdc4a"), 18);
+      inv.discard(i, 1);
+      return `เคลือบอาวุธด้วย${name}แล้ว`;
+    }
     if (ITEMS[stack.id].kind === "potion") return drinkAt(i) ?? `ดื่ม${ITEMS[stack.id].name}แล้ว`;
     if (ITEMS[stack.id].kind === "style") {
       // a hairstyle: learned, and worn at once
@@ -991,6 +1029,10 @@ async function boot(): Promise<void> {
     monsters.push(...(await populate(current)));
     ground.clear();
     skills.interrupt(null);
+    // allies, clouds and traps stay behind; the ground underfoot is another kind
+    allies.clear();
+    skills.leaveMap();
+    hero.setTerrain(terrainOf(current.id));
     npcs = townsfolk(current);
     const there = (from && current.gates[from]) || at || current.spawn;
     player.x = there.x;
@@ -1440,27 +1482,15 @@ async function boot(): Promise<void> {
   });
   const deathNote = document.getElementById("death")!;
   let burning = { t: 0, acc: 0, dmg: 0 };
-  // the jester's copy: while it stands every monster goes for it, and its bites land on it
-  let decoy: { x: number; y: number; hp: number; t: number } | null = null;
-  // what monsters need from the player: where to chase and how a bite lands
+  // what monsters need from the player: where to chase and how a bite lands; whom of the
+  // player's allies (the jester's copy first) they go for instead of her (src/allies.ts)
   const monsterCtx: MonsterCtx = {
-    get player() {
-      return decoy ?? player;
-    },
+    player,
     hero,
     unseen: () => hero.hidden,
-    bite(m: Monster) {
-      if (decoy) {
-        const hit = monsterDamage(m, hero.stats);
-        if (!hit) return void floaters.add(decoy.x, decoy.y, 120, "พลาด", "miss");
-        decoy.hp -= hit.dmg;
-        floaters.add(decoy.x, decoy.y, 110, `-${hit.dmg}`, "hurt");
-        if (decoy.hp <= 0) {
-          skills.ring(decoy.x, decoy.y, "#ffb8e0", 160, 0.4);
-          decoy = null;
-        }
-        return;
-      }
+    foe: (m) => allies.foeFor(m, !hero.hidden),
+    bite(m: Monster, foe?: { x: number; y: number } | null) {
+      if (foe instanceof Ally) return allies.hurt(foe, m);
       if (hero.hidden) return; // a blow already on its way finds nobody
       // a spell may miss outright (smoke); a blinded monster misses half its bites (more with
       // luck); a weakened one bites softer
@@ -1617,7 +1647,7 @@ async function boot(): Promise<void> {
       walkTo.stuck = Math.hypot(player.x - was.x, player.y - was.y) < 0.5 ? walkTo.stuck + dt : 0;
       if (walkTo.stuck > 1.2) walkTo = null;
     }
-    if (decoy && ((decoy.t -= dt) <= 0 || !hero.alive)) decoy = null;
+    allies.update(dt);
     for (const m of monsters) m.update(dt, monsterCtx);
     pickUp(dt);
     updateShots(dt, monsterCtx);
@@ -1719,20 +1749,17 @@ async function boot(): Promise<void> {
     for (const l of ground.items) {
       if (onScreen(l.x, l.y, 100)) w3d.actor(l, Ground.box(l), vw, (c, v) => ground.draw(c, v, l, iconFor(l.id)));
     }
-    if (decoy) {
-      // the copy: the player drawn where it stands, faded
-      const d = decoy;
-      w3d.actor(d, { x: d.x, y: d.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => {
-        const at = { x: player.x, y: player.y };
-        player.x = d.x;
-        player.y = d.y;
-        player.draw(c, v, inHand, inOff);
-        Object.assign(player, at);
-        c.globalCompositeOperation = "destination-in";
-        c.fillStyle = "rgba(0, 0, 0, 0.55)";
-        c.fillRect(0, 0, c.canvas.width, c.canvas.height);
-        c.globalCompositeOperation = "source-over";
-      });
+    // the allies: a clone drawn as its own figure, the decoy as the player where it stands
+    const figure = (c: CanvasRenderingContext2D, v: View, body: Player | null, at: { x: number; y: number }) => {
+      if (body) return body.draw(c, v, inHand, inOff);
+      const was = { x: player.x, y: player.y };
+      player.x = at.x;
+      player.y = at.y;
+      player.draw(c, v, inHand, inOff);
+      Object.assign(player, was);
+    };
+    for (const a of allies.list) {
+      if (a.alive && onScreen(a.x, a.y, 200)) w3d.actor(a, allies.box(a), vw, (c, v) => allies.draw(c, v, a, figure));
     }
     w3d.actor(player, { x: player.x, y: player.y, w: 340, h: 300, foot: 50 }, vw, (c, v) => player.draw(c, v, inHand, inOff), true);
     w3d.endActors();
@@ -1771,7 +1798,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
+    progress, hero, skills, allies, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand

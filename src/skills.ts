@@ -32,7 +32,17 @@
 //
 // Skill types: bolt, fan (projectiles) · blast (at the aimed point, `hits` times) · nova, storm
 // (around the caster) · cone (in front) · beam (a line) · dash (no `mult`: a teleport) · heal ·
-// shield · buff · flower.
+// shield · buff · flower. bolt, cone, blast, nova, beam and dash land `hits` times.
+//
+// The third jobs' (progression.ts SkillDef, where every field is told):
+//   summon  an ally (src/allies.ts) on the aimed spot or in front; decoy is one too
+//   mimic   copies the locked monster's attack; the same slot then fires the copy (Copy below)
+//   smoke   a cloud the player hides in while she stays inside (clouds below)
+//   make    turns materials from the bag into an item (main.ts does the bag)
+//   autocast_<id>  a stat: a normal hit may cast that skill for free (autocast)
+//   combo   more damage right after another skill (the chain: casts below)
+//   manaBurn  more on casters, and the monster's casting and shooting stop (`silence`)
+//   terrain on a buff: stats by the kind of map (hero.ts)
 //
 // A spell with a cast time (SkillDef.cast, shortened by the castRed stat) is read out first: the
 // caster stands still under a cast bar, and it goes off when the bar fills, only then costing its
@@ -40,12 +50,13 @@
 // is aimed at feel it coming and turn on the caster, so the heavy spells cost a risk as well; a
 // spell aimed at a monster (or at a spot with monsters in it) follows that one when it moves.
 
-import { ACTIVES, MASTERIES, mpCost, needMet, needText } from "./progression";
+import { ACTIVES, AUTOCAST, MASTERIES, mpCost, needMet, needText } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
+import type { Allies } from "./allies";
 import { mitigate, poisonScale, skillDamage, lucky, rollDie } from "./stats";
 import { shapeTargets } from "./combat";
 import type { Combat, Floaters } from "./combat";
-import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
+import { AIR_GLOW, GROUND_GLOW, SORTED, rand } from "./particles";
 import type { Particles } from "./particles";
 import { FlowerSpell, CAST_TIME, HOVER_END } from "./spell";
 import type { Spell } from "./spell";
@@ -71,8 +82,10 @@ interface SkillDeps {
   spells: Spell[];
   weapon: () => string | null;
   steal?: (m: Monster, what: "gold" | "item") => void; // a stealing hit took something
-  decoy?: (x: number, y: number, hp: number, t: number) => void; // a copy that draws the monsters
+  allies?: Allies; // summons and the decoy
   workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void; // a craft's skill opens it
+  // a make skill: why the bag can't (dry), or takes the materials and gives the item (its words)
+  make?: (make: NonNullable<SkillDef["make"]>, rank: number, dry: boolean) => string | null;
 }
 
 // The unit vector from a to b (null when they stand on each other).
@@ -103,13 +116,45 @@ interface Casting {
 // One target, locked on (a shot that homes in, a blow at the one in front); the other damage
 // skills reach an area (aimed at a spot on the ground, along a line or round the player).
 export function singleTarget(s: SkillDef): boolean {
-  return (s.type === "bolt" && !s.pierce) || (s.type === "cone" && (s.arc ?? 90) <= 50) || s.type === "falcon";
+  return (s.type === "bolt" && !s.pierce) || (s.type === "cone" && (s.arc ?? 90) <= 50) || s.type === "falcon" || s.type === "mimic";
 }
 // Skills placed on a spot of the ground (aimed with a disc before they go, src/main.ts); the
-// rest of the area skills go round the player or along the line it faces.
+// rest of the area skills go round the player or along the line it faces. A summon or a smoke
+// with a range is placed too.
 export function groundTarget(s: SkillDef): boolean {
-  return s.type === "blast" || s.type === "trap";
+  return s.type === "blast" || s.type === "trap" || ((s.type === "summon" || s.type === "smoke") && !!s.range);
 }
+
+// A monster's attack copied by a mimic: its shot (and element) or its bite, for `uses` uses
+// until `until` (game clock), fired by the mimic's own slot.
+interface Copy {
+  id: string;      // the mimic skill
+  rank: number;
+  from: string;    // the monster's name
+  shot: string | null;
+  element?: ElementId;
+  magic: boolean;
+  uses: number;
+  until: number;
+}
+
+// A smoke cloud on the ground.
+interface Cloud {
+  id: string;
+  s: SkillDef;
+  rank: number;
+  x: number;
+  y: number;
+  r: number;
+  t: number;
+  puff: number;
+}
+
+const AUTOCAST_GAP = 0.6; // s between two autocasts, whatever their chances
+const SHOT_TINT: Record<string, string> = {
+  water: "#5ab4ff", snow: "#f2f8ff", frost: "#9fe0ff", fire: "#ff8a2a", rock: "#a08c6c", arrow: "#e8d8b0", musket: "#ffe9a0",
+  cannon: "#7a7068", shuriken: "#d8dce4", foxfire: "#7ad8ff", curse: "#b070ff", tongue: "#ff7aa0", vine: "#6fcf5a", spark: "#fff27a", venom: "#8fdc4a", web: "#f4f4ee",
+};
 
 // A trap waiting on the ground: the skill it goes off with, armed after half a second.
 interface Trap {
@@ -164,11 +209,19 @@ export class Skills {
   spells: Spell[];
   weapon: () => string | null;
   steal?: (m: Monster, what: "gold" | "item") => void;
-  decoy?: (x: number, y: number, hp: number, t: number) => void;
+  allies?: Allies;
   workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void;
+  make?: SkillDeps["make"];
   timers: { t: number; fn: () => void }[] = [];
   pending: Casting | null = null;
   traps: Trap[] = [];
+  clock = 0;                                  // s of play (combos, copies)
+  casts: { id: string; t: number }[] = [];    // the latest casts, for combos
+  copy: Copy | null = null;                   // a mimic's copy
+  clouds: Cloud[] = [];
+  smokeHid = false;                           // the smoke has her hidden
+  rehide = 0;                                 // s until the smoke hides her again after a blow
+  autoCd = 0;                                 // s until the next autocast
 
   constructor(deps: SkillDeps) {
     this.progress = deps.progress;
@@ -182,8 +235,9 @@ export class Skills {
     this.spells = deps.spells;
     this.weapon = deps.weapon;
     this.steal = deps.steal;
-    this.decoy = deps.decoy;
+    this.allies = deps.allies;
     this.workshop = deps.workshop;
+    this.make = deps.make;
   }
 
   get el(): Record<string, number> {
@@ -209,14 +263,16 @@ export class Skills {
     if (!this.wields(id)) return `ต้องถือ${needText(a.need, (w) => WEAPON_TYPES[w].name)}`;
     if (this.pending || this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
     if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
+    if (this.copy?.id === id) return null; // the copy costs no MP
     if (this.hero.mp < mpCost(id, this.progress.skillRank(id))) return "MP ไม่พอ";
+    if (a.skill.type === "make" && a.skill.make && this.make) return this.make(a.skill.make, this.progress.skillRank(id), true);
     return null;
   }
 
   // The monster a single-target skill locks on to: the player's target, else the one nearest
   // the aimed spot, else the nearest in front, within its reach.
   lockFor(s: SkillDef, aim: Vec2 | null, dir: Vec2): Monster | null {
-    const p = this.player, reach = s.type === "bolt" ? s.range ?? 500 : s.type === "falcon" ? s.range ?? 600 : (s.reach ?? 150) + 40;
+    const p = this.player, reach = s.type === "bolt" ? s.range ?? 500 : s.type === "falcon" || s.type === "mimic" ? s.range ?? 600 : (s.reach ?? 150) + 40;
     const t = p.target as Monster | null;
     if (t?.alive && this.monsters.includes(t) && Math.hypot(t.x - p.x, t.y - p.y) - t.radius <= reach) return t;
     if (aim) {
@@ -243,6 +299,7 @@ export class Skills {
   use(id: string, aim: Vec2 | null): string | null {
     const no = this.why(id);
     if (no) return no;
+    if (this.copy?.id === id) return this.fireCopy(aim);
     const a = ACTIVES[id], rank = this.progress.skillRank(id), s = a.skill;
     // a single-target skill needs one in reach (before any MP goes)
     let dir0 = this.player.facing();
@@ -277,9 +334,19 @@ export class Skills {
   // A skill going off (at once, or when its cast bar fills: `cast`): its cooldown, the animation
   // of an instant one, its effect.
   goOff(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null, lock: Monster | null, cast = false): void {
-    const cd = s.cd * (1 - this.hero.stats.cdr);
+    // (a mimic waits its short gap while it holds the copy; its cooldown starts when that runs out)
+    const cd = (s.type === "mimic" ? s.every ?? 0.8 : s.cd) * (1 - this.hero.stats.cdr);
     this.hero.cooldowns.set(id, cd);
     this.hero.cdTotal.set(id, cd);
+    // a combo: right after one of the skills it follows, it hits harder
+    const more = this.comboMore(s, rank);
+    if (more) {
+      const base = s.mult;
+      s = { ...s, mult: base && ((r: number) => base(r) * (1 + more)) };
+      this.floaters.add(this.player.x, this.player.y, 190, `คอมโบ! +${Math.round(more * 100)}%`, "level");
+    }
+    this.casts.push({ id, t: this.clock });
+    if (this.casts.length > 8) this.casts.shift();
     if ((this.el.wind ?? 0) >= 35 && lucky(0.15, this.hero.stats)) {
       this.hero.cooldowns.delete(id);
       this.floaters.add(this.player.x, this.player.y, 170, "พายุหมุน!", "info");
@@ -387,6 +454,10 @@ export class Skills {
   }
 
   update(dt: number): void {
+    this.clock += dt;
+    this.autoCd = Math.max(0, this.autoCd - dt);
+    if (this.copy && (this.clock > this.copy.until || !this.hero.alive)) this.endCopy();
+    this.updateClouds(dt);
     const c = this.pending;
     if (c) {
       if (!this.hero.alive) this.interrupt(null);
@@ -446,6 +517,14 @@ export class Skills {
       const die = rollDie(this.hero.stats);
       more *= die / 3.5;
       this.floaters.add(m.x, m.y, m.height + 50, `เต๋า ${die}`, die >= 5 ? "level" : "info");
+    }
+    // a mana burn: harder on a caster, and whatever casts or shoots stops for a moment
+    if (s.manaBurn) {
+      if (m.magical) more *= 1 + s.manaBurn(rank);
+      if (m.magical || m.ranged) {
+        if (m.silence <= 0) this.floaters.add(m.x, m.y, m.height + 50, "เผามานา!", "magic");
+        m.silence = Math.max(m.silence, s.silence ?? 3);
+      }
     }
     r.dmg = Math.max(1, Math.round(r.dmg * more));
     const earth = (this.el.earth ?? 0) >= 10 ? 1.3 : 1;
@@ -569,14 +648,17 @@ export class Skills {
       }
       case "nova": {
         const radius = s.radius ?? 200;
-        this.later(LEAD * 0.8, () => {
-          for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
-            const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
-            this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock);
-          }
-          this.ring(p.x, p.y, s.color, radius * 2, 0.45);
-          this.burst(p.x, p.y, s.color, radius * 0.7);
-        });
+        for (let i = 0; i < (s.hits ?? 1); i++) {
+          this.later(LEAD * 0.8 + i * 0.2, () => {
+            for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
+              const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
+              this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock);
+            }
+            this.ring(p.x, p.y, s.color, radius * 2, 0.45);
+            this.burst(p.x, p.y, s.color, radius * 0.7);
+            if (i > 0) p.startMotion(s.motion, dir, this.weaponStats(), 0.25);
+          });
+        }
         break;
       }
       case "storm": {
@@ -606,19 +688,23 @@ export class Skills {
         }
         break;
       case "beam":
-        this.later(LEAD, () => {
-          hitAll(shapeTargets({ x: p.x, y: p.y }, dir, { hit: "line", reach: s.length ?? 500, width: s.width }, this.monsters), 20);
-          this.line({ x: p.x, y: p.y }, dir, s.length ?? 500, s.color);
-        });
+        for (let i = 0; i < (s.hits ?? 1); i++) {
+          this.later(LEAD + i * 0.18, () => {
+            hitAll(shapeTargets({ x: p.x, y: p.y }, dir, { hit: "line", reach: s.length ?? 500, width: s.width }, this.monsters), 20);
+            this.line({ x: p.x, y: p.y }, dir, s.length ?? 500, s.color);
+          });
+        }
         break;
       case "dash": {
         const hit = new Set<Monster>();
         p.startDash(dir, s.distance ?? 200, 0.2, () => {
-          // a dash without a multiplier is a teleport: it hits nothing
+          // a dash without a multiplier is a teleport: it hits nothing; with `hits`, each one it
+          // passes is struck that many times
           if (s.mult) for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.width ?? 60 }, this.monsters)) {
             if (hit.has(m)) continue;
             hit.add(m);
             this.hit(m, s, rank, dir, 30);
+            for (let i = 1; i < (s.hits ?? 1); i++) this.later(i * 0.12, () => this.hit(m, s, rank, dir));
           }
           this.fx.add({ x: p.x, y: p.y, z: 50, layer: AIR_GLOW, tex: this.tex.sparkle, life: 0.35,
             size: [[0, 40], [1, 8]], alpha: [[0, 0.8], [1, 0]] });
@@ -649,7 +735,7 @@ export class Skills {
             for (const [key, v = 0] of Object.entries(s.roll(rank))) stats[key] = (stats[key] ?? 0) + v * k;
             this.floaters.add(p.x, p.y, 190, `เต๋า ${die}${k > 0 ? " โชคดี!" : k < 0 ? " ซวยแล้ว" : ""}`, k > 0 ? "level" : "info");
           }
-          this.hero.addBuff(id, ACTIVES[id].name, stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant);
+          this.hero.addBuff(id, ACTIVES[id].name, stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant, s.terrain?.(rank));
           if (s.heal) {
             const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
             if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
@@ -674,10 +760,28 @@ export class Skills {
         if (s.bench) this.workshop?.(s.bench);
         break;
       case "decoy":
+      case "summon": {
+        // on the aimed spot within its range, else just in front
+        const range = s.range ?? 0, d = aim && range ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : 70;
+        this.later(LEAD, () => this.allies?.summon(id, s, rank, { x: p.x + dir.x * d, y: p.y + dir.y * d }, dir));
+        break;
+      }
+      case "mimic":
+        if (lock) this.later(LEAD, () => this.startCopy(id, s, rank, lock));
+        break;
+      case "smoke": {
+        const range = s.range ?? 0, d = aim && range ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : 0;
         this.later(LEAD, () => {
-          this.decoy?.(p.x + dir.x * 70, p.y + dir.y * 70, this.hero.stats.maxHp * (at(s.base, rank) ?? 0.3), s.duration ?? 10);
-          this.ring(p.x + dir.x * 70, p.y + dir.y * 70, s.color, 140, 0.5);
+          this.clouds.push({ id, s, rank, x: p.x + dir.x * d, y: p.y + dir.y * d, r: s.radius ?? 220, t: s.duration ?? 10, puff: 0 });
+          this.ring(p.x + dir.x * d, p.y + dir.y * d, s.color, (s.radius ?? 220) * 2, 0.6, true);
         });
+        break;
+      }
+      case "make":
+        if (s.make) {
+          const said = this.make?.(s.make, rank, false);
+          if (said) this.floaters.add(p.x, p.y, 170, said, "loot");
+        }
         break;
       case "falcon":
         if (!lock) break;
@@ -707,6 +811,119 @@ export class Skills {
         break;
       }
     }
+  }
+
+  // ---- the third jobs' ----
+  // How much more a combo cast does now: one of the skills it follows went off lately.
+  comboMore(s: SkillDef, rank: number): number {
+    const c = s.combo;
+    if (!c) return 0;
+    return this.casts.some((x) => c.after.includes(x.id) && this.clock - x.t <= (c.within ?? 3)) ? c.more(rank) : 0;
+  }
+
+  // A normal hit landed on m: now and then it casts a skill by itself (the autocast_<id> stats),
+  // free of MP and cooldown, at that skill's rank, if the hands hold what it needs.
+  autocast(m: Monster): void {
+    if (this.autoCd > 0 || !m.alive || !this.hero.alive) return;
+    const st = this.hero.stats as unknown as Record<string, number>;
+    for (const key of Object.keys(st)) {
+      if (!key.startsWith(AUTOCAST) || !(st[key] > 0)) continue;
+      const id = key.slice(AUTOCAST.length), a = ACTIVES[id], rank = this.progress.skillRank(id);
+      if (!a || !rank || !this.wields(id) || !lucky(st[key], this.hero.stats)) continue;
+      this.autoCd = AUTOCAST_GAP;
+      const dir = toward(this.player, m) ?? this.player.facing();
+      this.floaters.add(this.player.x, this.player.y, 175, `${a.name}!`, "magic");
+      this.effect(id, a.skill, rank, dir, { x: m.x, y: m.y }, singleTarget(a.skill) || groundTarget(a.skill) ? m : null);
+      return;
+    }
+  }
+
+  // A mimic took a monster's attack: a shot (in its element) if it shoots, else its bite.
+  startCopy(id: string, s: SkillDef, rank: number, m: Monster): void {
+    const copy: Copy = { id, rank, from: m.variant.name, shot: m.ranged, element: m.element, magic: m.magical, uses: s.uses ?? 5, until: this.clock + (s.duration ?? 20) };
+    this.copy = copy;
+    this.hero.addBuff(`copy_${id}`, `ก๊อป${copy.from}`, {}, s.duration ?? 20);
+    this.floaters.add(this.player.x, this.player.y, 175, `ก๊อป${copy.shot ? "การยิง" : "การโจมตี"}ของ${copy.from}!`, "level");
+    this.burst(m.x, m.y, s.color, 50);
+  }
+
+  // The copy as a skill of its own: a bolt like the monster's shot, or a bite at the one in front.
+  copySkill(c: Copy): SkillDef {
+    const s = ACTIVES[c.id].skill, stat = c.magic ? "matk" : "atk";
+    return c.shot
+      ? { type: "bolt", stat, element: c.element, mult: s.mult, mp: 0, cd: 0, motion: c.magic ? "cast" : "shoot", speed: 800, range: 650, radius: 30, arrow: c.shot === "arrow", color: SHOT_TINT[c.shot] ?? s.color }
+      : { type: "cone", stat, element: c.element, mult: s.mult, mp: 0, cd: 0, motion: "thrust", reach: 170, arc: 50, color: s.color };
+  }
+
+  // The slot fires the copy: no MP, a short gap, one use less.
+  fireCopy(aim: Vec2 | null): string | null {
+    const c = this.copy!, s = ACTIVES[c.id].skill, cs = this.copySkill(c), p = this.player;
+    let dir0 = p.facing();
+    if (aim) dir0 = toward(p, aim) ?? dir0;
+    const lock = this.lockFor(cs, aim, dir0);
+    if (!lock) return "ไม่มีเป้าหมายในระยะ";
+    const dir = toward(p, lock) ?? dir0, gap = (s.every ?? 0.8) * (1 - this.hero.stats.cdr);
+    this.hero.cooldowns.set(c.id, gap);
+    this.hero.cdTotal.set(c.id, gap);
+    p.target = lock;
+    p.startMotion(cs.motion, dir, this.weaponStats());
+    this.effect(c.id, cs, c.rank, dir, aim, lock);
+    if (--c.uses <= 0) this.endCopy();
+    else this.floaters.add(p.x, p.y, 160, `${c.from} เหลือ ${c.uses} ครั้ง`, "info");
+    return null;
+  }
+
+  // The copy is used up or its time is up: the mimic's own cooldown starts.
+  endCopy(): void {
+    const c = this.copy;
+    if (!c) return;
+    this.copy = null;
+    const cd = ACTIVES[c.id].skill.cd * (1 - this.hero.stats.cdr);
+    this.hero.cooldowns.set(c.id, cd);
+    this.hero.cdTotal.set(c.id, cd);
+    const before = this.hero.buffs.length;
+    this.hero.buffs = this.hero.buffs.filter((b) => b.id !== `copy_${c.id}`);
+    if (this.hero.buffs.length !== before) this.hero.recompute();
+  }
+
+  // The smoke clouds: they puff and thin out; while she stands in one she is hidden, unless she
+  // has just struck from it (rehide).
+  updateClouds(dt: number): void {
+    const p = this.player, hero = this.hero;
+    this.rehide = Math.max(0, this.rehide - dt);
+    let inside: Cloud | null = null;
+    for (let i = this.clouds.length - 1; i >= 0; i--) {
+      const c = this.clouds[i];
+      if ((c.t -= dt) <= 0) {
+        this.clouds.splice(i, 1);
+        continue;
+      }
+      if ((c.puff -= dt) <= 0) {
+        c.puff = 0.12;
+        const a = rand(0, Math.PI * 2), r = Math.sqrt(Math.random()) * c.r;
+        this.fx.add({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r, z: rand(10, 70), layer: SORTED, tex: this.tex.glowFor("#b9bcc8"), life: rand(1.2, 2),
+          size: [[0, 60], [0.5, 120], [1, 150]], alpha: [[0, 0], [0.25, 0.55], [1, 0]], vz: rand(5, 25) });
+      }
+      if (Math.hypot(p.x - c.x, p.y - c.y) <= c.r) inside = c;
+    }
+    const id = inside ? `smoke_${inside.id}` : null, on = id ? hero.buffs.find((b) => b.id === id) : null;
+    if (!inside || !hero.alive) this.smokeHid = false;
+    else if (on) on.t = Math.max(on.t, 0.3);
+    else if (this.smokeHid) {
+      // a blow from the smoke showed her: a moment before it hides her again
+      this.smokeHid = false;
+      this.rehide = 1.2;
+    } else if (this.rehide <= 0) {
+      hero.addBuff(id!, ACTIVES[inside.id]?.name ?? "ควัน", { ...(inside.s.buff?.(inside.rank) ?? {}), stealth: 1 }, 0.3);
+      this.smokeHid = true;
+    }
+  }
+
+  // A map change: what was laid on the old map stays there.
+  leaveMap(): void {
+    this.clouds = [];
+    this.traps = [];
+    this.smokeHid = false;
   }
 
   // The level of the mastery of the weapon in the main hand (0 without one).

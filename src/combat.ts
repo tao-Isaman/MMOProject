@@ -197,6 +197,7 @@ export class Combat {
   onReflect?: (m: Monster, dmg: number) => void;
   onElement?: (m: Monster, el: ElementId, dmg: number) => void; // an enchanted normal hit's element riders
   onFalcon?: (m: Monster) => void;                              // the falcon dives in after a normal hit
+  onBasicHit?: (m: Monster) => void;                            // a main-hand normal hit landed (autocast)
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
   offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2 }[] = []; // off-hand follow-ups
@@ -299,13 +300,15 @@ export class Combat {
     this.apply(m, r, dir);
     if (el) this.onElement?.(m, el, r.dmg);
     if (st.falconChance && m.alive && lucky(st.falconChance, st)) this.onFalcon?.(m);
+    if (!again && scale === 1) this.onBasicHit?.(m);
     if (!again && st.doubleHit && m.alive && lucky(st.doubleHit, st)) this.damage(m, w, dir, scale, true);
   }
 
   // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it. Only a
   // skill made to push (knock) moves it; normal attacks don't, or a ranged fighter would keep
-  // everything off for ever.
-  apply(m: Monster, r: Hit, dir: Vec2, knock = 0): boolean {
+  // everything off for ever. ally: one of the player's allies struck (src/allies.ts): her hiding,
+  // lifesteal and the monster's spikes have nothing to do with it.
+  apply(m: Monster, r: Hit, dir: Vec2, knock = 0, ally = false): boolean {
     if (!m.alive) return false;
     if (r.miss) {
       m.provoke(dir);
@@ -317,18 +320,18 @@ export class Combat {
     const st = this.hero.stats, stone = this.hero.progress.elements.stone ?? 0;
     const low = st.lowHpDmg ? 1 + st.lowHpDmg * Math.max(0, 1 - this.hero.hp / st.maxHp) : 1;
     // the first blow from hiding lands harder, and ends the hiding
-    const ambush = this.hero.hidden ? 1 + st.ambush : 1;
-    if (this.hero.hidden) this.hero.reveal();
+    const ambush = this.hero.hidden && !ally ? 1 + st.ambush : 1;
+    if (this.hero.hidden && !ally) this.hero.reveal();
     const more = (m.expose > 0 ? 1 + m.exposePct : 1) * (m.afflicted ? 1 + st.huntDmg : 1) * (m.petrify > 0 && stone >= 50 ? 1.25 : 1)
       * (1 + st[`${m.race}Dmg`]) * low * ambush;
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
-    if (st.lifesteal > 0 && this.hero.alive) this.hero.heal(r.dmg * st.lifesteal);
+    if (st.lifesteal > 0 && this.hero.alive && !ally) this.hero.heal(r.dmg * st.lifesteal);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
       size: [[0, 24], [1, 60]], alpha: [[0, 0.8], [1, 0]] });
     // a spiked shell or a mirror sends part of a blow (not a spell) back
-    if (m.reflect > 0 && !r.magic && this.hero.alive) {
+    if (m.reflect > 0 && !r.magic && this.hero.alive && !ally) {
       const back = Math.round(r.dmg * m.reflect);
       if (back > 0) this.onReflect?.(m, back);
     }

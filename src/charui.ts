@@ -3,9 +3,10 @@
 
 import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
 import type { Look } from "./ui";
-import { skillIcon, hasArt } from "./icons";
+import { skillIcon, hasArt, icon } from "./icons";
 import {
   TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
+  JOBS, AUTOCAST, jobGlyph,
 } from "./progression";
 import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText, offhandKind } from "./items";
 import type { WeaponId } from "./items";
@@ -21,6 +22,16 @@ import type { Img } from "./types";
 
 // (regen arrives every REGEN_TICK seconds: shown as what each tick brings)
 const fmt = (key: string, v: number) => (PERCENT_STATS.has(key) ? `${(v * 100).toFixed(1)}%` : key.endsWith("Regen") ? `${Math.round(v * REGEN_TICK)} / ${REGEN_TICK} วิ` : Math.round(v).toString());
+
+// The emblem by the job's name: its picture, or the glyph of a third job not drawn yet.
+const glyphPics = new Map<string, string>();
+function roleIcon(p: Progress): string | null {
+  const g = jobGlyph(p);
+  if (!g) return jobIcon(p);
+  const key = g.join();
+  if (!glyphPics.has(key)) glyphPics.set(key, icon(g[0], g[1]).toDataURL());
+  return glyphPics.get(key)!;
+}
 
 // Tooltip text for an active skill at a rank.
 export function skillTip(id: string, rank: number): string {
@@ -78,13 +89,13 @@ export class Vitals {
   update(): void {
     const p = this.progress, h = this.hero, s = h.stats;
     const xpNeed = p.xpNeed;
-    const key = [p.level, p.cls, p.job, p.free, Math.ceil(h.hp), Math.ceil(h.mp), Math.round(s.maxHp), Math.round(s.maxMp), p.xp,
+    const key = [p.level, p.cls, p.job, p.job3, p.free, Math.ceil(h.hp), Math.ceil(h.mp), Math.round(s.maxHp), Math.round(s.maxMp), p.xp,
       Math.round(h.shield?.amount ?? 0), h.buffs.map((b) => `${b.id}${Math.ceil(b.t)}`).join()].join("|");
     if (key === this.last) return;
     this.last = key;
     this.lv.textContent = `Lv ${p.level}`;
     this.cls.replaceChildren(p.cls ? jobName(p) : "ยังไม่เลือกคลาส");
-    const pic = jobIcon(p);
+    const pic = roleIcon(p);
     if (pic) this.cls.prepend(Object.assign(el("img", "role-ic"), { src: pic, alt: "" }));
     this.sp.textContent = p.free > 0 ? `แต้มสกิล ${p.free}` : "";
     this.hp.fill.style.width = `${(100 * h.hp) / s.maxHp}%`;
@@ -184,8 +195,10 @@ export class ProfileUI {
   render(): void {
     if (this.win.classList.contains("hidden")) return;
     const p = this.progress, s = this.hero.stats, inv = this.d.inv;
-    const pic = jobIcon(p);
-    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${pic ? `<img class="role-ic" src="${pic}" alt="">` : ""}${jobName(p)} · Lv ${p.level} / ${MAX_LEVEL}` +
+    const pic = roleIcon(p);
+    // (a third job: the second it came from beside it)
+    const job = `${jobName(p)}${p.job3 && p.job ? ` (${JOBS[p.job].name})` : ""}`;
+    this.head.innerHTML = `<strong>${this.d.name}</strong> · ${pic ? `<img class="role-ic" src="${pic}" alt="">` : ""}${job} · Lv ${p.level} / ${MAX_LEVEL}` +
       `<br>EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed} · แต้มสกิล ${p.free} / ${p.points} · ทอง ${inv.gold}`;
     // what it wears, slot by slot
     this.gear.replaceChildren(...EQUIP_SLOTS.map(({ slot, name }) => {
@@ -320,7 +333,9 @@ const isPct = (k: string) => k.endsWith("Pct") || k.endsWith("Dmg") && k !== "cr
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const num = (v: number) => `${+v.toFixed(1)}`;
 const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct(Math.abs(v)) : num(Math.abs(v))}`;
-const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => `${BAG_NAMES[k] ?? k} ${signed(k, v)}`).join(" · ");
+// (an autocast stat: the skill it casts by itself, and how often)
+const bagText = (b: StatBag) => Object.entries(b).map(([k, v = 0]) => k.startsWith(AUTOCAST)
+  ? `ตีแล้วร่าย${ACTIVES[k.slice(AUTOCAST.length)]?.name ?? k}เอง ${pct(v)}` : `${BAG_NAMES[k] ?? k} ${signed(k, v)}`).join(" · ");
 const statName = (s: SkillDef) => (s.stat === "matk" ? "พลังเวท" : s.stat === "both" ? "พลังผสม (60% พลังโจมตี + 60% พลังเวท)" : "พลังโจมตี");
 
 // The element a skill's hits are made of, for a skill that does damage: its words and colour.
@@ -335,7 +350,9 @@ function rankParts(node: TreeNode, r: number): string[] {
   const s = node.skill!, out: string[] = [];
   if (s.mult) out.push(`${pct(s.mult(r))} ของ${statName(s)}${s.hits ? ` × ${s.hits}` : s.pulses ? ` × ${s.pulses}` : s.ticks ? ` × ${s.ticks}` : ""}`);
   if (s.heal) out.push(`ฟื้น ${pct(s.heal(r))} HP สูงสุด`);
-  if (s.base) out.push(`โล่ ${pct(s.base(r))} MP สูงสุด`);
+  if (s.base) out.push(s.type === "summon" || s.type === "decoy" ? `HP ${pct(s.base(r))} ของ HP สูงสุด` : `โล่ ${pct(s.base(r))} MP สูงสุด`);
+  if (s.combo) out.push(`คอมโบ +${pct(s.combo.more(r))}`);
+  if (s.manaBurn) out.push(`ใส่ตัวร่ายเวท +${pct(s.manaBurn(r))}`);
   if (s.stun) out.push(`มึน ${num(s.stun(r))} วิ`);
   if (s.slow) out.push(`ช้า ${num(s.slow(r))} วิ`);
   if (s.freeze) out.push(`หยุด ${num(s.freeze(r))} วิ`);

@@ -21,6 +21,8 @@ function readyText(rule: SkillRule): string {
   if (t === "heal") return "ระหว่างสู้ เมื่อเลือดไม่เต็ม";
   if (t === "shield") return "ระหว่างสู้ เมื่อไม่มีโล่";
   if (t === "buff") return "ระหว่างสู้ เมื่อบัฟหมด";
+  if (t === "summon" || t === "decoy") return "ระหว่างสู้ เมื่อผู้ช่วยไม่ครบ";
+  if (t === "smoke") return "ระหว่างสู้ เมื่อไม่มีควัน";
   return "ทันทีที่เป้าหมายอยู่ในระยะ";
 }
 

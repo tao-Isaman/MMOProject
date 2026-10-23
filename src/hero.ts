@@ -1,8 +1,13 @@
-// The player's live state in a fight: HP, MP, shield, buffs, skill cooldowns, death.
+// The player's live state in a fight: HP, MP, shield, buffs, skill cooldowns, death. Besides the
+// buffs, two things go into the stats here: the third job's bonus and growth (job3Stats) and
+// whatever the kind of map underfoot gives (terrain passives and buffs, src/terrain.ts).
 
 import { computeStats } from "./stats";
 import type { Stats } from "./stats";
+import { TREES, job3Stats, needMet } from "./progression";
 import type { ElementId, Progress, StatBag } from "./progression";
+import { ITEMS, offhandKind } from "./items";
+import type { TerrainKind } from "./terrain";
 
 export interface Buff {
   id: string;
@@ -11,6 +16,15 @@ export interface Buff {
   t: number;
   duration: number;
   enchant?: ElementId; // the weapon hits in this element while it lasts
+  // a terrain buff: its own stats, and more by the kind of map (stats is the sum for the one now)
+  terrain?: { base: StatBag; by: Partial<Record<TerrainKind, StatBag>> };
+}
+
+// Two bags of stats added up.
+function plus(a: StatBag, b: StatBag | undefined): StatBag {
+  const out: StatBag = { ...a };
+  for (const [k, v = 0] of Object.entries(b ?? {})) out[k] = (out[k] ?? 0) + v;
+  return out;
 }
 
 export const RESPAWN_TIME = 4;
@@ -35,6 +49,7 @@ export class Hero {
   regenHp = 0;    // what has built up since then
   regenMp = 0;
   mp = Infinity;
+  terrain: TerrainKind = "town"; // the kind of map she stands on (main.ts sets it on every map)
 
   // weapon(), offhand(): what each hand holds; worn(): the hat, shoes, rings and trinkets
   constructor(progress: Progress, weapon: () => string | null, offhand: () => string | null = () => null, worn: () => (string | null)[] = () => []) {
@@ -52,7 +67,8 @@ export class Hero {
   }
 
   recompute(): void {
-    this.stats = computeStats(this.progress, this.weapon(), this.buffs, this.offhand(), this.worn());
+    const more = [{ stats: job3Stats(this.progress) }, { stats: this.terrainPassives() }];
+    this.stats = computeStats(this.progress, this.weapon(), [...this.buffs, ...more], this.offhand(), this.worn());
     this.hp = Math.min(this.hp, this.stats.maxHp);
     this.mp = Math.min(this.mp, this.stats.maxMp);
   }
@@ -129,11 +145,33 @@ export class Hero {
     return true;
   }
 
-  // A buff (the same one again starts over); an enchant replaces any other enchant.
-  addBuff(id: string, name: string, stats: StatBag, duration: number, enchant?: ElementId): void {
+  // A buff (the same one again starts over); an enchant replaces any other enchant. terrain: more
+  // stats by the kind of map, which follow her from map to map.
+  addBuff(id: string, name: string, stats: StatBag, duration: number, enchant?: ElementId, terrain?: Partial<Record<TerrainKind, StatBag>>): void {
     this.buffs = this.buffs.filter((b) => b.id !== id && !(enchant && b.enchant));
-    this.buffs.push({ id, name, stats, t: duration, duration, enchant });
+    const t = terrain ? { base: stats, by: terrain } : undefined;
+    this.buffs.push({ id, name, stats: t ? plus(stats, terrain![this.terrain]) : stats, t: duration, duration, enchant, terrain: t });
     this.recompute();
+  }
+
+  // On to another kind of map: the terrain buffs and passives change with it.
+  setTerrain(kind: TerrainKind): void {
+    this.terrain = kind;
+    for (const b of this.buffs) if (b.terrain) b.stats = plus(b.terrain.base, b.terrain.by[kind]);
+    this.recompute();
+  }
+
+  // What the learned passives with terrain stats give on this kind of map (while their need is met).
+  terrainPassives(): StatBag {
+    let out: StatBag = {};
+    const main = this.weapon(), w = (main && ITEMS[main]?.weapon) ?? null, off = offhandKind(this.offhand());
+    for (const tree of this.progress.trees()) {
+      for (const n of TREES[tree]?.nodes ?? []) {
+        const r = this.progress.ranks[n.id];
+        if (r && n.terrain && needMet(n.need, w, off)) out = plus(out, n.terrain(r)[this.terrain]);
+      }
+    }
+    return out;
   }
 
   // Hidden from monsters (a hide buff); the first blow from hiding ends it.

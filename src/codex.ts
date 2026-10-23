@@ -11,8 +11,8 @@ import { VARIANTS } from "./monsters";
 import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
 import type { MapId, TownId } from "./maps";
-import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS } from "./progression";
-import type { ElementId, JobId } from "./progression";
+import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, THIRD_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open } from "./progression";
+import type { ElementId, Job3Id, JobId } from "./progression";
 import { QUESTS } from "./quests";
 import { STOCK } from "./shop";
 import { el, makeWindow, itemTip } from "./ui";
@@ -244,6 +244,17 @@ export class CodexUI {
       const body = this.row(`j:${id}`, null, j.name, `${where} · ${j.from ? `ต้องเป็น${j.from.map((c) => CLASSES[c].name).join(" หรือ ")}` : "อาชีพไหนก็ได้"}`);
       if (!body) continue;
       body.innerHTML = `${j.note}<br><b>เจ้าอาชีพ:</b> ${where}`
+        + (q ? `<br><b>เควส ${q.name}:</b><br>${q.steps.map((s, i) => `${i + 1}. ${s.task}`).join("<br>")}` : "")
+        + `<br><b>สาย:</b><br>${j.branches.map((b) => `· ${TREES[b].name}: ${TREES[b].note}`).join("<br>")}`;
+    }
+    el("h4", "ws-craft", this.list).textContent = `อาชีพที่ 3 (เลเวล ${THIRD_JOB_LEVEL} ขึ้นไป ต้องมีอาชีพที่ 2 แล้ว)`;
+    for (const [id, j] of Object.entries(JOBS3) as [Job3Id, (typeof JOBS3)[Job3Id]][]) {
+      const q = QUESTS.find((x) => x.job3 === id);
+      const where = q ? `${q.giver.name} · ${MAP_NAMES[q.giver.map as MapId]}` : "-";
+      const open = job3Open(id);
+      const body = this.row(`j3:${id}`, null, j.name, `${where} · ${j.from ? `ต้องเป็น${j.from.map((c) => JOBS[c].name).join(" หรือ ")}` : "อาชีพที่ 2 ไหนก็ได้"}${open ? "" : " · ยังไม่เปิด"}`);
+      if (!body) continue;
+      body.innerHTML = `${j.note}<br><b>เจ้าอาชีพ:</b> ${where}${open ? "" : "<br><b>ยังไม่เปิดให้เปลี่ยน</b> สกิลของอาชีพนี้กำลังเขียนอยู่"}`
         + (q ? `<br><b>เควส ${q.name}:</b><br>${q.steps.map((s, i) => `${i + 1}. ${s.task}`).join("<br>")}` : "")
         + `<br><b>สาย:</b><br>${j.branches.map((b) => `· ${TREES[b].name}: ${TREES[b].note}`).join("<br>")}`;
     }
