@@ -2,8 +2,8 @@
 // in the bag that isn't worn. Any shopkeeper opens it (src/npcs.ts, role "shop"); the
 // merchant's sprite is the first adventurer body generated in Oriverse (8 directions, standing).
 
-import { ITEMS, sellPrice, stackLimit } from "./items";
-import { el, makeWindow } from "./ui";
+import { ITEMS, itemSlot, sellPrice, stackLimit } from "./items";
+import { el, itemTip, makeWindow } from "./ui";
 import type { Inventory } from "./inventory";
 import type { Img } from "./types";
 
@@ -52,13 +52,19 @@ export class ShopUI {
   list: HTMLElement;
   gold: HTMLElement;
   status: HTMLElement;
+  tip: HTMLElement;
   qty = new Map<string, number>();
+  shown = new Set<string>(); // rows opened to show what their item does
+  wearable: (id: string) => string | null;
 
-  // deal(): the discount and the sale bonus the player has now
-  constructor(inv: Inventory, icons: (id: string) => Img | null, deal: () => Deal = () => ({ buy: 0, sell: 0 })) {
+  // deal(): the discount and the sale bonus the player has now; wearable(id): why an item can't
+  // be worn yet (as the bag says), or null
+  constructor(inv: Inventory, icons: (id: string) => Img | null, deal: () => Deal = () => ({ buy: 0, sell: 0 }),
+    wearable: (id: string) => string | null = () => null) {
     this.inv = inv;
     this.icons = icons;
     this.deal = deal;
+    this.wearable = wearable;
     this.win = makeWindow("shop", `${MERCHANT.title} · ${MERCHANT.name}`, "F");
     const top = el("div", "shop-top", this.win);
     this.tabs = el("div", "sk-tabs", top);
@@ -75,7 +81,48 @@ export class ShopUI {
     this.gold = el("span", "inv-gold", top);
     this.list = el("div", "shop-list", this.win);
     this.status = el("p", "inv-status", this.win);
+    // hovering an item shows what it does, as in the bag; tapping one opens it in its row
+    this.tip = el("div", "inv-tip hidden", document.body);
+    const rowOf = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>(".shop-icon, .shop-info")?.closest<HTMLElement>(".shop-row") : null);
+    this.list.addEventListener("pointerover", (e) => {
+      const row = rowOf(e.target);
+      if (!row || e.pointerType !== "mouse" || this.shown.has(row.dataset.key!)) return this.tip.classList.add("hidden");
+      this.tip.innerHTML = this.details(row.dataset.id!);
+      this.tip.classList.remove("hidden");
+      const r = this.tip.getBoundingClientRect();
+      this.tip.style.left = `${Math.min(innerWidth - r.width - 8, e.clientX + 16)}px`;
+      this.tip.style.top = `${Math.min(innerHeight - r.height - 8, e.clientY + 16)}px`;
+    });
+    this.list.addEventListener("pointerout", (e) => {
+      if (!rowOf(e.relatedTarget)) this.tip.classList.add("hidden");
+    });
+    this.list.addEventListener("click", (e) => {
+      const row = rowOf(e.target);
+      if (!row) return;
+      const key = row.dataset.key!;
+      if (!this.shown.delete(key)) this.shown.add(key);
+      this.tip.classList.add("hidden");
+      this.render();
+    });
     inv.onChange(() => this.render());
+  }
+
+  details(id: string): string {
+    return itemTip(id, itemSlot(id) ? this.wearable(id) : null);
+  }
+
+  // A row for an item (key: what keeps it open across redraws), with its details under it when
+  // opened.
+  row(id: string, key: string): HTMLElement {
+    const row = el("div", "shop-row", this.list);
+    row.dataset.id = id;
+    row.dataset.key = key;
+    row.classList.toggle("open", this.shown.has(key));
+    return row;
+  }
+
+  detailUnder(row: HTMLElement): void {
+    if (row.classList.contains("open")) el("div", "shop-detail", row).innerHTML = this.details(row.dataset.id!);
   }
 
   get open(): boolean {
@@ -90,11 +137,12 @@ export class ShopUI {
 
   toggle(show = !this.open): void {
     this.win.classList.toggle("hidden", !show);
+    if (!show) this.tip.classList.add("hidden");
     if (show) {
       const { buy, sell } = this.deal();
       this.status.textContent = buy || sell
         ? `พ่อค้าด้วยกันนี่นา ลดให้ ${pct(Math.min(0.5, buy))} รับซื้อเพิ่มให้ ${pct(Math.min(1, sell))} เลยจ้า`
-        : "ยินดีต้อนรับจ้า ยา เสื้อผ้า คัมภีร์ มีครบ ของในกระเป๋าก็รับซื้อนะ";
+        : "ยินดีต้อนรับจ้า ยา อาวุธ เสื้อผ้า มีครบ ของในกระเป๋าก็รับซื้อนะ · แตะไอเท็มเพื่อดูรายละเอียด";
       this.render();
     }
   }
@@ -137,7 +185,7 @@ export class ShopUI {
     const deal = this.deal();
     for (const id of STOCK) {
       const item = ITEMS[id], price = buyPrice(id, deal);
-      const row = el("div", "shop-row", this.list);
+      const row = this.row(id, `buy:${id}`);
       this.iconCell(row, id);
       const info = el("div", "shop-info", row);
       el("strong", "", info).textContent = item.name;
@@ -179,6 +227,7 @@ export class ShopUI {
         this.inv.changed();
         this.say(`ซื้อ${item.name}${got > 1 ? ` × ${got}` : ""} แล้ว ขอบคุณจ้า${left ? ` (ใส่ได้แค่ ${got})` : ""}`, true);
       });
+      this.detailUnder(row);
     }
   }
 
@@ -201,7 +250,7 @@ export class ShopUI {
     if (!sellable.length) el("p", "wr-note", this.list).textContent = "ไม่มีของที่ขายได้ (ของที่สวมใส่อยู่ต้องถอดก่อน)";
     for (const [s, i] of sellable) {
       const id = s!.id, item = ITEMS[id], each = sellFor(id, deal);
-      const row = el("div", "shop-row", this.list);
+      const row = this.row(id, `sell:${i}:${id}`);
       this.iconCell(row, id);
       const info = el("div", "shop-info", row);
       el("strong", "", info).textContent = `${item.name}${s!.count > 1 ? ` × ${s!.count}` : ""}`;
@@ -222,6 +271,7 @@ export class ShopUI {
       b.type = "button";
       b.textContent = s!.count > 1 ? `ขายหมด ${(each * s!.count).toLocaleString()}` : `ขาย ${each.toLocaleString()}`;
       b.addEventListener("click", () => sell(s!.count));
+      this.detailUnder(row);
     }
   }
 }

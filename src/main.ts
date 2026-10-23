@@ -777,7 +777,7 @@ async function boot(): Promise<void> {
   });
   if (!progress.cls) picker.show();
   const botUI = new BotUI(bot, progress);
-  const shopUI = new ShopUI(inv, iconFor, () => ({ buy: hero.stats.buyDisc, sell: hero.stats.sellBonus }));
+  const shopUI = new ShopUI(inv, iconFor, () => ({ buy: hero.stats.buyDisc, sell: hero.stats.sellBonus }), (id) => invUI.wearable(id));
   const talkDialog = new TalkDialog(quests);
   const questLog = new QuestLog(quests);
   const questTracker = new QuestTracker(quests, () => questLog.toggle(true));

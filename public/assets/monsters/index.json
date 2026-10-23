@@ -1,4 +1,11 @@
 {
+ "basalt_golem": {
+  "cell": 128,
+  "foot": 0,
+  "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
  "brook_spirit": {
   "cell": 96,
   "foot": 0,

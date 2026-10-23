@@ -478,8 +478,15 @@ kbd {
 .shop-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 0; }
 .shop-list { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; max-height: min(60vh, 520px); overflow-y: auto; }
 .shop-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
-.shop-icon { flex: none; cursor: default; }
-.shop-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.shop-row { flex-wrap: wrap; }
+.shop-icon { flex: none; cursor: pointer; }
+.shop-info { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: pointer; }
+.shop-row.open { background: rgba(255, 255, 255, 0.08); }
+.shop-row.open .shop-info .sk-sub { white-space: normal; }
+.shop-detail {
+  flex-basis: 100%; padding: 6px 8px 4px; border-top: 1px solid var(--rim); font-size: 12.5px; line-height: 1.45; color: var(--muted);
+}
+.shop-detail strong { display: none; }
 .shop-info strong { font-size: 13.5px; font-weight: 600; }
 .shop-info .sk-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shop-qty { display: flex; align-items: center; gap: 4px; font-size: 13px; }

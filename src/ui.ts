@@ -63,6 +63,14 @@ export function makeWindow(id: string, title: string, key: string): HTMLElement 
   return win;
 }
 
+// An item's tooltip: its name, what kind it is, what it does and (why) why it can't be worn yet.
+export function itemTip(id: string, why: string | null = null): string {
+  const item = ITEMS[id];
+  const kind = { weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", hat: "หมวก", shoes: "รองเท้า", ring: "แหวน",
+    trinket: "เครื่องประดับ", potion: "ยา", material: "วัตถุดิบ", book: "ตำรา", style: "ตำราทำผม" }[item.kind];
+  return `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
+}
+
 export class InventoryUI {
   inv: Inventory;
   icons: (id: string) => Img | null;
@@ -249,11 +257,7 @@ export class InventoryUI {
       this.tip.classList.add("hidden");
       return;
     }
-    const item = ITEMS[id];
-    const kind = { weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", hat: "หมวก", shoes: "รองเท้า", ring: "แหวน",
-      trinket: "เครื่องประดับ", potion: "ยา", material: "วัตถุดิบ", book: "ตำรา", style: "ตำราทำผม" }[item.kind];
-    const why = itemSlot(id) ? this.wearable(id) : null;
-    this.tip.innerHTML = `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
+    this.tip.innerHTML = itemTip(id, itemSlot(id) ? this.wearable(id) : null);
     this.tip.classList.remove("hidden");
     const r = this.tip.getBoundingClientRect();
     this.tip.style.left = `${Math.min(innerWidth - r.width - 8, x + 16)}px`;
