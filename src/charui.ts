@@ -1,7 +1,7 @@
 // Character UI: the HP/MP/EXP panel, the class picker, the profile window (P), the settings
 // window (O) and the skill window (K) with its three tabs: skill books, masteries and elements.
 
-import { el, makeWindow, HAIRSTYLES, HAIR_COLORS, swatchColor } from "./ui";
+import { el, makeWindow, HAIRSTYLES } from "./ui";
 import type { Look } from "./ui";
 import { skillIcon, hasArt } from "./icons";
 import {
@@ -21,6 +21,12 @@ import type { Img } from "./types";
 
 // (regen arrives every REGEN_TICK seconds: shown as what each tick brings)
 const fmt = (key: string, v: number) => (PERCENT_STATS.has(key) ? `${(v * 100).toFixed(1)}%` : key.endsWith("Regen") ? `${Math.round(v * REGEN_TICK)} / ${REGEN_TICK} วิ` : Math.round(v).toString());
+
+// Time left on a buff: seconds, or minutes and seconds for the long blessings ("2:45").
+const buffTime = (t: number) => {
+  const s = Math.ceil(t);
+  return s < 60 ? `${s}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
 
 // Tooltip text for an active skill at a rank.
 export function skillTip(id: string, rank: number): string {
@@ -97,7 +103,7 @@ export class Vitals {
     this.xp.text.textContent = p.level >= MAX_LEVEL ? "เลเวลสูงสุด" : `EXP ${(100 * f).toFixed(1)}%`;
     this.buffs.replaceChildren(...h.buffs.map((b) => {
       const t = el("span", b.id.startsWith("ail_") ? "vt-buff ail" : "vt-buff");
-      t.textContent = `${b.name} ${Math.ceil(b.t)}`;
+      t.textContent = `${b.name} ${buffTime(b.t)}`;
       return t;
     }));
   }
@@ -136,7 +142,7 @@ export class ClassPicker {
 
 // ---- profile window ----
 // Who the character is: class, level, what it wears (with what each piece gives), its stats and
-// elemental attack and defence, what it has learned, and its hairstyle and hair colour.
+// elemental attack and defence, what it has learned, and its hairstyle.
 interface ProfileDeps {
   name: string;
   inv: Inventory;
@@ -245,33 +251,22 @@ export class ProfileUI {
       list("ธาตุ", p.elementsOpen().map((e) => ELEMENTS[e].name)));
   }
 
-  // The hairstyles it has learned (a female character; a male one keeps his own hair) and the
-  // hair colours.
+  // The hairstyles it has learned (a female character; a male one keeps his own hair), when
+  // there is more than one to pick from. The hair colour is picked once, when the character is
+  // made (src/title.ts).
   renderLooks(): void {
     const look = this.d.look;
     this.looks.replaceChildren();
-    el("div", "st-sub", this.looks).textContent = "รูปลักษณ์";
-    if (look.gender === "female") {
-      const row = el("div", "wr-choices", this.looks);
-      for (const h of HAIRSTYLES.filter((x) => look.styles?.includes(x.id))) {
-        const b = el("button", `wr-choice${look.hair === h.id ? " on" : ""}`, row);
-        b.type = "button";
-        b.textContent = h.name;
-        b.addEventListener("click", () => {
-          look.hair = h.id;
-          this.d.onLook();
-          this.renderLooks();
-        });
-      }
-    }
-    const sw = el("div", "wr-swatches", this.looks);
-    for (const c of HAIR_COLORS) {
-      const b = el("button", `wr-swatch${look.hairColor === c.id ? " on" : ""}`, sw);
+    const styles = look.gender === "female" ? HAIRSTYLES.filter((x) => look.styles?.includes(x.id)) : [];
+    if (styles.length < 2) return;
+    el("div", "st-sub", this.looks).textContent = "ทรงผม";
+    const row = el("div", "wr-choices", this.looks);
+    for (const h of styles) {
+      const b = el("button", `wr-choice${look.hair === h.id ? " on" : ""}`, row);
       b.type = "button";
-      b.title = `สีผม${c.name}`;
-      b.style.setProperty("--swatch", swatchColor(c, "hairColor"));
+      b.textContent = h.name;
       b.addEventListener("click", () => {
-        look.hairColor = c.id;
+        look.hair = h.id;
         this.d.onLook();
         this.renderLooks();
       });

@@ -7,7 +7,7 @@ import { pct, lin } from "./util";
 // What a "both" skill's number is a share of (stat: "both": 0.6 of attack and of magic attack).
 const MIX = "พลังผสม (60% ของพลังโจมตี + 60% ของพลังเวท)";
 // The weapons held for close combat (everything but the staff and the bow).
-const MELEE: Need = { weapons: ["sword_1h", "sword_2h", "axe", "axe_2h", "mace", "spear_1h", "spear_2h", "dagger"] };
+const MELEE: Need = { weapons: ["sword_1h", "sword_2h", "axe", "axe_2h", "mace", "spear_1h", "spear_2h", "dagger", "knuckle", "claw"] };
 // The elements a rune blade enchants with, and what its elemental passives raise.
 const RUNE_ELEMENTS = (v: number) => ({ fireAtk: v, iceAtk: v, windAtk: v, lightningAtk: v, earthAtk: v });
 

@@ -27,7 +27,7 @@ export interface WeaponType {
   note?: string;
 }
 
-export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow";
+export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow" | "knuckle" | "claw";
 
 // A one-handed weapon in the off hand adds a second hit for this much of its damage to whatever
 // the main hand hit, and every attack takes this much longer.
@@ -82,6 +82,16 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
     name: "ธนู", motion: "shoot", builtin: true, reach: 0, interval: 0.9, damage: [16, 22], twoHanded: true,
     projectile: { kind: "arrow", speed: 1400, range: 780, radius: 26 },
     note: "ยิงไกลที่สุด",
+  },
+  // worn on the fist: punches thrown with the empty-handed thrust (the monk's weapon)
+  knuckle: {
+    name: "สนับมือ", motion: "thrust", hit: "line", reach: 85, width: 46, interval: 0.45, damage: [13, 17],
+    note: "ต่อยเร็ว ระยะสั้น อาวุธทุบ",
+  },
+  // blades over the knuckles: quick slashes, a little likelier to crit (the assassin's weapon)
+  claw: {
+    name: "กรงเล็บ", motion: "thrust", hit: "arc", reach: 100, arc: 80, interval: 0.42, damage: [12, 16], crit: 0.08,
+    note: "ข่วนเร็ว ระยะสั้น อาวุธฟัน",
   },
 };
 
@@ -526,8 +536,9 @@ const STAT_WORDS: Record<string, string> = {
   def: "ป้องกัน", mdef: "ต้านเวท", atk: "พลังโจมตี", matk: "พลังเวท", maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", maxHpPct: "HP สูงสุด",
   maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน", luck: "โชคดี", potion: "ยาฟื้นแรงขึ้น", hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท",
   cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", drop: "โอกาสได้ของ", dmgRed: "ลดความเสียหาย",
+  statusRes: "ต้านสถานะ",
 };
-const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "castRed", "crit", "critDmg", "drop", "dmgRed"]);
+const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "castRed", "crit", "critDmg", "drop", "dmgRed", "statusRes"]);
 export function statText(stats: Partial<Record<string, number>> | undefined): string {
   return Object.entries(stats ?? {}).map(([k, v = 0]) => `${STAT_WORDS[k] ?? k} ${v < 0 ? "" : "+"}${STAT_PCT.has(k) ? `${Math.round(v * 100)}%` : v}`).join(" · ");
 }

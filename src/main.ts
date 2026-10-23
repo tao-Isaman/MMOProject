@@ -28,7 +28,7 @@ import type { WeaponArt } from "./weapons";
 import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
-import { monsterDamage, lucky } from "./stats";
+import { monsterDamage, lucky, resists } from "./stats";
 import type { ElementId, StatBag } from "./progression";
 
 import { Vitals, ClassPicker, ProfileUI, SettingsUI, SkillUI, skillTip } from "./charui";
@@ -1494,16 +1494,22 @@ async function boot(): Promise<void> {
         if (back > 0) combat.apply(m, { dmg: back, crit: false, magic: false, miss: false }, { x: (m.x - player.x) / d, y: (m.y - player.y) / d }, 0);
       }
       // an ice, mud or dark bite may leave an ailment, less likely the better the player's
-      // defence in that element, shorter with plant, none at plant 50
+      // defence in that element, shorter with plant, none at plant 50; gold may shrug any
+      // ailment off (statusRes)
       const ail = m.element ? AILMENTS[m.element] : undefined;
       const plant = hero.progress.elements.plant ?? 0;
-      if (ail && plant < 50 && Math.random() < 0.15 * Math.max(0, 1 - hero.stats[`${m.element!}Def`] / 100)) {
+      const shrug = () => {
+        if (!resists(hero.stats)) return false;
+        floaters.add(player.x, player.y, 140, "ต้านทาน", "miss");
+        return true;
+      };
+      if (ail && plant < 50 && Math.random() < 0.15 * Math.max(0, 1 - hero.stats[`${m.element!}Def`] / 100) && !shrug()) {
         hero.addBuff(`ail_${m.element}`, ail.name, ail.stats, ail.t * (1 - 0.01 * plant));
         floaters.add(player.x, player.y, 140, ail.name, "hurt");
       }
       // some bites slow, turn to stone for a moment or set alight
       for (const a of m.ails) {
-        if (Math.random() >= 0.2) continue;
+        if (Math.random() >= 0.2 || shrug()) continue;
         if (a === "burn") burning = { t: 3.5, acc: 0, dmg: Math.max(1, Math.round(m.atk * 0.15)) };
         else hero.addBuff(`ail_${a}`, BITE_AILS[a].name, BITE_AILS[a].stats, BITE_AILS[a].t);
         floaters.add(player.x, player.y, 140, a === "burn" ? "ไฟลวก" : BITE_AILS[a].name, "hurt");

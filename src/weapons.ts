@@ -32,6 +32,10 @@ export const WEAPON_ART: Record<WeaponId, WeaponArt> = {
   dagger: { grip: 0.75 },
   staff: { grip: 0.6, scale: 0.75, upright: true }, // drawn at the 128 px sprite's pixel size
   bow: { grip: 0.5, upright: true },
+  // worn rather than held: the knuckle-duster sits on the fist, its studs out where the arm
+  // points; the claw's band sits on the fist with the blades reaching on past it
+  knuckle: { grip: 0.64 },
+  claw: { grip: 0.84 },
 };
 
 // Angle (radians, 0 = pointing up the screen, clockwise) of a weapon held at hand h by a body

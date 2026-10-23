@@ -65,6 +65,8 @@ export const STATE_TEXT: Record<BotState, string> = {
 };
 
 const SUPPORT = new Set(["heal", "shield", "buff", "decoy"]);
+// A buff lasting at least this long (s) is worth keeping up out of a fight as well.
+const LONG_BUFF = 60;
 export const isSupport = (s: SkillDef) => SUPPORT.has(s.type);
 
 // A new rule for a skill, with a sensible default condition for its type.
@@ -502,6 +504,10 @@ export class Bot {
         if (s.type === "heal") go = hpPct < 90;
         else if (s.type === "shield") go = !hero.shield;
         else go = !hero.buffs.some((b) => b.id === r.id);
+      } else if (fighting && s.type === "buff" && (s.duration ?? 8) >= LONG_BUFF) {
+        // a blessing that lasts minutes is kept up between fights too, not left to lapse until
+        // the next one starts
+        go = !hero.buffs.some((b) => b.id === r.id);
       }
       if (go && this.cast(r.id, null)) return true;
     }
