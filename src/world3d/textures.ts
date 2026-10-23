@@ -113,6 +113,24 @@ function bark(): HTMLCanvasElement {
   });
 }
 
+// End grain: the rings of a sawn trunk centred on the tile (a cut face maps the whole tile across
+// its disc), the dark pith, a pale sapwood band under the bark line and a couple of drying cracks.
+function endgrain(): HTMLCanvasElement {
+  const n = fbm([[6, 1], [24, 0.4]], 53);
+  const cracks = [0.6, 2.3, 4.1].map((a, i) => ({ a, len: 0.18 + i * 0.07 }));
+  return paint((u, v) => {
+    const x = u - 0.5, y = v - 0.5, r = Math.hypot(x, y) * 2, ang = Math.atan2(y, x);
+    const w = r + (n(u, v) - 0.5) * 0.08;
+    const ring = 0.5 + 0.5 * Math.cos(w * Math.PI * 2 * 11);
+    let t = 0.78 + 0.08 * ring ** 3 - 0.05 * w;
+    if (w > 0.82) t += 0.08; // sapwood
+    if (w > 0.97) t -= 0.25; // cambium line
+    if (r < 0.05) t -= 0.25; // pith
+    for (const c of cracks) if (r > 0.92 - c.len && Math.abs(Math.sin(ang - c.a)) < 0.012 / Math.max(r, 0.2)) t -= 0.3;
+    return grey(t + (n(u * 3, v * 3) - 0.5) * 0.06);
+  });
+}
+
 // Sandstone: big soft-edged blocks, two courses to a metre, sandy grain.
 function sandstone(): HTMLCanvasElement {
   const n = fbm([[6, 1], [24, 0.5], [128, 0.35]], 41);
@@ -1027,7 +1045,7 @@ export function flowerCell(i: number): [number, number, number, number] {
   return [col / 4 + e, 1 - (row + 1) / 4 + e, (col + 1) / 4 - e, 1 - row / 4 - e];
 }
 
-const DETAIL = { crag, wood, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs, foliage, palmBark };
+const DETAIL = { crag, wood, endgrain, stone, plaster, fabric, metal, bark, shingles, sandstone, adobe, cobble, tiles, thatch, snow, ice, paper, bamboo, marble, brick, felt, ribs, foliage, palmBark };
 export type DetailMap = keyof typeof DETAIL;
 // A fresh copy of a detail map's canvas (grey, one tile per metre).
 export const detailCanvas = (name: DetailMap): HTMLCanvasElement => DETAIL[name]();

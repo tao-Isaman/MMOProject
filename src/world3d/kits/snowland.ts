@@ -17,6 +17,7 @@ import {
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, FLOWER_CELLS } from "../textures";
 import { Cards, shrub, lump, limb } from "../trees";
+import { fallenTrunk, stumpOf, coverTop, endGrain } from "../nature";
 import type { Lobe, ShrubLook } from "../trees";
 import type { Kit } from "./types";
 
@@ -298,54 +299,28 @@ function snowPatch(): Geo {
 
 // A pine blown down: its root plate torn up at one end, the trunk snapped at the other, snow
 // along its top and drifted against it. It lies along Y (across the view).
+const PINE_END = endGrain("#d2ab7a");
 function fallenLog(): Geo {
-  const r = 30, z = 27, x0 = -250, x1 = 250, rnd = seeded(7);
-  const parts: Geo[] = [cylinderBetween([x0, 0, z], [x1, 0, z + 3], r, 10, "Snowland_Bark")];
-  // the snapped end: splinters
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2 + rnd() * 0.4, rr = r * (0.3 + rnd() * 0.55);
-    const s: V3 = [x1 - 10, Math.cos(a) * rr, z + 3 + Math.sin(a) * rr];
-    parts.push(cylinderBetween(s, [x1 + 18 + rnd() * 50, s[1] * 1.15, s[2] + (rnd() - 0.4) * 12], 7 + rnd() * 4, 4, "Snowland_DeadWood", 0.5));
-  }
-  parts.push(cylinderBetween([x1 - 2, 0, z + 3], [x1 + 4, 0, z + 3], r - 4, 10, "Snowland_LogEnd"));
-  // the root plate: a disc of earth standing on edge, roots reaching out of it
-  parts.push(translate(rotateY(cylinderAt({ radius: 88, height: 26, segments: 11, bottom: [0, 0, -13] }, "Snowland_Earth"), 90), [x0 - 16, 0, z + 28]));
-  for (let i = 0; i < 11; i++) {
-    const a = (i / 11) * Math.PI * 2 + rnd() * 0.3;
-    const e: V3 = [x0 - 36 - rnd() * 30, Math.cos(a) * (100 + rnd() * 30), z + 30 + Math.sin(a) * (95 + rnd() * 25)];
-    parts.push(limb([[x0 - 20, Math.cos(a) * 40, z + 28 + Math.sin(a) * 40], [(x0 - 20 + e[0]) / 2 - 6, (Math.cos(a) * 40 + e[1]) / 2, (z + 28 + Math.sin(a) * 40 + e[2]) / 2 - 8], e], 8, 2.5, "Snowland_Bark", { seg: 5, maxRings: 3 }));
-  }
-  parts.push(blob(62, [x0 - 22, 0, z + 112], "Snow", 0.3), blob(40, [x0 - 30, -50, z + 95], "Snow", 0.3));
-  // branch stubs
-  parts.push(
-    limb([[-80, 10, z + 20], [-98, 28, z + 52], [-110, 50, z + 78]], 7, 2.5, "Snowland_Bark", { seg: 5, maxRings: 3 }),
-    limb([[60, -15, z + 18], [80, -36, z + 42], [92, -62, z + 62]], 6, 2, "Snowland_Bark", { seg: 5, maxRings: 3 }),
-    limb([[150, 20, z - 8], [172, 48, z - 10], [195, 75, 2]], 6, 2, "Snowland_Bark", { seg: 5, maxRings: 3 }),
-    limb([[-170, -15, z + 22], [-182, -26, z + 46], [-190, -40, z + 66]], 5, 1.5, "Snowland_DeadWood", { seg: 5, maxRings: 3 }),
-  );
-  // snow along the top and drifted against its side
-  parts.push(translate(scale(cylinderBetween([x0 + 25, 0, 0], [x1 - 25, 0, 3], 24, 8, "Snow"), [1, 1, 0.42]), [0, 0, z + r - 5]));
-  parts.push(mound(330, 90, 32, 89, [-10, 48, 0]), mound(180, 70, 20, 90, [60, -42, 0]));
-  return rotateZ(merge(...parts), 90);
+  // built along -X (the root plate) to +X (the snapped top), then turned to lie along Y
+  const trunk = rotateZ(fallenTrunk({ seed: 7, len: 500, r: 30, bark: "Snowland_Bark", wood: PINE_END, roots: { soil: "Snowland_Earth", cover: "Snow" }, broken: true, stubs: 4, snow: "Snow" }), -90);
+  return rotateZ(merge(
+    trunk,
+    blob(56, [-282, 0, 120], "Snow", 0.3), blob(36, [-290, -50, 100], "Snow", 0.3),
+    // drifted against its side
+    mound(330, 90, 32, 89, [-10, 48, 0]), mound(180, 70, 20, 90, [60, -42, 0]),
+  ), 90);
 }
 
 function snowyStump(): Geo {
   const parts: Geo[] = [
-    cylinderAt({ rBot: 44, rTop: 37, height: 66, segments: 10, bottom: [0, 0, 0] }, "Snowland_Bark"),
-    cylinderAt({ radius: 35, height: 3, segments: 10, bottom: [0, 0, 64] }, "Snowland_LogEnd"),
-    cylinderAt({ rBot: 32, rTop: 27, height: 8, segments: 10, bottom: [4, -4, 66] }, "Snow"),
-    blob(25, [4, -4, 74], "Snow", 0.4),
+    stumpOf({ seed: 97, r: 40, h: 66, bark: "Snowland_Bark", wood: PINE_END, roots: 5, slant: 0.04, snow: "Snow" }),
     mound(170, 130, 22, 97, [12, 22, 0], 40),
   ];
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + 0.3;
-    parts.push(limb([[Math.cos(a) * 26, Math.sin(a) * 26, 28], [Math.cos(a) * 52, Math.sin(a) * 52, 8], [Math.cos(a + 0.1) * 80, Math.sin(a + 0.1) * 80, -4]], 13, 5, "Snowland_Bark", { seg: 6, maxRings: 4, gnarl: 0.5 }));
-  }
   // a woodcutter's axe left in it
   parts.push(translate(merge(
     cylinderBetween([0, 0, 0], [-52, 4, 58], 3.5, 6, "WoodWarm"),
     box([24, 4, 15], [4, 0, -2], "IronLight", 1),
-  ), [-14, 8, 68]));
+  ), [-14, 8, 70]));
   return merge(...parts);
 }
 
@@ -404,6 +379,8 @@ function deadBranches(): Geo {
   branch([-20, 10, 0], new THREE.Vector3(0.2, 0.1, 1).normalize(), 70, 7, 2);
   branch([40, -30, 0], new THREE.Vector3(-0.3, -0.4, 1).normalize(), 55, 6, 2);
   branch([-60, -50, 0], new THREE.Vector3(-0.5, 0.2, 0.8).normalize(), 45, 5, 1);
+  // snow caught along the upper sides of the branches
+  parts.push(coverTop(parts.slice(2).flat(), "Snow", { amount: 0.55, thick: 2.5, seed: 129, ragged: 0.15 }));
   // twigs lying on the snow
   parts.push(
     limb([[60, 60, 8], [104, 46, 7], [150, 20, 4]], 4, 2.5, "Snowland_DeadWood", { seg: 5, maxRings: 3 }),

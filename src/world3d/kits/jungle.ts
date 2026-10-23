@@ -20,6 +20,7 @@ import type { Geo, V3 } from "../geo";
 import { defineMaterial, material } from "../textures";
 import { shrub, SHRUB_JUNGLE, limb, foliage, crownLobes, LeafCards, CANOPY, frond, canopyTint } from "../trees";
 import type { CanopyLook, FoliageSpec } from "../trees";
+import { fallenTrunk, stumpOf, coverTop, endGrain } from "../nature";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -203,7 +204,8 @@ function cloth(bl: V3, br: V3, tl: V3, tr: V3, bulge: V3, mat: string, nu = 5, n
 // A rock with a cap of moss over its top: the same rock a little narrower and raised, so the moss
 // shows only over its shoulders.
 function mossy(size: V3, rough: number, seed: number, mat = "Jungle_RockMoss", moss = "Jungle_Moss", lift = 0.08): Geo {
-  return merge(rock(size, rough, seed, mat), translate(scale(rock(size, rough, seed, moss), [0.94, 0.94, 1]), [0, 0, size[2] * lift]));
+  const g = rock(size, rough, seed, mat);
+  return merge(g, coverTop(g, moss, { amount: 0.3 + lift * 2.5, thick: 2 + size[2] * 0.012, seed, grain: Math.max(20, size[0] * 0.2) }));
 }
 // a lumpy cushion of moss lying on a surface at p, about sx by sy across (half sizes), sz thick:
 // three soft blobs run together
@@ -293,49 +295,27 @@ function rockCluster(): THREE.Object3D {
 
 // a great fallen trunk along Y (6.6 m): its root plate torn up at one end, the other broken
 // off; moss on its back, bracket fungi, a stub of branch, ferns rooted on it
+const ROT_END = endGrain("#9a7650");
 function fallenLog(): THREE.Object3D {
-  const g: Geo[] = [], fr: Frond[] = [], rnd = seeded(61);
-  g.push(cylinderBetween([0, -280, 46], [0, 300, 40], 50, 12, "BarkWarm", 42));
-  // the root plate: a disc of earth with roots sticking out of it and a stone caught in it
-  g.push(cylinderBetween([0, -282, 46], [0, -318, 52], 96, 12, "Jungle_MudBank", 86));
-  for (let i = 0; i < 11; i++) {
-    const a = (i / 11) * Math.PI * 2 + rnd() * 0.3, r = 70 + rnd() * 30;
-    const p0: V3 = [Math.cos(a) * 40, -300, 50 + Math.sin(a) * 40], p1: V3 = [Math.cos(a) * (r + 60), -330 - rnd() * 40, Math.max(4, 50 + Math.sin(a) * (r + 50))];
-    g.push(tube(bend(p0, [Math.cos(a) * r, -322, 50 + Math.sin(a) * r], p1, 3), 9, 3, "BarkWarm", 5));
-  }
-  g.push(translate(rock([50, 40, 40], 0.4, 62, "Jungle_Rock"), [40, -326, 64]));
-  // the broken end: rotten heartwood and splinters
-  g.push(cylinderBetween([0, 300, 40], [0, 304, 40], 38, 12, "Jungle_Rot", 36));
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2, l = 20 + rnd() * 50;
-    g.push(cylinderBetween([Math.cos(a) * 36, 298, 40 + Math.sin(a) * 36], [Math.cos(a) * 24, 300 + l, 40 + Math.sin(a) * 24], 8, 4, "BarkWarm", 0.5));
-  }
-  // a branch stub, moss on its back, fungi down its front
-  g.push(tube([[-30, 80, 70], [-70, 110, 130], [-80, 140, 175]], 14, 7, "BarkWarm"));
-  for (const y of [-220, -120, -10, 100, 210]) g.push(pillow([0, y, 84 - y * 0.012], 34 + rnd() * 10, 55 + rnd() * 20, 12));
-  g.push(brackets([-46, -150, 30], Math.PI, 3, 13), brackets([-44, 40, 26], Math.PI, 2, 11), brackets([44, 160, 30], 0, 3, 12, "Jungle_FungusPale"));
-  fernClump(fr, [0, -60, 86], 5, 70, 63, { lift: 1.0 });
-  fernClump(fr, [-60, 250, 0], 5, 60, 64);
+  const g: Geo[] = [], fr: Frond[] = [];
+  g.push(fallenTrunk({ seed: 61, len: 600, r: 48, bark: "BarkWarm", wood: ROT_END, roots: { soil: "Jungle_MudBank", cover: "Jungle_Moss" }, broken: true, stubs: 3, moss: "Jungle_Moss", mossAmount: 0.5 }));
+  // a stone caught in the root plate, fungi down its front, ferns on its back and at its end
+  g.push(translate(rock([50, 40, 40], 0.4, 62, "Jungle_Rock"), [40, -326, 70]));
+  g.push(brackets([-50, -150, 30], Math.PI, 3, 13), brackets([-48, 40, 26], Math.PI, 2, 11), brackets([48, 160, 30], 0, 3, 12, "Jungle_FungusPale"));
+  fernClump(fr, [0, -60, 90], 5, 70, 63, { lift: 1.0 });
+  fernClump(fr, [-60, 260, 0], 5, 60, 64);
   return group(merge(...g), fernMesh(fr));
 }
 
 // a rotten stump on buttress roots with a broken, hollow top (1.4 m)
 function stump(): THREE.Object3D {
-  const g: Geo[] = [], fr: Frond[] = [], rnd = seeded(71);
-  g.push(cylinderAt({ rBot: 58, rTop: 48, height: 92, segments: 10, bottom: [0, 0, 0] }, "BarkWarm"));
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * 360 + rnd() * 30;
-    g.push(rotateZ(translate(slab([[0, 0], [0, 72], [30, 40], [92, 0]], 18, "BarkWarm"), [36, 0, 0]), a));
-  }
-  // the jagged rim and the hollow inside
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2, h = 8 + rnd() * 42;
-    g.push(rotateZ(boxAt([12, 26, h], [44, 0, 88], "BarkWarm"), a * D));
-  }
-  g.push(cylinderAt({ radius: 41, height: 3, segments: 10, bottom: [0, 0, 88] }, "Jungle_Rot"), cylinderAt({ radius: 26, height: 2, segments: 8, bottom: [0, 0, 90] }, "Jungle_Dark"));
-  g.push(pillow([30, 25, 60], 30, 26, 22), pillow([-20, 40, 4], 40, 30, 10));
-  g.push(brackets([-50, -10, 26], Math.PI, 3, 14), brackets([10, -52, 40], -Math.PI / 2, 2, 11, "Jungle_FungusPale"));
-  fernClump(fr, [60, -40, 0], 4, 55, 72);
+  const g: Geo[] = [], fr: Frond[] = [];
+  g.push(stumpOf({ seed: 71, r: 52, h: 92, bark: "BarkWarm", wood: ROT_END, broken: true, roots: 5, moss: "Jungle_Moss", mossAmount: 0.45 }));
+  // the hollow inside the broken top
+  g.push(translate(scale(sphereCenter(1, [0, 0, 0], "Jungle_Dark", 10), [30, 30, 8]), [0, 0, 84]));
+  g.push(pillow([-20, 70, 4], 40, 30, 10));
+  g.push(brackets([-56, -10, 26], Math.PI, 3, 14), brackets([10, -58, 40], -Math.PI / 2, 2, 11, "Jungle_FungusPale"));
+  fernClump(fr, [70, -50, 0], 4, 55, 72);
   return group(merge(...g), fernMesh(fr));
 }
 

@@ -22,8 +22,9 @@ import {
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, leafClump } from "../textures";
 import type { LeafPalette } from "../textures";
-import { leafMaterials, shrub, crownTreeObject, grow, limb as smooth, CANOPY } from "../trees";
+import { leafMaterials, shrub, crownTreeObject, CANOPY } from "../trees";
 import type { ShrubLook } from "../trees";
+import { fallenTrunk, stumpOf, snag, coverTop, endGrain } from "../nature";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -275,9 +276,10 @@ function leafLitter(): THREE.Object3D {
 
 // A big boulder with a mossy top, a smaller one leaning on it and pebbles; about 3.4 x 2.8 m.
 function boulder(): Geo {
+  const big = rock([300, 250, 230], 0.34, 3, "Frontier_Rock");
   return merge(
-    rock([300, 250, 230], 0.34, 3, "Frontier_Rock"),
-    translate(rock([230, 190, 70], 0.3, 4, "Frontier_RockMoss", true), [-10, 10, 118]),
+    big,
+    coverTop(big, "Frontier_Moss", { amount: 0.3, thick: 3, seed: 3, grain: 50 }),
     translate(rotateY(rock([140, 120, 120], 0.4, 7, "Frontier_Rock"), -14), [-150, 70, 0]),
     translate(rock([60, 50, 36], 0.4, 9, "Frontier_Rock"), [-130, -110, 0]),
     translate(rock([40, 36, 26], 0.4, 11, "Frontier_RockMoss"), [120, -120, 0]),
@@ -310,37 +312,11 @@ function flatRocks(): Geo {
 
 // A fallen log along Y (4.8 m) with its root plate torn up at one end, a broken end at the
 // other, branch stubs, moss and red-capped mushrooms.
+const LOG_END = endGrain("#dcc196");
 function fallenLog(): Geo {
-  const R = 34, y0 = -230, y1 = 200;
-  const out: Geo[] = [
-    cylinderBetween([0, y0, R - 4], [0, y1, R - 6], R, 12, "Frontier_Log", R * 0.92),
-    // the cut rings at the broken end
-    translate(rotateX(cylinderCenter(R * 0.86, 3, 12, [0, 0, 0], "WoodPale"), 90), [0, y0 - 0.5, R - 4]),
-    // splinters standing out of the broken end
-    ...[0, 70, 150, 220, 290].map((a, i) => {
-      const r = (a * Math.PI) / 180;
-      return spike([Math.cos(r) * R * 0.62, y0 + 2, R - 4 + Math.sin(r) * R * 0.62], [Math.cos(r) * 0.25, -1, Math.sin(r) * 0.25], 18 + (i % 3) * 9, 7, "WoodPale", 4);
-    }),
-    // moss along the top
-    translate(rock([40, 150, 16], 0.3, 44, "Frontier_Moss", true), [2, -50, R * 2 - 16]),
-    translate(rock([34, 80, 14], 0.3, 45, "Frontier_Moss", true), [4, 100, R * 2 - 17]),
-    // branch stubs
-    smooth([[0, -60, R + 10], [-22, -48, R + 44], [-40, -30, R + 70]], 9, 5, "Frontier_Log", { seg: 6, maxRings: 3 }),
-    smooth([[10, 60, R + 4], [42, 78, R + 20], [70, 90, R + 30]], 8, 4, "Frontier_Log", { seg: 6, maxRings: 3 }),
-    smooth([[-14, 140, R], [-48, 158, R + 2], [-80, 170, R - 6]], 7, 3, "Frontier_Log", { seg: 6, maxRings: 3 }),
-  ];
-  // the root plate: a clod of earth torn up on its edge, roots trailing out of it
-  out.push(translate(rotateX(rock([170, 150, 70], 0.45, 42, "Frontier_Earth"), -90), [0, y1 + 20, 0]));
-  const rr = seeded(41);
-  for (let i = 0; i < 13; i++) {
-    const a = (i / 13) * TAU + rr() * 0.3, l = 50 + rr() * 50, r0 = 62 + rr() * 10;
-    const p0: V3 = [Math.cos(a) * 30, y1 + 50, 66 + Math.sin(a) * 30];
-    const p1: V3 = [Math.cos(a) * r0, y1 + 40 + rr() * 20, Math.max(6, 66 + Math.sin(a) * r0)];
-    const p2: V3 = [Math.cos(a) * (r0 + l), y1 + 50 + rr() * 50, Math.max(3, 66 + Math.sin(a) * (r0 + l) - 30)];
-    out.push(limb([p0, p1, p2], 6, 1.2, "Frontier_Log", 5, false));
-  }
+  const out: Geo[] = [fallenTrunk({ seed: 42, len: 480, r: 36, bark: "Frontier_Log", wood: LOG_END, roots: { soil: "Frontier_Earth", cover: "Frontier_Moss" }, broken: true, stubs: 3, moss: "Frontier_Moss", mossAmount: 0.25 })];
   // mushrooms by the log
-  for (const [x, y, s] of [[-44, -100, 1], [-50, -76, 0.7], [40, 30, 0.85], [46, 54, 0.6], [-40, 150, 0.9]] as [number, number, number][]) {
+  for (const [x, y, s] of [[-50, -60, 1], [-56, -36, 0.7], [52, 40, 0.85], [58, 64, 0.6], [-50, 150, 0.9]] as [number, number, number][]) {
     out.push(
       cylinderAt({ radius: 3 * s, height: 14 * s, segments: 6, bottom: [x, y, 0] }, "Frontier_Bone"),
       translate(scale(sphereCenter(10 * s, [0, 0, 0], "FabricRed", 8), [1, 1, 0.55]), [x, y, 14 * s]),
@@ -352,18 +328,7 @@ function fallenLog(): Geo {
 
 // A stump with spreading roots, rings on the cut, a woodcutter's axe left in it.
 function stump(): Geo {
-  const out: Geo[] = [
-    cylinderAt({ rBot: 40, rTop: 34, height: 62, segments: 12, bottom: [0, 0, 0] }, "Frontier_Log"),
-    cylinderAt({ radius: 32, height: 3, segments: 12, bottom: [0, 0, 62] }, "WoodPale"),
-    translate(torus(22, 1.4, 16, 4, "WoodShade"), [0, 0, 65]),
-    translate(torus(12, 1.2, 12, 4, "WoodShade"), [0, 0, 65]),
-    // a splinter left standing on one side
-    translate(rotateZ(boxAt([16, 22, 26], [26, 0, 62], "Frontier_Log"), 40), [0, 0, 0]),
-  ];
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * TAU + 0.3;
-    out.push(smooth([[Math.cos(a) * 22, Math.sin(a) * 22, 30], [Math.cos(a) * 50, Math.sin(a) * 50, 10], [Math.cos(a + 0.1) * 82, Math.sin(a + 0.1) * 82, -3]], 15, 4, "Frontier_Log", { seg: 6, maxRings: 4, gnarl: 0.5 }));
-  }
+  const out: Geo[] = [stumpOf({ seed: 14, r: 37, h: 62, bark: "Frontier_Log", wood: LOG_END, roots: 6, slant: 0.05 })];
   // the axe: haft leaning back, the head bitten into the cut
   const axe = merge(
     cylinderBetween([0, 0, 0], [0, 0, 78], 2.6, 6, "WoodPale"),
@@ -839,13 +804,7 @@ function darkCrystal(): Geo {
 // A twisted dead tree: a black trunk that winds up and splits into clawing branches, roots
 // gripping the ground; about 6.5 m tall.
 function deadTree(): Geo {
-  const rr = seeded(131);
-  const out: Geo[] = [grow({ mat: "Frontier_DeadBark", seed: 172, at: [0, 0, 0], dir: [0.15, -0.1, 1], len: 330, r: 34, depth: 3, spread: 0.85, shrink: 0.67, thin: 0.86, flare: 0.5, roots: 6, gnarl: 0.8, tipR: 0.12 })];
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * TAU + 0.2, l = 90 + rr() * 50;
-    out.push(smooth([[Math.cos(a) * 18, Math.sin(a) * 18, 40], [Math.cos(a) * 60, Math.sin(a) * 60, 14], [Math.cos(a) * l, Math.sin(a) * l, -4]], 18, 4, "Frontier_DeadBark", { seg: 6, gnarl: 0.6 }));
-  }
-  return merge(...out);
+  return snag({ seed: 172, h: 660, r: 34, bark: "Frontier_DeadBark", wood: endGrain("#a39486"), roots: 6, lean: 0.18, hollow: "Frontier_Shadow" });
 }
 
 // The bones of a great beast lying on its back: the spine along X, ribs curling up and in like

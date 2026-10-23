@@ -13,6 +13,7 @@ import * as THREE from "three";
 import { merge, translate, rotateX, rotateY, rotateZ, scale, box, boxAt, boxBounds, beamBetween, cylinderBetween, cylinderAt, sphereCenter, torus, rock } from "../geo";
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, FLOWER_CELLS } from "../textures";
+import { fallenTrunk, stumpOf, snag, coverTop, endGrain, BLEACHED, SOIL } from "../nature";
 import { wind, shrub, limb, foliage, crownLobes, LeafCards, CANOPY, treeObject } from "../trees";
 import type { ShrubLook, Lobe } from "../trees";
 import type { Kit, Put } from "./types";
@@ -376,8 +377,10 @@ function tuftCards(at: V3, w: number, h: number, n: number, rnd: () => number): 
 
 // หินทรายก้อนใหญ่: a big weathered sandstone boulder with smaller ones fallen against it.
 function boulderBig(): Geo {
+  const big = R([400, 330, 290], 11, [0, 0, 0], 12);
   return merge(
-    R([400, 330, 290], 11, [0, 0, 0], 12),
+    big,
+    coverTop(big, "Desert_Sand", { amount: 0.22, thick: 3, seed: 11, grain: 60 }),
     R([260, 220, 200], 13, [-120, 170, 0], -25, "Desert_RockRed"),
     R([220, 180, 140], 17, [130, -180, 0], 40, "Desert_RockPale"),
     R([120, 100, 70], 19, [-230, -120, 0], 10),
@@ -388,9 +391,11 @@ function boulderBig(): Geo {
 
 // หินแผ่นแบน: low flat slabs of layered rock, one over the other.
 function boulderFlat(): Geo {
+  const top = R([300, 240, 100], 37, [60, -40, 52], -20, "Desert_Rock", 0.3, true);
   return merge(
     R([470, 340, 120], 31, [0, 0, 0], 8, "Desert_RockPale", 0.3, true),
-    R([300, 240, 100], 37, [60, -40, 52], -20, "Desert_Rock", 0.3, true),
+    top,
+    coverTop(top, "Desert_Sand", { amount: 0.3, thick: 2.5, seed: 37, grain: 50 }),
     R([150, 120, 70], 41, [-230, 150, 0], 30, "Desert_RockRed", 0.4, true),
     R([90, 80, 40], 43, [210, 170, 0], 0, "Desert_Rock", 0.4, true),
   );
@@ -531,21 +536,7 @@ function baobab(): THREE.Group {
 
 // ต้นไม้ยืนตาย: a dead tree, bleached and twisted, its branches snapped short.
 function deadTree(): Geo {
-  const W = "Desert_DeadWood";
-  const parts: Geo[] = [
-    limb([[0, 0, 0], [15, -5, 120], [-10, 12, 235], [6, 0, 340]], 24, 6, W, { flare: 0.6, roots: 5, gnarl: 0.8, seed: 3, seg: 7, taper: 0.8, grainU: true, step: 45 }),
-    limb([[13, -4, 112], [70, -38, 170], [115, -65, 225], [150, -60, 300]], 9, 1.5, W, { gnarl: 0.5, seed: 4, grainU: true, seg: 5, maxRings: 4 }),
-    limb([[-8, 11, 228], [-70, 45, 280], [-125, 75, 320], [-160, 40, 385]], 8, 1.2, W, { gnarl: 0.5, seed: 5, grainU: true, seg: 5, maxRings: 4 }),
-    limb([[-80, 48, 280], [-96, 92, 310], [-110, 130, 330]], 3, 1.2, W, { seg: 4, grainU: true, maxRings: 2 }),
-    limb([[4, 4, 300], [40, 52, 352], [85, 95, 410]], 6, 2, W, { seg: 4, grainU: true, maxRings: 3 }),
-    limb([[-6, 8, 190], [18, 70, 225], [45, 125, 250]], 6, 3.5, W, { seg: 4, grainU: true, maxRings: 3 }),
-    limb([[10, -2, 270], [-14, -48, 300], [-40, -90, 330]], 4, 1.5, W, { seg: 4, grainU: true, maxRings: 2 }),
-  ];
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + 0.4;
-    parts.push(limb([[Math.cos(a) * 8, Math.sin(a) * 8, 26], [Math.cos(a) * 34, Math.sin(a) * 34, 6], [Math.cos(a + 0.12) * 58, Math.sin(a + 0.12) * 58, -6]], 11, 5, W, { seg: 4, maxRings: 3, grainU: true }));
-  }
-  return merge(...parts);
+  return snag({ seed: 3, h: 420, r: 24, bark: BLEACHED, wood: DRY_END, roots: 5, lean: 0.12, spread: 0.9, hollow: "Desert_Shadow" });
 }
 
 // พุ่มหนามแห้ง: a thorn scrub, olive-grey and thin over a tangle of dark twigs (the twigs show
@@ -570,44 +561,14 @@ function dryBush(): Geo {
 }
 
 // ขอนไม้ล้ม: a fallen trunk gone grey, its root plate up on one end and the other end splintered.
+const DRY_END = endGrain("#d8c49c");
 function fallenLog(): Geo {
-  const W = "Desert_DeadWood";
-  const rnd = seeded(23);
-  const parts: Geo[] = [
-    limb([[0, -150, 31], [4, 0, 30], [6, 155, 26]], 32, 26, W, { seg: 10, grainU: true, gnarl: 0.4, seed: 23 }),
-    translate(rotateX(cylinderAt({ radius: 55, height: 24, segments: 9, bottom: [0, 0, 0] }, "Desert_DarkWood"), 90), [0, -150, 40]),
-    cylinderBetween([6, 154, 26], [6, 157, 26], 23, 10, "Desert_WoodEnd"),
-    limb([[8, -40, 50], [34, -30, 84], [60, -15, 108]], 8, 4, W, { seg: 6, maxRings: 3, grainU: true }),
-    limb([[-18, 60, 44], [-50, 78, 58], [-80, 92, 66]], 7, 3, W, { seg: 6, maxRings: 3, grainU: true }),
-  ];
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    parts.push(cylinderBetween([0, -172, 40], [Math.cos(a) * 85, -186 - rnd() * 20, Math.max(-6, 40 + Math.sin(a) * 85)], 8, 5, "Desert_DarkWood", 3));
-  }
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    parts.push(cylinderBetween([6 + Math.cos(a) * 16, 150, 26 + Math.sin(a) * 16], [6 + Math.cos(a) * 12, 172 + rnd() * 26, 26 + Math.sin(a) * 12], 7, 4, W, 1));
-  }
-  return merge(...parts);
+  return fallenTrunk({ seed: 23, len: 320, r: 32, bark: BLEACHED, wood: DRY_END, roots: { soil: SOIL }, broken: true, stubs: 2 });
 }
 
 // ตอไม้แห้ง: a dead stump with a jagged broken top and roots gripping the ground.
 function stump(): Geo {
-  const W = "Desert_DeadWood";
-  const rnd = seeded(29);
-  const parts: Geo[] = [
-    cylinderAt({ rBot: 42, rTop: 35, height: 58, segments: 10, bottom: [0, 0, 0] }, W),
-    cylinderAt({ radius: 31, height: 3, segments: 10, bottom: [0, 0, 56] }, "Desert_WoodEnd"),
-  ];
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + rnd() * 0.4;
-    parts.push(cylinderBetween([Math.cos(a) * 27, Math.sin(a) * 27, 52], [Math.cos(a) * 23, Math.sin(a) * 23, 72 + rnd() * 40], 9, 5, W, 1.5));
-  }
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + 0.3;
-    parts.push(limb([[Math.cos(a) * 26, Math.sin(a) * 26, 24], [Math.cos(a) * 54, Math.sin(a) * 54, 6], [Math.cos(a + 0.1) * 85, Math.sin(a + 0.1) * 85, -6]], 13, 5, W, { seg: 6, maxRings: 4, gnarl: 0.6, grainU: true }));
-  }
-  return merge(...parts);
+  return stumpOf({ seed: 29, r: 40, h: 58, bark: BLEACHED, wood: DRY_END, broken: true, roots: 5 });
 }
 
 // กอหญ้าสูง: a tuft of tall golden savanna grass.

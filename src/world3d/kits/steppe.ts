@@ -22,6 +22,7 @@ import type { SolidSpec } from "../../world";
 import type { Paved, Poly } from "../paved";
 import type { FieldBuilder } from "../field";
 import { protoOf, solidsOf } from "../town";
+import { fallenTrunk, coverTop, endGrain, endOf, SOIL } from "../nature";
 import { solid } from "./types";
 import type { Kit, KitItem, Put } from "./types";
 import { KIT as TRUNRADA } from "./trunrada";
@@ -115,11 +116,8 @@ function blob(at: V3, r: [number, number, number], mat: string, seg = 8): Geo {
 // A rock with a cap of lichen or moss on whatever faces up: the same rock again, a hair
 // narrower and lifted, shows only where the surface looks at the sky.
 function mossRock(size: V3, rough: number, seed: number, mat: string, cap = "Steppe_RockLichen", flat = false, lift = 0): Geo {
-  const l = lift || Math.max(2.5, size[2] * 0.035);
-  return merge(
-    rock(size, rough, seed, mat, flat),
-    translate(scale(rock(size, rough, seed, cap, flat), [flat ? 0.93 : 0.965, flat ? 0.93 : 0.965, 1]), [size[0] * 0.05, -size[1] * 0.03, l]),
-  );
+  const g = rock(size, rough, seed, mat, flat);
+  return merge(g, coverTop(g, cap, { amount: flat ? 0.45 : 0.32, thick: lift || Math.max(1.5, size[2] * 0.012), seed, grain: Math.max(20, size[0] * 0.18) }));
 }
 
 // A tuft of grass blades fanning out from `at`, about 45-100 cm tall at s = 1.
@@ -333,8 +331,11 @@ function scrub(): Geo {
 function deadTree(): Geo {
   const W = "Steppe_WoodBleached";
   const trunk: V3[] = [[0, 0, 0], [6, 4, 110], [34, 10, 210], [86, 2, 300], [150, -12, 372], [205, -20, 410]];
+  const body = tube(trunk, 30, 7, W, { seg: 9, flare: 0.65, roots: 5, gnarl: 0.9, seed: 71, taper: 0.85 });
   return merge(
-    tube(trunk, 30, 6, W, { seg: 9, flare: 0.65, roots: 5, gnarl: 0.9, seed: 71, taper: 0.85 }),
+    body,
+    // the leader snapped off in a gale
+    endOf(body, 9, "end", { wood: endGrain("#d8cdb8"), bark: W, broken: true, seed: 71 }),
     ...[0, 1, 2, 3, 4].map((k) => {
       const a = ((k * 72 + 20) * Math.PI) / 180;
       return tube([[Math.cos(a) * 12, Math.sin(a) * 12, 26], [Math.cos(a) * 36, Math.sin(a) * 36, 8], [Math.cos(a + 0.1) * 62, Math.sin(a + 0.1) * 62, -6]], 12, 4, W, { seg: 5, maxRings: 4 });
@@ -345,8 +346,8 @@ function deadTree(): Geo {
     limb([[84, 2, 296], [140, -70, 330], [190, -110, 330]], 8, 3, W),
     limb([[148, -12, 368], [160, 40, 430], [190, 50, 470]], 6, 2.5, W, 6),
     limb([[18, 8, 156], [-40, -40, 200], [-60, -50, 215]], 7, 3, W, 6),
-    // a split in the trunk and a hollow
-    box([4, 14, 50], [-27, 0, 70], "Steppe_Shadow"),
+    // a hollow in the trunk
+    translate(scale(sphereCenter(1, [0, 0, 0], "Steppe_Shadow", 10), [8, 10, 22]), [-26, 0, 78]),
     tuft([-60, 30, 0], 0.8, 71), tuft([40, -60, 0], 0.7, 72), tuft([60, 60, 0], 0.6, 73),
     translate(rock([50, 40, 26], 0.5, 74, "Steppe_Rock"), [-70, -50, 0]),
   );
@@ -354,27 +355,10 @@ function deadTree(): Geo {
 
 // A fallen log, weathered grey, one end snapped (4.6 m along Y).
 function fallenLog(): Geo {
-  const rnd = seeded(81);
-  const parts: Geo[] = [
-    cylinderBetween([0, -220, 24], [0, 200, 22], 27, 9, "Steppe_Bark"),
-    cylinderBetween([0, -220, 24], [0, -222, 24], 22, 9, "Steppe_WoodGrey"),
-    rotateY(cylinderAt({ rBot: 34, rTop: 22, height: 26, segments: 9, bottom: [0, 0, -13] }, "Steppe_Bark"), 90).map((p) => ({ geo: p.geo.clone().translate(0, -235, 24), mat: p.mat })),
-  ];
-  // the snapped end: splinters
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    parts.push(cylinderBetween([Math.cos(a) * 14, 196, 22 + Math.sin(a) * 14], [Math.cos(a) * 10, 222 + rnd() * 30, 22 + Math.sin(a) * 10], 6, 4, "Steppe_WoodBleached", 0.5));
-  }
-  // root plate at the -Y end
-  for (let k = 0; k < 5; k++) {
-    const c = Math.cos(k * 1.26), sn = Math.sin(k * 1.26);
-    parts.push(tube([[c * 8, -236, 26 + sn * 8], [c * 34, -254, 26 + sn * 34], [c * 62, -268, Math.max(0, 26 + sn * 58)]], 8, 3, "Steppe_Bark", { seg: 5, maxRings: 3 }));
-  }
-  // stubs of branches and moss
-  parts.push(tube([[10, -60, 40], [26, -52, 62], [40, -40, 80]], 7, 4, "Steppe_Bark", { seg: 6, maxRings: 3 }), tube([[-12, 80, 36], [-32, 90, 46], [-50, 100, 50]], 6, 3, "Steppe_Bark", { seg: 6, maxRings: 3 }));
-  parts.push(blob([0, -100, 48], [22, 40, 6], "Steppe_Moss"), blob([4, 60, 47], [18, 30, 5], "Steppe_Lichen"));
-  parts.push(tuft([-45, -150, 0], 0.7, 82), tuft([45, 20, 0], 0.7, 83), tuft([-40, 140, 0], 0.6, 84));
-  return merge(...parts);
+  return merge(
+    fallenTrunk({ seed: 81, len: 440, r: 27, bark: "Steppe_Bark", wood: endGrain("#c8bba6"), roots: { soil: SOIL, cover: "Steppe_Moss" }, broken: true, stubs: 2, moss: "Steppe_Lichen", mossAmount: 0.25 }),
+    tuft([-45, -150, 0], 0.7, 82), tuft([45, 20, 0], 0.7, 83), tuft([-40, 140, 0], 0.6, 84),
+  );
 }
 
 // A horse's bones bleaching in the grass: skull, spine, ribs, a leg bone (2.3 m).

@@ -9,7 +9,7 @@
 // each box face runs along U), so wood grain follows each plank and nothing stretches.
 
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export type V3 = [number, number, number];
 export interface Part {
@@ -215,7 +215,10 @@ export function gableWall(x: number, half: number, z0: number, h: number, mat: s
   return [{ geo, mat }];
 }
 
-// ---- rocks: a squashed icosphere with seeded bumps, flat-shaded (detail 0: 20 faces, a pebble) ----
+// ---- rocks ----
+// A rock: an icosphere swelled into a few soft lobes, then split by fracture planes into big flat
+// faces (the way stone breaks), its underside flattened, flat-shaded. Rocks a metre or more
+// across get more facets. detail 0: 20 faces, a pebble.
 function seeded(seed: number): () => number {
   let s = seed * 9301 + 49297;
   return () => {
@@ -223,19 +226,50 @@ function seeded(seed: number): () => number {
     return s / 233280;
   };
 }
-export function rock(size: V3, roughness: number, seed: number, mat: string, flat = false, detail = 1): Geo {
+// Smooth seeded 3D value noise, 0..1.
+export function noise3(x: number, y: number, z: number, seed: number): number {
+  const h = (i: number, j: number, k: number) => {
+    let n = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(k, 1440662683) + Math.imul(seed + 1, 1274126177)) | 0;
+    n = Math.imul(n ^ (n >>> 13), 1103515245);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z);
+  const f = (t: number) => t * t * (3 - 2 * t);
+  const u = f(x - i), v = f(y - j), w = f(z - k);
+  const l = (a: number, b: number, t: number) => a + (b - a) * t;
+  return l(
+    l(l(h(i, j, k), h(i + 1, j, k), u), l(h(i, j + 1, k), h(i + 1, j + 1, k), u), v),
+    l(l(h(i, j, k + 1), h(i + 1, j, k + 1), u), l(h(i, j + 1, k + 1), h(i + 1, j + 1, k + 1), u), v),
+    w,
+  );
+}
+export function rock(size: V3, roughness: number, seed: number, mat: string, flat = false, detail?: number): Geo {
   const rnd = seeded(seed);
-  const geo = new THREE.IcosahedronGeometry(1, detail);
-  const pos = geo.getAttribute("position");
-  const moved = new Map<string, number>();
+  const big = Math.max(size[0], size[1], size[2]);
+  let geo: THREE.BufferGeometry = new THREE.IcosahedronGeometry(1, detail ?? (big >= 110 ? 2 : big >= 30 ? 1 : 0));
+  geo.deleteAttribute("normal");
+  geo.deleteAttribute("uv");
+  geo = mergeVertices(geo);
+  // fracture planes: mostly round the sides and over the top, few underneath
+  const cuts = Array.from({ length: (flat ? 3 : 4) + Math.floor(rnd() * 3) }, () => {
+    const a = rnd() * Math.PI * 2, z = -0.25 + rnd() * 1.1, h = Math.sqrt(Math.max(0, 1 - z * z));
+    return { n: new THREE.Vector3(Math.cos(a) * h, Math.sin(a) * h, z).normalize(), d: 0.7 + rnd() * 0.18 };
+  });
+  const pos = geo.getAttribute("position"), p = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
-    const key = `${pos.getX(i).toFixed(3)},${pos.getY(i).toFixed(3)},${pos.getZ(i).toFixed(3)}`;
-    if (!moved.has(key)) moved.set(key, 1 + (rnd() - 0.5) * roughness);
-    const f = moved.get(key)!;
-    let z = pos.getZ(i) * f;
+    p.fromBufferAttribute(pos, i).normalize();
+    // soft lobes, and a little grit
+    const lobe = noise3(p.x * 1.4 + 7, p.y * 1.4, p.z * 1.4, seed) - 0.5, grit = noise3(p.x * 4, p.y * 4, p.z * 4 + 3, seed + 9) - 0.5;
+    p.multiplyScalar(1 + roughness * (1.1 * lobe + 0.3 * grit));
+    for (const c of cuts) {
+      const over = p.dot(c.n) - c.d;
+      if (over > 0) p.addScaledVector(c.n, -over * 0.92);
+    }
+    let z = p.z;
     if (z < -0.2) z = -0.2 + (z + 0.2) * 0.15; // flat underside
-    pos.setXYZ(i, pos.getX(i) * f * size[0] / 2, pos.getY(i) * f * size[1] / 2, (z + 0.2) * size[2] / (flat ? 1.6 : 1.2));
+    pos.setXYZ(i, p.x * size[0] / 2, p.y * size[1] / 2, (z + 0.2) * size[2] / (flat ? 1.6 : 1.2));
   }
+  geo = geo.toNonIndexed();
   geo.computeVertexNormals();
   boxUv(geo, size);
   return [{ geo, mat }];

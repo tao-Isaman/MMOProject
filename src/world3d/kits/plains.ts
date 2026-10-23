@@ -18,7 +18,8 @@ import {
 import type { Geo, V3 } from "../geo";
 import { defineMaterial, frondTexture } from "../textures";
 import type { Recipe } from "../textures";
-import { wind, limb as tlimb } from "../trees";
+import { wind } from "../trees";
+import { fallenTrunk, stumpOf, coverTop, endGrain } from "../nature";
 import { solid } from "./types";
 import type { Kit, Put } from "./types";
 
@@ -179,13 +180,12 @@ function log(a: V3, b: V3, r: number, bark = "Plains_Bark", seg = 9): Geo {
   );
 }
 
-// A rock, mossy on top when asked (the same rock a little narrower and taller pokes through
-// its top as a cap of moss).
+// A rock, mossy on top when asked (moss settled on the faces that look up, more of it the more
+// `moss`).
 function stone(size: V3, seed: number, o: { mat?: string; flat?: boolean; moss?: number; rough?: number } = {}): Geo {
-  const r = o.rough ?? 0.38;
-  const g = rock(size, r, seed, o.mat ?? "Plains_Boulder", o.flat);
+  const g = rock(size, o.rough ?? 0.38, seed, o.mat ?? "Plains_Boulder", o.flat);
   if (!o.moss) return g;
-  return merge(g, scale(rock(size, r, seed, "Plains_Moss", o.flat), [0.93, 0.93, 1 + 0.035 * o.moss]));
+  return merge(g, coverTop(g, "Plains_Moss", { amount: 0.2 + 0.16 * o.moss, thick: 1.5 + size[2] * 0.01, seed, grain: Math.max(20, size[0] * 0.18) }));
 }
 
 function mushroom(x: number, y: number, h: number, r: number, red = true): Geo {
@@ -524,50 +524,22 @@ function flatRock(): Geo {
 }
 
 // ---- wood on the forest floor ----
+// An oak down across the forest floor: its root plate torn up with the earth, sawn at the top end,
+// moss along its back, bracket fungi down one side and mushrooms in its shade.
+const OAK_END = endGrain("#d9b47e");
 function fallenLog(): Geo {
-  const out: Geo[] = [
-    cylinderBetween([0, -280, 40], [0, 300, 34], 44, 10, "Plains_Bark", 37),
-    cylinderBetween([0, 298, 34], [0, 304, 34], 31, 10, "Plains_LogEnd"),
-    cylinderBetween([0, 303, 34], [0, 305, 34], 9, 6, "Plains_Heart"),
-    // moss along its top
-    scale(cylinderBetween([0, -230, 40], [0, 210, 35], 44, 10, "Plains_Moss", 38), [0.8, 1, 1.09], [0, 0, 37]),
-    // the root plate, torn up with its earth
-    cylinderBetween([0, -334, 72], [0, -292, 68], 122, 12, "Plains_Soil", 110),
-    scale(cylinderBetween([0, -300, 72], [0, -286, 68], 112, 12, "Plains_Moss", 100), [1, 1, 1], [0, 0, 0]),
-  ];
-  const rnd = seeded(41);
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2 + 0.3, L = 100 + rnd() * 50;
-    const end: V3 = [Math.cos(a) * L, -320 - rnd() * 30, Math.max(-6, 70 + Math.sin(a) * L)];
-    out.push(tlimb([[Math.cos(a) * 50, -312, 70 + Math.sin(a) * 50], [Math.cos(a) * (60 + L) * 0.55, -324, 70 + Math.sin(a) * (60 + L) * 0.5], end], 10, 3, "Plains_Bark", { seg: 5, maxRings: 4 }));
-  }
-  // branch stubs and a broken limb on the ground
-  out.push(tlimb([[-20, -60, 66], [-54, -76, 104], [-80, -100, 132]], 13, 8, "Plains_Bark", { seg: 7, maxRings: 3, gnarl: 0.4 }));
-  out.push(cylinderBetween([-80, -100, 131], [-82, -101, 134], 7, 7, "Plains_LogEnd"));
-  out.push(tlimb([[22, 110, 62], [44, 128, 84], [70, 140, 100]], 11, 7, "Plains_Bark", { seg: 7, maxRings: 3 }));
-  out.push(tlimb([[30, 150, 30], [96, 190, 28], [160, 240, 16]], 15, 8, "Plains_Bark", { seg: 7, maxRings: 4, gnarl: 0.4 }));
-  out.push(tlimb([[150, 232, 18], [168, 272, 22], [190, 310, 34]], 7, 3, "Plains_Bark", { seg: 5, maxRings: 3 }));
-  out.push(tlimb([[110, 200, 22], [140, 186, 38], [170, 180, 50]], 6, 2, "Plains_Bark", { seg: 5, maxRings: 3 }));
-  // bracket fungi and mushrooms
-  for (const [y, z] of [[-150, 40], [-122, 56], [-96, 34], [60, 30]]) out.push(translate(scale(sphereCenter(17, [0, 0, 0], "Plains_Fungus", 8), [0.75, 1, 0.26]), [-44, y, z]));
-  out.push(mushroom(-62, 160, 16, 11), mushroom(-74, 186, 11, 8), mushroom(-50, 205, 8, 6), mushroom(58, -200, 14, 10, false), mushroom(70, -176, 10, 7, false));
-  return centred(merge(...out));
+  return centred(merge(
+    fallenTrunk({ seed: 41, len: 600, r: 44, bark: "Plains_Bark", wood: OAK_END, roots: { soil: "Plains_Soil", cover: "Plains_Moss" }, stubs: 4, moss: "Plains_Moss", mossAmount: 0.32, fungus: "Plains_Fungus" }),
+    mushroom(-66, 140, 16, 11), mushroom(-78, 166, 11, 8), mushroom(-60, 188, 8, 6), mushroom(66, -150, 14, 10, false), mushroom(76, -126, 10, 7, false),
+  ));
 }
 
+// An old sawn stump on its roots, moss creeping up one side, mushrooms at its foot.
 function stump(): Geo {
-  const out: Geo[] = [
-    cylinderBetween([0, 0, -4], [0, 0, 66], 46, 11, "Plains_Bark", 41),
-    cylinderAt({ radius: 37, height: 3, segments: 11, bottom: [0, 0, 64] }, "Plains_LogEnd"),
-    cylinderAt({ radius: 9, height: 1, segments: 8, bottom: [0, 0, 66.5] }, "Plains_Heart"),
-    // moss up one side
-    translate(scale(cylinderBetween([0, 0, -4], [0, 0, 44], 46, 11, "Plains_Moss", 43), [0.9, 0.75, 1]), [-10, 0, 0]),
-  ];
-  for (let i = 0; i < 5; i++) {
-    const a = (i * 72 + 15) * D;
-    out.push(tlimb([[Math.cos(a) * 20, Math.sin(a) * 20, 40], [Math.cos(a) * 54, Math.sin(a) * 54, 12], [Math.cos(a + 0.1) * 92, Math.sin(a + 0.1) * 92, -8]], 18, 6, "Plains_Bark", { seg: 7, maxRings: 4, gnarl: 0.5 }));
-  }
-  out.push(mushroom(-58, 40, 12, 9, false), mushroom(-48, 60, 9, 6, false), mushroom(40, -62, 14, 9));
-  return merge(...out);
+  return merge(
+    stumpOf({ seed: 9, r: 44, h: 64, bark: "Plains_Bark", wood: OAK_END, roots: 5, moss: "Plains_Moss", mossAmount: 0.3 }),
+    mushroom(-66, 48, 12, 9, false), mushroom(-56, 70, 9, 6, false), mushroom(48, -70, 14, 9),
+  );
 }
 
 // ---- plants (cards) ----
