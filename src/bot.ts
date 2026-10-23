@@ -505,7 +505,9 @@ export class Bot {
       else if (busy) {
         if (s.type === "heal") go = hpPct < 90;
         else if (s.type === "shield") go = !hero.shield;
-        else if (s.type === "summon") go = (this.d.skills.allies?.count(s.ally ?? "wolf") ?? 0) < (s.count ?? 1);
+        else if (s.type === "summon") go = (this.d.skills.allies?.count(s.ally ?? "wolf") ?? 0) < (s.count ?? 1)
+          // a statue's blessing doesn't stack: a second of the same one is no use while it stands
+          && !(s.ally === "statue" && this.d.skills.allies?.list.some((x) => x.alive && x.skill === r.id));
         else if (s.type === "decoy") go = !this.d.skills.allies?.count("decoy");
         else if (s.type === "smoke") go = !this.d.skills.clouds.length;
         else go = !hero.buffs.some((b) => b.id === r.id);
