@@ -21,7 +21,7 @@ import { Looks } from "./look";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS } from "./progression";
+import { Progress, ACTIVES, BOOKS, JOBS, TREES, JOB_POINTS, TIER2_DROP_LEVEL } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
 import { monsterDamage } from "./stats";
@@ -545,15 +545,17 @@ async function boot(): Promise<void> {
       const kind = m.entry?.id ?? m.variant.id;
       quests.onKill(kind, m.variant.name);
       for (const [id, chance] of quests.drops(kind)) if (Math.random() < chance) ground.drop(id, m);
-      // a field monster now and then leaves a book the player can still learn, a hat, shoes, a
-      // ring or a trinket, or a hairstyle; a rare one more often, a boss always a book
+      // a field monster now and then leaves a book the player can still learn (a second book only
+      // from level TIER2_DROP_LEVEL up), a hat, shoes, a ring or a trinket, or a hairstyle; a rare
+      // one more often, a boss always a book
       if (m.entry) {
         const k = m.entry.kind, more = 1 + hero.stats.drop;
         const roll = (chance: number, pool: string[]) => {
           if (pool.length && Math.random() < chance * more) ground.drop(pool[Math.floor(Math.random() * pool.length)], m);
         };
         const lying = new Set(ground.items.map((l) => l.id));
-        roll(k === "boss" ? 1 : k === "rare" ? 0.12 : 0.006, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b)));
+        const tier2 = (b: string) => BOOKS[b].kind === "mastery2" || BOOKS[b].kind === "element2";
+        roll(k === "boss" ? 1 : k === "rare" ? 0.12 : 0.006, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b) && (!tier2(b) || m.level >= TIER2_DROP_LEVEL)));
         roll(k === "boss" ? 0.6 : k === "rare" ? 0.25 : 0.012, GEAR_DROPS);
         if (look.gender === "female") roll(k === "boss" ? 0.3 : k === "rare" ? 0.05 : 0.002, Object.keys(ITEMS).filter((i) => ITEMS[i].kind === "style" && !look.styles?.includes(ITEMS[i].style!)));
       }

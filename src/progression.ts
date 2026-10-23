@@ -149,6 +149,7 @@ export interface Mastery {
   weapons?: WeaponId[];
   glyph: string;
   max: number;
+  max2?: number;    // where the line ends once the mastery's second book is read
   per: StatBag;
   perDesc: string;
   rewards: MasteryReward[];
@@ -168,6 +169,7 @@ export interface ElementDef {
   color: string;
   glyph: string;
   max: number;
+  max2?: number;    // where the line ends once the element's second book is read
   side: string;
   per: StatBag;
   skill: string;
@@ -292,32 +294,32 @@ export const JOBS: Record<JobId, JobDef> = {
   ranger: {
     name: "นายพราน", from: ["archer", "warrior"], branches: ["falconer", "trapper", "venomer"],
     note: "นักล่าแห่งป่า ใช้เหยี่ยว กับดัก และยาพิษ",
-    bonus: { atk: 12, hit: 15, flee: 10, crit: 0.03 }, growth: { atk: 0.8, hit: 0.6, flee: 0.5, maxHp: 4 },
+    bonus: { atk: 8.4, hit: 10.5, flee: 7, crit: 0.021 }, growth: { atk: 0.48, hit: 0.36, flee: 0.3, maxHp: 2.4 },
   },
   swordsman: {
     name: "นักดาบ", from: null, branches: ["twin_blade", "greatsword"],
     note: "ผู้ใช้ดาบ ถือดาบคู่หรือดาบสองมือ",
-    bonus: { atk: 15, maxHp: 150, def: 8 }, growth: { atk: 1, maxHp: 8, def: 0.4 },
+    bonus: { atk: 10.5, maxHp: 105, def: 5.6 }, growth: { atk: 0.6, maxHp: 4.8, def: 0.24 },
   },
   wizard: {
     name: "จอมเวท", from: ["mage", "priest"], branches: ["elementalist", "shadowcraft"],
     note: "ผู้ใช้เวทขั้นสูง เวทธาตุหรือเวทมืด",
-    bonus: { matk: 20, maxMp: 80, mdef: 6 }, growth: { matk: 1.2, maxMp: 4, mdef: 0.3 },
+    bonus: { matk: 14, maxMp: 56, mdef: 4.2 }, growth: { matk: 0.72, maxMp: 2.4, mdef: 0.18 },
   },
   bishop: {
     name: "บาทหลวง", from: ["priest"], branches: ["radiance", "mercy"],
     note: "ผู้รับใช้แสงศักดิ์สิทธิ์ ขับไล่อันเดดหรือรักษาและสนับสนุน",
-    bonus: { matk: 12, maxMp: 60, mdef: 10, healPct: 0.1 }, growth: { matk: 0.8, maxMp: 3, mdef: 0.5, maxHp: 4 },
+    bonus: { matk: 8.4, maxMp: 42, mdef: 7, healPct: 0.07 }, growth: { matk: 0.48, maxMp: 1.8, mdef: 0.3, maxHp: 2.4 },
   },
   battlemage: {
     name: "จอมเวทนักสู้", from: null, branches: ["equilibrium", "arcanist", "runeblade"],
     note: "นักสู้ที่ใช้ทั้งดาบและเวท",
-    bonus: { atk: 10, matk: 10, maxHp: 80, maxMp: 40 }, growth: { atk: 0.6, matk: 0.6, maxHp: 5, maxMp: 2 },
+    bonus: { atk: 7, matk: 7, maxHp: 56, maxMp: 28 }, growth: { atk: 0.36, matk: 0.36, maxHp: 3, maxMp: 1.2 },
   },
   warlord: {
     name: "นักรบคลั่ง", from: ["warrior"], branches: ["armsmaster", "bloodrage"],
     note: "นักรบที่บ้าคลั่งในสนามรบ ชำนาญอาวุธหรือเลือดเดือด",
-    bonus: { atk: 15, maxHp: 200, hpRegen: 2 }, growth: { atk: 1, maxHp: 10, hpRegen: 0.05 },
+    bonus: { atk: 10.5, maxHp: 140, hpRegen: 1.4 }, growth: { atk: 0.6, maxHp: 6, hpRegen: 0.03 },
   },
 };
 
@@ -824,7 +826,11 @@ export const TREES: Record<string, Tree> = {
 // ---- masteries ----
 // Weapon masteries cover weapon types (items.js). Each weapon grows its own way: every level adds
 // its own stats (the ones the profile shows: attack, aim, defence...), and set levels open
-// passives (5, 10, 20, 30) and an active (15) that need that weapon in hand.
+// passives (5, 10, 20, 30) and an active (15) that need that weapon in hand. The line stops at
+// MASTERY_MAX until the mastery's second book (MASTERY_MAX2) opens 40, 50 and 60. The active
+// grows with the mastery: 3% more damage for every level.
+export const MASTERY_MAX = 30;
+export const MASTERY_MAX2 = 60;
 type RewardSpec = Omit<MasteryReward, "at" | "kind">;
 interface WeaponLine {
   per: StatBag;
@@ -834,95 +840,122 @@ interface WeaponLine {
   s15: RewardSpec;
   p20: RewardSpec;
   p30: RewardSpec;
+  p40: RewardSpec;
+  p50: RewardSpec;
+  p60: RewardSpec;
 }
 const weaponMastery = (name: string, weapons: WeaponId[], glyph: string, w: WeaponLine): Mastery => ({
-  name, kind: "weapon", weapons, glyph, max: 30, per: w.per, perDesc: `${w.perDesc} ต่อระดับ เมื่อถือ${name}`,
+  name, kind: "weapon", weapons, glyph, max: MASTERY_MAX, max2: MASTERY_MAX2, per: w.per, perDesc: `${w.perDesc} ต่อระดับ เมื่อถือ${name}`,
   rewards: [
     { at: 5, kind: "passive", ...w.p5 },
     { at: 10, kind: "passive", glyph: "up", ...w.p10 },
-    { at: 15, kind: "active", ...w.s15 },
+    { at: 15, kind: "active", ...w.s15, skill: { ...w.s15.skill!, masteryScale: 0.03 }, desc: `${w.s15.desc} แรงขึ้น 3% ต่อระดับความเชี่ยวชาญ` },
     { at: 20, kind: "passive", glyph: "swirl", ...w.p20 },
     { at: 30, kind: "passive", glyph: "star", ...w.p30 },
+    { at: 40, kind: "passive", glyph: "up", ...w.p40 },
+    { at: 50, kind: "passive", glyph: "swirl", ...w.p50 },
+    { at: 60, kind: "passive", glyph: "star", ...w.p60 },
   ],
 });
 
 export const MASTERIES: Record<string, Mastery> = {
   // all round: damage, aim and a little of everything
   sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword", {
-    per: { atk: 1.5, hit: 1, crit: 0.002 }, perDesc: "พลังโจมตี +1.5 ความแม่นยำ +1 โอกาสคริติคอล +0.2%",
-    p5: { name: "คมดาบ", stats: { crit: 0.05 }, desc: "โอกาสคริติคอล +5% เมื่อถือดาบ" },
-    p10: { name: "ฝีมือดาบ", stats: { atkPct: 0.05, hit: 10 }, desc: "พลังโจมตี +5% ความแม่นยำ +10 เมื่อถือดาบ" },
+    per: { atk: 2.2, hit: 1.5, crit: 0.003 }, perDesc: "พลังโจมตี +2.2 ความแม่นยำ +1.5 โอกาสคริติคอล +0.3%",
+    p5: { name: "คมดาบ", stats: { crit: 0.08 }, desc: "โอกาสคริติคอล +8% เมื่อถือดาบ" },
+    p10: { name: "ฝีมือดาบ", stats: { atkPct: 0.08, hit: 15 }, desc: "พลังโจมตี +8% ความแม่นยำ +15 เมื่อถือดาบ" },
     s15: { id: "sword_wave", name: "คลื่นดาบ", glyph: "wave",
-      skill: { type: "bolt", stat: "atk", mult: () => 2, pierce: true, mp: 12, cd: 6, motion: "swing", speed: 900, range: 520, radius: 50, color: "#e6f4ff" },
-      desc: "ฟันคลื่นดาบทะลุทุกตัว ดาเมจ 200% ของพลังโจมตี" },
-    p20: { name: "ดาบคู่กาย", stats: { aspd: 0.05, crit: 0.03 }, desc: "ความเร็วโจมตี +5% โอกาสคริติคอล +3% เมื่อถือดาบ" },
-    p30: { name: "ปรมาจารย์ดาบ", stats: { atkPct: 0.08, critDmg: 0.15 }, desc: "พลังโจมตี +8% แรงคริติคอล +15% เมื่อถือดาบ" },
+      skill: { type: "bolt", stat: "atk", mult: () => 3.2, pierce: true, mp: 12, cd: 6, motion: "swing", speed: 900, range: 520, radius: 50, color: "#e6f4ff" },
+      desc: "ฟันคลื่นดาบทะลุทุกตัว ดาเมจ 320% ของพลังโจมตี" },
+    p20: { name: "ดาบคู่กาย", stats: { aspd: 0.08, crit: 0.05 }, desc: "ความเร็วโจมตี +8% โอกาสคริติคอล +5% เมื่อถือดาบ" },
+    p30: { name: "ปรมาจารย์ดาบ", stats: { atkPct: 0.12, critDmg: 0.25 }, desc: "พลังโจมตี +12% แรงคริติคอล +25% เมื่อถือดาบ" },
+    p40: { name: "ดาบไร้เงา", stats: { aspd: 0.06, hit: 20 }, desc: "ความเร็วโจมตี +6% ความแม่นยำ +20 เมื่อถือดาบ" },
+    p50: { name: "จิตแห่งดาบ", stats: { crit: 0.06, critDmg: 0.2 }, desc: "โอกาสคริติคอล +6% แรงคริติคอล +20% เมื่อถือดาบ" },
+    p60: { name: "เทพดาบ", stats: { atkPct: 0.15, critDmg: 0.3, dmg: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ดาเมจ +10% เมื่อถือดาบ" },
   }),
   // slow and brutal: the hardest criticals, and cuts through armour
   axe: weaponMastery("ขวาน", ["axe"], "axe", {
-    per: { atk: 2, critDmg: 0.01 }, perDesc: "พลังโจมตี +2 แรงคริติคอล +1%",
-    p5: { name: "น้ำหนักขวาน", stats: { critDmg: 0.2 }, desc: "แรงคริติคอล +20% เมื่อถือขวาน" },
-    p10: { name: "ผ่าฟืน", stats: { crit: 0.03 }, desc: "โอกาสคริติคอล +3% เมื่อถือขวาน" },
+    per: { atk: 3, critDmg: 0.015 }, perDesc: "พลังโจมตี +3 แรงคริติคอล +1.5%",
+    p5: { name: "น้ำหนักขวาน", stats: { critDmg: 0.3 }, desc: "แรงคริติคอล +30% เมื่อถือขวาน" },
+    p10: { name: "ผ่าฟืน", stats: { crit: 0.05 }, desc: "โอกาสคริติคอล +5% เมื่อถือขวาน" },
     s15: { id: "axe_spin", name: "ขวานพายุ", glyph: "spin",
-      skill: { type: "nova", stat: "atk", mult: () => 2.4, mp: 15, cd: 7, motion: "swing", radius: 180, color: "#ffd9b0" },
-      desc: "หมุนขวานรอบตัว ดาเมจ 240% ของพลังโจมตี" },
-    p20: { name: "ขวานผ่าเกราะ", stats: { pierce: 0.1 }, desc: "เจาะเกราะ +10% เมื่อถือขวาน" },
-    p30: { name: "เจ้าแห่งขวาน", stats: { atkPct: 0.1, critDmg: 0.25 }, desc: "พลังโจมตี +10% แรงคริติคอล +25% เมื่อถือขวาน" },
+      skill: { type: "nova", stat: "atk", mult: () => 3.8, mp: 15, cd: 7, motion: "swing", radius: 180, color: "#ffd9b0" },
+      desc: "หมุนขวานรอบตัว ดาเมจ 380% ของพลังโจมตี" },
+    p20: { name: "ขวานผ่าเกราะ", stats: { pierce: 0.15 }, desc: "เจาะเกราะ +15% เมื่อถือขวาน" },
+    p30: { name: "เจ้าแห่งขวาน", stats: { atkPct: 0.15, critDmg: 0.35 }, desc: "พลังโจมตี +15% แรงคริติคอล +35% เมื่อถือขวาน" },
+    p40: { name: "แขนเหล็ก", stats: { atkPct: 0.06, critDmg: 0.2 }, desc: "พลังโจมตี +6% แรงคริติคอล +20% เมื่อถือขวาน" },
+    p50: { name: "ผ่าภูผา", stats: { pierce: 0.1, crit: 0.04 }, desc: "เจาะเกราะ +10% โอกาสคริติคอล +4% เมื่อถือขวาน" },
+    p60: { name: "ราชันขวาน", stats: { atkPct: 0.15, critDmg: 0.4 }, desc: "พลังโจมตี +15% แรงคริติคอล +40% เมื่อถือขวาน" },
   }),
   // sturdy: stuns, toughness and blows that go through
   mace: weaponMastery("ค้อน", ["mace"], "mace", {
-    per: { atk: 1.2, def: 0.8 }, perDesc: "พลังโจมตี +1.2 ป้องกัน +0.8",
-    p5: { name: "แรงกระแทก", stats: { stunHit: 0.1 }, desc: "ตีปกติมีโอกาส 10% ทำให้มึน 1 วิ เมื่อถือค้อน" },
-    p10: { name: "มือหนัก", stats: { stunHit: 0.05, maxHpPct: 0.03 }, desc: "โอกาสตีให้มึน +5% HP สูงสุด +3% เมื่อถือค้อน" },
+    per: { atk: 1.8, def: 1.2 }, perDesc: "พลังโจมตี +1.8 ป้องกัน +1.2",
+    p5: { name: "แรงกระแทก", stats: { stunHit: 0.15 }, desc: "ตีปกติมีโอกาส 15% ทำให้มึน 1 วิ เมื่อถือค้อน" },
+    p10: { name: "มือหนัก", stats: { stunHit: 0.08, maxHpPct: 0.05 }, desc: "โอกาสตีให้มึน +8% HP สูงสุด +5% เมื่อถือค้อน" },
     s15: { id: "mace_quake", name: "ทุบสะเทือน", glyph: "slam",
-      skill: { type: "cone", stat: "atk", mult: () => 2.2, mp: 15, cd: 8, motion: "thrust", reach: 200, arc: 120, stun: () => 1.5, color: "#ffe4b0" },
-      desc: "ทุบพื้นด้านหน้า ดาเมจ 220% ของพลังโจมตี มึน 1.5 วิ" },
-    p20: { name: "ศรัทธาเหล็ก", stats: { maxHpPct: 0.05, dmgRed: 0.03 }, desc: "HP สูงสุด +5% ลดความเสียหาย 3% เมื่อถือค้อน" },
-    p30: { name: "ค้อนพิฆาต", stats: { atkPct: 0.1, pierce: 0.15 }, desc: "พลังโจมตี +10% เจาะเกราะ +15% เมื่อถือค้อน" },
+      skill: { type: "cone", stat: "atk", mult: () => 3.5, mp: 15, cd: 8, motion: "thrust", reach: 200, arc: 120, stun: () => 1.5, color: "#ffe4b0" },
+      desc: "ทุบพื้นด้านหน้า ดาเมจ 350% ของพลังโจมตี มึน 1.5 วิ" },
+    p20: { name: "ศรัทธาเหล็ก", stats: { maxHpPct: 0.08, dmgRed: 0.05 }, desc: "HP สูงสุด +8% ลดความเสียหาย 5% เมื่อถือค้อน" },
+    p30: { name: "ค้อนพิฆาต", stats: { atkPct: 0.15, pierce: 0.2 }, desc: "พลังโจมตี +15% เจาะเกราะ +20% เมื่อถือค้อน" },
+    p40: { name: "กายเหล็ก", stats: { defPct: 0.15, mdefPct: 0.1 }, desc: "ป้องกัน +15% ต้านเวท +10% เมื่อถือค้อน" },
+    p50: { name: "ทุบสะท้าน", stats: { stunHit: 0.07, pierce: 0.1 }, desc: "โอกาสตีให้มึน +7% เจาะเกราะ +10% เมื่อถือค้อน" },
+    p60: { name: "ค้อนเทพ", stats: { atkPct: 0.15, maxHpPct: 0.1, dmgRed: 0.05 }, desc: "พลังโจมตี +15% HP สูงสุด +10% ลดความเสียหาย 5% เมื่อถือค้อน" },
   }),
   // keeps its distance: reach and aim
   spear: weaponMastery("หอก", ["spear_1h", "spear_2h"], "spear", {
-    per: { atk: 1.5, hit: 1.5 }, perDesc: "พลังโจมตี +1.5 ความแม่นยำ +1.5",
-    p5: { name: "ระยะหอก", stats: { reach: 0.15 }, desc: "ระยะโจมตี +15% เมื่อถือหอก" },
-    p10: { name: "แทงแม่น", stats: { pierce: 0.05, hit: 10 }, desc: "เจาะเกราะ +5% ความแม่นยำ +10 เมื่อถือหอก" },
+    per: { atk: 2.2, hit: 2.2 }, perDesc: "พลังโจมตี +2.2 ความแม่นยำ +2.2",
+    p5: { name: "ระยะหอก", stats: { reach: 0.2 }, desc: "ระยะโจมตี +20% เมื่อถือหอก" },
+    p10: { name: "แทงแม่น", stats: { pierce: 0.08, hit: 15 }, desc: "เจาะเกราะ +8% ความแม่นยำ +15 เมื่อถือหอก" },
     s15: { id: "spear_lance", name: "แทงทะลวง", glyph: "pierce",
-      skill: { type: "beam", stat: "atk", mult: () => 2.5, mp: 14, cd: 7, motion: "thrust", length: 420, width: 60, color: "#f0f6ff" },
-      desc: "แทงทะลุแนวยาว 4.2 ม. ดาเมจ 250% ของพลังโจมตี" },
-    p20: { name: "รักษาระยะ", stats: { reach: 0.1, flee: 10 }, desc: "ระยะโจมตี +10% หลบหลีก +10 เมื่อถือหอก" },
-    p30: { name: "เทพหอก", stats: { atkPct: 0.1, pierce: 0.1 }, desc: "พลังโจมตี +10% เจาะเกราะ +10% เมื่อถือหอก" },
+      skill: { type: "beam", stat: "atk", mult: () => 4, mp: 14, cd: 7, motion: "thrust", length: 420, width: 60, color: "#f0f6ff" },
+      desc: "แทงทะลุแนวยาว 4.2 ม. ดาเมจ 400% ของพลังโจมตี" },
+    p20: { name: "รักษาระยะ", stats: { reach: 0.15, flee: 15 }, desc: "ระยะโจมตี +15% หลบหลีก +15 เมื่อถือหอก" },
+    p30: { name: "เทพหอก", stats: { atkPct: 0.15, pierce: 0.15 }, desc: "พลังโจมตี +15% เจาะเกราะ +15% เมื่อถือหอก" },
+    p40: { name: "หอกพายุ", stats: { aspd: 0.06, reach: 0.1 }, desc: "ความเร็วโจมตี +6% ระยะโจมตี +10% เมื่อถือหอก" },
+    p50: { name: "ทะลวงฟ้า", stats: { pierce: 0.1, critDmg: 0.2 }, desc: "เจาะเกราะ +10% แรงคริติคอล +20% เมื่อถือหอก" },
+    p60: { name: "มังกรหอก", stats: { atkPct: 0.15, pierce: 0.15, hit: 30 }, desc: "พลังโจมตี +15% เจาะเกราะ +15% ความแม่นยำ +30 เมื่อถือหอก" },
   }),
   // quick and slippery: speed, criticals, dodging and poison
   dagger: weaponMastery("มีด", ["dagger"], "dagger", {
-    per: { atk: 0.8, aspd: 0.008, crit: 0.003, flee: 0.6 }, perDesc: "พลังโจมตี +0.8 ความเร็วโจมตี +0.8% โอกาสคริติคอล +0.3% หลบหลีก +0.6",
-    p5: { name: "มือไว", stats: { aspd: 0.1 }, desc: "ความเร็วโจมตี +10% เมื่อถือมีด" },
-    p10: { name: "แทงจุดตาย", stats: { critDmg: 0.1 }, desc: "แรงคริติคอล +10% เมื่อถือมีด" },
+    per: { atk: 1.2, aspd: 0.012, crit: 0.004, flee: 0.9 }, perDesc: "พลังโจมตี +1.2 ความเร็วโจมตี +1.2% โอกาสคริติคอล +0.4% หลบหลีก +0.9",
+    p5: { name: "มือไว", stats: { aspd: 0.15 }, desc: "ความเร็วโจมตี +15% เมื่อถือมีด" },
+    p10: { name: "แทงจุดตาย", stats: { critDmg: 0.15 }, desc: "แรงคริติคอล +15% เมื่อถือมีด" },
     s15: { id: "shadow_step", name: "เงาจู่โจม", glyph: "dash",
-      skill: { type: "dash", stat: "atk", mult: () => 2.2, mp: 12, cd: 6, motion: "thrust", distance: 200, width: 60, color: "#c8b8ff" },
-      desc: "พุ่งผ่านศัตรู ดาเมจ 220% ของพลังโจมตี" },
-    p20: { name: "ฝีเท้าเงา", stats: { move: 0.05, flee: 15 }, desc: "ความเร็วเดิน +5% หลบหลีก +15 เมื่อถือมีด" },
-    p30: { name: "นักฆ่า", stats: { crit: 0.08, poisonHit: 0.1 }, desc: "โอกาสคริติคอล +8% ตีปกติมีโอกาส 10% ติดพิษ เมื่อถือมีด" },
+      skill: { type: "dash", stat: "atk", mult: () => 3.5, mp: 12, cd: 6, motion: "thrust", distance: 200, width: 60, color: "#c8b8ff" },
+      desc: "พุ่งผ่านศัตรู ดาเมจ 350% ของพลังโจมตี" },
+    p20: { name: "ฝีเท้าเงา", stats: { move: 0.08, flee: 22 }, desc: "ความเร็วเดิน +8% หลบหลีก +22 เมื่อถือมีด" },
+    p30: { name: "นักฆ่า", stats: { crit: 0.12, poisonHit: 0.15 }, desc: "โอกาสคริติคอล +12% ตีปกติมีโอกาส 15% ติดพิษ เมื่อถือมีด" },
+    p40: { name: "เงาสายฟ้า", stats: { aspd: 0.08, flee: 20 }, desc: "ความเร็วโจมตี +8% หลบหลีก +20 เมื่อถือมีด" },
+    p50: { name: "จุดตายพันจุด", stats: { critDmg: 0.3, crit: 0.05 }, desc: "แรงคริติคอล +30% โอกาสคริติคอล +5% เมื่อถือมีด" },
+    p60: { name: "เงามรณะ", stats: { crit: 0.1, critDmg: 0.3, poisonHit: 0.1 }, desc: "โอกาสคริติคอล +10% แรงคริติคอล +30% โอกาสตีติดพิษ +10% เมื่อถือมีด" },
   }),
   // the caster's: magic power, mana and quicker spells
   staff: weaponMastery("ไม้เท้า", ["staff"], "staff", {
-    per: { matk: 2, mpRegen: 0.05 }, perDesc: "พลังเวท +2 ฟื้น MP +0.05/วิ",
-    p5: { name: "สื่อมานา", stats: { matkPct: 0.08 }, desc: "พลังเวท +8% เมื่อถือไม้เท้า" },
-    p10: { name: "สมาธิ", stats: { maxMpPct: 0.08 }, desc: "MP สูงสุด +8% เมื่อถือไม้เท้า" },
+    per: { matk: 3, mpRegen: 0.08 }, perDesc: "พลังเวท +3 ฟื้น MP +0.08/วิ",
+    p5: { name: "สื่อมานา", stats: { matkPct: 0.12 }, desc: "พลังเวท +12% เมื่อถือไม้เท้า" },
+    p10: { name: "สมาธิ", stats: { maxMpPct: 0.12 }, desc: "MP สูงสุด +12% เมื่อถือไม้เท้า" },
     s15: { id: "staff_scatter", name: "เวทกระจาย", glyph: "fan",
-      skill: { type: "fan", stat: "matk", mult: () => 0.9, count: 5, spread: 50, mp: 16, cd: 6, motion: "cast", speed: 950, range: 520, radius: 28, color: "#b8ffd8" },
-      desc: "ยิงลูกเวท 5 ลูกเป็นรูปพัด ลูกละ 90% ของพลังเวท" },
-    p20: { name: "ร่ายคล่อง", stats: { cdr: 0.05, castRed: 0.08 }, desc: "ลดคูลดาวน์ 5% ลดเวลาร่าย 8% เมื่อถือไม้เท้า" },
-    p30: { name: "จอมเวทไม้เท้า", stats: { matkPct: 0.08, mpRegenPct: 0.15 }, desc: "พลังเวท +8% ฟื้น MP +15% เมื่อถือไม้เท้า" },
+      skill: { type: "fan", stat: "matk", mult: () => 1.45, count: 5, spread: 50, mp: 16, cd: 6, motion: "cast", speed: 950, range: 520, radius: 28, color: "#b8ffd8" },
+      desc: "ยิงลูกเวท 5 ลูกเป็นรูปพัด ลูกละ 145% ของพลังเวท" },
+    p20: { name: "ร่ายคล่อง", stats: { cdr: 0.08, castRed: 0.12 }, desc: "ลดคูลดาวน์ 8% ลดเวลาร่าย 12% เมื่อถือไม้เท้า" },
+    p30: { name: "จอมเวทไม้เท้า", stats: { matkPct: 0.12, mpRegenPct: 0.22 }, desc: "พลังเวท +12% ฟื้น MP +22% เมื่อถือไม้เท้า" },
+    p40: { name: "ทะเลมานา", stats: { matkPct: 0.06, maxMpPct: 0.1 }, desc: "พลังเวท +6% MP สูงสุด +10% เมื่อถือไม้เท้า" },
+    p50: { name: "ร่ายพริบตา", stats: { castRed: 0.1, cdr: 0.05 }, desc: "ลดเวลาร่าย 10% ลดคูลดาวน์ 5% เมื่อถือไม้เท้า" },
+    p60: { name: "ปราชญ์ไม้เท้า", stats: { matkPct: 0.15, mpRegenPct: 0.25, castRed: 0.05 }, desc: "พลังเวท +15% ฟื้น MP +25% ลดเวลาร่าย 5% เมื่อถือไม้เท้า" },
   }),
   // the marksman's: aim, a steady rate and a second arrow
   bow: weaponMastery("ธนู", ["bow"], "bow", {
-    per: { atk: 1.5, hit: 1.2, crit: 0.002 }, perDesc: "พลังโจมตี +1.5 ความแม่นยำ +1.2 โอกาสคริติคอล +0.2%",
-    p5: { name: "สายตาเหยี่ยว", stats: { reach: 0.15 }, desc: "ระยะยิง +15% เมื่อถือธนู" },
-    p10: { name: "ยิงต่อเนื่อง", stats: { aspd: 0.05 }, desc: "ความเร็วโจมตี +5% เมื่อถือธนู" },
+    per: { atk: 2.2, hit: 1.8, crit: 0.003 }, perDesc: "พลังโจมตี +2.2 ความแม่นยำ +1.8 โอกาสคริติคอล +0.3%",
+    p5: { name: "สายตาเหยี่ยว", stats: { reach: 0.2 }, desc: "ระยะยิง +20% เมื่อถือธนู" },
+    p10: { name: "ยิงต่อเนื่อง", stats: { aspd: 0.08 }, desc: "ความเร็วโจมตี +8% เมื่อถือธนู" },
     s15: { id: "arrow_rain", name: "ยิงกระจาย", glyph: "fan",
-      skill: { type: "fan", stat: "atk", mult: () => 0.85, count: 5, spread: 40, arrow: true, mp: 14, cd: 6, motion: "shoot", speed: 1400, range: 700, radius: 26, color: "#fff2c8" },
-      desc: "ยิงลูกธนู 5 ดอกเป็นรูปพัด ดอกละ 85% ของพลังโจมตี" },
-    p20: { name: "ศรซ้อน", stats: { multiShot: 0.1 }, desc: "ยิงปกติมีโอกาส 10% ยิงซ้อนอีกดอก เมื่อถือธนู" },
-    p30: { name: "นักแม่นธนู", stats: { atkPct: 0.08, critDmg: 0.2 }, desc: "พลังโจมตี +8% แรงคริติคอล +20% เมื่อถือธนู" },
+      skill: { type: "fan", stat: "atk", mult: () => 1.35, count: 5, spread: 40, arrow: true, mp: 14, cd: 6, motion: "shoot", speed: 1400, range: 700, radius: 26, color: "#fff2c8" },
+      desc: "ยิงลูกธนู 5 ดอกเป็นรูปพัด ดอกละ 135% ของพลังโจมตี" },
+    p20: { name: "ศรซ้อน", stats: { multiShot: 0.15 }, desc: "ยิงปกติมีโอกาส 15% ยิงซ้อนอีกดอก เมื่อถือธนู" },
+    p30: { name: "นักแม่นธนู", stats: { atkPct: 0.12, critDmg: 0.3 }, desc: "พลังโจมตี +12% แรงคริติคอล +30% เมื่อถือธนู" },
+    p40: { name: "สายลมนำศร", stats: { aspd: 0.06, hit: 20 }, desc: "ความเร็วโจมตี +6% ความแม่นยำ +20 เมื่อถือธนู" },
+    p50: { name: "ศรพันดอก", stats: { multiShot: 0.1, crit: 0.04 }, desc: "โอกาสยิงซ้อน +10% โอกาสคริติคอล +4% เมื่อถือธนู" },
+    p60: { name: "เทพธนู", stats: { atkPct: 0.15, critDmg: 0.3, reach: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ระยะยิง +10% เมื่อถือธนู" },
   }),
   // opened by a mastery book
   gathering: {
@@ -944,12 +977,14 @@ export const MASTERIES: Record<string, Mastery> = {
 // line's effect (skill line); milestones along the line add stats or effects (skills.ts, stats.ts).
 // The first five also strengthen every skill (their old effects); the rest work through the
 // hits of their own element (SkillDef.element), or on their own (plant, lava, metal).
+export const ELEMENT_MAX = 50;
+export const ELEMENT_MAX2 = 100;
 const ea = (id: string, atk = 2, def = 1.5): StatBag => ({ [`${id}Atk`]: atk, [`${id}Def`]: def });
 export const ELEMENTS: Record<string, ElementDef> = {
   earth: {
-    name: "ดิน", color: "#d6a35c", glyph: "earth", max: 50, side: "ป้องกัน",
+    name: "ดิน", color: "#d6a35c", glyph: "earth", max: ELEMENT_MAX, side: "ป้องกัน",
     per: { ...ea("earth"), def: 0.7, mdef: 0.4, maxHp: 5 },
-    skill: "สกิลสร้างโล่ 0.4% ของ HP สูงสุดต่อระดับตอนใช้ (นาน 4 วิ)",
+    skill: "สกิลสร้างโล่ 0.4% ของ HP สูงสุดต่อระดับตอนใช้ (นาน 4 วิ สูงสุด 60%)",
     marks: [
       { at: 10, name: "หินผา", desc: "สกิลที่ทำให้มึน ช้า หรือแช่แข็ง นานขึ้น 30%" },
       { at: 20, name: "เปลือกหิน", desc: "ลดความเสียหายที่ได้รับ 5%", stats: { dmgRed: 0.05 } },
@@ -958,7 +993,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   water: {
-    name: "น้ำ", color: "#6fc3ff", glyph: "drop", max: 50, side: "ฟื้นฟู",
+    name: "น้ำ", color: "#6fc3ff", glyph: "drop", max: ELEMENT_MAX, side: "ฟื้นฟู",
     per: { ...ea("water"), hpRegen: 0.15, mpRegen: 0.12, maxMp: 3, maxHp: 2 },
     skill: "สกิลรักษาแรงขึ้น 2% ต่อระดับ",
     marks: [
@@ -969,7 +1004,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   wind: {
-    name: "ลม", color: "#9ef0c0", glyph: "swirl", max: 50, side: "ความเร็ว",
+    name: "ลม", color: "#9ef0c0", glyph: "swirl", max: ELEMENT_MAX, side: "ความเร็ว",
     per: { ...ea("wind"), move: 0.003, aspd: 0.004, crit: 0.0008, cdr: 0.003, flee: 0.3 },
     skill: "คูลดาวน์สกิลลดลง 0.3% ต่อระดับ (รวมในค่าลดคูลดาวน์)",
     marks: [
@@ -980,7 +1015,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   fire: {
-    name: "ไฟ", color: "#ff8a5c", glyph: "flame", max: 50, side: "โจมตี",
+    name: "ไฟ", color: "#ff8a5c", glyph: "flame", max: ELEMENT_MAX, side: "โจมตี",
     per: { ...ea("fire"), atk: 0.55, matk: 0.55, critDmg: 0.005, maxHp: 1 },
     skill: "ดาเมจสกิลแรงขึ้น 1% ต่อระดับ",
     marks: [
@@ -991,7 +1026,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   ice: {
-    name: "น้ำแข็ง", color: "#9fe0ff", glyph: "freeze", max: 50, side: "ลดความเร็วโจมตีและร่ายของศัตรู",
+    name: "น้ำแข็ง", color: "#9fe0ff", glyph: "freeze", max: ELEMENT_MAX, side: "ลดความเร็วโจมตีและร่ายของศัตรู",
     per: { ...ea("ice"), mdef: 0.3, maxMp: 2 },
     skill: "การโจมตีธาตุน้ำแข็งทำให้ศัตรูหนาวสั่น โจมตีและร่ายช้าลง 10% +0.6% ต่อระดับ นาน 3 วิ",
     marks: [
@@ -1002,7 +1037,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   light: {
-    name: "แสง", color: "#fff1a8", glyph: "star", max: 50, side: "ความเสียหายจริง",
+    name: "แสง", color: "#fff1a8", glyph: "star", max: ELEMENT_MAX, side: "ความเสียหายจริง",
     per: { ...ea("light"), matk: 0.3, hit: 0.4 },
     skill: "การโจมตีธาตุแสงไม่สนเกราะ 20% +1.6% ต่อระดับ (ระดับ 50: ไม่สนเกราะเลย)",
     marks: [
@@ -1013,9 +1048,9 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   dark: {
-    name: "ความมืด", color: "#a98cff", glyph: "eye", max: 50, side: "สถานะผิดปกติ",
+    name: "ความมืด", color: "#a98cff", glyph: "eye", max: ELEMENT_MAX, side: "สถานะผิดปกติ",
     per: { ...ea("dark"), matk: 0.3, atk: 0.2 },
-    skill: "การโจมตีธาตุความมืดมีโอกาส 10% +0.6% ต่อระดับ ทำให้ศัตรูติดสถานะ (ตาบอด อ่อนแรง หรือพิษ) 4 วิ",
+    skill: "การโจมตีธาตุความมืดมีโอกาส 10% +0.6% ต่อระดับ (สูงสุด 60%) ทำให้ศัตรูติดสถานะ (ตาบอด อ่อนแรง หรือพิษ) 4 วิ",
     marks: [
       { at: 10, name: "เงามืด", desc: "สถานะจากธาตุความมืดนานขึ้นเป็น 6 วิ" },
       { at: 20, name: "ม่านเงา", desc: "ป้องกันธาตุความมืด +15 หลบหลีก +10", stats: { darkDef: 15, flee: 10 } },
@@ -1024,7 +1059,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   plant: {
-    name: "พืช", color: "#8ee06a", glyph: "leaf", max: 50, side: "รักษาสถานะ",
+    name: "พืช", color: "#8ee06a", glyph: "leaf", max: ELEMENT_MAX, side: "รักษาสถานะ",
     per: { ...ea("plant"), hpRegen: 0.15, maxHp: 2 },
     skill: "ใช้สกิลแล้วฟื้น HP 0.1% ของ HP สูงสุดต่อระดับ · สถานะผิดปกติบนตัวหมดเร็วขึ้น 1% ต่อระดับ",
     marks: [
@@ -1035,9 +1070,9 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   stone: {
-    name: "หิน", color: "#b4ada2", glyph: "slam", max: 50, side: "สาปเป็นหิน",
+    name: "หิน", color: "#b4ada2", glyph: "slam", max: ELEMENT_MAX, side: "สาปเป็นหิน",
     per: { ...ea("stone"), def: 0.4, maxHp: 3 },
-    skill: "การโจมตีธาตุหินมีโอกาส 4% +0.3% ต่อระดับ สาปศัตรูเป็นหิน 2 วิ (ขยับและโจมตีไม่ได้)",
+    skill: "การโจมตีธาตุหินมีโอกาส 4% +0.3% ต่อระดับ (สูงสุด 40%) สาปศัตรูเป็นหิน 2 วิ (ขยับและโจมตีไม่ได้)",
     marks: [
       { at: 10, name: "ศิลาสาป", desc: "เป็นหินนานขึ้นเป็น 3 วิ" },
       { at: 20, name: "ผิวศิลา", desc: "ป้องกันธาตุหิน +15 ป้องกัน +5%", stats: { stoneDef: 15, defPct: 0.05 } },
@@ -1046,7 +1081,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   mud: {
-    name: "โคลน", color: "#b08860", glyph: "down", max: 50, side: "ลดความเร็วเคลื่อนที่",
+    name: "โคลน", color: "#b08860", glyph: "down", max: ELEMENT_MAX, side: "ลดความเร็วเคลื่อนที่",
     per: { ...ea("mud"), maxHp: 4, hpRegen: 0.05 },
     skill: "การโจมตีธาตุโคลนทำให้ศัตรูเดินช้าลง 20% +0.8% ต่อระดับ นาน 3 วิ",
     marks: [
@@ -1057,7 +1092,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   lava: {
-    name: "ลาวา", color: "#ff7438", glyph: "burst", max: 50, side: "เผาต่อเนื่องและป้องกัน",
+    name: "ลาวา", color: "#ff7438", glyph: "burst", max: ELEMENT_MAX, side: "เผาต่อเนื่องและป้องกัน",
     per: { ...ea("lava"), def: 0.6, matk: 0.2 },
     skill: "การโจมตีธาตุลาวาเผาศัตรู 15% +0.7% ต่อระดับของดาเมจ ใน 3 วิ",
     marks: [
@@ -1068,7 +1103,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   metal: {
-    name: "โลหะ", color: "#cdd6e2", glyph: "shield", max: 50, side: "HP สูงสุดและสะท้อน",
+    name: "โลหะ", color: "#cdd6e2", glyph: "shield", max: ELEMENT_MAX, side: "HP สูงสุดและสะท้อน",
     per: { ...ea("metal"), maxHp: 6, maxHpPct: 0.002, reflect: 0.004 },
     skill: "สะท้อนความเสียหายที่โดนโจมตีกลับไป 0.4% ต่อระดับ (รวมในค่าสะท้อน)",
     marks: [
@@ -1080,7 +1115,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
   // opened by an element book
   poison: {
-    name: "พิษ", color: "#8fdc4a", glyph: "drop", max: 50, side: "ติดพิษ", book: "book_poison",
+    name: "พิษ", color: "#8fdc4a", glyph: "drop", max: ELEMENT_MAX, side: "ติดพิษ", book: "book_poison",
     per: { ...ea("poison"), poisonPct: 0.01, atk: 0.2, matk: 0.2 },
     skill: "การโจมตีธาตุพิษทำให้ติดพิษ 30% +1% ต่อระดับของดาเมจ ใน 4 วิ (ติดซ้อนได้)",
     marks: [
@@ -1091,7 +1126,7 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
   lightning: {
-    name: "สายฟ้า", color: "#fff27a", glyph: "bolt", max: 50, side: "คริติคอล", book: "book_lightning",
+    name: "สายฟ้า", color: "#fff27a", glyph: "bolt", max: ELEMENT_MAX, side: "คริติคอล", book: "book_lightning",
     per: { ...ea("lightning"), crit: 0.002, critDmg: 0.006, aspd: 0.002, atk: 0.25, matk: 0.25 },
     skill: "สกิลกายภาพ: โอกาสคริติคอล +0.3% ต่อระดับ · สกิลเวท: ดาเมจ +0.3% ต่อระดับ",
     marks: [
@@ -1102,6 +1137,37 @@ export const ELEMENTS: Record<string, ElementDef> = {
     ],
   },
 };
+
+// Past the first book's 50 (ELEMENT_MAX) the second book opens up to 100 (ELEMENT_MAX2), with three
+// more milestones: 65 more attack and defence in the element, 80 more of its strong side, 100 the
+// crown. The strong-side stats each level adds are half again what they were (the element's own
+// attack and defence stay as they are).
+const ELEMENT_TOP: Record<string, [string, string, string, StatBag, string]> = {
+  earth: ["แผ่นดินตื่น", "ขุนเขา", "พระแม่ธรณี", { defPct: 0.1, maxHpPct: 0.05 }, "ป้องกัน +10% HP สูงสุด +5%"],
+  water: ["น้ำวน", "ธารชีวา", "เจ้าสมุทร", { mpRegenPct: 0.15, healPct: 0.1 }, "ฟื้น MP +15% พลังรักษา +10%"],
+  wind: ["ลมกรด", "พายุคลั่ง", "เทพวายุ", { aspd: 0.06, move: 0.05 }, "ความเร็วโจมตี +6% ความเร็วเดิน +5%"],
+  fire: ["เพลิงโหม", "ไฟบรรลัย", "เทพอัคคี", { atkPct: 0.06, matkPct: 0.06 }, "พลังโจมตีและพลังเวท +6%"],
+  ice: ["หิมะกัด", "ธารน้ำแข็ง", "ราชินีหิมะ", { mdefPct: 0.1, maxMpPct: 0.08 }, "ต้านเวท +10% MP สูงสุด +8%"],
+  light: ["แสงเจิดจ้า", "รุ่งอรุณ", "บุตรแห่งสุริยะ", { hit: 20, matkPct: 0.06 }, "ความแม่นยำ +20 พลังเวท +6%"],
+  dark: ["เงาลึก", "จันทร์ดับ", "เจ้าแห่งราตรี", { huntDmg: 0.1, flee: 15 }, "ดาเมจใส่ศัตรูที่ติดสถานะ +10% หลบหลีก +15"],
+  plant: ["ไม้เลื้อย", "ป่าดึกดำบรรพ์", "ต้นไม้แห่งโลก", { healPct: 0.1, maxHpPct: 0.05 }, "พลังรักษา +10% HP สูงสุด +5%"],
+  stone: ["หินผาแกร่ง", "ศิลาอาถรรพ์", "เทพศิลา", { defPct: 0.1, maxHpPct: 0.05 }, "ป้องกัน +10% HP สูงสุด +5%"],
+  mud: ["ดินโคลนหนา", "หล่มมรณะ", "เจ้าแห่งบึง", { maxHpPct: 0.08, dmgRed: 0.03 }, "HP สูงสุด +8% ลดความเสียหาย 3%"],
+  lava: ["หินหลอมเหลว", "ปล่องภูเขาไฟ", "หัวใจโลก", { defPct: 0.08, dmgRed: 0.03 }, "ป้องกัน +8% ลดความเสียหาย 3%"],
+  metal: ["เหล็กกล้า", "ปราการเหล็ก", "เทพโลหะ", { reflect: 0.08, maxHpPct: 0.05 }, "สะท้อนความเสียหาย +8% HP สูงสุด +5%"],
+  poison: ["พิษกัดกร่อน", "พิษมรณะ", "ราชาอสรพิษ", { poisonPct: 0.2, atkPct: 0.04, matkPct: 0.04 }, "พิษแรงขึ้น 20% พลังโจมตีและพลังเวท +4%"],
+  lightning: ["ฟ้าคำราม", "พายุสายฟ้า", "เทพอสนี", { crit: 0.04, critDmg: 0.15 }, "โอกาสคริติคอล +4% แรงคริติคอล +15%"],
+};
+for (const [id, e] of Object.entries(ELEMENTS)) {
+  for (const k of Object.keys(e.per)) if (k !== `${id}Atk` && k !== `${id}Def`) e.per[k] = +(e.per[k]! * 1.5).toFixed(4);
+  const [n65, n80, n100, side, sideDesc] = ELEMENT_TOP[id];
+  e.max2 = ELEMENT_MAX2;
+  e.marks.push(
+    { at: 65, name: n65, desc: `พลังโจมตีธาตุ${e.name} +20 ป้องกันธาตุ${e.name} +20`, stats: ea(id, 20, 20) },
+    { at: 80, name: n80, desc: sideDesc, stats: side },
+    { at: 100, name: n100, desc: `ดาเมจ +10% พลังโจมตีธาตุ${e.name} +50`, stats: { dmg: 0.1, [`${id}Atk`]: 50 } },
+  );
+}
 
 // The element each damaging skill hits with (the rest have none: the arcane spells, most
 // weapon skills). Spells mostly; some weapon skills too, where the skill is made of something.
@@ -1151,22 +1217,35 @@ for (const [id, element] of Object.entries(SKILL_ELEMENTS)) {
 // Books are items (items.ts) that teach a tree, mastery or element when read: a new character
 // knows one of each (picked when it was made, see Progress.start); the rest are books found in
 // the game. Every tree, mastery and element has one: its own `book` id if it names one, else
-// book_<kind>_<id>, added to ITEMS here.
-export type BookKind = "tree" | "mastery" | "element";
+// book_<kind>_<id>, added to ITEMS here. Each weapon mastery and element also has a second book
+// (book_mastery2_<id>, book_element2_<id>) that takes its line on from MASTERY_MAX to
+// MASTERY_MAX2, or ELEMENT_MAX to ELEMENT_MAX2, once the first is learned; only monsters of
+// level TIER2_DROP_LEVEL and up leave those.
+export type BookKind = "tree" | "mastery" | "element" | "mastery2" | "element2";
 export const BOOKS: Record<string, { kind: BookKind; id: string }> = {};
-const BOOK_WORD: Record<BookKind, string> = { tree: "ตำราสกิล", mastery: "ตำราความเชี่ยวชาญ", element: "ตำราธาตุ" };
-function addBook(kind: BookKind, id: string, own: string | undefined, name: string, glyph: string, color: string, cls: ClassId | null): void {
+export const TIER2_DROP_LEVEL = 40;
+const BOOK_WORD: Record<BookKind, string> = { tree: "ตำราสกิล", mastery: "ตำราความเชี่ยวชาญ", element: "ตำราธาตุ", mastery2: "ตำราความเชี่ยวชาญ", element2: "ตำราธาตุ" };
+function addBook(kind: BookKind, id: string, own: string | undefined, name: string, glyph: string, color: string, cls: ClassId | null, note?: string): void {
   const bookId = own ?? `book_${kind}_${id}`;
   BOOKS[bookId] = { kind, id };
   const who = cls ? `เฉพาะ${CLASSES[cls].name}` : "ใช้ได้ทุกอาชีพ";
   ITEMS[bookId] = {
-    kind: "book", name: name.startsWith("ตำรา") ? name : `${BOOK_WORD[kind]}: ${name}`, stack: 5, price: kind === "tree" ? 2400 : 3000, icon: { glyph, color, art: `${kind}_${id}` },
-    note: `อ่านเพื่อเรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[kind] + name} (${who})`,
+    kind: "book", name: name.startsWith("ตำรา") ? name : `${BOOK_WORD[kind]}: ${name}`, stack: 5,
+    price: kind === "tree" ? 2400 : kind === "mastery" || kind === "element" ? 3000 : 9000, icon: { glyph, color, art: `${kind}_${id}` },
+    note: note ?? `อ่านเพื่อเรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[kind] + name} (${who})`,
   };
 }
 for (const [id, t] of Object.entries(TREES)) if (!t.job) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
 for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.name, m.glyph, "#e8c98a", null);
 for (const [id, e] of Object.entries(ELEMENTS)) addBook("element", id, e.book, e.name, e.glyph, e.color, null);
+for (const [id, m] of Object.entries(MASTERIES)) {
+  if (m.max2) addBook("mastery2", id, undefined, `${m.name} ขั้นสอง`, m.glyph, "#ffd36b", null,
+    `อ่านเพื่อขยายความเชี่ยวชาญ${m.name}ถึงระดับ ${m.max2} (ต้องเรียนความเชี่ยวชาญ${m.name}ก่อน)`);
+}
+for (const [id, e] of Object.entries(ELEMENTS)) {
+  if (e.max2) addBook("element2", id, undefined, `${e.name} ขั้นสอง`, e.glyph, e.color, null,
+    `อ่านเพื่อขยายธาตุ${e.name}ถึงระดับ ${e.max2} (ต้องเรียนธาตุ${e.name}ก่อน)`);
+}
 
 // The first active skill of a tree (one that needs nothing before it).
 export function firstActive(treeId: string): string | null {
@@ -1207,6 +1286,7 @@ interface SaveData {
   mastery?: Record<string, number>;
   elements?: Record<string, number>;
   unlocked?: { trees?: string[]; masteries?: string[]; elements?: string[] };
+  extended?: string[];
   hotbar?: (string | null)[];
   bonus?: number;
   job?: JobId | null;
@@ -1230,6 +1310,7 @@ export class Progress {
   mastery: Record<string, number> = {};  // mastery id -> level
   elements: Record<string, number> = {}; // element id -> level
   unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // learned: picked at the start, or from books
+  extended: string[] = [];               // second books read: "mastery:<id>", "element:<id>"
   hotbar: (string | null)[] = new Array(10).fill(null);
   bonus = 0;                             // skill points from quests and jobs, on top of one a level
   job: JobId | null = null;              // the second job, and the branch picked with it
@@ -1248,6 +1329,7 @@ export class Progress {
     this.mastery = {};
     this.elements = {};
     this.unlocked = { trees: [], masteries: [], elements: [] };
+    this.extended = [];
     this.hotbar = new Array(10).fill(null);
     this.bonus = 0;
     this.job = null;
@@ -1302,7 +1384,7 @@ export class Progress {
     const d = Object.create(Progress.prototype) as Progress;
     Object.assign(d, structuredClone({
       cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
-      elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus,
+      elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus,
       job: this.job, branch: this.branch,
     }));
     d.listeners = new Set();
@@ -1389,9 +1471,20 @@ export class Progress {
     return true;
   }
 
+  // Where a mastery's or element's line ends for it now: further once its second book is read.
+  masteryMax(id: string): number {
+    const m = MASTERIES[id];
+    return m.max2 && this.extended.includes(`mastery:${id}`) ? m.max2 : m.max;
+  }
+
+  elementMax(id: string): number {
+    const e = ELEMENTS[id];
+    return e.max2 && this.extended.includes(`element:${id}`) ? e.max2 : e.max;
+  }
+
   raiseMastery(id: string): boolean {
     const m = MASTERIES[id];
-    if (!m || !this.masteries().includes(id) || (this.mastery[id] ?? 0) >= m.max || this.free <= 0) return false;
+    if (!m || !this.masteries().includes(id) || (this.mastery[id] ?? 0) >= this.masteryMax(id) || this.free <= 0) return false;
     this.mastery[id] = (this.mastery[id] ?? 0) + 1;
     for (const r of m.rewards) if (r.kind === "active" && r.id && r.at === this.mastery[id]) this.autoSlot(r.id);
     this.changed();
@@ -1400,16 +1493,21 @@ export class Progress {
 
   raiseElement(id: string): boolean {
     const e = ELEMENTS[id];
-    if (!e || !this.elementsOpen().includes(id) || (this.elements[id] ?? 0) >= e.max || this.free <= 0) return false;
+    if (!e || !this.elementsOpen().includes(id) || (this.elements[id] ?? 0) >= this.elementMax(id) || this.free <= 0) return false;
     this.elements[id] = (this.elements[id] ?? 0) + 1;
     this.changed();
     return true;
   }
 
-  // Whether a book teaches something new it can learn (another class's tree it can't).
+  // Whether a book teaches something new it can learn (another class's tree it can't; a second
+  // book only once the first is learned).
   canRead(bookId: string): boolean {
     const b = BOOKS[bookId];
     if (!b) return false;
+    if (b.kind === "mastery2" || b.kind === "element2") {
+      const base = b.kind === "mastery2" ? "mastery" : "element";
+      return (base === "mastery" ? this.unlocked.masteries : this.unlocked.elements).includes(b.id) && !this.extended.includes(`${base}:${b.id}`);
+    }
     if (b.kind === "tree" && TREES[b.id].cls && TREES[b.id].cls !== this.cls) return false;
     return !{ tree: this.unlocked.trees, mastery: this.unlocked.masteries, element: this.unlocked.elements }[b.kind].includes(b.id);
   }
@@ -1418,6 +1516,16 @@ export class Progress {
   readBook(bookId: string): { ok: boolean; text: string } {
     const b = BOOKS[bookId];
     if (!b) return { ok: false, text: "อ่านไม่ได้" };
+    if (b.kind === "mastery2" || b.kind === "element2") {
+      const mastery = b.kind === "mastery2";
+      const name = mastery ? `ความเชี่ยวชาญ${MASTERIES[b.id].name}` : `ธาตุ${ELEMENTS[b.id].name}`;
+      const key = `${mastery ? "mastery" : "element"}:${b.id}`;
+      if (!(mastery ? this.unlocked.masteries : this.unlocked.elements).includes(b.id)) return { ok: false, text: `ต้องเรียน${name}ก่อน` };
+      if (this.extended.includes(key)) return { ok: false, text: `ขยาย${name}ไปแล้ว` };
+      this.extended.push(key);
+      this.changed();
+      return { ok: true, text: `${name}ขยายได้ถึงระดับ ${mastery ? this.masteryMax(b.id) : this.elementMax(b.id)} แล้ว` };
+    }
     const tree = b.kind === "tree" ? TREES[b.id] : null;
     if (tree?.cls && tree.cls !== this.cls) return { ok: false, text: `ตำรานี้สำหรับ${CLASSES[tree.cls].name}เท่านั้น` };
     const list = { tree: this.unlocked.trees, mastery: this.unlocked.masteries, element: this.unlocked.elements }[b.kind];
@@ -1453,7 +1561,7 @@ export class Progress {
     try {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
-        elements: this.elements, unlocked: this.unlocked, hotbar: this.hotbar, bonus: this.bonus, job: this.job, branch: this.branch,
+        elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus, job: this.job, branch: this.branch,
         treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
@@ -1486,6 +1594,10 @@ export class Progress {
       masteries: (d.unlocked?.masteries ?? []).filter((m) => MASTERIES[m]),
       elements: (d.unlocked?.elements ?? []).filter((e) => ELEMENTS[e]),
     };
+    this.extended = (d.extended ?? []).filter((x) => {
+      const [kind, id] = x.split(":");
+      return kind === "mastery" ? !!MASTERIES[id]?.max2 : kind === "element" && !!ELEMENTS[id]?.max2;
+    });
     // an older character keeps everything it could use before
     if (d.learnV !== LEARN_VERSION) {
       const add = (list: string[], more: string[]) => list.push(...more.filter((x) => !list.includes(x)));

@@ -387,6 +387,12 @@ kbd {
 .sk-dot.next .sk-icon.small { border-color: #fff; animation: bt-pulse 1.4s ease-in-out infinite; }
 .sk-dot-name { margin-top: 3px; font-size: 11px; line-height: 1.2; color: var(--muted); }
 .sk-dot.got .sk-dot-name { color: var(--text); }
+.sk-lock { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.14) 0 4px, transparent 4px 8px); }
+.sk-dot.locked { opacity: 0.55; }
+.sk-track.dense { height: 98px; }
+.sk-track.dense .sk-dot { width: 70px; }
+.sk-dot.alt .sk-dot-name { margin-top: 17px; }
+.sk-sub.more { color: #e8c98a; }
 @media (max-width: 960px) {
   .sk-treeview { grid-template-columns: 1fr; }
   .sk-treelist { flex-direction: row; flex-wrap: wrap; }

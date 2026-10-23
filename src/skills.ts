@@ -400,7 +400,7 @@ export class Skills {
   afterCast(): void {
     const earth = this.el.earth ?? 0, wind = this.el.wind ?? 0, water = this.el.water ?? 0;
     if (earth) {
-      this.hero.addShield(this.hero.stats.maxHp * 0.004 * earth * (earth >= 35 ? 2 : 1), 4);
+      this.hero.addShield(this.hero.stats.maxHp * Math.min(0.6, 0.004 * earth * (earth >= 35 ? 2 : 1)), 4);
       this.ring(this.player.x, this.player.y, "#d6a35c", 90, 0.5);
     }
     if (wind >= 10) this.hero.addBuff("wind_rush", "สายลม", { move: 0.25 }, 2);
@@ -473,14 +473,14 @@ export class Skills {
         if (lv >= 35 && Math.random() < 0.1) m.freeze = Math.max(m.freeze, 1.5 * earth);
         break;
       case "dark": {
-        if (Math.random() >= 0.1 + 0.006 * lv) break;
+        if (Math.random() >= Math.min(0.6, 0.1 + 0.006 * lv)) break;
         const t = lv >= 10 ? 6 : 4;
         const ails = [() => (m.blind = Math.max(m.blind, t)), () => m.weaken(t, 0.2), () => m.burns.push({ dps: (dmg * 0.3 * poisonScale(this.hero.stats, this.el)) / t, t, poison: true })];
         for (const i of [...ails.keys()].sort(() => Math.random() - 0.5).slice(0, lv >= 35 ? 2 : 1)) ails[i]();
         break;
       }
       case "stone":
-        if (Math.random() < (0.04 + 0.003 * lv) * (lv >= 35 ? 1.5 : 1)) m.petrify = Math.max(m.petrify, (lv >= 10 ? 3 : 2) * earth);
+        if (Math.random() < Math.min(0.4, (0.04 + 0.003 * lv) * (lv >= 35 ? 1.5 : 1))) m.petrify = Math.max(m.petrify, (lv >= 10 ? 3 : 2) * earth);
         break;
       case "mud":
         m.slowFor((lv >= 10 ? 5 : 3) * earth, Math.min(0.8, (0.2 + 0.008 * lv) * (lv >= 50 ? 1.5 : 1)));
