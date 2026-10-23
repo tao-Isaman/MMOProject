@@ -286,7 +286,7 @@ const STATUS: [(m: Monster) => boolean, string, string][] = [
 ];
 
 // Shots that are things thrown or fired, not spells.
-const PHYSICAL_SHOTS = new Set(["", "arrow", "cannon", "musket", "rock", "shuriken", "tongue", "vine", "spear"]);
+const PHYSICAL_SHOTS = new Set(["", "arrow", "cannon", "musket", "rock", "shuriken", "tongue", "vine", "spear", "web"]);
 
 export class Monster {
   variant: Variant;
@@ -984,7 +984,7 @@ export const shots: Shot[] = [];
 const SHOT_COLOR: Record<string, string> = {
   water: "#5ab4ff", snow: "#f2f8ff", frost: "#9fe0ff", fire: "#ff8a2a", rock: "#a08c6c", arrow: "#e8d8b0",
   musket: "#ffe9a0", cannon: "#3a3530", shuriken: "#d8dce4", foxfire: "#7ad8ff", curse: "#b070ff",
-  tongue: "#ff7aa0", vine: "#6fcf5a", slam: "#d8c8a0", burst: "#ffb05a",
+  tongue: "#ff7aa0", vine: "#6fcf5a", slam: "#d8c8a0", burst: "#ffb05a", spark: "#fff27a", venom: "#8fdc4a", web: "#f4f4ee",
 };
 
 // Move the shots on; one that comes within reach of the player hits.
