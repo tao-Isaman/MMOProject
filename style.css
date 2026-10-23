@@ -732,6 +732,13 @@ body.touch .title-form { max-height: calc(100dvh - 150px); }
 .mp-tabs { display: flex; gap: 6px; }
 .mp-stage { position: relative; padding: 8px; }
 .mp-canvas { display: block; border-radius: 10px; touch-action: none; }
+.mp-zoom { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 6px; }
+.mp-zoom.hidden { display: none; }
+.mp-zoom-btn {
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid rgba(244, 210, 122, 0.55);
+  background: rgba(24, 20, 12, 0.78); color: #f4e6c0; font: 600 20px/1 Kanit, sans-serif; cursor: pointer;
+}
+.mp-zoom-btn:hover { background: rgba(60, 46, 20, 0.9); }
 .mp-info { margin-top: 6px; min-height: 2.8em; padding: 0 4px; font-size: 13px; line-height: 1.4; color: var(--muted); }
 .minimap { position: fixed; z-index: 3; top: 14px; right: 14px; cursor: pointer; }
 .minimap canvas {

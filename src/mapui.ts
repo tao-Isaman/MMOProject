@@ -3,22 +3,28 @@
 // (World3D.snapshot), north up; the townsfolk, warps, monsters and the player are drawn over
 // it. Tapping the minimap opens the window too (phones have no M key). A click on the map walks
 // there (on someone: up to them, to talk); on the world map, to the way out to a place.
+//
+// The world map is the grid of src/worldmap.ts, every map's square its picture from above; it
+// zooms (the wheel, the + and - buttons) and drags, and shows where the player stands in her
+// map's square.
 
 import { el, makeWindow } from "./ui";
 import { isTouch } from "./touch";
-import { PLACES, REGIONS, WORLD_W, WORLD_H, paintWorld, drawPlace } from "./worldmap";
-import type { Place } from "./worldmap";
+import { PLACES, GRID, SEAS, groundAt, tileArea } from "./worldmap";
+import type { Place, Ground } from "./worldmap";
+import { FIELDS } from "./maps";
 import type { GameMap } from "./maps";
 import type { Npc, NpcRole } from "./npcs";
 import type { Monster } from "./monsters";
 import type { Vec2 } from "./types";
 
-// What a travel guide charges to take you to a town: 1,000 gold at least, more the farther it is.
+// What a travel guide charges to take you to a town: 1,000 gold at least, 600 a square of the
+// world map as the crow flies.
 export const TRAVEL_FEE_MIN = 1000;
 // cut: the share off (the wandering merchant's book, at most half)
 export function travelFee(from: string, to: string, cut = 0): number {
   const a = PLACES.find((p) => p.id === from), b = PLACES.find((p) => p.id === to);
-  const fee = !a || !b ? TRAVEL_FEE_MIN : Math.max(TRAVEL_FEE_MIN, Math.round((Math.hypot(a.x - b.x, a.y - b.y) * 8) / 100) * 100);
+  const fee = !a || !b ? TRAVEL_FEE_MIN : Math.max(TRAVEL_FEE_MIN, Math.round((Math.hypot(a.col - b.col, a.row - b.row) * 600) / 100) * 100);
   return Math.round((fee * (1 - Math.min(0.5, cut))) / 10) * 10;
 }
 
@@ -45,6 +51,14 @@ type Hit = { x: number; y: number; text: string; npc?: Npc; to?: Vec2 };
 // each kind of townsperson's dot and label (a smith glows like a forge)
 const NPC_COLORS: Record<NpcRole, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8", travel: "#9fd4ff", smith: "#ffa45c" };
 
+// the monsters' levels each field square names (the first field's slimes are its own)
+const LEVELS: Record<string, [number, number]> = { field: [1, 8], ...Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.levels as [number, number]])) };
+// an empty square's colours: ground and marks
+const GROUND_COLORS: Record<Ground, [string, string]> = {
+  "~": ["#235f82", "rgba(220, 240, 255, 0.28)"], "^": ["#d9dee0", "#8f8a7e"], "#": ["#93b46a", "#6f9150"],
+  "%": ["#5f8f52", "#3e6b3a"], ":": ["#dcc48e", "#b0925a"], M: ["#7d8c62", "#5d6b48"],
+};
+
 export class MapUI {
   win: HTMLElement;
   title: HTMLElement;
@@ -57,7 +71,6 @@ export class MapUI {
   map: GameMap | null = null;
   pic: HTMLCanvasElement | null = null;
   names: Record<string, string>;
-  world: HTMLCanvasElement | null = null;
   hits: Hit[] = [];
   hover: { x: number; y: number } | null = null;
   picked: Place | null = null;
@@ -68,6 +81,14 @@ export class MapUI {
   guide = false; // opened by a travel guide: a click on a town goes there
   fareCut = () => 0; // the share off a guide's fare
   ports: string[] | null = null; // opened by a ship's captain: the towns the ship sails to
+  // the world map: css pixels a square, the grid point (in squares) at the canvas's middle, a
+  // drag under way, whether to frame it afresh, and the squares' pictures as they load
+  wz = 0;
+  wc = { x: 0, y: 0 };
+  drag: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null;
+  reframe = true;
+  tiles = new Map<string, HTMLImageElement | null>();
+  zoom: HTMLElement;
 
   // names: map id -> its name (for the warps' "to ..."); onWalk(to, npc): walk there, or up to
   // npc to talk; returns why not, or null; onTravel(id, byShip): a travel guide's (or ship's)
@@ -92,14 +113,41 @@ export class MapUI {
     const stage = el("div", "mp-stage", this.win);
     this.canvas = el("canvas", "mp-canvas", stage);
     this.info = el("div", "mp-info", stage);
-    this.canvas.addEventListener("pointermove", (e) => (this.hover = { x: e.offsetX, y: e.offsetY }));
+    this.canvas.addEventListener("pointermove", (e) => {
+      this.hover = { x: e.offsetX, y: e.offsetY };
+      const d = this.drag;
+      if (!d) return;
+      // the world map follows the pointer once it has moved a little
+      if (!d.moved && Math.hypot(e.offsetX - d.x, e.offsetY - d.y) > 6) d.moved = true;
+      if (d.moved) this.look(d.cx - (e.offsetX - d.x) / this.wz, d.cy - (e.offsetY - d.y) / this.wz);
+    });
     this.canvas.addEventListener("pointerleave", () => (this.hover = null));
     this.canvas.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       this.hover = { x: e.offsetX, y: e.offsetY };
-      if (this.view === "world") this.pickPlace(e.offsetX, e.offsetY);
-      else this.pickPoint(e.offsetX, e.offsetY);
+      if (this.view === "world") {
+        this.drag = { x: e.offsetX, y: e.offsetY, cx: this.wc.x, cy: this.wc.y, moved: false };
+        this.canvas.setPointerCapture(e.pointerId);
+      } else this.pickPoint(e.offsetX, e.offsetY);
     });
+    this.canvas.addEventListener("pointerup", (e) => {
+      const d = this.drag;
+      this.drag = null;
+      if (d && !d.moved && this.view === "world") this.pickPlace(e.offsetX, e.offsetY);
+    });
+    this.canvas.addEventListener("pointercancel", () => (this.drag = null));
+    this.canvas.addEventListener("wheel", (e) => {
+      if (this.view !== "world") return;
+      e.preventDefault();
+      this.zoomAt(e.deltaY < 0 ? 1.25 : 0.8, e.offsetX, e.offsetY);
+    }, { passive: false });
+    this.zoom = el("div", "mp-zoom", stage);
+    for (const [text, f] of [["+", 1.4], ["−", 1 / 1.4]] as [string, number][]) {
+      const b = el("button", "mp-zoom-btn", this.zoom);
+      b.type = "button";
+      b.textContent = text;
+      b.addEventListener("click", () => this.zoomAt(f));
+    }
     new MutationObserver(() => this.open && this.fit()).observe(this.win, { attributes: true, attributeFilter: ["class"] });
     window.addEventListener("resize", () => this.open && this.fit());
 
@@ -125,6 +173,7 @@ export class MapUI {
   show(v: View): void {
     this.view = v;
     this.picked = null;
+    this.reframe = true;
     this.win.classList.remove("hidden");
     this.fit();
   }
@@ -139,10 +188,9 @@ export class MapUI {
 
   // A travel guide's world map (or a ship's: only its ports): pick a town to go to.
   travel(ports?: string[]): void {
-    this.show("world");
     this.guide = true;
     this.ports = ports ?? null;
-    this.fit();
+    this.show("world");
   }
 
   // A new map and its picture from above.
@@ -158,7 +206,7 @@ export class MapUI {
     for (const v of ["local", "world"] as View[]) this.tabs[v].classList.toggle("on", v === this.view);
     this.tabs.local.textContent = this.map ? this.map.name : "แผนที่นี้";
     this.title.textContent = this.guide && this.ports ? "ขึ้นเรือ · เลือกท่าเรือ" : this.guide ? "วาร์ป · เลือกเมือง" : this.view === "world" ? "แผนที่โลก" : "แผนที่";
-    const [w, h] = this.view === "world" || !this.pic ? [WORLD_W, WORLD_H] : [this.pic.width, this.pic.height];
+    const [w, h] = this.view === "world" || !this.pic ? [GRID.cols * 100, GRID.rows * 100] : [this.pic.width, this.pic.height];
     const touch = isTouch();
     const maxW = Math.min(touch ? 2000 : 900, innerWidth - (touch ? 28 : 56));
     const maxH = innerHeight - (touch ? 70 : 200);
@@ -168,7 +216,43 @@ export class MapUI {
     this.canvas.style.height = `${ch}px`;
     this.canvas.width = Math.round(cw * dpr);
     this.canvas.height = Math.round(ch * dpr);
-    if (this.view === "world" && !this.world) this.world = paintWorld(2);
+    this.zoom.classList.toggle("hidden", this.view !== "world");
+    if (this.view === "world") {
+      // a guide's or a ship's map shows the whole world; otherwise a closer look round here
+      const here = PLACES.find((p) => p.id === this.map?.id);
+      if (this.reframe) {
+        this.wz = this.guide || !here ? 0 : cw / 6;
+        this.wc = here && !this.guide ? { x: here.col + 0.5, y: here.row + 0.5 } : { x: GRID.col0 + GRID.cols / 2, y: GRID.row0 + GRID.rows / 2 };
+        this.reframe = false;
+      }
+      this.look(this.wc.x, this.wc.y);
+    }
+  }
+
+  // ---- the world map's zoom and drag ----
+  // the closest and the farthest it goes, in css pixels a square
+  zoomRange(): [number, number] {
+    const w = parseFloat(this.canvas.style.width), h = parseFloat(this.canvas.style.height);
+    return [Math.min(w / GRID.cols, h / GRID.rows), w / 2.2];
+  }
+
+  // Centre on grid point (x, y), kept so the grid fills the view as far as it can.
+  look(x: number, y: number): void {
+    const [lo, hi] = this.zoomRange();
+    this.wz = Math.max(lo, Math.min(hi, this.wz || lo));
+    const w = parseFloat(this.canvas.style.width) / this.wz / 2, h = parseFloat(this.canvas.style.height) / this.wz / 2;
+    const keep = (v: number, a: number, b: number, half: number) => (b - a <= half * 2 ? (a + b) / 2 : Math.max(a + half, Math.min(b - half, v)));
+    this.wc = { x: keep(x, GRID.col0, GRID.col0 + GRID.cols, w), y: keep(y, GRID.row0, GRID.row0 + GRID.rows, h) };
+  }
+
+  // Zoom by f, keeping the grid point under (x, y) css pixels (default: the middle) where it is.
+  zoomAt(f: number, x?: number, y?: number): void {
+    const w = parseFloat(this.canvas.style.width), h = parseFloat(this.canvas.style.height);
+    const px = x ?? w / 2, py = y ?? h / 2;
+    const gx = this.wc.x + (px - w / 2) / this.wz, gy = this.wc.y + (py - h / 2) / this.wz;
+    const [lo, hi] = this.zoomRange();
+    this.wz = Math.max(lo, Math.min(hi, this.wz * f));
+    this.look(gx - (px - w / 2) / this.wz, gy - (py - h / 2) / this.wz);
   }
 
   // A word for a moment in place of the usual text.
@@ -222,7 +306,7 @@ export class MapUI {
     if (this.note && (this.note.t -= dt) <= 0) this.note = null;
     this.drawMini(st);
     if (!this.open) return;
-    if (this.view === "world") this.drawWorld();
+    if (this.view === "world") this.drawWorld(st);
     else this.drawLocal(st);
   }
 
@@ -293,68 +377,130 @@ export class MapUI {
   }
 
   // ---- the world ----
+  // The place whose square is under (x, y) css pixels.
   placeAt(x: number, y: number): Place | null {
-    const s = parseFloat(this.canvas.style.width) / WORLD_W;
-    return PLACES.reduce<Place | null>((best, p) => (Math.hypot(p.x * s - x, (p.y - 6) * s - y) < 20 && (!best || Math.hypot(p.x * s - x, p.y * s - y) < Math.hypot(best.x * s - x, best.y * s - y)) ? p : best), null);
+    const w = parseFloat(this.canvas.style.width), h = parseFloat(this.canvas.style.height);
+    const col = Math.floor(this.wc.x + (x - w / 2) / this.wz), row = Math.floor(this.wc.y + (y - h / 2) / this.wz);
+    return PLACES.find((p) => p.col === col && p.row === row) ?? null;
   }
 
-  drawWorld(): void {
-    const c = this.canvas, g = c.getContext("2d")!, s = c.width / WORLD_W, dpr = c.width / parseFloat(c.style.width);
+  // A square's picture, asked for the first time it is drawn (null: there is none).
+  tile(id: string): HTMLImageElement | null {
+    if (!this.tiles.has(id)) {
+      const img = new Image();
+      img.onerror = () => this.tiles.set(id, null);
+      img.src = `assets/worldmap/${id}.webp`;
+      this.tiles.set(id, img);
+    }
+    const img = this.tiles.get(id);
+    return img && img.complete && img.naturalWidth ? img : null;
+  }
+
+  // Whether a guide (or a ship) can take you to a place.
+  reachable(p: Place): boolean {
+    if (this.ports) return this.ports.includes(p.id);
+    return p.open && p.kind !== "field" && p.kind !== "castle";
+  }
+
+  drawWorld(st: MapState): void {
+    const c = this.canvas, g = c.getContext("2d")!, dpr = c.width / parseFloat(c.style.width), k = this.wz * dpr;
+    const X = (gx: number) => (gx - this.wc.x) * k + c.width / 2, Y = (gy: number) => (gy - this.wc.y) * k + c.height / 2;
     g.setTransform(1, 0, 0, 1, 0, 0);
-    if (this.world) g.drawImage(this.world, 0, 0, c.width, c.height);
-    g.textAlign = "center";
+    g.fillStyle = GROUND_COLORS["~"][0];
+    g.fillRect(0, 0, c.width, c.height);
     g.lineJoin = "round";
-    const text = (t: string, x: number, y: number, size: number, color: string, outline = "rgba(20, 16, 8, 0.85)") => {
+    const text = (t: string, x: number, y: number, size: number, color: string) => {
       g.font = `600 ${size}px Kanit, sans-serif`;
-      g.lineWidth = Math.max(2.5, size * 0.22);
-      g.strokeStyle = outline;
+      g.lineWidth = Math.max(2.5, size * 0.24);
+      g.strokeStyle = "rgba(14, 12, 6, 0.85)";
       g.strokeText(t, x, y);
       g.fillStyle = color;
       g.fillText(t, x, y);
     };
-    const px = (n: number) => Math.max(n * dpr * 0.75, n * s); // a size in map units, never too small to read
-    for (const r of REGIONS) text(r.text, r.x * s, r.y * s, px(13), r.sea ? "rgba(214, 238, 255, 0.75)" : "rgba(255, 248, 225, 0.72)", r.sea ? "rgba(10, 40, 60, 0.5)" : "rgba(40, 30, 10, 0.45)");
+    // the squares in view
+    const c0 = Math.max(GRID.col0, Math.floor(this.wc.x - c.width / 2 / k)), c1 = Math.min(GRID.col0 + GRID.cols - 1, Math.floor(this.wc.x + c.width / 2 / k));
+    const r0 = Math.max(GRID.row0, Math.floor(this.wc.y - c.height / 2 / k)), r1 = Math.min(GRID.row0 + GRID.rows - 1, Math.floor(this.wc.y + c.height / 2 / k));
+    const at = new Map(PLACES.map((p) => [`${p.col},${p.row}`, p]));
+    for (let row = r0; row <= r1; row++)
+      for (let col = c0; col <= c1; col++) {
+        const p = at.get(`${col},${row}`), x = X(col), y = Y(row);
+        const img = p && p.kind !== "castle" ? this.tile(p.id) : null;
+        if (img) g.drawImage(img, x, y, k + 0.5, k + 0.5);
+        else groundSquare(g, groundAt(col, row), x, y, k, col * 31 + row * 17);
+        if (p?.kind === "castle") castleMark(g, x + k / 2, y + k * 0.48, k * 0.28);
+      }
+    // the lines between the squares
+    g.strokeStyle = "rgba(20, 24, 16, 0.55)";
+    g.lineWidth = Math.max(1, dpr);
+    g.beginPath();
+    for (let col = c0; col <= c1 + 1; col++) {
+      g.moveTo(X(col), Y(r0));
+      g.lineTo(X(col), Y(r1 + 1));
+    }
+    for (let row = r0; row <= r1 + 1; row++) {
+      g.moveTo(X(c0), Y(row));
+      g.lineTo(X(c1 + 1), Y(row));
+    }
+    g.stroke();
+    g.textAlign = "center";
+    const css = k / dpr; // a square's size on screen
+    for (const s of SEAS) text(s.text, X(s.x), Y(s.y), Math.max(11 * dpr, k * 0.13), "rgba(214, 238, 255, 0.8)");
+
     const here = this.map?.id;
-    const hovered = this.hover ? this.placeAt(this.hover.x, this.hover.y) : null;
+    const hovered = this.hover && !this.drag?.moved ? this.placeAt(this.hover.x, this.hover.y) : null;
     for (const p of PLACES) {
-      const x = p.x * s, y = p.y * s;
-      if (p.id === here) {
-        // "you are here": a ring that keeps opening
-        const t = (this.time * 0.8) % 1;
-        g.strokeStyle = `rgba(255, 226, 122, ${1 - t})`;
-        g.lineWidth = 2.5 * dpr;
-        g.beginPath();
-        g.arc(x, y - 6 * s, px(12) + t * px(16), 0, Math.PI * 2);
-        g.stroke();
+      if (p.col < c0 || p.col > c1 || p.row < r0 || p.row > r1) continue;
+      const x = X(p.col), y = Y(p.row);
+      // a guide's map dims what it can't take you to
+      if (this.guide && !this.reachable(p)) {
+        g.fillStyle = "rgba(10, 14, 20, 0.5)";
+        g.fillRect(x, y, k, k);
       }
       if (p === hovered || p === this.picked) {
-        g.fillStyle = "rgba(255, 255, 255, 0.22)";
-        g.beginPath();
-        g.arc(x, y - 6 * s, px(16), 0, Math.PI * 2);
-        g.fill();
+        g.fillStyle = "rgba(255, 255, 255, 0.16)";
+        g.fillRect(x, y, k, k);
+        g.strokeStyle = "rgba(255, 255, 255, 0.9)";
+        g.lineWidth = 2 * dpr;
+        g.strokeRect(x + dpr, y + dpr, k - 2 * dpr, k - 2 * dpr);
       }
-      drawPlace(g, p, x, y, Math.max(s, dpr * 0.8));
-      const big = p.kind === "capital";
-      if (p.side === "left") {
-        g.textAlign = "right";
-        text(p.name, x - px(13), y + px(2), px(14), "#fff3cf");
-        g.textAlign = "center";
-      } else text(p.name, x, y + px(big ? 20 : 17), px(big ? 17 : 14), p.open ? "#fff3cf" : "#d9d1c0");
       if (p.id === here) {
-        g.textAlign = p.side === "left" ? "right" : "left";
-        text("คุณอยู่ที่นี่", x + (p.side === "left" ? -px(13) : px(16)), y - px(p.side === "left" ? 14 : 6), px(12), "#ffe27a");
+        // "you are here": the square's edge glows and breathes
+        g.strokeStyle = `rgba(255, 226, 122, ${0.65 + 0.35 * Math.sin(this.time * 4)})`;
+        g.lineWidth = 3 * dpr;
+        g.strokeRect(x + 1.5 * dpr, y + 1.5 * dpr, k - 3 * dpr, k - 3 * dpr);
+      }
+      // the name along the square's foot (towns only when the squares are small), its levels under it
+      const town = p.kind !== "field";
+      if (css < 58 && !town) continue;
+      const size = Math.max(10 * dpr, Math.min(17 * dpr, k * (town ? 0.14 : 0.12)));
+      const lv = LEVELS[p.id];
+      const showLv = lv && css >= 92;
+      text(p.name, x + k / 2, y + k - (showLv ? size * 1.45 : size * 0.55), size, town ? "#ffe39a" : "#fff6dc");
+      if (showLv) text(`Lv ${lv[0]}–${lv[1]}`, x + k / 2, y + k - size * 0.45, size * 0.78, "#cfe8ff");
+      if (!p.open) text("ยังไม่เปิด", x + k / 2, y + k * 0.2, size * 0.8, "#f0b9a4");
+    }
+    // where she stands in her square
+    const me = PLACES.find((p) => p.id === here);
+    if (me && this.map) {
+      const a = tileArea(this.map.bounds), side = a.maxX - a.minX;
+      const px = X(me.col + (a.maxY - st.player.y) / side), py = Y(me.row + (a.maxX - st.player.x) / side);
+      arrow(g, px, py, st.facing, Math.max(5 * dpr, k * 0.06));
+      if (css >= 92) {
+        g.textAlign = "left";
+        text("คุณอยู่ที่นี่", px + 8 * dpr, py - 8 * dpr, 12 * dpr, "#ffe27a");
         g.textAlign = "center";
       }
-      else if (!p.open) text("ยังไม่เปิด", x, y + px(big ? 33 : 29), px(10.5), "#e8b7a4");
     }
+
     const p = hovered ?? this.picked;
     // a guide's fare to an open town
-    const fare = p && this.guide && !this.ports && this.map && p.id !== this.map.id && p.open && p.kind !== "field" && p.kind !== "castle"
+    const fare = p && this.guide && !this.ports && this.map && p.id !== this.map.id && this.reachable(p)
       ? ` · ค่าเดินทาง ${travelFee(this.map.id, p.id, this.fareCut()).toLocaleString()} ทอง` : "";
     let info = p ? `${p.name}${fare} · ${p.region} — ${p.desc}${p.open ? "" : " (ยังไม่เปิด)"}`
       : this.guide && this.ports ? `${isTouch() ? "แตะ" : "คลิก"}ท่าเรือที่จะไป: ${this.ports.map((id) => PLACES.find((q) => q.id === id)?.name ?? id).join(" หรือ ")}`
       : this.guide ? `${isTouch() ? "แตะ" : "คลิก"}เมืองที่จะไป ผู้นำทางพาไปถึงในพริบตา (ค่าเดินทาง ${TRAVEL_FEE_MIN.toLocaleString()} ทองขึ้นไป ไกลยิ่งแพง)`
-      : isTouch() ? "" : "ชี้ที่เมืองเพื่ออ่านเรื่องของเมืองนั้น · คลิกที่ที่เปิดแล้วเพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
+      : isTouch() ? "ลากเพื่อเลื่อน · ปุ่ม + − ซูม · แตะช่องข้างๆ เพื่อเดินไปทางออกนั้น"
+      : "ลากเพื่อเลื่อน · ล้อเมาส์หรือปุ่ม + − ซูม · ชี้ที่ช่องเพื่ออ่านเรื่องของที่นั้น · คลิกช่องข้างๆ เพื่อเดินไปทางออกนั้น · กด M อีกครั้งเพื่อปิด";
     if (this.note) info = this.note.text;
     if (this.info.textContent !== info) this.info.textContent = info;
   }
@@ -506,4 +652,68 @@ function viewCone(g: CanvasRenderingContext2D, x: number, y: number, yaw: number
   g.arc(x, y, r, a - 0.6, a + 0.6);
   g.closePath();
   g.fill();
+}
+
+// An empty square of the world map: its ground, and a few marks drawn the same way every time
+// (seed): waves on the sea, peaks on the mountains, trees in the forest, dunes on the sand, tufts
+// on the grass.
+function groundSquare(g: CanvasRenderingContext2D, ground: Ground, x: number, y: number, k: number, seed: number): void {
+  const [fill, mark] = GROUND_COLORS[ground];
+  g.fillStyle = fill;
+  g.fillRect(x, y, k + 0.5, k + 0.5);
+  let s = (seed * 16807 + 12345) % 2147483647 || 1;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  g.strokeStyle = mark;
+  g.fillStyle = mark;
+  g.lineWidth = Math.max(1, k * 0.012);
+  const n = ground === "~" ? 7 : ground === "^" ? 4 : 9;
+  for (let i = 0; i < n; i++) {
+    const u = x + (0.15 + rnd() * 0.7) * k, v = y + (0.15 + rnd() * 0.7) * k, r = k * (0.035 + rnd() * 0.03);
+    g.beginPath();
+    if (ground === "~") {
+      g.arc(u, v, r, Math.PI * 1.15, Math.PI * 1.85);
+      g.arc(u + r * 1.7, v, r, Math.PI * 1.15, Math.PI * 1.85);
+      g.stroke();
+    } else if (ground === "^") {
+      const h = r * 3.2;
+      g.moveTo(u - h, v + h * 0.6);
+      g.lineTo(u, v - h * 0.6);
+      g.lineTo(u + h, v + h * 0.6);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#f6f9fb";
+      g.beginPath();
+      g.moveTo(u - h * 0.35, v - h * 0.18);
+      g.lineTo(u, v - h * 0.6);
+      g.lineTo(u + h * 0.35, v - h * 0.18);
+      g.closePath();
+      g.fill();
+      g.fillStyle = mark;
+    } else if (ground === "%") {
+      g.arc(u, v, r * 1.3, 0, Math.PI * 2);
+      g.fill();
+    } else if (ground === ":") {
+      g.arc(u, v + r, r * 1.6, Math.PI * 1.2, Math.PI * 1.8);
+      g.stroke();
+    } else {
+      g.moveTo(u - r * 0.6, v);
+      g.lineTo(u - r * 0.2, v - r);
+      g.moveTo(u + r * 0.2, v);
+      g.lineTo(u + r * 0.6, v - r);
+      g.stroke();
+    }
+  }
+}
+
+// The royal castle's mark on its (shut) square: a keep with two towers.
+function castleMark(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  g.fillStyle = "#c4bdb0";
+  g.strokeStyle = "#3a2c1a";
+  g.lineWidth = Math.max(1, r * 0.06);
+  for (const [bx, by, bw, bh] of [[-0.6, -0.35, 1.2, 0.75], [-0.85, -0.7, 0.38, 1.1], [0.47, -0.7, 0.38, 1.1], [-0.2, -0.95, 0.4, 0.7]]) {
+    g.fillRect(x + bx * r, y + by * r, bw * r, bh * r);
+    g.strokeRect(x + bx * r, y + by * r, bw * r, bh * r);
+  }
+  g.fillStyle = "#3a2c1a";
+  g.fillRect(x - 0.12 * r, y + 0.05 * r, 0.24 * r, 0.35 * r);
 }
