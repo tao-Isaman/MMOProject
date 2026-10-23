@@ -176,6 +176,91 @@ export function buildVenezia(quality: { flowers: number }): Town {
   const at = (u: number, v: number) => P(u, v);
   const head = (du: number, dv: number) => facing(du, dv);
 
+  // ---- houses first (each row paves the ground along its front): rows wall to wall, their fronts
+  // on the plan line a -> b facing plan direction `face`, centred on the line ----
+  const strips: Poly[] = [];
+  const row = (a: UV, b: UV, face: UV, pieces: string[], start = 0, gap = 12) => {
+    const A = at(...a), B = at(...b), L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    const dx = (B[0] - A[0]) / L, dy = (B[1] - A[1]) / L;
+    const h = head(face[0], face[1]), r = (h * Math.PI) / 180, fx = -Math.cos(r), fy = -Math.sin(r);
+    const along = -Math.sin(r) * dx + Math.cos(r) * dy > 0 ? 1 : -1;
+    const pick = (piece: string) => {
+      const tints = TINTS[piece] ?? [""];
+      const colours = tints[Math.floor(rnd() * tints.length)] || undefined;
+      return { piece, colours, f: protoOf(`venezia:${piece}`, colours).foot };
+    };
+    const list: ReturnType<typeof pick>[] = [];
+    let t = 0;
+    for (let i = start; ; i++) {
+      let p = pick(pieces[i % pieces.length]);
+      if (t + (p.f.y1 - p.f.y0) > L + 40) {
+        p = pick("canal_house_narrow");
+        if (t + (p.f.y1 - p.f.y0) > L + 40) break;
+      }
+      list.push(p);
+      t += p.f.y1 - p.f.y0 + gap;
+    }
+    // paving under the fronts (the walls stand back of the line behind balconies and steps)
+    strips.push([[A[0] + fx * 60, A[1] + fy * 60], [B[0] + fx * 60, B[1] + fy * 60], [B[0] - fx * 220, B[1] - fy * 220], [A[0] - fx * 220, A[1] - fy * 220]]);
+    let s = (L - (t - gap)) / 2;
+    for (const p of list) {
+      const w = p.f.y1 - p.f.y0, c = along > 0 ? s - p.f.y0 : s + p.f.y1;
+      put(`venezia:${p.piece}`, [A[0] + dx * c + fx * p.f.x0, A[1] + dy * c + fy * p.f.x0], h, { colours: p.colours });
+      s += w + gap;
+    }
+  };
+  const H = ["canal_house", "canal_house_narrow", "canal_house", "palazzo", "canal_house_narrow", "canal_house", "shop_house"];
+  const N: UV = [0, -1], S: UV = [0, 1], E: UV = [1, 0], W: UV = [-1, 0];
+  // the north quarter
+  row([16, 14], [114, 14], S, H);
+  row([14, 29.4], [50, 29.4], S, ["palazzo", "canal_house", "palazzo"]);
+  row([52, 20], [76, 20], N, ["canal_house", "canal_house_narrow"], 1);
+  row([99.4, 22], [99.4, 36], W, ["canal_house_narrow"]);
+  row([122, 21], [122, 43], E, ["canal_house", "canal_house_narrow"], 2);
+  row([80, 36], [96, 36], N, ["canal_house", "canal_house_narrow"]);
+  row([106, 52], [106, 65], E, ["canal_house_narrow", "canal_house"]);
+  row([70.6, 57], [70.6, 74], W, ["palazzo_grand"]);
+  {
+    // a palazzo on the outside of the first bend, facing into it
+    const a = (-45 * Math.PI) / 180, [cu, cv] = [50 + 26 * Math.cos(a), 56 + 26 * Math.sin(a)];
+    put("venezia:palazzo", at(cu, cv), head(-Math.cos(a), -Math.sin(a)), { colours: "ochre" });
+  }
+  {
+    // and one facing the third bend, south of the Merceria
+    const a = (-58 * Math.PI) / 180, [cu, cv] = [78 + 25.6 * Math.cos(a), 120 + 25.6 * Math.sin(a)];
+    put("venezia:palazzo", at(cu, cv), head(-Math.cos(a), -Math.sin(a)), { colours: "salmon" });
+  }
+  row([70.6, 89], [70.6, 96], W, ["canal_house"]);
+  // the Merceria
+  row([84, 76], [106, 76], S, ["shop_house", "canal_house", "shop_house"]);
+  // the piazza: arcades down both sides, the Doge's palace by the water
+  row([108, 84], [108, 132], E, ["procuratie"], 0, 0);
+  row([108, 140], [108, 148], E, ["procuratie"], 0, 0);
+  row([144, 84], [144, 106], W, ["procuratie"], 0, 0);
+  row([144, 114], [144, 128], W, ["procuratie"], 0, 0);
+  put("venezia:fondaco", at(150.2, 140), FACE.w);
+  // the east quarter
+  row([132, 29.4], [204, 29.4], S, H, 3);
+  row([146, 53], [146, 79], W, ["canal_house_narrow"]);
+  row([164, 40], [164, 105], E, ["canal_house_narrow", "canal_house", "shop_house"]);
+  row([180, 40], [180, 61], E, ["canal_house_narrow"]);
+  row([200, 44], [200, 61], W, ["canal_house_narrow", "canal_house"]);
+  row([172, 61.4], [200, 61.4], N, ["canal_house", "canal_house_narrow"]);
+  row([200.6, 72], [200.6, 100], W, ["palazzo", "canal_house"]);
+  row([156, 114], [180, 114], N, ["shop_house", "canal_house"]);
+  row([156, 152], [179.4, 152], S, ["palazzo", "canal_house"]);
+  // the west island
+  row([17, 51.4], [27, 51.4], N, ["canal_house"]);
+  row([35, 51.4], [50, 51.4], N, ["palazzo"]);
+  row([17, 74], [17, 94], W, ["canal_house_narrow", "canal_house"]);
+  row([17, 102], [17, 112], W, ["canal_house"]);
+  row([17, 114], [27, 114], S, ["canal_house_narrow"]);
+  row([42, 114], [54, 114], S, ["palazzo"]);
+  row([14, 134], [58, 134], N, ["canal_house", "canal_house_narrow", "shop_house"]);
+  row([14, 152], [58, 152], S, ["palazzo", "canal_house"]);
+  // the church at the grand canal's mouth, facing the piazza across it
+  put("venezia:basilica", at(66, 144), FACE.e, { s: 0.6 });
+
   // ---- ground: streets (cobbles), campi and the piazza (flagstones), the water ----
   const roads: Poly[] = [
     rect(16, 14, 122, 20),     // the lane along the north wall
@@ -207,6 +292,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
     rect(74, 128, 82, 152),    // the timber bridge's west foot
     rect(98, 128, 108, 152),   // and its east foot, the corner of the riva
     ...PIERS.map((u) => rect(u - 3.2, SHORE, u + 3.2, PIER_END)),
+    ...strips,
   ];
   const water: Poly[] = [
     rect(-300, -40, WEST, 420),                                            // the lagoon
@@ -302,82 +388,6 @@ export function buildVenezia(quality: { flowers: number }): Town {
   put("venezia:city_gate", at(...GATE_NE), FACE.e, { solid: gateSolid });
   put("venezia:city_gate", at(...GATE_SE), FACE.e, { solid: gateSolid });
 
-  // ---- houses: rows wall to wall, their fronts on the plan line a -> b facing plan direction
-  // `face`, centred on the line ----
-  const row = (a: UV, b: UV, face: UV, pieces: string[], start = 0, gap = 12) => {
-    const A = at(...a), B = at(...b), L = Math.hypot(B[0] - A[0], B[1] - A[1]);
-    const dx = (B[0] - A[0]) / L, dy = (B[1] - A[1]) / L;
-    const h = head(face[0], face[1]), r = (h * Math.PI) / 180, fx = -Math.cos(r), fy = -Math.sin(r);
-    const along = -Math.sin(r) * dx + Math.cos(r) * dy > 0 ? 1 : -1;
-    const pick = (piece: string) => {
-      const tints = TINTS[piece] ?? [""];
-      const colours = tints[Math.floor(rnd() * tints.length)] || undefined;
-      return { piece, colours, f: protoOf(`venezia:${piece}`, colours).foot };
-    };
-    const list: ReturnType<typeof pick>[] = [];
-    let t = 0;
-    for (let i = start; ; i++) {
-      let p = pick(pieces[i % pieces.length]);
-      if (t + (p.f.y1 - p.f.y0) > L + 40) {
-        p = pick("canal_house_narrow");
-        if (t + (p.f.y1 - p.f.y0) > L + 40) break;
-      }
-      list.push(p);
-      t += p.f.y1 - p.f.y0 + gap;
-    }
-    let s = (L - (t - gap)) / 2;
-    for (const p of list) {
-      const w = p.f.y1 - p.f.y0, c = along > 0 ? s - p.f.y0 : s + p.f.y1;
-      put(`venezia:${p.piece}`, [A[0] + dx * c + fx * p.f.x0, A[1] + dy * c + fy * p.f.x0], h, { colours: p.colours });
-      s += w + gap;
-    }
-  };
-  const H = ["canal_house", "canal_house_narrow", "canal_house", "palazzo", "canal_house_narrow", "canal_house", "shop_house"];
-  const N: UV = [0, -1], S: UV = [0, 1], E: UV = [1, 0], W: UV = [-1, 0];
-  // the north quarter
-  row([16, 14], [114, 14], S, H);
-  row([14, 29.4], [50, 29.4], S, ["palazzo", "canal_house", "palazzo"]);
-  row([52, 20], [76, 20], N, ["canal_house", "canal_house_narrow"], 1);
-  row([99.4, 22], [99.4, 36], W, ["canal_house_narrow"]);
-  row([122, 21], [122, 43], E, ["canal_house", "canal_house_narrow"], 2);
-  row([80, 36], [96, 36], N, ["canal_house", "canal_house_narrow"]);
-  row([106, 52], [106, 65], E, ["canal_house_narrow", "canal_house"]);
-  row([70.6, 57], [70.6, 74], W, ["palazzo_grand"]);
-  {
-    // a palazzo on the outside of the first bend, facing into it
-    const a = (-45 * Math.PI) / 180, [cu, cv] = [50 + 26 * Math.cos(a), 56 + 26 * Math.sin(a)];
-    put("venezia:palazzo", at(cu, cv), head(-Math.cos(a), -Math.sin(a)), { colours: "ochre" });
-  }
-  // the Merceria
-  row([84, 76], [106, 76], S, ["shop_house", "canal_house", "shop_house"]);
-  // the piazza: arcades down both sides, the Doge's palace by the water
-  row([108, 84], [108, 132], E, ["procuratie"], 0, 0);
-  row([108, 140], [108, 148], E, ["procuratie"], 0, 0);
-  row([144, 84], [144, 106], W, ["procuratie"], 0, 0);
-  row([144, 114], [144, 128], W, ["procuratie"], 0, 0);
-  put("venezia:fondaco", at(150.2, 140), FACE.w);
-  // the east quarter
-  row([132, 29.4], [204, 29.4], S, H, 3);
-  row([146, 53], [146, 79], W, ["canal_house_narrow"]);
-  row([164, 40], [164, 105], E, ["canal_house_narrow", "canal_house", "shop_house"]);
-  row([180, 40], [180, 61], E, ["canal_house_narrow"]);
-  row([200, 44], [200, 61], W, ["canal_house_narrow", "canal_house"]);
-  row([172, 61.4], [200, 61.4], N, ["canal_house", "canal_house_narrow"]);
-  row([200.6, 72], [200.6, 100], W, ["palazzo", "canal_house"]);
-  row([156, 114], [180, 114], N, ["shop_house", "canal_house"]);
-  row([156, 152], [179.4, 152], S, ["palazzo", "canal_house"]);
-  // the west island
-  row([17, 51.4], [27, 51.4], N, ["canal_house"]);
-  row([35, 51.4], [50, 51.4], N, ["palazzo"]);
-  row([17, 74], [17, 94], W, ["canal_house_narrow", "canal_house"]);
-  row([17, 102], [17, 112], W, ["canal_house"]);
-  row([17, 114], [27, 114], S, ["canal_house_narrow"]);
-  row([42, 114], [54, 114], S, ["palazzo"]);
-  row([14, 134], [58, 134], N, ["canal_house", "canal_house_narrow", "shop_house"]);
-  row([14, 152], [58, 152], S, ["palazzo", "canal_house"]);
-  // the church at the grand canal's mouth, facing the piazza across it
-  put("venezia:basilica", at(66, 144), FACE.e, { s: 0.6 });
-
   // ---- the piazza ----
   put("venezia:basilica", at(126, 67.6), FACE.s);
   put("venezia:campanile", at(138, 124), 0);
@@ -428,7 +438,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
   }
   put("venezia:well_head", at(44, 80), 0, { solid: [{ kind: "well", x: 0, y: 0, r: 130 }] });
   put("venezia:cargo_bales", at(50, 100.5), 0);
-  // campi: well-heads, trees, benches
+  // the well-heads of the campi
   put("venezia:well_head", at(89, 28), 0, { solid: [{ kind: "well", x: 0, y: 0, r: 130 }] });
   put("venezia:well_head", at(190, 50), 0, { solid: [{ kind: "well", x: 0, y: 0, r: 130 }] });
   // the caravans loading in the campo by the north-east gate
@@ -476,7 +486,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
     trees: ["RoundTree", "Pine", "SmallTree", "Cherry", "RoundTree"], other: "common:bench", chance: 0.8, step: 520, margin: 300,
   });
 
-  // ---- outside the walls: farmland and woods on the north and east ----
+  // ---- outside the walls: woods on the land to the north and east ----
   town.woods({ x0: P(0, 150)[0], x1: P(0, -150)[0], y0: P(300, 0)[1], y1: P(-60, 0)[1] }, ["RoundTree", "BigOak", "Pine", "SmallTree", "RoundTree"], (x, y) => {
     const u = 112 - y / 100, v = 100 - x / 100;
     const inside = v > -12 && u < EAST + 12;
@@ -519,7 +529,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
       { ...pt(168, 78), text: "อู่เรือกอนโดลา" },
       { ...pt(190, 54), text: "ลานกองคาราวาน", kind: "small" },
       { ...pt(198, 133), text: "สวนสาธารณะ", kind: "small" },
-      { ...pt(40, 143), text: "ย่านริมลากูน" },
+      { ...pt(34, 131), text: "ย่านริมลากูน" },
       { ...pt(66, 156), text: "โบสถ์ปากคลอง", kind: "small" },
       { ...pt(125, 210), text: "เกาะโบสถ์", kind: "small" },
       { x: at(...GATE_N)[0] - 300, y: at(...GATE_N)[1], text: "ประตูเหนือ · ที่ราบใต้โนอา", kind: "gate" },

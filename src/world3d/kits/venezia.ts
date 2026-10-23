@@ -1258,7 +1258,7 @@ function rialto(): Geo {
         const inner = merge(panel(frameShape(40, 150, "round", 10, 0), -4, 6, IST), panel(shapeOf(40, 150, "round"), 0, 3, "Venezia_Dark"),
           boxBounds([-12, -40, 0], [-2, 40, 80], "WoodDark"), boxBounds([-40, -44, 76], [-2, 44, 82], "WoodWarm"));
         out.push(onFace(inner, s < 0 ? "+x" : "-x", -PH, yc, 5));
-        out.push(onFace(merge(panel(frameShape(36, 140, "round", 10, 0), -4, 6, IST), panel(shapeOf(36, 140, "round"), 0, 3, "Venezia_Cream")), s < 0 ? "-x" : "+x", SH, yc, 30));
+        out.push(onFace(win(60, 170, { head: "round", grille: i % 2 === 1, t: 10 }), s < 0 ? "-x" : "+x", SH, yc, 60));
         out.push(boxBounds([x0 - 8, y0, eh - 16], [x1 + 8, y1, eh], IST, 1.5));
         out.push(translate(rowRoof((x1 - x0) / 2 + 6, (y1 - y0) / 2, eh, 70, 12, IST, "Venezia_Lead"), [(x0 + x1) / 2, yc, 0]));
         // goods hung outside the shops facing the passage
@@ -1904,7 +1904,8 @@ function wallTower(): Geo {
 // pediment with a saint; the gate leaves standing open against the passage walls inside.
 function cityGate(): Geo {
   const PW = 250, TY = 560, TH = 300, out: Geo[] = [];
-  for (const s of [-1, 1]) out.push(translate(scale(wallTower(), [1, TH / 320, 1.1]), [0, s * TY, 0]));
+  // the towers stand back from the front, flush with its face, the passage running on between them
+  for (const s of [-1, 1]) out.push(translate(scale(wallTower(), [1, TH / 320, 1.1]), [170, s * TY, 0]));
   // the wall over the passage
   out.push(panel(arcadeShape(-(TY - TH), TY - TH, 0, 820, [[0, 210, 400, "round"]]), -150, 300, "Venezia_Brick"));
   out.push(vault(300, 210, 400, 90, 12, "Venezia_BrickOld", 12));
@@ -1937,7 +1938,7 @@ function cityGate(): Geo {
   out.push(onFace(merge(...front), "-x", 150, 0, 0));
   // the open leaves inside
   for (const s of [-1, 1]) out.push(boxBounds([120, s * 206 - 4, 0], [330, s * 206 + 4, 380], "DoorWood"), boxBounds([130, s * 202 - 4, 60], [320, s * 202, 70], "IronDark"), boxBounds([130, s * 202 - 4, 300], [320, s * 202, 310], "IronDark"));
-  out.push(boxBounds([-170, -PW, 0], [170, PW, 4], "Venezia_Trachyte"));
+  out.push(boxBounds([-170, -PW, 0], [500, PW, 4], "Venezia_Trachyte"));
   return merge(...out);
 }
 
