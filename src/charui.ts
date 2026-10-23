@@ -103,7 +103,7 @@ export class Vitals {
 
 // ---- class picker ----
 // For a character made before classes were picked when it was created: its class, first skill
-// book, element and weapon (src/starter.ts).
+// book and element (src/starter.ts).
 export class ClassPicker {
   root: HTMLElement;
 
@@ -111,7 +111,7 @@ export class ClassPicker {
     this.root = el("div", "picker hidden", document.body);
     const box = el("div", "picker-box", this.root);
     el("h2", "", box).textContent = "เลือกอาชีพ";
-    el("p", "picker-note", box).textContent = "เลือกอาชีพ ตำราสกิลเริ่มต้น ธาตุ และอาวุธ ตำราอื่นหาได้ในเกม";
+    el("p", "picker-note", box).textContent = "เลือกอาชีพ ตำราสกิลเริ่มต้น และธาตุ ตำราอื่นหาได้ในเกม";
     const start = defaultStart("mage");
     starterForm(el("div", "title-start", box), start);
     const ok = el("button", "title-btn primary", box);

@@ -1,6 +1,6 @@
 // Title screen: pick one of your characters (up to MAX_CHARACTERS), delete one, or make a new
-// one — name, build, hair and eye colour, then its class, first skill book, first element and
-// first weapon mastery (src/starter.ts), with a turning preview. Everyone starts in the plain
+// one — name, build, hair and eye colour, then its class, first skill book and first element
+// (src/starter.ts; the weapon mastery is its class's), with a turning preview. Everyone starts in the plain
 // brown clothes with the plain bob; other hairstyles and clothes are found in the game.
 // Resolves with the id of the character to play.
 
@@ -149,7 +149,7 @@ export class Title {
   // ---- a new character ----
   create(): void {
     this.box.replaceChildren();
-    this.heading("สร้างตัวละคร", "เลือกอาชีพ ตำราสกิล ธาตุ และอาวุธ");
+    this.heading("สร้างตัวละคร", "เลือกอาชีพ ตำราสกิล และธาตุ");
     const look: Look = { gender: "female", hair: "bob", hairColor: "silver", eyes: "teal", styles: ["bob"] };
     const start: Start = defaultStart("mage");
     let name = "";

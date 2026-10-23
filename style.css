@@ -535,7 +535,13 @@ kbd {
 .title-name:focus { outline: 2px solid var(--gold); }
 .title-form .wr-choices { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .title-form .wr-choice small { display: block; font-size: 11px; color: var(--muted); }
-.title-classes { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; }
+.st-picks { display: flex; flex-wrap: wrap; gap: 10px; }
+.st-pick { width: 64px; height: 64px; padding: 3px; border-radius: 14px; border: 2px solid rgba(255, 255, 255, 0.14); background: rgba(0, 0, 0, 0.35); cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+.st-pick canvas { display: block; width: 100%; height: 100%; }
+.st-pick:hover { border-color: rgba(255, 255, 255, 0.4); transform: translateY(-1px); }
+.st-pick.on { border-color: var(--accent, var(--gold)); box-shadow: 0 0 12px var(--accent, var(--gold)); }
+.st-caption { margin: 6px 0 4px; min-height: 30px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.st-caption strong { margin-right: 6px; color: var(--accent, var(--gold)); }
 .vt-name { font-size: 15px; font-weight: 600; color: var(--text); }
 @media (max-width: 720px) {
   .title-create { grid-template-columns: 1fr; }
