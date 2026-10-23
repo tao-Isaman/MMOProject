@@ -30,10 +30,11 @@ const RAWEE = W("yodia", "job_thief", "ราวีจิ้งจอกเง�
 const AOI = W("osaki", "osaki_aoi", "อาโออิ"), BJORN = W("iceberg", "ice_smith", "บียอร์น"), NADEEM = W("bahamas", "bh_story", "ท่านนาดีม");
 
 // What the quests ask to bring: quest items, dropped only while the step is on.
-const questItem = (name: string, glyph: string, color: string, note: string) =>
-  ({ kind: "material" as const, name, stack: 99, sell: 1, icon: { glyph, color }, note: `${note}<br>ของเควส` });
+// (its picture, when drawn, is assets/skills/<id>.png like the other items')
+const questItem = (id: string, name: string, glyph: string, color: string, note: string) =>
+  ({ kind: "material" as const, name, stack: 99, sell: 1, icon: { glyph, color, art: id }, note: `${note}<br>ของเควส` });
 Object.assign(ITEMS, {
-  druid_tablet: questItem("แผ่นศิลาจารึกดรูอิด", "scroll", "#b8a878", "แผ่นหินสลักอักษรโบราณที่วิญญาณดรูอิดเฝ้าไว้"),
+  druid_tablet: questItem("druid_tablet", "แผ่นศิลาจารึกดรูอิด", "scroll", "#b8a878", "แผ่นหินสลักอักษรโบราณที่วิญญาณดรูอิดเฝ้าไว้"),
 });
 
 const REWARD = { gold: 8000, xp: 30000 };

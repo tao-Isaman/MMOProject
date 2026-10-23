@@ -23,11 +23,11 @@ export const COATINGS: Record<string, Coating> = {
 
 Object.assign(ITEMS, {
   poison_vial: {
-    kind: "potion", name: "ขวดยาพิษ", stack: 50, sell: 25, icon: { glyph: "drop", color: "#8fdc4a" },
+    kind: "potion", name: "ขวดยาพิษ", stack: 50, sell: 25, icon: { glyph: "drop", color: "#8fdc4a", art: "poison_vial" },
     note: "ใช้แล้วเคลือบอาวุธด้วยพิษ 60 วิ: อาวุธตีเป็นธาตุพิษ ตีปกติมีโอกาส 20% ติดพิษ พลังโจมตีธาตุพิษ +12",
   },
   poison_vial_strong: {
-    kind: "potion", name: "ขวดยาพิษเข้มข้น", stack: 50, sell: 60, icon: { glyph: "drop", color: "#5fb82e" },
+    kind: "potion", name: "ขวดยาพิษเข้มข้น", stack: 50, sell: 60, icon: { glyph: "drop", color: "#5fb82e", art: "poison_vial_strong" },
     note: "ใช้แล้วเคลือบอาวุธด้วยพิษร้าย 90 วิ: อาวุธตีเป็นธาตุพิษ ตีปกติมีโอกาส 30% ติดพิษ พลังโจมตีธาตุพิษ +30 พิษแรงขึ้น 15%",
   },
 });
