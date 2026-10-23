@@ -30,7 +30,8 @@ export const MAP_LINKS: Record<string, string[]> = {
  "bahamas": [
   "desert_edge",
   "great_desert",
-  "south_jungle"
+  "south_jungle",
+  "ancient_plain"
  ],
  "yodia": [
   "south_jungle",
@@ -39,8 +40,32 @@ export const MAP_LINKS: Record<string, string[]> = {
  "osaki": [
   "sakura_hills"
  ],
+ "noa": [
+  "frozen_river",
+  "noa_plains",
+  "elder_forest",
+  "noa_meadow",
+  "west_woods"
+ ],
+ "suzhou": [
+  "west_pass",
+  "rice_terraces",
+  "west_cape"
+ ],
+ "highland": [
+  "frozen_river",
+  "north_cliffs",
+  "highland_downs",
+  "tangled_hills"
+ ],
+ "venezia": [
+  "noa_plains",
+  "dry_plains",
+  "ancient_plain"
+ ],
  "west_woods": [
-  "field"
+  "field",
+  "noa"
  ],
  "royal_road": [
   "eden",
@@ -49,7 +74,8 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "snow_foothills": [
   "royal_road",
-  "ice_pass"
+  "ice_pass",
+  "tangled_hills"
  ],
  "ice_pass": [
   "snow_foothills",
@@ -89,14 +115,16 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "desert_edge": [
   "south_savanna",
-  "bahamas"
+  "bahamas",
+  "dry_plains"
  ],
  "great_desert": [
   "bahamas"
  ],
  "south_jungle": [
   "yodia",
-  "bahamas"
+  "bahamas",
+  "royal_necropolis"
  ],
  "mangrove_coast": [
   "yodia"
@@ -107,6 +135,66 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "volcano": [
   "sakura_hills"
+ ],
+ "noa_meadow": [
+  "noa"
+ ],
+ "noa_plains": [
+  "noa",
+  "venezia",
+  "lagoon_marsh"
+ ],
+ "dry_plains": [
+  "venezia",
+  "desert_edge"
+ ],
+ "elder_forest": [
+  "noa",
+  "west_pass",
+  "karst_peaks"
+ ],
+ "rice_terraces": [
+  "suzhou",
+  "lagoon_marsh"
+ ],
+ "highland_downs": [
+  "highland",
+  "karst_peaks"
+ ],
+ "karst_peaks": [
+  "elder_forest",
+  "highland_downs"
+ ],
+ "ancient_plain": [
+  "venezia",
+  "bahamas",
+  "royal_necropolis"
+ ],
+ "frozen_river": [
+  "noa",
+  "highland"
+ ],
+ "west_pass": [
+  "elder_forest",
+  "suzhou"
+ ],
+ "tangled_hills": [
+  "snow_foothills",
+  "highland"
+ ],
+ "lagoon_marsh": [
+  "rice_terraces",
+  "noa_plains"
+ ],
+ "royal_necropolis": [
+  "ancient_plain",
+  "south_jungle"
+ ],
+ "north_cliffs": [
+  "highland"
+ ],
+ "west_cape": [
+  "suzhou"
  ]
 };
 
@@ -115,19 +203,37 @@ export const SHIPS: Record<string, { npc: string; ports: string[] }> = {
   "npc": "sailor",
   "ports": [
    "yodia",
-   "osaki"
+   "osaki",
+   "venezia",
+   "suzhou"
   ]
  },
  "yodia": {
   "npc": "yodia_captain",
   "ports": [
-   "eden"
+   "eden",
+   "venezia"
   ]
  },
  "osaki": {
   "npc": "osaki_captain",
   "ports": [
    "eden"
+  ]
+ },
+ "suzhou": {
+  "npc": "suzhou_captain",
+  "ports": [
+   "eden",
+   "venezia"
+  ]
+ },
+ "venezia": {
+  "npc": "venezia_captain",
+  "ports": [
+   "eden",
+   "yodia",
+   "suzhou"
   ]
  }
 };
@@ -146,7 +252,7 @@ export const NPC_PLACES: Record<string, string> = {
  "eden:guard_s": "สี่แยกกลางเมือง",
  "eden:eden_travel": "ลานน้ำพุ",
  "eden:shop": "สี่แยกกลางเมือง",
- "eden:eden_smith": "สี่แยกกลางเมือง",
+ "eden:eden_smith": "ลานน้ำพุ",
  "eden:sailor": "อู่จอดเรือ",
  "field:mira": "บ่อน้ำ",
  "iceberg:ice_guard_n": "ประตูเหนือ",
@@ -195,6 +301,8 @@ export const NPC_PLACES: Record<string, string> = {
  "bahamas:bh_guard_e2": "ประตูตะวันออก",
  "bahamas:bh_guard_s1": "ประตูใต้",
  "bahamas:bh_guard_s2": "ประตูใต้",
+ "bahamas:bh_guard_w1": "ประตูตะวันตก",
+ "bahamas:bh_guard_w2": "ประตูตะวันตก",
  "bahamas:bh_palace_1": "วังโดมฟ้า",
  "bahamas:bh_palace_2": "วังโดมฟ้า",
  "bahamas:bahamas_travel": "ลานเสาโอเบลิสก์",
@@ -244,6 +352,96 @@ export const NPC_PLACES: Record<string, string> = {
  "osaki:osaki_guard2": "ประตูภูเขา",
  "osaki:osaki_fisher": "ท่าเรือประมง",
  "osaki:osaki_ronin": "สวนซากุระริมทะเล",
+ "noa:noa_guard_n1": "ประตูเหนือ",
+ "noa:noa_guard_n2": "ประตูเหนือ",
+ "noa:noa_guard_s1": "ประตูใต้",
+ "noa:noa_guard_s2": "ประตูใต้",
+ "noa:noa_guard_w1": "ประตูตะวันตก",
+ "noa:noa_guard_w2": "ประตูตะวันตก",
+ "noa:noa_guard_en1": "ประตูตะวันออก",
+ "noa:noa_guard_en2": "ประตูตะวันออก",
+ "noa:noa_guard_es1": "ประตูตะวันออก",
+ "noa:noa_guard_es2": "ประตูตะวันออก",
+ "noa:noa_travel": "จัตุรัสหอนาฬิกา",
+ "noa:noa_guide": "หอนาฬิกา",
+ "noa:noa_healer": "หอนาฬิกา",
+ "noa:noa_shop": "จัตุรัสหอนาฬิกา",
+ "noa:noa_smith": "ประตูตะวันตก",
+ "noa:noa_archivist": "จัตุรัสหอนาฬิกา",
+ "noa:noa_storyteller": "ซากวังเก่า",
+ "noa:noa_clockkeeper": "หอนาฬิกา",
+ "noa:noa_caravan": "ลานกองคาราวาน",
+ "noa:noa_market": "ตลาดเก่า",
+ "noa:noa_waterwarden": "หอนาฬิกา",
+ "noa:noa_traveller": "จัตุรัสหอนาฬิกา",
+ "noa:noa_girl": "รูปปั้นกษัตริย์องค์แรก",
+ "noa:noa_elder": "หอนาฬิกา",
+ "noa:noa_carter": "ลานกองคาราวาน",
+ "suzhou:suzhou_travel": "ลานท่าเรือ",
+ "suzhou:suzhou_captain": "ท่าเรือซูโจว",
+ "suzhou:suzhou_healer": "ศาลเจ้าแม่ทับทิม",
+ "suzhou:suzhou_shop": "ซุ้มประตูไผ่ไหล",
+ "suzhou:suzhou_smith": "โรงตีเหล็ก",
+ "suzhou:suzhou_teahouse": "โรงน้ำชาริมคลอง",
+ "suzhou:suzhou_guard_n1": "ประตูเหนือ",
+ "suzhou:suzhou_guard_n2": "ประตูเหนือ",
+ "suzhou:suzhou_guard_s1": "ประตูใต้",
+ "suzhou:suzhou_guard_s2": "ประตูใต้",
+ "suzhou:suzhou_guard_w1": "โรงตีเหล็ก",
+ "suzhou:suzhou_guard_w2": "โรงตีเหล็ก",
+ "suzhou:suzhou_pagoda_keeper": "เจดีย์ประภาคาร",
+ "suzhou:suzhou_silk": "ตลาดผ้าไหม",
+ "suzhou:suzhou_porcelain": "ท่าเรือซูโจว",
+ "suzhou:suzhou_fisher": "ท่าเรือซูโจว",
+ "suzhou:suzhou_clerk": "จวนเจ้าเมือง",
+ "suzhou:suzhou_meimei": "สวนหลิว",
+ "highland:highland_travel": "ลานหินบรรพบุรุษ",
+ "highland:highland_guard_s1": "ประตูใต้",
+ "highland:highland_guard_s2": "ประตูใต้",
+ "highland:highland_guard_n1": "ประตูเหนือ",
+ "highland:highland_guard_n2": "ประตูเหนือ",
+ "highland:highland_guard_w1": "ประตูตะวันตก",
+ "highland:highland_guard_w2": "ประตูตะวันตก",
+ "highland:highland_guard_e1": "ประตูตะวันออก",
+ "highland:highland_guard_e2": "ประตูตะวันออก",
+ "highland:highland_elder": "หอผู้อาวุโส",
+ "highland:highland_shop": "ลานหินบรรพบุรุษ",
+ "highland:highland_child": "ลานหินบรรพบุรุษ",
+ "highland:highland_bard": "หอผู้อาวุโส",
+ "highland:highland_healer": "บันไดวิหาร",
+ "highland:highland_keeper": "วิหารบรรพบุรุษ",
+ "highland:highland_smith": "โรงตีเหล็ก",
+ "highland:highland_farmer1": "เรือนกระจก",
+ "highland:highland_farmer2": "เรือนกระจก",
+ "highland:highland_farmer3": "ไร่บนเนิน",
+ "highland:highland_shepherd": "คอกแกะ",
+ "highland:highland_weaver": "ลานบ่อน้ำ",
+ "highland:highland_hunter": "ประตูตะวันออก",
+ "venezia:venezia_travel": "ท่าเรือกอนโดลา",
+ "venezia:venezia_guide": "ท่าเรือกอนโดลา",
+ "venezia:venezia_captain": "ท่าเรือใหญ่",
+ "venezia:venezia_harbourmaster": "ท่าเรือใหญ่",
+ "venezia:venezia_spice": "ทำเนียบดอจ",
+ "venezia:venezia_healer": "จัตุรัสมหาวิหาร",
+ "venezia:venezia_maskmaker": "จัตุรัสมหาวิหาร",
+ "venezia:venezia_painter": "หอระฆัง",
+ "venezia:venezia_girl": "จัตุรัสมหาวิหาร",
+ "venezia:venezia_doge_guard": "หอระฆัง",
+ "venezia:venezia_shop": "ถนนเมอร์เซเรีย",
+ "venezia:venezia_gondolier_rialto": "สะพานริอัลโต",
+ "venezia:venezia_fruit": "ตลาดริอัลโต",
+ "venezia:venezia_gondolier_molo": "ท่าเรือกอนโดลา",
+ "venezia:venezia_gondolier_basin": "อู่เรือกอนโดลา",
+ "venezia:venezia_smith": "อู่เรือกอนโดลา",
+ "venezia:venezia_glassblower": "ลานบ่อน้ำ",
+ "venezia:venezia_caravan": "ประตูตะวันออกเฉียงเหนือ",
+ "venezia:venezia_guard_n1": "ประตูเหนือ",
+ "venezia:venezia_guard_n2": "ประตูเหนือ",
+ "venezia:venezia_guard_ne1": "ประตูตะวันออกเฉียงเหนือ",
+ "venezia:venezia_guard_ne2": "ประตูตะวันออกเฉียงเหนือ",
+ "venezia:venezia_guard_se1": "ประตูตะวันออกเฉียงใต้",
+ "venezia:venezia_guard_se2": "ประตูตะวันออกเฉียงใต้",
+ "venezia:venezia_fisher": "โบสถ์ปากคลอง",
  "west_woods:west_woods_hunter": "กระท่อมนายพราน",
  "west_woods:west_woods_keeper": "ศาลเจ้าป่าโบราณ",
  "royal_road:royal_road_soldier": "ด่านตรวจถนนหลวง",
@@ -278,5 +476,35 @@ export const NPC_PLACES: Record<string, string> = {
  "sakura_hills:sakura_hermit": "ศาลเจ้าร้าง",
  "sakura_hills:sakura_cutter": "หินศักดิ์สิทธิ์",
  "volcano:volcano_scout": "ค่ายหน่วยสำรวจ",
- "volcano:volcano_bathkeeper": "บ่อน้ำพุร้อน"
+ "volcano:volcano_bathkeeper": "บ่อน้ำพุร้อน",
+ "noa_meadow:noa_meadow_shepherd": "กระท่อมคนเลี้ยงแกะ",
+ "noa_meadow:noa_meadow_miller": "เนินกังหันลม",
+ "noa_plains:noa_plains_vintner": "บ้านไร่",
+ "noa_plains:noa_plains_pilgrim": "ศาลพระริมทาง",
+ "dry_plains:dry_plains_keeper": "ศาลาพักคาราวาน",
+ "dry_plains:dry_plains_beacon": "หอไฟบนภูหิน",
+ "elder_forest:elder_forest_keeper": "ศาลหินยุคโนอา",
+ "elder_forest:elder_forest_herbalist": "สะพานซุง",
+ "rice_terraces:terraces_farmer": "กังหันน้ำไม้ไผ่",
+ "rice_terraces:terraces_keeper": "ศาลเจ้าที่บนยอดนา",
+ "highland_downs:downs_shepherd": "กระท่อมคนเลี้ยงวัว",
+ "highland_downs:downs_keeper": "วงหินบนเนิน",
+ "karst_peaks:karst_raftsman": "ท่าแพ",
+ "karst_peaks:karst_painter": "ศาลาริมผา",
+ "ancient_plain:ap_scholar": "ลานกลางเมืองโบราณ",
+ "ancient_plain:ap_watch": "ทางไปเวนิชเซีย",
+ "frozen_river:frozen_river_ferryman": "ท่าแพข้ามฟาก",
+ "frozen_river:frozen_river_warden": "สะพานหินเก่า",
+ "west_pass:west_pass_veteran": "ด่านชายแดนเก่า",
+ "west_pass:west_pass_pilgrim": "หุบเขาตะวันตก",
+ "tangled_hills:tangled_hills_hermit": "ถ้ำฤๅษี",
+ "tangled_hills:tangled_hills_surveyor": "แอ่งกลางเนิน",
+ "lagoon_marsh:lm_hermit": "สะพานไม้กลางบึง",
+ "lagoon_marsh:lm_warden": "ทางไปที่ราบใต้โนอา",
+ "royal_necropolis:rn_keeper": "ทางไปที่ราบโบราณ",
+ "royal_necropolis:rn_seeker": "ทางไปป่าดิบแดนใต้",
+ "north_cliffs:north_cliffs_keeper": "ประภาคารร้าง",
+ "north_cliffs:north_cliffs_scavenger": "ซากเรือบนหาดกรวด",
+ "west_cape:cape_keeper": "ศาลมังกรทะเล",
+ "west_cape:cape_sailor": "ซากเรือใหญ่บนแนวหิน"
 };
