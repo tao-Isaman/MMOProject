@@ -467,7 +467,7 @@ export const JOBS3: Record<Job3Id, Job3Def> = {
     bonus: { atk: 9, matk: 9, maxHp: 84, aspd: 0.04 }, growth: { atk: 0.44, matk: 0.44, maxHp: 3.6 }, glyph: "bash", color: "#ffcf8a",
   },
   spellblade: {
-    name: "จอมเวทนักสู้ขั้นสูง", from: ["battlemage", "wizard", "swordsman"], branches: ["spellblade_rift", "spellblade_runic"],
+    name: "จอมเวทนักสู้ขั้นสูง", from: ["battlemage", "wizard", "swordsman"], branches: ["spellblade_rift", "spellblade_empower"],
     note: "ดาบกับเวทเป็นหนึ่งเดียว ดาบผ่ามิติแห่งความมืด หรือดาบเสริมเวทที่เปลี่ยนธาตุและกระบวนท่าได้ตามศัตรู",
     bonus: { atk: 8.5, matk: 8.5, maxHp: 70, maxMp: 35 }, growth: { atk: 0.42, matk: 0.42, maxHp: 3.6, maxMp: 1.4 }, glyph: "twin", color: "#b8a0ff",
   },
