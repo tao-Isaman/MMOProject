@@ -75,6 +75,16 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 
 const ICON = 40; // inventory icon size, css px
 
+// A page reloaded onto a newer version in the middle of a trip: the character and the trip to
+// finish (sessionStorage, this tab only).
+const RESUME = "mmoproject.resume";
+// Whether loading a map failed because its file is gone (a newer version went up since the page
+// was opened: the old build's chunk names no longer exist).
+function staleBuild(err: unknown): boolean {
+  const m = err instanceof Error ? err.message : String(err);
+  return /dynamically imported module|Importing a module script failed|error loading dynamically|Failed to fetch|Unable to preload/i.test(m);
+}
+
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const worldCanvas = document.getElementById("world") as HTMLCanvasElement;
 let world: World3D | null = null;
@@ -784,7 +794,13 @@ async function boot(): Promise<void> {
       inv.changed();
       floaters.add(player.x, player.y, 140, `จ่ายค่าเดินทาง ${fee.toLocaleString()} ทอง`, "info");
     }
-    void enterMap(id as MapId);
+    void enterMap(id as MapId).then((went) => {
+      // a trip that failed gives the fare back (one the page reloads to finish isn't one)
+      if (went || !fee || sessionStorage.getItem(RESUME)) return;
+      inv.gold += fee;
+      inv.changed();
+      floaters.add(player.x, player.y, 160, `คืนค่าเดินทาง ${fee.toLocaleString()} ทอง`, "info");
+    });
     return null;
   });
   // where you get up after falling: a town a guide kept for you, else Eden
@@ -878,21 +894,35 @@ async function boot(): Promise<void> {
   let bannerTimer = 0;
   // (travelling: a map change under way behind the loading screen; the game waits)
   let travelling = false;
-  // (from: the map a warp leaves, whose gate in the new map is where she arrives)
-  async function enterMap(id: MapId, at?: { x: number; y: number }, from?: string): Promise<void> {
-    if (travelling) return;
+  // (from: the map a warp leaves, whose gate in the new map is where she arrives). False when it
+  // didn't go.
+  async function enterMap(id: MapId, at?: { x: number; y: number }, from?: string): Promise<boolean> {
+    if (travelling) return false;
     travelling = true;
     await loading(`กำลังเดินทางไป${MAP_NAMES[id]}…`, 0.25);
     try {
       current = await loadMap(id, quality);
     } catch (err) {
-      // a town that fails to build: stay where you are
       console.error(err);
+      // a newer version went up while this page was open: its maps' files are gone. Come back
+      // on the new version, as this character, and finish the trip there.
+      if (staleBuild(err)) {
+        savePlace();
+        try {
+          sessionStorage.setItem(RESUME, JSON.stringify({ id: charId, map: id, at: at ?? null, from: from ?? null }));
+        } catch {
+          // no session storage: the title screen will do
+        }
+        floaters.add(player.x, player.y, 140, "เกมมีเวอร์ชันใหม่ กำลังโหลดใหม่…", "info");
+        window.setTimeout(() => location.reload(), 600);
+        return false;
+      }
+      // a town that fails to build: stay where you are
       loadMap(current.id, quality).catch(console.error); // its solids current again
       loaded();
       travelling = false;
       floaters.add(player.x, player.y, 140, `เดินทางไป${MAP_NAMES[id]}ไม่สำเร็จ`, "info");
-      return;
+      return false;
     }
     w3d.load(current.level);
     monsters.length = 0;
@@ -920,6 +950,7 @@ async function boot(): Promise<void> {
     banner.classList.add("show");
     clearTimeout(bannerTimer);
     bannerTimer = window.setTimeout(() => banner.classList.remove("show"), 2600);
+    return true;
   }
   let closedSaid = 0;
   inv.onChange(() => {
@@ -1639,6 +1670,16 @@ async function boot(): Promise<void> {
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand
     circles: { LOOKS, circleTextures }, // and looking at the cast circles
     quests, talkDialog, questLog, questTracker, startGuide, get guide() { return guide; }, talk: (id: string) => { const n = npcs.find((x) => x.spec.id === id); if (n) act(n); } };
+
+  // Back from a reload onto a newer version: finish the trip that was under way.
+  let resume: { map?: MapId; at?: { x: number; y: number } | null; from?: string | null } | null = null;
+  try {
+    resume = JSON.parse(sessionStorage.getItem(RESUME) || "null");
+    sessionStorage.removeItem(RESUME);
+  } catch {
+    // nothing to finish
+  }
+  if (resume?.map && resume.map in MAP_NAMES && resume.map !== current.id) void enterMap(resume.map, resume.at ?? undefined, resume.from ?? undefined);
 
   // Where the character stands, for the next session: every couple of seconds while alive, and
   // when the page goes away (closing the tab, or back to the title, which reloads it).

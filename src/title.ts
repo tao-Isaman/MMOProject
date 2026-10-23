@@ -24,6 +24,15 @@ import { isTouch, goLandscape } from "./touch";
 
 const CELL = 96;
 
+// The character a page reloaded mid-play was playing (main.ts sets it), if any.
+function resumeChar(): string | null {
+  try {
+    return (JSON.parse(sessionStorage.getItem("mmoproject.resume") || "null") as { id?: string } | null)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export class Title {
   looks: Looks;
   root: HTMLElement;
@@ -41,13 +50,16 @@ export class Title {
     this.box = el("div", "title-box", this.root);
   }
 
-  // Shows the title screen; resolves with the character to play.
+  // Shows the title screen; resolves with the character to play. A page reloaded onto a newer
+  // version in the middle of play (main.ts RESUME) goes straight back to its character.
   run(): Promise<string> {
     return new Promise((resolve) => {
       this.done = (id) => {
         this.root.remove();
         resolve(id);
       };
+      const back = resumeChar();
+      if (back && this.roster.chars.some((c) => c.id === back)) return this.done(back);
       if (this.roster.chars.length) this.list();
       else this.create();
     });
