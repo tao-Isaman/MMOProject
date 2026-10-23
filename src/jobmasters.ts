@@ -33,19 +33,19 @@ const male = (top: string, bottom: string, hairColor = "ink", eyes = "amber") =>
 const female = (hair: string, hairColor: string, eyes: string, top: string, bottom: string) => ({ gender: "female", hair, hairColor, eyes, top, bottom });
 
 // (the plan point each town's way in comes to, for those who face whoever arrives)
-const EDEN_IN: UV = [787, 718], KRADIA_IN: UV = [446, 436], OSAKI_IN: UV = [240, 452], ICEBERG_IN: UV = [404, 418], BAHAMAS_IN: UV = [420, 352];
+const EDEN_IN: UV = [787, 718], OSAKI_IN: UV = [240, 452], ICEBERG_IN: UV = [404, 418], BAHAMAS_IN: UV = [420, 352];
 
 export const JOB_MASTERS: Master[] = [
-  // ---- Eden: the knight by the heroes' garden, the high bishop by the cathedral ----
-  { town: "eden", at: [266.6, 748.4], look: EDEN_IN, spec: {
+  // ---- Eden: the knight on the square up the north road, the high bishop by the cathedral ----
+  { town: "eden", at: [477.9, 202], look: EDEN_IN, spec: {
     id: "job3_knight", name: "เซอร์กาเวน", title: "อัศวินหลวง · เปลี่ยนอาชีพอัศวิน", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "gold", "blue"),
-    lines: ["สวนนี้เป็นที่ระลึกถึงอัศวินที่ล้มลงเพื่ออาณาจักร", "นักดาบ นักรบคลั่ง หรือทหารรับจ้างที่เลเวล 60 แล้ว มาสาบานตนเป็นอัศวินกับข้าได้"] } },
+    lines: ["ทุกเช้าข้าเดินตรวจถนนหลวงจากประตูเหนือ อัศวินต้องเห็นอาณาจักรด้วยตาตัวเอง", "นักดาบ นักรบคลั่ง หรือทหารรับจ้างที่เลเวล 60 แล้ว มาสาบานตนเป็นอัศวินกับข้าได้"] } },
   { town: "eden", at: [234.3, 259.7], look: EDEN_IN, spec: {
     id: "job3_high_bishop", name: "มหาบาทหลวงโซฟีอา", title: "มหาบาทหลวงแห่งมหาวิหาร · เปลี่ยนอาชีพบาทหลวงชั้นสูง", role: "talk",
     look: female("hime", "gold", "blue", "top_priestess_white", "bottom_priestess_white"),
     lines: ["ศรัทธาที่แท้ไม่ได้อยู่ในบทสวด แต่อยู่ในมือที่ยื่นไปช่วยผู้อื่น", "บาทหลวงที่เลเวล 60 แล้ว มหาวิหารพร้อมรับเจ้าเป็นบาทหลวงชั้นสูง"] } },
-  // ---- Kradia: the archmage on the tower's plaza, the spellblade by the master of the sword ----
-  { town: "kradia", at: [380.3, 435.5], look: KRADIA_IN, spec: {
+  // ---- Kradia: the archmage at the tower's door, the spellblade by the master of the sword ----
+  { town: "kradia", at: [395, 441.5], look: [395, 470], spec: {
     id: "job3_archmage", name: "จอมเวทเมอร์ลินดา", title: "อาจารย์หอเวท · เปลี่ยนอาชีพจอมเวทชั้นสูง", role: "talk",
     look: female("hime", "violet", "violet", "top_priestess_black", "bottom_priestess_black"),
     lines: ["หอนี้เก็บเวทไว้ทุกธาตุ แม้แต่เวทโลหะที่ลืมกันไปแล้ว", "จอมเวท จอมเวทนักสู้ นักประดิษฐ์ หรือตัวตลกที่เลเวล 60 มาเรียนเวทชั้นสูงได้"] } },

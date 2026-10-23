@@ -44,8 +44,6 @@ const statKeys = new Set([
   "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "doubleHit", "stealth", "ambush",
   ...P.ELEMENT_IDS.flatMap((e) => [`${e}Atk`, `${e}Def`]), ...P.RACES.map((r) => `${r}Dmg`),
 ]);
-// (statusRes: the gold element's, from the round that brought the third jobs)
-for (const k of ["statusRes"]) statKeys.add(k);
 // a stat that casts a skill by itself: autocast_<an active skill's id>
 const knownStat = (key) => statKeys.has(key) || (key.startsWith(P.AUTOCAST) && !!P.ACTIVES[key.slice(P.AUTOCAST.length)]);
 const weapons = new Set(Object.keys(items.WEAPON_TYPES));
