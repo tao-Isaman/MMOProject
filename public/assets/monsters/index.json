@@ -27,10 +27,38 @@
   "walk": 4,
   "attack": 4
  },
+ "dark_crystal_fiend": {
+  "cell": 128,
+  "foot": 0,
+  "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
+ "demon_king": {
+  "cell": 128,
+  "foot": 0,
+  "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "demon_knight": {
+  "cell": 128,
+  "foot": 0,
+  "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
  "desert_vulture": {
   "cell": 96,
   "foot": 0,
   "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
+ "druid_shade": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
   "walk": 4,
   "attack": 4
  },
@@ -56,6 +84,13 @@
   "attack": 4
  },
  "frost_dragon": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "frozen_explorer": {
   "cell": 128,
   "foot": 0,
   "top": 122,
@@ -118,6 +153,13 @@
   "walk": 4,
   "attack": 4
  },
+ "hellhound": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
  "horned_hare": {
   "cell": 96,
   "foot": 0,
@@ -150,6 +192,13 @@
   "cell": 96,
   "foot": 0,
   "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "menhir_warden": {
+  "cell": 128,
+  "foot": 0,
+  "top": 121,
   "walk": 4,
   "attack": 4
  },
@@ -230,6 +279,13 @@
   "walk": 4,
   "attack": 4
  },
+ "polar_bear": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
  "ram_goat": {
   "cell": 96,
   "foot": 0,
@@ -248,6 +304,13 @@
   "cell": 128,
   "foot": 0,
   "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
+ "sabre_seal": {
+  "cell": 96,
+  "foot": 0,
+  "top": 91,
   "walk": 4,
   "attack": 4
  },
@@ -290,6 +353,13 @@
   "cell": 128,
   "foot": 0,
   "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
+ "skeleton_soldier": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
   "walk": 4,
   "attack": 4
  },
@@ -360,6 +430,13 @@
   "cell": 96,
   "foot": 0,
   "top": 90,
+  "walk": 4,
+  "attack": 4
+ },
+ "war_penguin": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
   "walk": 4,
   "attack": 4
  },
