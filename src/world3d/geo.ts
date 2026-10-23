@@ -6,7 +6,9 @@
 // three.js space (Y up): world (x, y, z) -> three (x, z, -y).
 //
 // Every primitive gets texture coordinates in metres along its own surfaces (the longer side of
-// each box face runs along U), so wood grain follows each plank and nothing stretches.
+// each box face runs along U), so wood grain follows each plank and nothing stretches. A part may
+// also carry colours at its corners (paint, and every rock): they darken or tint its material
+// there, so one material shades from a dark foot to a sunlit top.
 
 import * as THREE from "three";
 import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -259,20 +261,28 @@ export function rock(size: V3, roughness: number, seed: number, mat: string, fla
   geo.deleteAttribute("normal");
   geo.deleteAttribute("uv");
   geo = mergeVertices(geo);
-  // fracture planes: mostly round the sides and over the top, few underneath
-  const cuts = Array.from({ length: (flat ? 3 : 4) + Math.floor(rnd() * 3) }, () => {
+  // fracture planes: mostly round the sides and over the top, few underneath; a couple of small
+  // chips off the upper edges
+  const cuts = Array.from({ length: (flat ? 4 : 6) + Math.floor(rnd() * 3) }, () => {
     const a = rnd() * Math.PI * 2, z = -0.25 + rnd() * 1.1, h = Math.sqrt(Math.max(0, 1 - z * z));
-    return { n: new THREE.Vector3(Math.cos(a) * h, Math.sin(a) * h, z).normalize(), d: 0.7 + rnd() * 0.18 };
+    return { n: new THREE.Vector3(Math.cos(a) * h, Math.sin(a) * h, z).normalize(), d: 0.68 + rnd() * 0.18 };
   });
+  for (let i = 0; i < 2; i++) {
+    const a = rnd() * Math.PI * 2;
+    cuts.push({ n: new THREE.Vector3(Math.cos(a) * 0.7, Math.sin(a) * 0.7, 0.7).normalize(), d: 0.8 + rnd() * 0.08 });
+  }
+  // some stone lies in layers: its sides step a little at each bed
+  const beds = !flat && rnd() < 0.4 ? 3 + Math.floor(rnd() * 3) : 0;
   const pos = geo.getAttribute("position"), p = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
     p.fromBufferAttribute(pos, i).normalize();
     // soft lobes, and a little grit
     const lobe = noise3(p.x * 1.4 + 7, p.y * 1.4, p.z * 1.4, seed) - 0.5, grit = noise3(p.x * 4, p.y * 4, p.z * 4 + 3, seed + 9) - 0.5;
     p.multiplyScalar(1 + roughness * (1.1 * lobe + 0.3 * grit));
+    if (beds) p.multiplyScalar(1 - 0.05 * Math.abs(Math.sin((p.z + 0.2) * beds * Math.PI)));
     for (const c of cuts) {
       const over = p.dot(c.n) - c.d;
-      if (over > 0) p.addScaledVector(c.n, -over * 0.92);
+      if (over > 0) p.addScaledVector(c.n, -over * 0.97);
     }
     let z = p.z;
     if (z < -0.2) z = -0.2 + (z + 0.2) * 0.15; // flat underside
@@ -281,11 +291,55 @@ export function rock(size: V3, roughness: number, seed: number, mat: string, fla
   geo = geo.toNonIndexed();
   geo.computeVertexNormals();
   boxUv(geo, size);
+  // colours, a face at a time: dark at the foot where it meets the ground, lighter where it faces
+  // the sky, every facet a shade of its own, rain streaks down the sides and patches of lichen
+  const top = Math.max(1, size[2] / (flat ? 1.6 : 1.2) * 1.2), nor = geo.getAttribute("normal"), q = geo.getAttribute("position");
+  const col = new Float32Array(q.count * 3);
+  const lichen = [1.06, 1.07, 0.9], frnd = seeded(seed + 77);
+  for (let t = 0; t < q.count; t += 3) {
+    const cx = (q.getX(t) + q.getX(t + 1) + q.getX(t + 2)) / 3, cy = (q.getY(t) + q.getY(t + 1) + q.getY(t + 2)) / 3, cz = (q.getZ(t) + q.getZ(t + 1) + q.getZ(t + 2)) / 3;
+    const nz = (nor.getZ(t) + nor.getZ(t + 1) + nor.getZ(t + 2)) / 3;
+    const h = Math.min(1, Math.max(0, cz / top)), foot = h < 0.5 ? h / 0.5 : 1;
+    let v = 0.64 + 0.36 * foot * foot * (3 - 2 * foot) + 0.12 * Math.max(0, nz) + (frnd() - 0.5) * 0.12;
+    v += (noise3(cx / 40 + 3, cy / 40, 0, seed + 5) - 0.5) * 0.18 * (1 - Math.max(0, nz));
+    const lich = nz > -0.1 && noise3(cx / 28, cy / 28, cz / 28, seed + 11) > 0.66;
+    for (let k = 0; k < 3; k++) col.set(lich ? [v * lichen[0], v * lichen[1], v * lichen[2]] : [v, v, v], (t + k) * 3);
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
   return [{ geo, mat }];
+}
+
+// Colours at the corners of a Geo (multiplied with its materials' own): fn gets each corner's
+// position and normal (Z up, cm) and gives [r, g, b], 1 for the material as it is. The parts are
+// changed in place and handed back.
+export function paint(g: Geo, fn: (p: THREE.Vector3, n: THREE.Vector3) => [number, number, number]): Geo {
+  const p = new THREE.Vector3(), n = new THREE.Vector3();
+  for (const part of g) {
+    const geo = part.geo;
+    if (!geo.getAttribute("normal")) geo.computeVertexNormals();
+    const pos = geo.getAttribute("position"), nor = geo.getAttribute("normal");
+    const col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) col.set(fn(p.fromBufferAttribute(pos, i), n.fromBufferAttribute(nor, i)), i * 3);
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  }
+  return g;
 }
 
 // ---- into three.js ----
 const ZUP_TO_YUP = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
+
+// A material's twin that takes the corners' colours.
+const coloured = new WeakMap<THREE.Material, THREE.Material>();
+function withColours(m: THREE.Material): THREE.Material {
+  let c = coloured.get(m);
+  if (!c) {
+    c = m.clone();
+    c.vertexColors = true;
+    c.onBeforeCompile = m.onBeforeCompile;
+    coloured.set(m, c);
+  }
+  return c;
+}
 
 // One mesh per material, Y up, positioned at the origin of the Geo.
 export function toThree(g: Geo, materials: (name: string) => THREE.Material): THREE.Group {
@@ -297,15 +351,18 @@ export function toThree(g: Geo, materials: (name: string) => THREE.Material): TH
     byMat.set(p.mat, list);
   }
   for (const [mat, geos] of byMat) {
+    // where some parts of a material have colours, the others get plain white ones
+    const painted = geos.some((x) => x.getAttribute("color"));
     const merged = mergeGeometries(geos.map((x) => {
       const y = x.index ? x.toNonIndexed() : x;
       // every part needs the same attributes
       if (!y.getAttribute("uv")) y.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(y.getAttribute("position").count * 2), 2));
-      for (const name of Object.keys(y.attributes)) if (!["position", "normal", "uv"].includes(name)) y.deleteAttribute(name);
+      if (painted && !y.getAttribute("color")) y.setAttribute("color", new THREE.BufferAttribute(new Float32Array(y.getAttribute("position").count * 3).fill(1), 3));
+      for (const name of Object.keys(y.attributes)) if (!["position", "normal", "uv", ...(painted ? ["color"] : [])].includes(name)) y.deleteAttribute(name);
       return y;
     }))!;
     merged.applyMatrix4(ZUP_TO_YUP);
-    const mesh = new THREE.Mesh(merged, materials(mat));
+    const mesh = new THREE.Mesh(merged, painted ? withColours(materials(mat)) : materials(mat));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
