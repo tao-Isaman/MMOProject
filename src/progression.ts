@@ -74,7 +74,9 @@ export const AUTOCAST = "autocast_";
 //   trap    laid at the aimed spot (`range` at most, `radius` wide); the first monster to step in
 //           sets it off (its hit, with stun, slow, poison...). It waits `duration` s (default
 //           20); three at most at a time, the oldest goes.
-//   falcon  the falcon dives at the locked target `hits` times.
+//   falcon  the falcon dives at the locked target `hits` times. With `ally: "wolf"` (the hunter's
+//           pack strike) the player's wolves leap at it instead, each wolf standing landing every
+//           hit; with none standing it can't be used (nor cast by itself).
 //   decoy   a copy of the player in front of it for `duration` s, with `base` of the player's HP:
 //           monsters go for it instead of the player while it stands.
 //   workshop  opens the workshop on the spot (`bench`: its tab and the craft it serves), free of
@@ -156,7 +158,7 @@ export interface SkillDef {
   roll?: ByRank<StatBag>;
   bench?: { tab: "craft" | "refine"; craft: string };
   // ---- the third jobs' ----
-  ally?: AllyKind;           // summon: what it calls (see above)
+  ally?: AllyKind;           // summon: what it calls (see above); falcon: "wolf", the wolves strike
   uses?: number;             // mimic: how many times the copy can be used
   // a chain: within `within` s (default 3) of casting one of `after`, this cast does `more`
   // more damage (0.4: +40%) and says so

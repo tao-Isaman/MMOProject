@@ -1,7 +1,8 @@
 // Allies: what the third jobs' summons call (progression.ts SkillDef type "summon") and the
 // jester's decoy. Each stands for its `duration`, has HP of its own (a share of the player's) and
 // falls when the monsters' blows use it up:
-//   wolf    follows the player and bites what she attacks, or what attacks her or it
+//   wolf    follows the player and bites what she attacks, or what attacks her or it; a pack
+//           strike (pounce) sends every wolf leaping at her target at once
 //   clone   the player's look (a Player driven like hers, the decoy's picture), fights her target
 //           with her weapon
 //   golem   a stone figure that walks to the nearest monster, hits it and draws the monsters to it
@@ -309,6 +310,31 @@ export class Allies {
     this.sparkle(a.x, a.y, a.s.color, 12);
   }
 
+  // The pack at a monster on the player's word (a falcon-type skill with ally "wolf", skills.ts):
+  // every wolf standing leaps to its side and bites at once (`bite`: the skill's hit, once a
+  // wolf), then goes on at it. How many leapt.
+  pounce(m: Monster, bite: () => void): number {
+    let n = 0;
+    for (const a of this.list) {
+      if (!a.alive || a.kind !== "wolf") continue;
+      const d = dist(a, m) || 1, gap = a.radius + m.radius + 10;
+      if (d > gap) {
+        const from = { x: a.x, y: a.y };
+        a.x = m.x + ((a.x - m.x) / d) * gap;
+        a.y = m.y + ((a.y - m.y) / d) * gap;
+        resolve(a, a.radius);
+        this.leap(from, a, a.s.color);
+      }
+      a.target = m;
+      a.dir = this.toward(a, m);
+      a.swing = 0.35;
+      this.hitBy.set(m, { by: a, t: this.clock });
+      bite();
+      n++;
+    }
+    return n;
+  }
+
   // A map change: everyone is left behind.
   clear(): void {
     for (const a of this.list) a.gone = true;
@@ -598,6 +624,16 @@ export class Allies {
   private ring(x: number, y: number, color: string, size: number, life: number, ground = false): void {
     this.d.fx.add({ x, y, z: 2, layer: GROUND_GLOW, tex: this.d.tex.ringFor(color), flat: true, life,
       size: ground ? [[0, size * 0.9], [1, size]] : [[0, size * 0.3], [1, size]], alpha: [[0, 0.9], [0.7, 0.6], [1, 0]] });
+  }
+
+  // A wolf's leap: an arc of glow from where it sprang to where it lands.
+  private leap(from: Vec2, to: Vec2, color: string): void {
+    const tex = this.d.tex.glowFor(color), d = dist(from, to);
+    for (let s = 0; s < d; s += 30) {
+      const f = s / d;
+      this.d.fx.add({ x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f, z: 30 + Math.sin(f * Math.PI) * 70, layer: AIR_GLOW,
+        tex, life: 0.3, size: [[0, 26], [1, 6]], alpha: [[0, 0.8], [1, 0]] });
+    }
   }
 
   private sparkle(x: number, y: number, color: string, n: number): void {
