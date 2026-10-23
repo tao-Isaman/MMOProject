@@ -1046,9 +1046,9 @@ export const ELEMENTS: Record<string, ElementDef> = {
   },
   // v0.3: slipping physical blows and striking back hard; shrugging off spells and ailments
   shadow: {
-    name: "เงา", color: "#7c86b4", glyph: "dash", max: ELEMENT_MAX, side: "หลบหลีกกายภาพและโจมตีกายภาพ",
+    name: "เงา", color: "#7c86b4", glyph: "dash", max: ELEMENT_MAX, side: "หลบหลีกและโจมตีกายภาพ",
     per: { ...ea("shadow"), flee: 1.5, atk: 0.9, crit: 0.001, maxHp: 4, mdef: 0.3 },
-    skill: "หลบหลีก +1.5 และพลังโจมตี +0.9 ต่อระดับ (หลบการโจมตีกายภาพของมอนสเตอร์ได้บ่อยขึ้น)",
+    skill: "หลบหลีก +1.5 และพลังโจมตี +0.9 ต่อระดับ: มอนสเตอร์กัดพลาดบ่อยขึ้น และตีแรงขึ้น",
     marks: [
       { at: 10, name: "เงาพราง", desc: "หลบหลีก +10", stats: { flee: 10 } },
       { at: 20, name: "ร่างเงา", desc: "ป้องกันธาตุเงา +15 หลบหลีก +8 HP สูงสุด +3%", stats: { shadowDef: 15, flee: 8, maxHpPct: 0.03 } },
