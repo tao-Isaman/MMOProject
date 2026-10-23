@@ -37,7 +37,7 @@ defineMaterial("Ruins_Shadow", { tint: "#1d1a17", rough: 1 });
 defineMaterial("Ruins_Turf", { map: "felt", tint: "#72a844", rough: 1 });
 defineMaterial("Ruins_ArenaSand", { map: "snow", tint: "#d6c49a", rough: 0.95 });
 defineMaterial("Ruins_OliveBark", { map: "bark", tint: "#8b8270", bump: 3 });
-defineMaterial("Ruins_OliveCore", { map: "foliage", tint: "#7c8862", rough: 0.95, bump: 1.5 });
+defineMaterial("Ruins_OliveCore", { map: "foliage", tint: "#9ba67c", rough: 0.95, bump: 1.5 });
 defineMaterial("Ruins_CliffPale", { map: "crag", tint: "#b6aa90", bump: 4 }); // the plain's cliffs
 // the marsh: peat, reeds, drowned wood, slime, the wisps' light, the mist (see mistMaterial)
 defineMaterial("Ruins_MarshWater", { tint: "#3d5a47", rough: 0.1, opacity: 0.92 }); // a water sheet
@@ -53,7 +53,7 @@ defineMaterial("Ruins_RotThatch", { map: "thatch", tint: "#7f744d", bump: 2 });
 defineMaterial("Ruins_Algae", { map: "felt", tint: "#5a7a38", rough: 1 });
 defineMaterial("Ruins_ShrineStone", { map: "stone", tint: "#8e9487", bump: 2 });
 defineMaterial("Ruins_Wisp", { tint: "#d4fff1", rough: 1, glow: "#6dffd0", glowI: 2.4, opacity: 0.92 });
-defineMaterial("Ruins_WispHalo", { tint: "#9fffe2", rough: 1, glow: "#45e0b0", glowI: 1.3, opacity: 0.28 });
+defineMaterial("Ruins_WispHalo", { tint: "#7dffcf", rough: 1, glow: "#3dffb4", glowI: 2, opacity: 0.16 });
 defineMaterial("Ruins_CliffPeat", { map: "crag", tint: "#7d7a62", bump: 4 }); // the marsh's banks
 // the necropolis: dark tomb stone, grey granite, ghost-fire, the violet of the seals, roots
 defineMaterial("Ruins_Basalt", { map: "stone", tint: "#5f5d64", bump: 2 });
@@ -661,7 +661,7 @@ function templeStairs(): Geo {
 
 // ต้นมะกอกป่า: a wild olive (4.6 m tall, 6 m across): a squat trunk split in two and twisted, low
 // spreading boughs, a broad crown of small silvery leaves.
-const OLIVE: CanopyLook = { card: "fine", dark: [78, 92, 66], mid: [124, 140, 104], light: [190, 200, 160], core: "Ruins_OliveCore" };
+const OLIVE: CanopyLook = { card: "fine", dark: [106, 120, 90], mid: [158, 172, 132], light: [216, 224, 186], core: "Ruins_OliveCore" };
 function oliveTree(): THREE.Object3D {
   const t = crownTree({
     seed: 73, trunk: [[0, 0, 0], [26, -14, 70], [-8, 10, 140], [16, 2, 200]], radius: 30, leaf: 44, look: OLIVE, bark: "Ruins_OliveBark",
@@ -834,7 +834,7 @@ function sunkenShrine(): Geo {
 function wispLights(): THREE.Object3D {
   const P: Geo[] = [];
   for (const [x, y, z, s] of [[0, 0, 150, 1], [80, -60, 95, 0.75], [-70, 50, 215, 0.6]]) {
-    P.push(sphereCenter(9 * s, [x, y, z], "Ruins_Wisp", 8), sphereCenter(26 * s, [x, y, z], "Ruins_WispHalo", 10));
+    P.push(sphereCenter(12 * s, [x, y, z], "Ruins_Wisp", 8), sphereCenter(23 * s, [x, y, z], "Ruins_WispHalo", 10));
     for (let k = 1; k <= 4; k++) P.push(sphereCenter((5 - k) * s * 0.9, [x - k * 10 * s, y + k * 4 * s, z - k * 7 * s], "Ruins_Wisp", 5));
   }
   const o = unshadowed(solid(merge(...P)));
@@ -1229,7 +1229,7 @@ function sample(put: Put): void {
   put("colonnade", [1300, 900, 0], 0);
   put("colonnade", [1300, 1700, 0], 0);
   put("colossus_body", [-200, 1300, 0], 20);
-  put("colossus_head", [-900, 700, 0], -30);
+  put("colossus_head", [-1150, 450, 0], -30);
   put("broken_arch", [600, 100, 0], 0);
   put("olive_tree", [-1400, 1700, 0], 0);
   put("olive_tree", [300, 1900, 0], 140, 0.85);

@@ -32,8 +32,14 @@ const A = 9000; // the ground
 // CH: the channel draining it south-west across the whole marsh; Q: small pools between
 const P1 = blob(-1700, 2200, 900, 1000, 1), P2 = blob(-3600, 1000, 900, 800, 2), P3 = blob(700, -3300, 800, 700, 3);
 const P4 = blob(2600, 3000, 900, 900, 4), P5 = blob(-2400, -3200, 900, 800, 5), LG = blob(4000, -1200, 1300, 2000, 6, 30);
+// more pools filling the ground between: (b) east of the north-west hummock, (c) south of the
+// channel, (f) by the south rim, (g) south of the first pool, (h) by the lagoon, (i) on the west side
+const MORE: XY[][] = [blob(1700, 1500, 600, 600, 31), blob(-900, -2500, 700, 650, 32), blob(-4300, -2800, 600, 700, 33), blob(-1700, 4200, 550, 600, 34), blob(4200, 1450, 650, 420, 35), blob(1500, 4700, 700, 500, 36)];
 const Q: XY[][] = [blob(-400, 4300, 450, 500, 7), blob(4400, 2600, 500, 520, 8), blob(-4600, -3600, 500, 600, 9), blob(1700, -2150, 420, 450, 10), blob(-1200, -4400, 450, 450, 11), blob(4100, 4500, 600, 550, 12), blob(-4800, 3600, 450, 420, 13)];
 const CH: XY[] = smooth([[2900, -400], [1800, -300], [800, -350], [-300, -800], [-1500, -1100], [-2800, -900], [-4000, -1400], [-5000, -1700], [-6600, -1800]]);
+// two lesser channels: one from the south-east pool out past the edge, one linking the west pools
+const CH2: XY[] = smooth([[-2500, -3600], [-2900, -4400], [-3500, -5100], [-4300, -6400]]);
+const CH3: XY[] = smooth([[-1700, 4300], [-900, 4700], [-400, 4400], [400, 4900], [1500, 4700]]);
 // past the edge: more water, so the marsh runs on
 const RIM_WATER: XY[][] = [blob(7300, -2200, 1300, 2800, 14), blob(-7200, -4500, 1500, 2200, 15), blob(1500, 7300, 2000, 1300, 16), blob(-2500, -7300, 2200, 1300, 17)];
 
@@ -51,14 +57,14 @@ const RIM_C: XY[] = [[2600, -5900], [5800, -6100], [6000, -9000], [2400, -9000]]
 const BW1: XY[] = smooth([[-2450, 3050], [-2000, 2600], [-1600, 2050], [-1150, 1500], [-950, 1250]]);
 const BW2: XY[] = smooth([[-100, -80], [150, -330], [380, -760], [560, -1050]]);
 const BW3: XY[] = smooth([[860, -2480], [760, -2900], [600, -3350], [560, -3820], [560, -4080]]);
-const BW5: XY[] = smooth([[-2950, 2600], [-3200, 2050], [-3400, 1500], [-3480, 1160]]);
+const BW5: XY[] = smooth([[-2950, 2600], [-3200, 2050], [-3350, 1650], [-3420, 1350]]);
 const BWS = [BW1, BW2, BW3, BW5];
 
 const RT: XY = [-3800, 5150], NP: XY = [500, -5150];
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(312, {
-    hills: [{ x: -1800, y: 4300, r: 600, h: 70 }, { x: 2000, y: 600, r: 500, h: 50 }, { x: -4400, y: 2600, r: 500, h: 60 }],
+    hills: [{ x: -4400, y: 2600, r: 500, h: 60 }, { x: 3000, y: -2500, r: 450, h: 50 }],
     plateaus: [
       { poly: H1, h: 280, ramps: [H1_RAMP] },
       { poly: H2, h: 260, ramps: [H2_RAMP] },
@@ -77,10 +83,10 @@ export function build(quality: { flowers: number }): Town {
   const HUMMOCK1: XY[] = [...smooth([[-500, 950], [100, 950], H1_RAMP.bottom]), H1_RAMP.top, [H1_RAMP.top[0] + 40, H1_RAMP.top[1] + 350]];
   const HUMMOCK2: XY[] = [...smooth([[540, -4000], [1300, -4250], H2_RAMP.bottom]), H2_RAMP.top, [H2_RAMP.top[0] + 300, H2_RAMP.top[1] - 80]];
   const tracks = [L0, L1, L2, L3, VILLAGE, HUMMOCK1, HUMMOCK2];
-  const pools = [P1, P2, P3, P4, P5, LG, ...Q];
+  const pools = [P1, P2, P3, P4, P5, LG, ...Q, ...MORE];
   const ground = f.ground({
-    area: AREA, cell: 60, roads: tracks.map((t) => band(t, 380)), plazas: [], water: [...pools, band(CH, 460), ...RIM_WATER],
-    base: "moss", tint: "#b3b59c", road: [0.62, 0.55, 0.45],
+    area: AREA, cell: 60, roads: tracks.map((t) => band(t, 380)), plazas: [], water: [...pools, band(CH, 460), band(CH2, 400), band(CH3, 360), ...RIM_WATER],
+    base: "moss", tint: "#9ea189", road: [0.62, 0.55, 0.45],
   });
   const scenery = [f.waterSheet(AREA, -14, "Ruins_MarshWater")];
 
@@ -99,13 +105,14 @@ export function build(quality: { flowers: number }): Town {
   };
   for (const poly of [...pools, ...RIM_WATER]) {
     const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
-    for (let x = Math.min(...xs) + 140; x < Math.max(...xs); x += 320)
-      for (let y = Math.min(...ys) + 140; y < Math.max(...ys); y += 320) if (inPoly(poly, x, y)) plug([x, y], 230);
+    for (let x = Math.min(...xs) + 160; x < Math.max(...xs); x += 400)
+      for (let y = Math.min(...ys) + 160; y < Math.max(...ys); y += 400) if (inPoly(poly, x, y)) plug([x, y], 285);
     const c: XY = [xs.reduce((t, v) => t + v, 0) / xs.length, ys.reduce((t, v) => t + v, 0) / ys.length];
     poly.forEach(([x, y], i) => i % 2 || plug([x + (c[0] - x) * 0.06, y + (c[1] - y) * 0.06], 195));
   }
   const crossing = BW2.filter((p) => distTo(CH, p[0], p[1]) < 400);
-  f.blockBand(CH.filter((p) => Math.abs(p[0]) < R + 900 && Math.abs(p[1]) < R + 900), 430, { gaps: crossing, gapR: 200, step: 150 });
+  f.blockBand(CH.filter((p) => Math.abs(p[0]) < R + 900 && Math.abs(p[1]) < R + 900), 430, { gaps: crossing, gapR: 260, step: 250 });
+  for (const [ch, w] of [[CH2, 370], [CH3, 330]] as [XY[], number][]) f.blockBand(ch.filter((p) => Math.abs(p[0]) < R + 900 && Math.abs(p[1]) < R + 900), w, { step: 250 });
   const end = along(BW5, lengthOf(BW5));
   f.blockDisc([end.p[0] + end.dir[0] * 150, end.p[1] + end.dir[1] * 150], 140);
 
@@ -136,14 +143,14 @@ export function build(quality: { flowers: number }): Town {
   put("jungle:trail_sign", [700, -4150], towards(-0.4, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
 
   // ---- the drowned village: stilt houses in the south-west pool, the boardwalk to the first ----
-  put("stilt_ruin", [-3650, 900], 200, { solid: "none", r: 420 });
+  put("stilt_ruin", [-3650, 900], -117, { solid: "none", r: 420 }); // its ladder to the boardwalk's end
   put("stilt_ruin", [-3950, 1700], 120, { solid: "none", r: 420 });
   put("stilt_ruin", [-4100, 400], 250, { solid: "none", r: 420 });
   put("drowned_tree", [-3000, 400], 40, { solid: "none", r: 200 });
 
   // ---- the hummocks: a stilt house left high and dry on the first, the sunken shrine beside it;
   // a great dead tree over a forgotten tomb on the second ----
-  put("stilt_ruin", [700, 3050], 160, { solid: [box(660, 560, 0, 0, "ruin")], r: 450 });
+  put("stilt_ruin", [430, 2780], 160, { solid: [box(660, 560, 0, 0, "ruin")], r: 450 });
   put("drowned_tree", [250, 3250], 0, { s: 1.15, solid: [disc(55)], r: 260 });
   put("sunken_shrine", [2700, 3150], 30, { solid: "none", r: 360 });
   put("drowned_tree", [3600, -4700], 70, { s: 1.5, solid: [disc(75)], r: 320 });
@@ -158,14 +165,15 @@ export function build(quality: { flowers: number }): Town {
       put(rnd() < 0.6 ? "cattails" : "jungle:reeds", [x, y], rnd() * 360, { s: 0.8 + rnd() * 0.35, solid: "none", r: 70 });
     });
   }
-  for (let d = 200; d < lengthOf(CH); d += 420) {
-    const { p, dir } = along(CH, d), s = Math.floor(d / 420) % 2 ? 1 : -1;
-    const x = p[0] - dir[1] * s * 250, y = p[1] + dir[0] * s * 250;
-    if (Math.abs(x) > R + 600 || Math.abs(y) > R + 600 || nearWalk(x, y, 330) || !free(x, y, 70)) continue;
-    put(rnd() < 0.5 ? "cattails" : "jungle:reeds", [x, y], d, { s: 0.85 + rnd() * 0.3, solid: "none", r: 70 });
-  }
+  for (const [ch, off] of [[CH, 250], [CH2, 220], [CH3, 200]] as [XY[], number][])
+    for (let d = 200; d < lengthOf(ch); d += 420) {
+      const { p, dir } = along(ch, d), s = Math.floor(d / 420) % 2 ? 1 : -1;
+      const x = p[0] - dir[1] * s * off, y = p[1] + dir[0] * s * off;
+      if (Math.abs(x) > R + 600 || Math.abs(y) > R + 600 || nearWalk(x, y, 330) || !free(x, y, 70)) continue;
+      put(rnd() < 0.5 ? "cattails" : "jungle:reeds", [x, y], d, { s: 0.85 + rnd() * 0.3, solid: "none", r: 70 });
+    }
   // drowned trees standing in the pools, clear of the boardwalks
-  for (const poly of [P1, P3, P4, P5, LG, Q[1], Q[5]]) {
+  for (const poly of [P1, P3, P4, P5, LG, Q[1], Q[5], MORE[0], MORE[1], MORE[2], MORE[4], MORE[5]]) {
     for (let k = 0, made = 0; k < 30 && made < (poly === LG ? 6 : 2); k++) {
       const c = poly[Math.floor(rnd() * poly.length)], m = poly[(Math.floor(rnd() * poly.length) + 7) % poly.length], t = 0.25 + rnd() * 0.4;
       const p: XY = [c[0] + (m[0] - c[0]) * t, c[1] + (m[1] - c[1]) * t];
@@ -176,9 +184,9 @@ export function build(quality: { flowers: number }): Town {
   }
 
   // ---- wisps over the water, banks of poison mist on the pools and the low ground ----
-  for (const at of [[-1700, 2500], [-1400, 1700], [700, -3100], [2400, 2700], [3500, -800], [4300, -2200], [-2300, -3000], [-3800, 1300], [3000, 3400], [-4500, -3500], [200, -400], [1700, -2100]] as XY[])
+  for (const at of [[-1700, 2500], [-1400, 1700], [700, -3100], [2400, 2700], [3500, -800], [4300, -2200], [-2300, -3000], [-3800, 1300], [3000, 3400], [-4500, -3500], [200, -400], [1700, -2100], [1500, 4700], [-1700, 4200], [-900, -2600]] as XY[])
     put("wisp_lights", at, (at[0] + at[1]) % 360, { solid: "none", r: 40 });
-  for (const at of [[-1800, 2100], [600, -3300], [2700, 2800], [4000, -1000], [3700, -2400], [-2500, -3300], [-3500, 900], [-1000, -1100], [-4700, -3700], [1800, 600], [-200, 2000], [4300, 1800]] as XY[])
+  for (const at of [[-1800, 2100], [600, -3300], [2700, 2800], [4000, -1000], [3700, -2400], [-2500, -3300], [-3500, 900], [-1000, -1100], [-4700, -3700], [1700, 1500], [-200, 2000], [4200, 1450], [-900, -2400], [-4300, -2800], [1500, 4600]] as XY[])
     put("poison_mist", at, (at[0] * 3) % 360, { solid: "none", r: 10 });
 
   // ---- the dry ground: bushes, rushes, a few living trees among the dead ones ----
@@ -199,7 +207,7 @@ export function build(quality: { flowers: number }): Town {
     for (let y = -R + 150; y < R; y += 230) {
       const px = x + (rnd() - 0.5) * 200, py = y + (rnd() - 0.5) * 200;
       const shore = !dry(px, py, 260);
-      if (rnd() > (shore ? 0.35 : 0.12) || !dry(px, py, 90) || !f.level(px, py, 80) || !free(px, py, 70) || keepOut(px, py)) continue;
+      if (rnd() > (shore ? 0.5 : 0.2) || !dry(px, py, 90) || !f.level(px, py, 80) || !free(px, py, 70) || keepOut(px, py)) continue;
       put(rnd() < 0.55 ? "desert:grass_tuft" : rnd() < 0.5 ? "jungle:reeds" : "cattails", [px, py], rnd() * 360, { s: 0.7 + rnd() * 0.4, solid: "none", r: 60 });
     }
   // past the edge: dead trees and thickets on the banks, reeds in the water
@@ -210,7 +218,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- monsters: on the dry ground and the hummocks ----
   const HERMIT: XY = [-500, 1300], WARDEN: XY = [850, -4700];
-  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 700, keepOut: (x, y) => Math.hypot(x - HERMIT[0], y - HERMIT[1]) < 800 || Math.hypot(x - WARDEN[0], y - WARDEN[1]) < 700 });
+  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 760, keepOut: (x, y) => Math.hypot(x - HERMIT[0], y - HERMIT[1]) < 800 || Math.hypot(x - WARDEN[0], y - WARDEN[1]) < 700 });
 
   const npcs: NpcSpec[] = [
     {
@@ -243,13 +251,13 @@ export function build(quality: { flowers: number }): Town {
     labels: [
       { x: RT[0] + 250, y: RT[1] - 250, text: "ทางไปนาขั้นบันได", kind: "gate" },
       { x: NP[0], y: NP[1] + 250, text: "ทางไปที่ราบใต้โนอา", kind: "gate" },
-      { x: 4000, y: -1200, text: "ลากูนใหญ่" },
-      { x: -3800, y: 1000, text: "หมู่บ้านใต้ถุนสูงร้าง" },
-      { x: 2600, y: 3000, text: "ศาลจมบึง", kind: "small" },
+      { x: 2450, y: -1200, text: "ลากูนใหญ่" },
+      { x: -3300, y: 1800, text: "หมู่บ้านใต้ถุนสูงร้าง" },
+      { x: 1000, y: 2850, text: "ศาลจมบึง", kind: "small" },
       { x: 500, y: 2700, text: "เนินกลางบึง" },
       { x: 3500, y: -4550, text: "เนินต้นไม้ตาย" },
       { x: -1700, y: 2200, text: "สะพานไม้กลางบึง", kind: "small" },
-      { x: -1500, y: -1100, text: "ลำรางระบายน้ำ", kind: "small" },
+      { x: -1500, y: -650, text: "ลำรางระบายน้ำ", kind: "small" },
     ],
   });
 }
