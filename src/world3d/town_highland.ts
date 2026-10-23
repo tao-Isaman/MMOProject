@@ -21,7 +21,8 @@
 //   - the north-west is the farm quarter: three glasshouses with cold frames behind them, walled
 //     plots, the farmhouse and its barn across North Street;
 //   - the south-west and south-east are the houses: rows along the streets, Well Lane and Smith
-//     Lane across the south, West Lane down to a little well square, the smithy by the east gate;
+//     Lane across the south, West Lane down to a little well square, the sheep pen in the
+//     south-west corner, the smithy by the east gate, little plots and woodpiles in the yards;
 //   - outside, snowy woods and dry-stone field walls on rolling ground; the roads run on out of
 //     the gates.
 //
@@ -104,7 +105,7 @@ export function buildHighland(quality: { flowers: number }): Town {
   const terrain = new Terrain({
     plateaus: [
       {
-        poly: [P(SHELF.u, SHELF.v), P(SHELF.u, -400), P(1100, -400), P(1100, SHELF.v)],
+        poly: [P(SHELF.u, SHELF.v), P(SHELF.u, -330), P(1030, -330), P(1030, SHELF.v)],
         h: SHELF.h,
         ramps: [
           { top: P(STAIR.u, STAIR.top), bottom: P(STAIR.u, STAIR.bottom), width: 600, straight: true },
@@ -112,9 +113,9 @@ export function buildHighland(quality: { flowers: number }): Town {
         ],
       },
       // the first step of the mountains: from 7 m behind the upper wall
-      { poly: [P(SHELF.u + 14, 33), P(668, 33), P(668, 186), P(1080, 186), P(1080, -380), P(SHELF.u + 14, -380)], h: MOUNT1 },
+      { poly: [P(SHELF.u + 14, 33), P(668, 33), P(668, 186), P(1015, 186), P(1015, -315), P(SHELF.u + 14, -315)], h: MOUNT1 },
       // and the high peaks behind
-      { poly: [P(330, -40), P(745, -40), P(745, 120), P(1060, 120), P(1060, -360), P(330, -360)], h: MOUNT2 },
+      { poly: [P(330, -40), P(745, -40), P(745, 120), P(1000, 120), P(1000, -300), P(330, -300)], h: MOUNT2 },
     ],
     hills: [
       { x: P(0, 820)[0], y: P(-150, 0)[1], r: 2600, h: 260 },
@@ -151,7 +152,7 @@ export function buildHighland(quality: { flowers: number }): Town {
   ];
   const area = { x0: -15000, x1: 17000, y0: -17000, y1: 15000 };
   const ground = buildPaved({
-    area, roads, plazas, base: "snow", road: [0.8, 0.83, 0.92], plaza: [0.84, 0.87, 0.93],
+    area, roads, plazas, base: "snow", road: [0.8, 0.83, 0.92], plaza: [0.76, 0.79, 0.86],
     height: (x, y) => terrain.height(x, y), place: (x, y, cell) => terrain.place(x, y, cell),
   });
   const kindAt = (u: number, v: number) => ground.kind(...P(u, v));
@@ -278,7 +279,7 @@ export function buildHighland(quality: { flowers: number }): Town {
     put("highland:cold_frames", at(WALL.u0 + 16, v + (v === 146 ? -6 : 6)), FACE.e);
   }
   // the walled plots: a grid of beds inside dry-stone walls
-  const PLOT_V = [252, 292, 332];
+  const PLOT_V = [250, 278, 306, 334];
   for (const v of PLOT_V) for (const u of [82, 122]) put("highland:veg_plot", at(u, v), FACE.e);
   const fw = (u0: number, v0: number, u1: number, v1: number) => {
     const A = P(u0, v0), B = P(u1, v1), L = Math.hypot(B[0] - A[0], B[1] - A[1]), n = Math.max(1, Math.round(L / 400));
@@ -315,6 +316,10 @@ export function buildHighland(quality: { flowers: number }): Town {
   put("highland:sheep_pen", at(604, 112), FACE.s);
   prop("iceberg:woodpile", 532, 152, 0, 110);
   prop("highland:barley_stooks", 480, 156, 30, 60);
+  prop("highland:barley_stooks", 470, 150, 80, 60);
+  prop("highland:cold_frames", 566, 140, FACE.s, 120);
+  prop("iceberg:sled", 584, 150, FACE.e, 110);
+  for (const [u, v] of [[628, 80], [392, 150], [470, 76]] as UV[]) prop("flora:SnowPineSmall", u, v, rnd() * 360, 120, { s: 0.8 });
 
   // ---- the square: the stone in the middle, lamps round it, the market stalls, the well ----
   {
@@ -422,6 +427,11 @@ export function buildHighland(quality: { flowers: number }): Town {
   fieldRun([700, 620], [880, 600]);
   fieldRun([780, 300], [780, 600]);
   for (const [u, v] of [[-20, 160], [-110, 200], [-30, 600], [-100, 560], [760, 520], [820, 540], [-120, 300]] as UV[]) prop("highland:barley_stooks", u, v, rnd() * 360, 80, { solid: "none" });
+  // boulders and cairns on the open ground, a trail sign by the road out of each gate
+  for (const [u, v, k] of [[-90, 120, "rock_cluster"], [-140, 430, "snow_boulder"], [30, 720, "rock_cluster"], [700, 700, "snow_boulder"], [760, 330, "rock_cluster"], [80, -60, "snow_boulder"], [250, 760, "flat_slabs"], [520, 720, "rock_cluster"], [-60, 380, "cairn"], [740, 400, "cairn"], [190, -150, "cairn"]] as const)
+    prop(`snowland:${k}`, u, v, rnd() * 360, 200, { solid: "none" });
+  for (const [u, v, h] of [[GATE_S[0] + 26, WALL.v1 + 40, FACE.s], [GATE_N[0] + 26, WALL.v0 - 40, FACE.n], [WALL.u0 - 40, GATE_W[1] - 26, FACE.w], [WALL.u1 + 40, GATE_E[1] + 26, FACE.e]] as const)
+    prop("snowland:trail_sign", u, v, h, 60, { solid: "none" });
 
   // ---- build ----
   // a piece that ended up on a rock face stands on its top or at its foot instead
@@ -430,7 +440,7 @@ export function buildHighland(quality: { flowers: number }): Town {
     if (z !== null) pl.z += z - terrain.height(pl.x, pl.y);
   }
   const pt = (u: number, v: number) => ({ x: P(u, v)[0], y: P(u, v)[1] });
-  return town.finish({
+  const built = town.finish({
     ground,
     sky: "#b9c7d8",
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
@@ -462,6 +472,10 @@ export function buildHighland(quality: { flowers: number }): Town {
       { ...pt(WALL.u1 - 22, GATE_E[1]), text: "ประตูตะวันออก · เนินเขาวงกต", kind: "gate" },
     ],
   });
+  // the rock faces' solids far out past the edge of the walkable box keep nobody out of anything
+  const b = built.bounds, m = 900;
+  built.solids = built.solids.filter((sp) => sp.x > b.minX - m && sp.x < b.maxX + m && sp.y > b.minY - m && sp.y < b.maxY + m);
+  return built;
 }
 
 // ---- the townsfolk ----
