@@ -9,7 +9,7 @@ import { isTouch } from "./touch";
 import { PLACES, REGIONS, WORLD_W, WORLD_H, paintWorld, drawPlace } from "./worldmap";
 import type { Place } from "./worldmap";
 import type { GameMap } from "./maps";
-import type { Npc } from "./npcs";
+import type { Npc, NpcRole } from "./npcs";
 import type { Monster } from "./monsters";
 import type { Vec2 } from "./types";
 
@@ -42,7 +42,8 @@ export function mapArea(map: GameMap): Bounds {
 }
 type Hit = { x: number; y: number; text: string; npc?: Npc; to?: Vec2 };
 
-const NPC_COLORS: Record<string, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8", travel: "#9fd4ff" };
+// each kind of townsperson's dot and label (a smith glows like a forge)
+const NPC_COLORS: Record<NpcRole, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8", travel: "#9fd4ff", smith: "#ffa45c" };
 
 export class MapUI {
   win: HTMLElement;

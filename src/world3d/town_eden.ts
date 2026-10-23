@@ -456,7 +456,7 @@ function edenNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
     travelGuide("eden", P(755, 722), -150),
     { id: "shop", x: shopAt[0], y: shopAt[1], face: 180, name: "ลิเลีย", title: "ร้านเครื่องมือ", role: "shop", sprite: "merchant",
       lines: ["ยา เสื้อผ้า คัมภีร์ มีครบ เข้ามาดูก่อนได้"] },
-    { id: "eden_smith", ...at(708, 700), face: 90, name: "กุนเธอร์", title: "ช่างตีเหล็ก · ตีบวก สร้างไอเทม", role: "smith", look: guard("top_warrior"),
+    { id: "eden_smith", ...at(690, 790), face: 90, name: "กุนเธอร์", title: "ช่างตีเหล็ก · ตีบวก สร้างไอเทม", role: "smith", look: guard("top_warrior"),
       lines: ["เอาหินนภามาตีบวกอาวุธ หินดารามาตีบวกชุด ข้าคิดค่าจ้างไม่แพง", "มีแร่ หนัง หรือเศษอัญมณีพอเมื่อไร ข้าสร้างอุปกรณ์ให้ได้ ไม่เกินเลเวลของเจ้านะ"] },
     { id: "sailor", ...at(1105, 515), face: 90, name: "กัปตันมาร์โก", title: "เรือโดยสาร · โยเดีย โอซากิ", role: "travel", ports: ["yodia", "osaki"],
       look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior" },

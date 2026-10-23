@@ -468,7 +468,7 @@ async function boot(): Promise<void> {
       const g = c.getContext("2d")!;
       g.drawImage(skillIcon(item.icon.art, item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
     } else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
-    // a badge in the bottom corner ("II": a second book, "60": tier gear), the refine on top
+    // a badge in the bottom corner ("II": a second book), the refine on top
     const g = c.getContext("2d")!;
     if (item.icon.badge) itemBadge(g, item.icon.badge, c.width);
     if (item.refine) itemPlus(g, item.refine, c.width);

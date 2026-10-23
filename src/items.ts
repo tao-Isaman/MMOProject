@@ -308,7 +308,7 @@ const TIER_LOOK: Record<number, [string, string]> = {
   30: ["adventurer", "cocoa"], 60: ["priestess", "forest"], 90: ["mage", "navy"],
   120: ["adventurer", "crimson"], 150: ["priestess", "black"], 180: ["mage", "ochre"],
 };
-// tier slots, and the gear art the stat-only ones borrow (with the tier on a badge)
+// tier slots, and the gear art the stat-only ones borrow (the level is in the description only)
 export const TIER_SLOTS = [...(Object.keys(WEAPON_TYPES) as WeaponId[]), "top", "bottom", "hat", "shoes", "ring", "trinket"] as const;
 const TIER_ART: Record<string, string> = { hat: "hat_leather", shoes: "shoes_boots", ring: "ring_focus", trinket: "trinket_charm" };
 const TIER_GLYPH_COLOR: Record<string, string> = { hat: "#a8743f", shoes: "#7b5232", ring: "#e8d06a", trinket: "#e89a6a" };
@@ -329,22 +329,22 @@ export function tierStats(slot: string, tier: number): Partial<Record<string, nu
 }
 export const tierId = (tier: number, slot: string) => `t${tier}_${slot}`;
 for (const tier of GEAR_TIERS) {
-  const tn = TIER_NAMES[tier], price = 500 * (tier / 30), badge = String(tier);
+  const tn = TIER_NAMES[tier], price = 500 * (tier / 30);
   const [shape, dye] = TIER_LOOK[tier];
   for (const slot of TIER_SLOTS) {
     const common = { tier, lv: tier, price, stats: tierStats(slot, tier) };
     let item: Item;
     if (slot in WEAPON_TYPES) {
       const w = weapon(slot as WeaponId);
-      item = { ...w, ...common, name: `${w.name}${tn}`, icon: { weapon: slot as WeaponId, badge } };
+      item = { ...w, ...common, name: `${w.name}${tn}`, icon: { weapon: slot as WeaponId } };
     } else if (slot === "top" || slot === "bottom") {
       item = { ...garment(slot, shape, dye), ...common, name: `${slot === "top" ? "เสื้อเกราะ" : "เกราะท่อนล่าง"}${tn}`, male: { shape: "warrior", dye } };
-      item.icon = { badge };
+      item.icon = {};
     } else {
       const kind = slot as "hat" | "shoes" | "ring" | "trinket";
       const name = { hat: "หมวก", shoes: "รองเท้า", ring: "แหวน", trinket: "จี้" }[kind];
       item = { ...gear(kind, `${name}${tn}`, common.stats, price, TIER_GLYPH_COLOR[kind], `${name}${tn} ของนักผจญภัยเลเวล ${tier}`), ...common };
-      item.icon = { glyph: kind, color: TIER_GLYPH_COLOR[kind], art: TIER_ART[kind], badge };
+      item.icon = { glyph: kind, color: TIER_GLYPH_COLOR[kind], art: TIER_ART[kind] };
     }
     item.note = `${item.note ? `${item.note} · ` : ""}อุปกรณ์เลเวล ${tier} (หาได้จากมอนสเตอร์หรือการสร้างเท่านั้น)`;
     BASE[tierId(tier, slot)] = item;
