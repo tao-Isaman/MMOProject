@@ -13,6 +13,20 @@
   "walk": 4,
   "attack": 4
  },
+ "canyon_wolf": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "crimson_stag": {
+  "cell": 128,
+  "foot": 0,
+  "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
  "desert_vulture": {
   "cell": 96,
   "foot": 0,
@@ -41,6 +55,20 @@
   "walk": 4,
   "attack": 4
  },
+ "frost_dragon": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "ghost_captain": {
+  "cell": 128,
+  "foot": 0,
+  "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
  "ghost_pirate": {
   "cell": 128,
   "foot": 0,
@@ -59,6 +87,13 @@
   "cell": 96,
   "foot": 0,
   "top": 96,
+  "walk": 4,
+  "attack": 4
+ },
+ "goat_demon": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
   "walk": 4,
   "attack": 4
  },
@@ -104,6 +139,20 @@
   "walk": 4,
   "attack": 4
  },
+ "lava_lord": {
+  "cell": 128,
+  "foot": 0,
+  "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "lava_salamander": {
+  "cell": 96,
+  "foot": 0,
+  "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
  "mill_rat": {
   "cell": 96,
   "foot": 0,
@@ -129,6 +178,13 @@
   "cell": 128,
   "foot": 0,
   "top": 125,
+  "walk": 4,
+  "attack": 4
+ },
+ "nine_tail_fox": {
+  "cell": 96,
+  "foot": 0,
+  "top": 90,
   "walk": 4,
   "attack": 4
  },
@@ -230,6 +286,13 @@
   "walk": 4,
   "attack": 4
  },
+ "siege_golem": {
+  "cell": 128,
+  "foot": 0,
+  "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
  "snow_wolf": {
   "cell": 96,
   "foot": 0,
@@ -272,6 +335,13 @@
   "walk": 4,
   "attack": 4
  },
+ "thunder_steed": {
+  "cell": 128,
+  "foot": 0,
+  "top": 126,
+  "walk": 4,
+  "attack": 4
+ },
  "tiger_frog": {
   "cell": 96,
   "foot": 0,
@@ -297,6 +367,13 @@
   "cell": 96,
   "foot": 0,
   "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
+ "yeti": {
+  "cell": 128,
+  "foot": 0,
+  "top": 126,
   "walk": 4,
   "attack": 4
  }
