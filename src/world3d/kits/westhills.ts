@@ -54,8 +54,8 @@ defineMaterial("Westhills_Eye", { tint: "#120e0c", rough: 0.25 });
 // heather and gorse
 defineMaterial("Westhills_HeatherCore", { map: "foliage", tint: "#4c3843", rough: 1, bump: 1.5 });
 defineMaterial("Westhills_HeatherDark", { card: "tuft", tint: "#5f4458", rough: 0.9 });
-defineMaterial("Westhills_HeatherMid", { card: "tuft", tint: "#87597e", rough: 0.85 });
-defineMaterial("Westhills_HeatherLight", { card: "tuft", tint: "#b07ca8", rough: 0.8 });
+defineMaterial("Westhills_HeatherMid", { card: "tuft", tint: "#9a6891", rough: 0.85 });
+defineMaterial("Westhills_HeatherLight", { card: "tuft", tint: "#c594bc", rough: 0.8 });
 defineMaterial("Westhills_GorseCore", { map: "foliage", tint: "#2d4526", rough: 1, bump: 1.5 });
 defineMaterial("Westhills_GorseDark", { card: "needles", tint: "#2f4f29", rough: 0.9 });
 defineMaterial("Westhills_GorseMid", { card: "needles", tint: "#466d33", rough: 0.85 });
@@ -111,11 +111,12 @@ defineMaterial("Westhills_Barnacle", { map: "felt", tint: "#a3a092", rough: 1, b
 defineMaterial("Westhills_Weed", { map: "felt", tint: "#3f5b33", rough: 0.8 });
 defineMaterial("Westhills_BeaconStone", { map: "stone", tint: "#aba79c", bump: 2.5 });
 defineMaterial("Westhills_Soot", { map: "felt", tint: "#2f2b29", rough: 1 });
+defineMaterial("Westhills_SootStone", { map: "stone", tint: "#6a655e", bump: 2.5 });
 defineMaterial("Westhills_SeaRock", { map: "crag", tint: "#5e6264", bump: 4 });
 defineMaterial("Westhills_SeaRockWet", { map: "crag", tint: "#3c4043", rough: 0.4, bump: 4 });
 defineMaterial("Westhills_Guano", { map: "felt", tint: "#e6e4da", rough: 1 });
-defineMaterial("Westhills_Foam", { tint: "#f2f7f8", rough: 0.85, opacity: 0.88 });
-defineMaterial("Westhills_Spray", { tint: "#e6f1f5", rough: 0.9, opacity: 0.42 });
+defineMaterial("Westhills_Foam", { tint: "#eef5f6", rough: 0.85, opacity: 0.7 });
+defineMaterial("Westhills_Spray", { tint: "#e6f1f5", rough: 0.9, opacity: 0.26 });
 // for the fields: the stormy sea, the cold tarn, the terraces' earthen banks
 defineMaterial("Westhills_StormSea", { tint: "#2a5262", rough: 0.1, opacity: 0.93 });
 defineMaterial("Westhills_TarnWater", { tint: "#36515b", rough: 0.08 });
@@ -380,29 +381,27 @@ function cnRoof(r: RoofSpec): Geo {
 // A dry-stone wall `L` long along Y and `H` high: a battered core of field stone sunk 45 cm into
 // the ground (so it never floats where the hill falls away under one end), stones standing proud
 // of both faces, and the coping on top (stones on edge, leaning this way and that), snow on them.
-function stoneWall(L: number, H: number, seed: number, snow = true): Geo {
+function stoneWall(L: number, H: number, seed: number, snow = true, detail = 1): Geo {
   const rnd = seeded(seed), P: Geo[] = [];
   const bw = 37, tw = 25;
   P.push(prism([[-bw, -45], [bw, -45], [tw, H], [-tw, H]], -L / 2 - 5, L / 2 + 5, "Westhills_Fieldstone"));
+  // stones standing a little proud of both faces, flat ones laid in courses
   for (const s of [-1, 1])
-    for (let k = 0; k < Math.round(L / 26); k++) {
-      const y = -L / 2 + 18 + rnd() * (L - 36), z = 6 + rnd() * (H - 28);
+    for (let k = 0; k < Math.round(L / 30); k++) {
+      const y = -L / 2 + 18 + rnd() * (L - 36), z = 4 + rnd() * (H - 26);
       const xf = bw + ((tw - bw) * z) / H;
-      const w = 24 + rnd() * 34, h = 13 + rnd() * 14;
-      P.push(translate(rotateX(box([10, w, h], [0, 0, 0], rnd() < 0.45 ? "Westhills_FieldstoneDark" : "Westhills_Rubble", 3.5), (rnd() - 0.5) * 16), [s * (xf + 1.5), y, z]));
+      const w = 22 + rnd() * 26, h = 10 + rnd() * 10;
+      P.push(translate(rotateZ(rock([12, w, h * 1.6], 0.2, seed * 31 + k * 2 + (s > 0 ? 1 : 0), rnd() < 0.45 ? "Westhills_FieldstoneDark" : "Westhills_Rubble", true, 0), (rnd() - 0.5) * 10), [s * (xf - 2), y, z - h * 0.3]));
     }
-  // a through-stone or two, poking out of both faces
-  for (let k = 0; k < Math.max(1, Math.round(L / 220)); k++) {
-    const y = -L / 2 + 60 + rnd() * (L - 120), z = H * (0.35 + rnd() * 0.2);
-    P.push(bb([-bw - 8, y - 15, z], [bw + 8, y + 15, z + 16], "Westhills_FieldstoneDark", 3));
-  }
+  // the coping: split stones set on edge across the top, leaning this way and that
   const cope: Geo[] = [];
-  for (let y = -L / 2 + 9; y < L / 2 - 6; y += 18 + rnd() * 6) {
-    const h = 20 + rnd() * 12, t = 10 + rnd() * 5;
-    cope.push(translate(rotateX(box([2 * tw + 8, t, h], [0, 0, h / 2 - 5], rnd() < 0.5 ? "Westhills_FieldstoneDark" : "Westhills_Fieldstone", 3), (rnd() - 0.5) * 18), [(rnd() - 0.5) * 4, y, H]));
+  for (let y = -L / 2 + 10; y < L / 2 - 8; ) {
+    const t = 11 + rnd() * 9, h = 16 + rnd() * 12, w = 2 * tw + 2 + rnd() * 10;
+    cope.push(translate(rotateX(rotateZ(rock([w, t, h * 1.25], 0.28, seed * 53 + Math.round(y), rnd() < 0.5 ? "Westhills_FieldstoneDark" : "Westhills_Rubble", false, detail), (rnd() - 0.5) * 12), (rnd() - 0.5) * 22), [(rnd() - 0.5) * 6, y + t / 2, H - 6]));
+    y += t + 1 + rnd() * 3;
   }
   P.push(...cope);
-  if (snow) P.push(coverTop(merge(...cope), "Snow", { amount: 0.42, thick: 3.5, seed, ragged: 0.2 }));
+  if (snow) P.push(coverTop(merge(...cope), "Snow", { amount: 0.28, thick: 2, seed, ragged: 0.4, patches: 0.6 }));
   return merge(...P);
 }
 
@@ -545,9 +544,9 @@ function shepherdBothy(): Geo {
 function cattlePen(): Geo {
   const P: Geo[] = [];
   const hx = 430, hy = 340, H = 100, gap = 130;
-  P.push(translate(stoneWall(2 * hy + 70, H, 1301), [hx, 0, 0]));
-  for (const s of [-1, 1]) P.push(translate(rotateZ(stoneWall(2 * hx + 70, H, 1303 + s), 90), [0, s * hy, 0]));
-  for (const s of [-1, 1]) P.push(translate(stoneWall(hy - gap, H, 1307 + s), [-hx, s * (gap + (hy - gap) / 2), 0]));
+  P.push(translate(stoneWall(2 * hy + 70, H, 1301, true, 0), [hx, 0, 0]));
+  for (const s of [-1, 1]) P.push(translate(rotateZ(stoneWall(2 * hx + 70, H, 1303 + s, true, 0), 90), [0, s * hy, 0]));
+  for (const s of [-1, 1]) P.push(translate(stoneWall(hy - gap, H, 1307 + s, true, 0), [-hx, s * (gap + (hy - gap) / 2), 0]));
   // gateposts and the gate, open into the yard
   for (const s of [-1, 1]) P.push(bb([-hx - 24, s * gap - 22, -20], [-hx + 24, s * gap + 22, 140], "Westhills_FieldstoneDark", 4), bb([-hx - 28, s * gap - 26, 140], [-hx + 28, s * gap + 26, 152], "Westhills_Fieldstone", 3));
   const gate: Geo[] = [];
@@ -646,7 +645,7 @@ function highlandCow(): Geo {
     },
   });
   // snow settled along the back
-  return merge(g, coverTop([g[0], g[1], g[2]], "Snow", { amount: 0.16, thick: 2.5, seed: 1409, patches: 0.6 }));
+  return merge(g, coverTop([g[0], g[1], g[2]], "Snow", { amount: 0.1, thick: 1.5, seed: 1409, patches: 0.35, ragged: 0.5 }));
 }
 
 // Heather: a low cushion of purple, a hand high, spreading wide.
@@ -1246,7 +1245,7 @@ function greatWreck(): Geo {
   // the forecastle
   bow.push(bb([-165, -950, 440], [165, -760, 610], W), bb([-175, -960, 606], [175, -750, 620], Dk));
   for (let y = -930; y <= -790; y += 46) for (const sx of [-1, 1]) bow.push(bb([sx * 166 - 4, y - 7, 540], [sx * 166 + 4, y + 7, 580], "Westhills_Dark"));
-  P.push(translate(rotateY(rotateX(merge(...bow), -6), -17), [-20, 120, -70]));
+  P.push(translate(rotateY(rotateX(merge(...bow), -9), -25), [-60, 120, -60]));
   // the stern half, apart and lower, its castle broken
   const stern: Geo[] = [hullHalf(0.55, 1, (t, u, sx) => sx < 0 && t < 0.7 && u > 0.35)];
   stern.push(bb([-220, 650, 600], [220, 1080, 800], W), bb([-230, 640, 796], [230, 1090, 812], Dk));
@@ -1261,7 +1260,7 @@ function greatWreck(): Geo {
   for (const [a, b, c] of sail) stern.push(tri(a, b, c, "Westhills_Sail"));
   for (const sx of [-1, 1]) stern.push(cylinderBetween([0, 760, 1480], [sx * 300, 700, 820], 1.6, 4, "RopeTan"));
   stern.push(cylinderBetween([0, 1010, 812], [0, 1010, 900], 4, 6, "IronDark"), lathe([[14, 0], [18, 14], [16, 34], [6, 44], [0, 46]], 8, "Westhills_Soot", [0, 1010, 900]));
-  P.push(translate(rotateZ(rotateY(rotateX(merge(...stern), 3), 12), 14), [140, 380, -150]));
+  P.push(translate(rotateZ(rotateY(rotateX(merge(...stern), 5), 21), 22), [260, 420, -200]));
   // the mainmast fallen across into the sea, its yard and rigging trailing
   P.push(cylinderBetween([60, -110, 380], [980, 380, -60], 17, 8, W), cylinderBetween([780, 110, 60], [700, 520, -20], 8, 6, Dk));
   for (const [a, b] of [[[300, 20, 260], [520, -280, -40]], [[600, 180, 120], [820, -120, -40]], [[700, 240, 80], [1000, 200, -40]]] as [V3, V3][]) P.push(cylinderBetween(a, b, 1.6, 4, "RopeTan"));
@@ -1297,7 +1296,9 @@ function brokenBeacon(): Geo {
     if (top < zSolid + 40) continue;
     for (let z = zSolid + 20, i = 0; z < top; i++) {
       const h = Math.min(top - z, 34 + rnd() * 10);
-      P.push(translate(rotateZ(box([40, chord - (i % 2 ? 6 : 0), h - 2], [0, 0, h / 2], i % 3 ? S : D, 3), (a * 180) / Math.PI), [c * (r - 20), s * (r - 20), z]));
+      // the stones near the top of the high side blackened by the beacon's fire
+      const sooty = z > top - 150 && c > 0.3;
+      P.push(translate(rotateZ(box([40, chord - (i % 2 ? 6 : 0), h - 2], [0, 0, h / 2], sooty ? "Westhills_SootStone" : i % 3 ? S : D, 3), (a * 180) / Math.PI), [c * (r - 20), s * (r - 20), z]));
       z += h;
     }
   }
@@ -1311,11 +1312,6 @@ function brokenBeacon(): Geo {
   basket.push(lump([0, 0, -30], [40, 40, 16], 2205, "Westhills_Soot", 0, 0.2));
   P.push(translate(rotateY(rotateX(merge(...basket), 28), -20), [70, 30, 690]));
   P.push(cylinderBetween([30, -40, 640], [60, 0, 700], 5, 5, "IronDark"));
-  // soot streaked down the high side
-  for (let k = 0; k < 5; k++) {
-    const a = rad(-30 + k * 15), c = Math.cos(a), s = Math.sin(a), r = R0 - 4;
-    P.push(translate(rotateZ(ellipsoid([5, 22, 70 + rnd() * 60], [0, 0, 0], "Westhills_Soot", 6), (a * 180) / Math.PI), [c * r, s * r, 520 - k * 18]));
-  }
   // the door and its frame, slit windows
   P.push(bb([-R0 - 8, -48, 26], [-R0 + 20, 48, 210], "Westhills_Dark"), bb([-R0 - 14, -64, 26], [-R0 + 4, -48, 230], D, 2), bb([-R0 - 14, 48, 26], [-R0 + 4, 64, 230], D, 2), bb([-R0 - 16, -70, 210], [-R0 + 4, 70, 244], D, 3));
   for (const [ad, z] of [[160, 300], [90, 420], [20, 520], [-70, 200]] as const) {
@@ -1337,15 +1333,17 @@ function brokenBeacon(): Geo {
 // It stands with its foam at the sea's surface (sink it 12 cm when the ground there is the sea's).
 function seaSpray(): Geo {
   const P: Geo[] = [], rnd = seeded(2301);
-  for (let k = 0; k < 7; k++) {
-    const a = rnd() * Math.PI * 2, d = rnd() * 140;
-    P.push(ellipsoid([70 + rnd() * 70, 50 + rnd() * 60, 6], [Math.cos(a) * d, Math.sin(a) * d, 2], "Westhills_Foam", 8));
+  // the foam: thin flat lace on the water
+  for (let k = 0; k < 9; k++) {
+    const a = rnd() * Math.PI * 2, d = 40 + rnd() * 150;
+    P.push(translate(rotateZ(ellipsoid([40 + rnd() * 60, 18 + rnd() * 24, 2.5], [0, 0, 0], "Westhills_Foam", 7), rnd() * 180), [Math.cos(a) * d, Math.sin(a) * d, 2]));
   }
-  for (const [x, y, s] of [[0, 0, 1], [70, 60, 0.75], [-60, 40, 0.6]] as const) {
-    P.push(ellipsoid([50 * s, 46 * s, 60 * s], [x, y, 40 * s], "Westhills_Foam", 8));
-    P.push(ellipsoid([80 * s, 70 * s, 90 * s], [x + 10, y, 130 * s], "Westhills_Spray", 9), ellipsoid([90 * s, 80 * s, 80 * s], [x + 30, y - 10, 230 * s], "Westhills_Spray", 9));
-    P.push(ellipsoid([60 * s, 60 * s, 50 * s], [x + 50, y - 10, 310 * s], "Westhills_Spray", 8));
-    for (let k = 0; k < 8; k++) P.push(sphereCenter(5 + rnd() * 6, [x + (rnd() - 0.3) * 160 * s, y + (rnd() - 0.5) * 140 * s, (120 + rnd() * 220) * s], "Westhills_Foam", 5));
+  // the plumes: thrown up and leaning with the wind, thinning as they rise
+  for (const [x, y, s, lean] of [[0, 0, 1, 0.35], [60, 50, 0.7, 0.5], [-50, 30, 0.55, 0.2]] as const) {
+    const pts: V3[] = [[x, y, 10], [x + 30 * lean * s, y, 110 * s], [x + 90 * lean * s, y - 10, 210 * s], [x + 170 * lean * s, y - 20, 290 * s]];
+    P.push(ellipsoid([34 * s, 30 * s, 24 * s], add(pts[0], [0, 0, 14 * s]), "Westhills_Foam", 8));
+    pts.slice(1).forEach((p, i) => P.push(ellipsoid([(36 + i * 16) * s, (30 + i * 12) * s, (60 - i * 8) * s], p, "Westhills_Spray", 8)));
+    for (let k = 0; k < 5; k++) P.push(sphereCenter(4 + rnd() * 4, [x + (rnd() - 0.2) * 180 * s, y + (rnd() - 0.5) * 120 * s, (90 + rnd() * 200) * s], "Westhills_Foam", 4));
   }
   return merge(...P);
 }

@@ -298,7 +298,7 @@ export function build(quality: { flowers: number }): Town {
   f.woods({ x0: -R - 2200, x1: R + 2200, y0: -R - 2200, y1: R + 2200 }, ["ragged_pine", "heather", "gorse"], (x, y) => inside(x, y) || nearTrack(x, y), { count: 90, spacing: 500, kit: "westhills" });
 
   // ---- monsters ----
-  const quiet = (x: number, y: number) => Math.hypot(x - BOTHY[0], y - BOTHY[1]) < 1000 || Math.hypot(x - FOLD[0], y - FOLD[1]) < 800 || Math.hypot(x - CIRCLE[0], y - CIRCLE[1]) < 950;
+  const quiet = (x: number, y: number) => Math.hypot(x - BOTHY[0], y - BOTHY[1]) < 1000 || Math.hypot(x - FOLD[0], y - FOLD[1]) < 800 || Math.hypot(x - CIRCLE[0], y - CIRCLE[1]) < 1500;
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 860, keepOut: quiet });
 
   // ---- people ----

@@ -21,13 +21,14 @@ import { KIT as WEST, GATE_PILLARS } from "./kits/westhills";
 import { KIT as STEPPE } from "./kits/steppe";
 import { KIT as JUNGLE } from "./kits/jungle";
 import { KIT as OSAKI } from "./kits/osaki";
+import { KIT as TRUNRADA } from "./kits/trunrada";
 import { smooth, band, inPoly } from "./kits/snowland";
 import type { XY } from "./kits/snowland";
 import { distToPath } from "./kits/frontier";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
 
-useKits(WEST, STEPPE, JUNGLE, OSAKI);
+useKits(WEST, STEPPE, JUNGLE, OSAKI, TRUNRADA);
 
 const R = 5500; // the walkable box
 const A = 9000; // the ground
@@ -162,6 +163,10 @@ export function build(quality: { flowers: number }): Town {
   const shoreDist = (x: number, y: number) => distToPath(SHORE, x, y);
   const atSea = (x: number, y: number) => inPoly(SEA, x, y);
 
+  // ---- the way out: a signpost hung with blue scarves, a cairn ----
+  prop("steppe:signpost", [-480, -4850], 90, 90, { solid: [disc(30, "post")] });
+  prop("trunrada:cairn", [420, -4950], 20, 160, { solid: [disc(125)] });
+
   // ---- the shrine of the sea dragon on the tip ----
   put("westhills:dragon_gate", GATE, 90, { solid: GATE_PILLARS.map(([x, y, r]) => disc(r, "pillar", x, y)) });
   take(GATE[0], GATE[1], 420);
@@ -186,22 +191,22 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- storm rocks and spray all round the cape: off the cliffs' feet, out on the reefs ----
   const OFF: [number, number, number][] = [];
-  for (let i = 0; i < SHORE.length; i += 3) {
+  for (let i = 0; i < SHORE.length; i += 5) {
     const [x, y] = SHORE[i];
     if (Math.abs(x) > A - 600 || Math.abs(y) > A - 600 || y < -6000) continue;
-    const d = 250 + rnd() * 2200;
+    const d = 300 + rnd() * 2600;
     const p = seaward(i, d);
     if (Math.hypot(p[0] - WRECK[0], p[1] - WRECK[1]) < 1500 || OFF.some(([ox, oy, or]) => Math.hypot(ox - p[0], oy - p[1]) < or + 500)) continue;
     const big = d > 1200 && rnd() < 0.35;
     if (big) put(rnd() < 0.5 ? "steppe:sea_stack" : "jungle:sea_stack", p, rnd() * 360, { s: 0.8 + rnd() * 0.5, z: -12, solid: "none" });
     else put("westhills:storm_rocks", p, rnd() * 360, { s: 0.6 + rnd() * 0.6, z: -14, solid: "none" });
     OFF.push([p[0], p[1], big ? 600 : 300]);
-    if (!big || rnd() < 0.5) put("westhills:sea_spray", [p[0] + (rnd() - 0.5) * 200, p[1] + (rnd() - 0.5) * 200], rnd() * 360, { s: 0.7 + rnd() * 0.5, z: -14, solid: "none" });
+    if (!big && rnd() < 0.45) put("westhills:sea_spray", [p[0] + (rnd() - 0.5) * 200, p[1] + (rnd() - 0.5) * 200], rnd() * 360, { s: 0.7 + rnd() * 0.5, z: -14, solid: "none" });
   }
   // spray breaking at the foot of the sea cliffs
   for (let i = 0; i < SHORE.length; i += 2) {
     const [x, y] = SHORE[i];
-    if (Math.abs(x) > R + 1500 || Math.abs(y) > R + 1500 || y < -2000 || rnd() < 0.4) continue;
+    if (Math.abs(x) > R + 1500 || Math.abs(y) > R + 1500 || y < -2000 || rnd() < 0.75) continue;
     put("westhills:sea_spray", seaward(i, 140 + rnd() * 120), rnd() * 360, { s: 0.6 + rnd() * 0.5, z: -14, solid: "none" });
   }
   // rocks along the shore band
@@ -218,7 +223,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- ragged pines over the cape, leaning away from the sea wind (east) ----
   for (let i = 0, made = 0; i < 400 && made < 26; i++) {
     const x = -4200 + rnd() * 7000, y = -R + 300 + rnd() * 9000;
-    if (atSea(x, y) || shoreDist(x, y) < 500 || onTrack(x, y, 150) || !free(x, y, 160, 260)) continue;
+    if (atSea(x, y) || shoreDist(x, y) < 500 || onTrack(x, y, 420) || !free(x, y, 160, 260)) continue;
     prop("westhills:ragged_pine", [x, y], -90 + (rnd() - 0.5) * 34, 220, { s: 0.7 + rnd() * 0.45, solid: [disc(30, "tree")] });
     made++;
   }
@@ -263,8 +268,8 @@ export function build(quality: { flowers: number }): Town {
   f.woods({ x0: -A, x1: A, y0: -A, y1: -R + 100 }, ["ragged_pine", "gorse"], (x, y) => inside(x, y) || atSea(x, y) || shoreDist(x, y) < 400 || onTrack(x, y, 200), { count: 50, spacing: 600, kit: "westhills" });
 
   // ---- monsters: the heath, the beach, the cliff top, the tip ----
-  const quiet = (x: number, y: number) => Math.hypot(x - ALTAR[0], y - ALTAR[1]) < 700;
-  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 760, keepOut: quiet });
+  const quiet = (x: number, y: number) => Math.hypot(x - ALTAR[0], y - ALTAR[1]) < 700 || Math.hypot(x + 2300, y + 1300) < 900;
+  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 640, keepOut: quiet });
 
   // ---- people ----
   const npcs: NpcSpec[] = [

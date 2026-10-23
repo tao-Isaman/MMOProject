@@ -117,7 +117,7 @@ export function build(quality: { flowers: number }): Town {
   const STAIR_WAY = [...smooth([[3700, -1850], [2600, -1050], at(TH_STAIR, rs(TH_STAIR) + 650)]), BR_STAIR, at(TH_STAIR, rs(TH_STAIR) - 560), along(stair0.bottom, stair0.top, -60)];
   const NW_WAY = [...smooth([[4380, -350], [4800, 900], [4650, 2300], at(TH_NW, rs(TH_NW) + 650)]), BR_NW, at(TH_NW, rs(TH_NW) - 560), along(nw0.bottom, nw0.top, -60)];
   // the village lane, off the road to the houses and the pen
-  const HOUSES: { at: XY; th: number }[] = [{ at: at(45 * D, 11850), th: 45 }, { at: at(52.5 * D, 11900), th: 52.5 }, { at: at(36 * D, 12100), th: 36 }];
+  const HOUSES: { at: XY; th: number }[] = [{ at: at(45 * D, 11850), th: 45 }, { at: at(52.5 * D, 11900), th: 52.5 }, { at: at(34.5 * D, 11800), th: 34.5 }];
   const PEN: XY = at(59 * D, 12000);
   const LANE = smooth([[3400, -3300], at(52 * D, 12900), at(58 * D, 12950), at(62 * D, 12500)]);
   const roads = [band(MAIN, 470), band(STAIR_WAY, 400), band(NW_WAY, 380), band(LANE, 360)];
@@ -151,8 +151,17 @@ export function build(quality: { flowers: number }): Town {
   const nearRamp = (x: number, y: number, m = 200) => allRamps.some((r) => distToPath([along(r.top, r.bottom, -250), along(r.bottom, r.top, -250)], x, y) < r.width / 2 + m);
   // the heading that turns a piece's front (-X) away from C at bearing th, its Y along the terrace
   const facingOut = (th: number) => 180 - th / D;
-  const paddies: [number, number, number][] = [];
+  // the paddies laid so far: middle, half their length (for nearness), the way their X runs, scale
+  const paddies: [number, number, number, number, number][] = [];
   const inPaddy = (x: number, y: number, m = 0) => paddies.some(([px, py, r]) => Math.hypot(px - x, py - y) < r * 1.25 + m);
+  // whether a paddy at p (its X along the bearing th, scale s) would lie over one laid already
+  const overlaps = (p: XY, th: number, s: number) => {
+    const ux = Math.cos(th), uy = -Math.sin(th);
+    return paddies.some(([px, py, , , ps]) => {
+      const dx = px - p[0], dy = py - p[1], a = Math.abs(dx * ux + dy * uy), b = Math.abs(-dx * uy + dy * ux);
+      return a < (PADDY.x / 2) * (s + ps) * 0.97 && b < (PADDY.y / 2) * (s + ps) * 0.97;
+    });
+  };
 
   // ---- the ways out: signposts, lanterns ----
   prop("plains:signpost", [4750, 450], 180, 90, { solid: [disc(25)] });
@@ -164,7 +173,7 @@ export function build(quality: { flowers: number }): Town {
     if (!rr.straight) continue;
     const h = (Math.atan2(rr.top[1] - rr.bottom[1], rr.top[0] - rr.bottom[0]) * 180) / Math.PI;
     put("westhills:terrace_stairs", [(rr.top[0] + rr.bottom[0]) / 2, (rr.top[1] + rr.bottom[1]) / 2], h, { solid: "none" });
-    take((rr.top[0] + rr.bottom[0]) / 2, (rr.top[1] + rr.bottom[1]) / 2, 380);
+    take((rr.top[0] + rr.bottom[0]) / 2, (rr.top[1] + rr.bottom[1]) / 2, 320);
   }
   // the bridges over the stream
   for (const [p, th] of [[BR_STAIR, TH_STAIR], [BR_NW, TH_NW]] as [XY, number][]) {
@@ -175,7 +184,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- the shrine on the top step, under the mountain; its old tree, lanterns ----
   const SHRINE = at(TH_STAIR, rk(TH_STAIR, STEPS - 1) - 800);
   prop("westhills:village_shrine", SHRINE, facingOut(TH_STAIR), 360, { solid: [{ kind: "shrine", x: 30, y: 0, w: 330, d: 300, rot: 0 }, disc(30, "post", -240, 0)] });
-  prop("flora:BigOak", at(TH_STAIR + 9 * D, rk(TH_STAIR, STEPS - 1) - 900), rnd() * 360, 260, { s: 1.1 });
+  // (the old tree stands north of it, so it never hides the shrine from below)
+  prop("flora:BigOak", at(25 * D, 2900), rnd() * 360, 260, { s: 1.1 });
   for (const dth of [-14, 15, 24]) {
     const p = at(TH_STAIR + dth * D, rk(TH_STAIR + dth * D, STEPS - 1) - 700);
     if (free(p[0], p[1], 150)) prop("flora:Cherry", p, rnd() * 360, 200, { s: 0.85 });
@@ -234,27 +244,33 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the paddies: end to end round every step, in the middle of its flat ----
   const flatAt = (p: XY, th: number, s: number, h: number) => {
-    const o = out(th), t: XY = [-o[1], o[0]], hx = (PADDY.x / 2) * s + 30, hy = (PADDY.y / 2) * s;
+    const o = out(th), t: XY = [-o[1], o[0]], hx = (PADDY.x / 2) * s + 10, hy = (PADDY.y / 2) * s;
     return [[1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].every(([a, b]) => {
       const x = p[0] + o[0] * hx * a + t[0] * hy * b, y = p[1] + o[1] * hx * a + t[1] * hy * b;
-      return Math.abs(f.h(x, y) - h) < 3 && ground.kind(x, y) === 0;
+      return Math.abs(f.h(x, y) - h) < 5 && ground.kind(x, y) === 0;
     });
   };
+  // paddies end to end round a row, each turned to the curve; where the flat is narrower or the
+  // edge wanders, one nudged in or out, or a smaller one
   const paddyRow = (rOf: (th: number) => number, h: number, th0: number, th1: number) => {
     for (let th = th0; th < th1; ) {
-      const rc = rOf(th), p = at(th, rc);
       let placed = false;
-      if (Math.abs(p[0]) < A - 500 && Math.abs(p[1]) < A - 500 && !nearRamp(p[0], p[1]) && distToPath(channelLine, p[0], p[1]) > 380 && !onTrack(p[0], p[1], 280) &&
-        !taken.some(([tx, ty, tr]) => Math.hypot(tx - p[0], ty - p[1]) < tr + 220))
-        for (const s of [1, 0.88, 0.76])
-          if (flatAt(p, th, s, h)) {
+      for (const dr of [0, -110, 110, -220, 220]) {
+        const rc = rOf(th) + dr, p = at(th, rc);
+        if (Math.abs(p[0]) > A - 500 || Math.abs(p[1]) > A - 500 || nearRamp(p[0], p[1], 90) || distToPath(channelLine, p[0], p[1]) < 330 || onTrack(p[0], p[1], 280) ||
+          taken.some(([tx, ty, tr]) => Math.hypot(tx - p[0], ty - p[1]) < tr + 140))
+          continue;
+        for (const s of [1, 0.9, 0.8])
+          if (flatAt(p, th, s, h) && !overlaps(p, th, s)) {
             put("westhills:paddy", p, -th / D, { s, solid: "none" });
-            paddies.push([p[0], p[1], (PADDY.y / 2) * s]);
+            paddies.push([p[0], p[1], (PADDY.y / 2) * s, th, s]);
             placed = true;
-            th += ((PADDY.y + 8) * s) / rc;
+            th += ((PADDY.y + 6) * s) / rOf(th);
             break;
           }
-      if (!placed) th += 120 / rc;
+        if (placed) break;
+      }
+      if (!placed) th += 90 / rOf(th);
     }
   };
   for (let k = 0; k < STEPS; k++) {
@@ -266,6 +282,20 @@ export function build(quality: { flowers: number }): Town {
   paddyRow((th) => rk(th, STEPS - 1) - 520 - PADDY.x - 40, STEP_H * STEPS, -10 * D, 100 * D);
   // the valley: two rows along the stream's far bank
   for (const dr of [STREAM_W / 2 + 130 + PADDY.x / 2, STREAM_W / 2 + 190 + PADDY.x * 1.5]) paddyRow((th) => rs(th) + dr, 0, 16 * D, 104 * D);
+
+  // the far side of the road: a block of paddies square to it, a threshing floor of haystacks
+  {
+    const a: XY = [4700, -1500], u: XY = [-0.32, -0.95], v: XY = [0.95, -0.32]; // along the road, away from it
+    for (let i = 0; i < 6; i++)
+      for (let j = 0; j < 2; j++) {
+        const p: XY = [a[0] + u[0] * i * (PADDY.y + 6) + v[0] * (j * (PADDY.x + 6)), a[1] + u[1] * i * (PADDY.y + 6) + v[1] * (j * (PADDY.x + 6))];
+        if (Math.abs(p[0]) > R - 350 || onTrack(p[0], p[1], 300) || !f.level(p[0], p[1], 300)) continue;
+        put("westhills:paddy", p, (Math.atan2(v[1], v[0]) * 180) / Math.PI, { solid: "none" });
+        paddies.push([p[0], p[1], PADDY.y / 2, Math.atan2(-v[1], v[0]), 1]);
+      }
+    for (const [x, y, h] of [[4300, -4300, 20], [4700, -4000, 70], [4500, -4700, 140]] as [number, number, number][]) if (free(x, y, 160, 40)) prop("plains:hay_bales", [x, y], h, 170);
+    prop("plains:scarecrow", [4950, -3500], 200, 60, { solid: [disc(14)] });
+  }
 
   // ---- scarecrows in the paddies, a bunch of seedlings waiting on a bund ----
   for (let i = 0, made = 0; i < 60 && made < 10; i++) {
@@ -287,7 +317,7 @@ export function build(quality: { flowers: number }): Town {
       made++;
     }
   };
-  for (const [th, dr, r, n] of [[20, 900, 700, 5], [42, 2400, 800, 6], [55, 2000, 700, 5], [70, 800, 700, 5], [80, 2200, 900, 6], [30, 2600, 700, 4], [62, 3000, 800, 5], [10, 1600, 600, 4]] as [number, number, number, number][])
+  for (const [th, dr, r, n] of [[20, 900, 700, 5], [42, 2400, 800, 6], [55, 2000, 700, 5], [70, 800, 700, 5], [80, 2200, 900, 6], [30, 2600, 700, 4], [62, 3000, 800, 5], [10, 1600, 600, 4], [33, 4600, 900, 7], [52, 5600, 900, 6], [43, 5200, 600, 4]] as [number, number, number, number][])
     grove(at(th * D, rs(th * D) + dr), r, n, ["Bamboo", "Bamboo", "Bamboo", "RoundTree", "BigOak"]);
   // a clump at the back of a step here and there, where the paddies leave room
   for (let i = 0; i < 40; i++) {
@@ -309,7 +339,7 @@ export function build(quality: { flowers: number }): Town {
   f.woods(area, ["Bamboo", "Bamboo", "RoundTree", "BigOak", "Pine", "SmallTree"], busy, { count: 360, spacing: 420, tries: 7000 });
 
   // ---- monsters: the valley, the terraces' flats ----
-  const quiet = (x: number, y: number) => HOUSES.some((hs) => Math.hypot(hs.at[0] - x, hs.at[1] - y) < 900) || Math.hypot(SHRINE[0] - x, SHRINE[1] - y) < 900 || Math.hypot(PEN[0] - x, PEN[1] - y) < 700 || Math.hypot(WPOS[0] - x, WPOS[1] - y) < 600;
+  const quiet = (x: number, y: number) => HOUSES.some((hs) => Math.hypot(hs.at[0] - x, hs.at[1] - y) < 900) || Math.hypot(SHRINE[0] - x, SHRINE[1] - y) < 900 || Math.hypot(PEN[0] - x, PEN[1] - y) < 700 || Math.hypot(WPOS[0] - x, WPOS[1] - y) < 1300;
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 820, keepOut: quiet });
 
   // ---- people ----
@@ -341,7 +371,7 @@ export function build(quality: { flowers: number }): Town {
     sky: "#9fc3c9",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && !inPaddy(x, y, 60) && distToPath(STREAM, x, y) > STREAM_W / 2 + 80, density: 0.14 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: 4400, y: -420 },
+    spawn: { x: 4720, y: -270 },
     npcs,
     labels: [
       { x: N_EXIT[0] - 150, y: N_EXIT[1], text: "ทางไปซูโจว", kind: "gate" },
