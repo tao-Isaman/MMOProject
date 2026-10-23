@@ -471,7 +471,7 @@ export class MapUI {
       }
       // the name along the square's foot (towns only when the squares are small), its levels under it
       const town = p.kind !== "field";
-      if (css < 58 && !town) continue;
+      if (css < 80 && !town) continue;
       const size = Math.max(10 * dpr, Math.min(17 * dpr, k * (town ? 0.14 : 0.12)));
       const lv = LEVELS[p.id];
       const showLv = lv && css >= 92;
