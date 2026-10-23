@@ -666,7 +666,7 @@ export const MASTERIES: Record<string, Mastery> = {
     p60: { name: "เทพดาบ", stats: { atkPct: 0.15, critDmg: 0.3, dmg: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ดาเมจ +10% เมื่อถือดาบ" },
   }),
   // slow and brutal: the hardest criticals, and cuts through armour
-  axe: weaponMastery("ขวาน", ["axe"], "axe", {
+  axe: weaponMastery("ขวาน", ["axe", "axe_2h"], "axe", {
     per: { atk: 3, critDmg: 0.015 }, perDesc: "พลังโจมตี +3 แรงคริติคอล +1.5%",
     p5: { name: "น้ำหนักขวาน", stats: { critDmg: 0.3 }, desc: "แรงคริติคอล +30% เมื่อถือขวาน" },
     p10: { name: "ผ่าฟืน", stats: { crit: 0.03 }, desc: "โอกาสคริติคอล +3% เมื่อถือขวาน" },

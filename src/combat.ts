@@ -2,7 +2,7 @@
 // burning, and the floating numbers. Damage numbers come from stats.js.
 
 import { mapX, mapY, S2, toView } from "./projection";
-import { WEAPON_TYPES, OFFHAND_DAMAGE } from "./items";
+import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
@@ -18,7 +18,8 @@ export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "
 
 // Weapon stats with the wielder's attack speed and reach bonuses (stats.js) folded in.
 export function weaponStats(weaponId: string | null, stats: Stats | null = null): WeaponType {
-  const w = (weaponId && WEAPON_TYPES[weaponId as WeaponId]) || UNARMED;
+  const type = weaponType(weaponId);
+  const w = (type && WEAPON_TYPES[type]) || UNARMED;
   if (!stats) return w;
   const reach = 1 + stats.reach;
   return {

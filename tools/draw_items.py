@@ -173,6 +173,40 @@ def axe():
     return cv.outline()
 
 
+def axe_2h():
+    """Great axe: a long haft with a crescent blade either side and a spike on top."""
+    cv = Canvas(30, 62)
+    cx, cy = 15, 14
+    shaft(cv, cx, 4, 59, 3)
+    for y in range(1, 30):
+        for x in range(0, 30):
+            if abs(x - cx) < 2:
+                continue
+            side = -1 if x < cx else 1
+            d1 = math.hypot((x - cx) * 0.9, y - cy)
+            # a butterfly: narrow where it meets the haft, flaring out to a curved edge
+            if d1 <= 14 and abs(y - cy) <= 2.5 + 0.85 * (abs(x - cx) - 2):
+                edge = 14 - d1
+                c = STEEL[4] if edge < 1.2 else STEEL[3] if edge < 2.6 else STEEL[2] if y < cy else STEEL[1]
+                if side > 0 and c == STEEL[3]:
+                    c = STEEL[2]
+                cv.set(x, y, c)
+    # gold collar holding both blades
+    for y in range(8, 21):
+        cv.set(cx - 2, y, GOLD[3] if y % 2 else GOLD[2])
+        cv.set(cx + 2, y, GOLD[1] if y % 2 else GOLD[2])
+    for x in range(cx - 2, cx + 3):
+        cv.set(x, 8, GOLD[3])
+        cv.set(x, 20, GOLD[1])
+    # spike on top
+    for y in range(0, 6):
+        for x in range(cx - (y // 3), cx + (y // 3) + 1):
+            cv.set(x, y, STEEL[3] if x <= cx else STEEL[1])
+    grip(cv, cx, 44, 57)
+    disc(cv, cx, 60, 1.4)
+    return cv.outline()
+
+
 def mace():
     cv = Canvas(18, 38)
     shaft(cv, 9, 12, 35, 2)
@@ -391,7 +425,7 @@ def sprout():
     return cv.outline()
 
 
-WEAPONS = {"sword_1h": sword_1h, "sword_2h": sword_2h, "axe": axe, "mace": mace, "spear_1h": spear_1h,
+WEAPONS = {"sword_1h": sword_1h, "sword_2h": sword_2h, "axe": axe, "axe_2h": axe_2h, "mace": mace, "spear_1h": spear_1h,
            "spear_2h": spear_2h, "dagger": dagger, "bow": bow}
 ITEMS = {"arrow": arrow, "coat": coat, "legs": leggings, "jelly": jelly, "sprout": sprout}
 

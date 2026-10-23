@@ -2,7 +2,7 @@
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
 import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet } from "./progression";
-import { ITEMS } from "./items";
+import { ITEMS, OFFHAND_DAMAGE } from "./items";
 import type { ElementId, Progress, Race, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
 import { rand } from "./particles";
@@ -61,10 +61,12 @@ function add(into: Record<string, number>, from: StatBag, k = 1): void {
   for (const [key, v] of Object.entries(from)) into[key] = (into[key] ?? 0) + (v ?? 0) * k;
 }
 
-// progress: Progress; weaponId: main-hand weapon or null; buffs: [{ stats }]; offhandId: what
-// the off hand holds (a weapon counts for its mastery, gear adds its stats); worn: the hat,
-// shoes, rings and trinkets worn (their stats)
-export function computeStats(progress: Progress, weaponId: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null, worn: (string | null)[] = []): Stats {
+// progress: Progress; weaponItem: the main-hand weapon's item id or null; buffs: [{ stats }];
+// offhandId: what the off hand holds (a weapon counts for its mastery and half its stats, gear
+// adds its stats); worn: the clothes, hat, shoes, rings and trinkets worn (their stats)
+export function computeStats(progress: Progress, weaponItem: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null, worn: (string | null)[] = []): Stats {
+  const mainItem = weaponItem ? ITEMS[weaponItem] : undefined;
+  const weaponId = mainItem?.weapon ?? null;
   const cls = CLASSES[progress.cls ?? "mage"];
   const s: Stats = { ...ZERO, ...ELEMENT_ZERO };
   const bag = s as unknown as Record<string, number>;
@@ -94,8 +96,10 @@ export function computeStats(progress: Progress, weaponId: string | null, buffs:
     add(bag, m.per, lv);
     for (const r of m.rewards) if (r.kind === "passive" && r.stats && lv >= r.at) add(bag, r.stats);
   }
+  if (mainItem?.kind === "weapon" && mainItem.stats) add(bag, mainItem.stats as StatBag);
   const gear = offhandId ? ITEMS[offhandId] : undefined;
   if (gear?.kind === "offhand" && gear.stats) add(bag, gear.stats as StatBag);
+  if (gear?.kind === "weapon" && gear.stats) add(bag, gear.stats as StatBag, OFFHAND_DAMAGE);
   for (const id of worn) {
     const item = id ? ITEMS[id] : undefined;
     if (item?.stats) add(bag, item.stats as StatBag);

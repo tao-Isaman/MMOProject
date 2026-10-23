@@ -25,6 +25,7 @@ export const WEAPON_ART: Record<WeaponId, WeaponArt> = {
   sword_1h: { grip: 0.81 },
   sword_2h: { grip: 0.83, twoHand: true },
   axe: { grip: 0.82 },
+  axe_2h: { grip: 0.84, twoHand: true },
   mace: { grip: 0.84 },
   spear_1h: { grip: 0.75 },
   spear_2h: { grip: 0.69, twoHand: true },

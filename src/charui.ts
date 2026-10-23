@@ -721,7 +721,7 @@ export class SkillUI {
     }
     el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
     if (n.need) {
-      const ok = needMet(n.need, this.hero.weapon(), this.offWeapon());
+      const ok = needMet(n.need, this.weapon(), this.offWeapon());
       el("p", ok ? "sk-ok" : "sk-miss", panel).textContent = `${ok ? "✓" : "✗"} ${n.kind === "active" ? "ใช้ได้เมื่อถือ" : "ได้ผลเมื่อถือ"}${needText(n.need, (w) => WEAPON_TYPES[w].name)}`;
     }
     if (n.kind === "active" && n.skill) {

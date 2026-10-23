@@ -6,12 +6,13 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./parti
 import { Player, directionIndex, viewRow } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon } from "./items";
-import type { OffhandArt } from "./items";
+import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook } from "./items";
+import type { OffhandArt, Gender } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
 import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange } from "./combat";
+import { gearTierAt, TIER_DROP, tierPool } from "./drops";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
 import { Ground } from "./loot";
 import type { MonsterCtx, Person } from "./monsters";
@@ -157,6 +158,7 @@ function makeIcon(img: Img, { diagonal = false } = {}): HTMLCanvasElement {
     const s = size / Math.max(img.width, img.height);
     g.drawImage(img, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s);
   }
+  g.setTransform(1, 0, 0, 1, 0, 0); // upright again for any badge drawn on top
   return c;
 }
 
@@ -234,8 +236,10 @@ function copyCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
 
 // A small plate with a word on it ("II"), in the bottom right corner of an icon `size` wide.
 function itemBadge(g: CanvasRenderingContext2D, text: string, size: number): void {
-  const h = Math.round(size * 0.36), w = Math.round(h * 1.25), x = size - w - 2, y = size - h - 2;
+  const h = Math.round(size * 0.36);
   g.save();
+  g.font = `900 ${Math.round(h * 0.72)}px serif`;
+  const w = Math.round(Math.max(h * 1.25, g.measureText(text).width + h * 0.5)), x = size - w - 2, y = size - h - 2;
   g.fillStyle = "#2a1a08";
   g.strokeStyle = "#ffd36b";
   g.lineWidth = 3;
@@ -244,10 +248,22 @@ function itemBadge(g: CanvasRenderingContext2D, text: string, size: number): voi
   g.fill();
   g.stroke();
   g.fillStyle = "#ffe9a8";
-  g.font = `900 ${Math.round(h * 0.72)}px serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(text, x + w / 2, y + h / 2 + 1);
+  g.restore();
+}
+
+// A refined item's "+N" in the top left corner.
+function itemPlus(g: CanvasRenderingContext2D, plus: number, size: number): void {
+  g.save();
+  g.font = `900 ${Math.round(size * 0.3)}px sans-serif`;
+  g.textBaseline = "top";
+  g.lineWidth = 4;
+  g.strokeStyle = "#1a0f08";
+  g.strokeText(`+${plus}`, 4, 3);
+  g.fillStyle = plus >= 7 ? "#ff9a6a" : "#9fe7ff";
+  g.fillText(`+${plus}`, 4, 3);
   g.restore();
 }
 
@@ -378,8 +394,9 @@ async function boot(): Promise<void> {
   // ---- inventory, character, looks, icons ----
   const inv = new Inventory();
   const progress = new Progress();
-  const GEAR_DROPS = Object.keys(ITEMS).filter((i) => ["hat", "shoes", "ring", "trinket"].includes(ITEMS[i].kind));
-  const hero = new Hero(progress, () => inv.equipped.weapon, () => inv.equipped.offhand, () => GEAR_SLOTS.map((g) => inv.equipped[g]));
+  const GEAR_DROPS = Object.keys(ITEMS).filter((i) => ["hat", "shoes", "ring", "trinket"].includes(ITEMS[i].kind) && !ITEMS[i].tier);
+  // what adds stats besides the hands: the clothes (tier armour has some) and the gear slots
+  const hero = new Hero(progress, () => inv.equipped.weapon, () => inv.equipped.offhand, () => [inv.equipped.top, inv.equipped.bottom, ...GEAR_SLOTS.map((g) => inv.equipped[g])]);
   // the bag's size follows the slots the skills give (the wandering merchant's book)
   const fitBag = () => inv.resize(BAG_BASE + hero.stats.bagSlots);
   fitBag();
@@ -424,8 +441,9 @@ async function boot(): Promise<void> {
         g.restore();
       }
     } else if (item.kind === "top" || item.kind === "bottom") {
-      // the garment on its own (src/garments.ts), at a whole-pixel scale
-      const art = garmentIcon(item.kind, item.shape!, item.dye ?? null);
+      // the garment on its own (src/garments.ts), at a whole-pixel scale, as this build wears it
+      const worn = garmentLook(item, look.gender as Gender);
+      const art = garmentIcon(item.kind, worn.shape!, worn.dye);
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
       if (art) {
@@ -446,8 +464,11 @@ async function boot(): Promise<void> {
       c.width = c.height = ICON * 2;
       const g = c.getContext("2d")!;
       g.drawImage(skillIcon(item.icon.art, item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
-      if (item.icon.badge) itemBadge(g, item.icon.badge, c.width);
     } else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
+    // a badge in the bottom corner ("II": a second book, "60": tier gear), the refine on top
+    const g = c.getContext("2d")!;
+    if (item.icon.badge) itemBadge(g, item.icon.badge, c.width);
+    if (item.refine) itemPlus(g, item.refine, c.width);
     icons.set(id, c);
     return c;
   };
@@ -598,6 +619,9 @@ async function boot(): Promise<void> {
         const tier2 = (b: string) => BOOKS[b].kind === "mastery2" || BOOKS[b].kind === "element2";
         roll(k === "boss" ? BOOK_CHANCE.boss : k === "rare" ? BOOK_CHANCE.rare : BOOK_CHANCE.normal, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b) && (!tier2(b) || m.level >= TIER2_DROP_LEVEL)));
         roll(k === "boss" ? 0.6 : k === "rare" ? 0.25 : 0.012, GEAR_DROPS);
+        // gear of the tier the monster's level falls in (drops.ts)
+        const tier = gearTierAt(m.level);
+        if (tier) roll(TIER_DROP[k], tierPool(tier));
       }
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
@@ -607,7 +631,7 @@ async function boot(): Promise<void> {
       if (progress.addXp(xp) > 0) levelUp();
     },
   });
-  const skills = new Skills({ progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => inv.equipped.weapon });
+  const skills = new Skills({ progress, hero, player, combat, monsters, fx, tex, floaters, spells, weapon: () => weaponType(inv.equipped.weapon) });
   // an enchanted weapon's element riders and the falcon after a normal hit
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
@@ -721,10 +745,13 @@ async function boot(): Promise<void> {
     skillUI.render();
     return read.text;
   }, (id) => {
-    // clothes whose body has no animations yet, or that are for the other build
+    // gear of a higher level; clothes whose body has no animations yet, or that are for the
+    // other build
     const item = ITEMS[id];
-    if ((item.kind !== "top" && item.kind !== "bottom") || !item.shape) return null;
-    const sh = SHAPES[item.kind][item.shape];
+    if (item.lv && progress.level < item.lv) return `ต้องเลเวล ${item.lv} จึงใส่ได้`;
+    const shape = garmentLook(item, look.gender as Gender).shape;
+    if ((item.kind !== "top" && item.kind !== "bottom") || !shape) return null;
+    const sh = SHAPES[item.kind][shape];
     if (sh.gender !== look.gender) return `ใส่ได้เฉพาะตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"}`;
     if (!looks.ready(sh.body)) return `ยังใส่ไม่ได้: ทรง${sh.name}กำลังสร้างท่าเดินและท่าโจมตีใน Oriverse ใส่ได้เมื่อเสร็จ`;
     return null;
@@ -767,7 +794,7 @@ async function boot(): Promise<void> {
     travelling = true; // the game stops underneath
   });
   const skillUI = new SkillUI(progress, hero, {
-    weapon: () => inv.equipped.weapon,
+    weapon: () => weaponType(inv.equipped.weapon),
     weaponImg: (t) => weapons[t]?.img,
     onDropSkill: (id, x, y) => {
       const i = hud.slotAt(x, y);
@@ -1609,7 +1636,8 @@ async function boot(): Promise<void> {
     }
     w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target
       : walkTo && !walkTo.npc ? walkTo.path[walkTo.path.length - 1] ?? null : null);
-    const inHand = inv.equipped.weapon ? weapons[inv.equipped.weapon as WeaponId] : null;
+    const mainType = weaponType(inv.equipped.weapon);
+    const inHand = mainType ? weapons[mainType] : null;
     const offItem = inv.equipped.offhand ? ITEMS[inv.equipped.offhand] : null;
     const inOff = offItem?.weapon ? weapons[offItem.weapon] : offItem?.art ? offhandArt[offItem.art] : null;
     // each character a billboard drawn by its own 2D code (only those near the screen)

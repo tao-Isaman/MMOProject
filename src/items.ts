@@ -27,7 +27,7 @@ export interface WeaponType {
   note?: string;
 }
 
-export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow";
+export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow";
 
 // A one-handed weapon in the off hand adds a second hit for this much of its damage to whatever
 // the main hand hit, and every attack takes this much longer.
@@ -52,6 +52,10 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
   axe: {
     name: "ขวาน", motion: "thrust", chop: true, hit: "arc", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.12,
     note: "โอกาสคริติคอลสูง",
+  },
+  axe_2h: {
+    name: "ขวานสองมือ", motion: "thrust", chop: true, hit: "arc", reach: 145, arc: 130, interval: 1.1, damage: [38, 50], crit: 0.12, twoHanded: true,
+    note: "ฟันหนักเป็นวงกว้าง โอกาสคริติคอลสูง",
   },
   mace: {
     name: "ค้อน", motion: "thrust", chop: true, hit: "arc", reach: 110, arc: 90, interval: 0.9, damage: [28, 36],
@@ -168,6 +172,12 @@ export interface Item {
   stats?: Partial<Record<string, number>>; // off-hand gear while held
   art?: OffhandArt;
   style?: string;                       // a hairstyle item: the hairstyle it teaches
+  lv?: number;                          // worn from this level up (tier gear)
+  tier?: number;                        // its gear tier (GEAR_TIERS), 0 for the shop's
+  male?: { shape: string; dye: string | null }; // a garment for both builds: the male build's shape
+  base?: string;                        // a refined or made item (variants below): the item it is
+  refine?: number;                      // its refine level (+1 to +10)
+  maker?: string;                       // who made it
   icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string; art?: string; badge?: string };
 }
 
@@ -190,7 +200,7 @@ const style = (id: string, name: string, price: number): Item =>
 const potion = (name: string, restore: { hp?: number; mp?: number }, color: string, price: number, note: string): Item =>
   ({ kind: "potion", name, restore, stack: 50, price, icon: { glyph: "drop", color }, note });
 
-export const ITEMS: Record<string, Item> = {
+const BASE: Record<string, Item> = {
   ...Object.fromEntries((Object.keys(WEAPON_TYPES) as WeaponId[]).map((t) => [t, weapon(t)])),
   // mage shape (the ids from before shapes: white and black are its own colours)
   top_white: garment("top", "mage"),
@@ -270,9 +280,158 @@ export const ITEMS: Record<string, Item> = {
   old_bandage: quest("ผ้าพันศพเก่า", "wave", "#d8c9a0", "ผ้าพันแผลเก่าแก่ของมัมมี่ทาส"),
   fox_tail: quest("หางจิ้งจอกเก้าหาง", "flame", "#ffb060", "หางที่เรืองแสงอุ่น ๆ ของจิ้งจอกเก้าหาง"),
 };
+
+// ---- materials and refining stones ----
+// Monsters leave materials by what they are (drops.ts) for the inventors' crafting; the two stones
+// refine gear: sky stone weapons and rings, star stone clothes, hats, shoes, trinkets and off-hand
+// gear.
+const material = (name: string, glyph: string, color: string, sell: number, note: string): Item =>
+  ({ kind: "material", name, stack: 99, sell, icon: { glyph, color }, note });
+Object.assign(BASE, {
+  iron_ore: material("แร่เหล็ก", "earth", "#9aa3b5", 12, "ก้อนแร่จากโกเลม วิญญาณหิน และของที่คนพกติดตัว ใช้สร้างอาวุธ"),
+  beast_hide: material("หนังสัตว์", "paw", "#b98a50", 12, "หนังเหนียวจากสัตว์ แมลง และสัตว์น้ำ ใช้สร้างชุด หมวก และรองเท้า"),
+  gem_shard: material("เศษอัญมณี", "star", "#e07ad6", 20, "เศษผลึกจากพืชวิเศษ ปีศาจ เทวะ และมังกร ใช้สร้างแหวนและเครื่องประดับ"),
+  monster_core: material("แก่นอสูร", "burst", "#e8604a", 45, "แก่นพลังในตัวมอนสเตอร์ ตัวเลเวลสูงมีบ่อยกว่า ใช้สร้างของทุกอย่าง"),
+  sky_stone: material("หินนภา", "cloud", "#7ab8ff", 250, "หินสีฟ้าใสจากฟากฟ้า ใช้ตีบวกอาวุธและแหวน"),
+  star_stone: material("หินดารา", "star", "#ffd36b", 250, "หินประกายดาว ใช้ตีบวกชุด หมวก รองเท้า เครื่องประดับ และของมือรอง"),
+});
+
+// ---- gear tiers ----
+// Gear of levels 30 to 180, every 30: every weapon, armour for the top and the bottom (each build
+// its own shape), a hat, shoes, a ring and a trinket. A little stronger than the shop's and
+// nothing more: no special abilities. Worn from its level up; found on monsters of its level band
+// (drops.ts) or made by an inventor.
+export const GEAR_TIERS = [30, 60, 90, 120, 150, 180] as const;
+export const TIER_NAMES: Record<number, string> = { 30: "เหล็ก", 60: "เงินยวง", 90: "ทองคำขาว", 120: "มิธริล", 150: "อดามันต์", 180: "ดารา" };
+// each tier's armour: the female build's shape (top and bottom alike) and the colour both wear
+const TIER_LOOK: Record<number, [string, string]> = {
+  30: ["adventurer", "cocoa"], 60: ["priestess", "forest"], 90: ["mage", "navy"],
+  120: ["adventurer", "crimson"], 150: ["priestess", "black"], 180: ["mage", "ochre"],
+};
+// tier slots, and the gear art the stat-only ones borrow (with the tier on a badge)
+export const TIER_SLOTS = [...(Object.keys(WEAPON_TYPES) as WeaponId[]), "top", "bottom", "hat", "shoes", "ring", "trinket"] as const;
+const TIER_ART: Record<string, string> = { hat: "hat_leather", shoes: "shoes_boots", ring: "ring_focus", trinket: "trinket_charm" };
+const TIER_GLYPH_COLOR: Record<string, string> = { hat: "#a8743f", shoes: "#7b5232", ring: "#e8d06a", trinket: "#e89a6a" };
+export function tierStats(slot: string, tier: number): Partial<Record<string, number>> {
+  const r = (v: number) => Math.round(v);
+  if (slot in WEAPON_TYPES) {
+    const w = WEAPON_TYPES[slot as WeaponId];
+    return { [slot === "staff" ? "matk" : "atk"]: r(tier * 0.3 * (w.twoHanded ? 1.5 : 1)) };
+  }
+  switch (slot) {
+    case "top": return { def: r(3 + tier * 0.1), mdef: r(2 + tier * 0.06) };
+    case "bottom": return { def: r(2 + tier * 0.08), maxHp: r(tier * 1.2) };
+    case "hat": return { def: r(2 + tier * 0.06), mdef: r(1 + tier * 0.05) };
+    case "shoes": return { def: r(1 + tier * 0.05), flee: r(tier * 0.05), move: 0.04 };
+    case "ring": return { atk: r(2 + tier * 0.08), matk: r(2 + tier * 0.08) };
+    default: return { maxHp: r(tier * 1), maxMp: r(tier * 0.4) };
+  }
+}
+export const tierId = (tier: number, slot: string) => `t${tier}_${slot}`;
+for (const tier of GEAR_TIERS) {
+  const tn = TIER_NAMES[tier], price = 500 * (tier / 30), badge = String(tier);
+  const [shape, dye] = TIER_LOOK[tier];
+  for (const slot of TIER_SLOTS) {
+    const common = { tier, lv: tier, price, stats: tierStats(slot, tier) };
+    let item: Item;
+    if (slot in WEAPON_TYPES) {
+      const w = weapon(slot as WeaponId);
+      item = { ...w, ...common, name: `${w.name}${tn}`, icon: { weapon: slot as WeaponId, badge } };
+    } else if (slot === "top" || slot === "bottom") {
+      item = { ...garment(slot, shape, dye), ...common, name: `${slot === "top" ? "เสื้อเกราะ" : "เกราะท่อนล่าง"}${tn}`, male: { shape: "warrior", dye } };
+      item.icon = { badge };
+    } else {
+      const kind = slot as "hat" | "shoes" | "ring" | "trinket";
+      const name = { hat: "หมวก", shoes: "รองเท้า", ring: "แหวน", trinket: "จี้" }[kind];
+      item = { ...gear(kind, `${name}${tn}`, common.stats, price, TIER_GLYPH_COLOR[kind], `${name}${tn} ของนักผจญภัยเลเวล ${tier}`), ...common };
+      item.icon = { glyph: kind, color: TIER_GLYPH_COLOR[kind], art: TIER_ART[kind], badge };
+    }
+    item.note = `${item.note ? `${item.note} · ` : ""}อุปกรณ์เลเวล ${tier} (หาได้จากมอนสเตอร์หรือการสร้างเท่านั้น)`;
+    BASE[tierId(tier, slot)] = item;
+  }
+}
+
 // Items drawn as a glyph, and potions, show their own picture where there is one
 // (assets/skills/<item id>.png, src/icons.ts); the glyph stays as the fallback.
-for (const [id, item] of Object.entries(ITEMS)) if ((item.icon.glyph || item.kind === "potion") && !item.icon.art) item.icon.art = id;
+for (const [id, item] of Object.entries(BASE)) if ((item.icon.glyph || item.kind === "potion") && !item.icon.art) item.icon.art = id;
+
+// ---- refined and made gear ----
+// A piece of gear can carry a refine level and its maker's name in its id, "<base>~<plus>^<maker>"
+// (either part left out when there is none): "t60_sword_1h~3^มิร่า" is a +3 silver sword made by
+// มิร่า. ITEMS builds such an item from its base the first time it is looked up: the base's
+// name with "+3" before it and the maker after it, and the refine's stats on top of the base's.
+export const REFINE_MAX = 10;
+const WEARABLE = new Set<ItemKind>(["weapon", "offhand", "top", "bottom", "hat", "shoes", "ring", "trinket"]);
+export function splitId(id: string): { base: string; plus: number; maker: string | null } {
+  const m = /^([^~^]+)(?:~(\d+))?(?:\^(.+))?$/.exec(id);
+  return m ? { base: m[1], plus: +(m[2] ?? 0), maker: m[3] ?? null } : { base: id, plus: 0, maker: null };
+}
+export function joinId(base: string, plus: number, maker: string | null): string {
+  return base + (plus > 0 ? `~${plus}` : "") + (maker ? `^${maker}` : "");
+}
+// What each refine level adds, by what the piece is and its tier.
+export function refineStats(item: Item, plus: number): Partial<Record<string, number>> {
+  if (plus <= 0) return {};
+  const t = item.tier ?? 0, step = Math.round(1 + t / 90);
+  switch (item.kind) {
+    case "weapon": return { [item.weapon === "staff" ? "matk" : "atk"]: plus * Math.round(2 + t / 45) };
+    case "ring": return { atk: plus * step, matk: plus * step };
+    case "trinket": return { maxHp: plus * Math.round(8 + t / 9) };
+    case "offhand": return item.art === "buckler" || item.art === "kite" ? { def: plus * step, mdef: plus } : { matk: plus * 2 };
+    default: return { def: plus * step };
+  }
+}
+// The stone that refines a piece of gear.
+export function stoneFor(id: string): "sky_stone" | "star_stone" | null {
+  const item = ITEMS[id];
+  if (!item || !WEARABLE.has(item.kind)) return null;
+  return item.kind === "weapon" || item.kind === "ring" ? "sky_stone" : "star_stone";
+}
+const derived = new Map<string, Item | null>();
+function derive(id: string): Item | undefined {
+  if (!id.includes("~") && !id.includes("^")) return undefined;
+  let item = derived.get(id);
+  if (item === undefined) {
+    const { base, plus, maker } = splitId(id);
+    const b = BASE[base];
+    item = b && WEARABLE.has(b.kind) && plus <= REFINE_MAX && joinId(base, plus, maker) === id
+      ? {
+        ...b, base, refine: plus || undefined, maker: maker ?? undefined,
+        name: `${plus ? `+${plus} ` : ""}${b.name}${maker ? ` ของ${maker}` : ""}`,
+        stats: addStats(b.stats, refineStats(b, plus)),
+        price: Math.round((b.price ?? 0) * (1 + 0.25 * plus)),
+        icon: { ...b.icon },
+      }
+      : null;
+    derived.set(id, item);
+  }
+  return item ?? undefined;
+}
+function addStats(a: Partial<Record<string, number>> | undefined, b: Partial<Record<string, number>>): Partial<Record<string, number>> {
+  const out = { ...a };
+  for (const [k, v = 0] of Object.entries(b)) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+// The base item of an id (itself for a plain item).
+export function baseOf(id: string): string {
+  return ITEMS[id]?.base ?? id;
+}
+
+// Every item: the table above, the books progression.ts adds, and refined and made gear.
+export const ITEMS: Record<string, Item> = new Proxy(BASE, {
+  get: (t, k) => (typeof k !== "string" || k in t ? t[k as string] : derive(k)),
+  has: (t, k) => k in t || (typeof k === "string" && !!derive(k)),
+});
+
+// The weapon type an item is (null: not a weapon, or nothing).
+export function weaponType(id: string | null | undefined): WeaponId | null {
+  return (id && ITEMS[id]?.weapon) || null;
+}
+// The shape and colour a top or bottom has on a build: a garment for both builds has the male
+// build's own.
+export function garmentLook(item: Item, gender: Gender): { shape?: string; dye: string | null } {
+  return gender === "male" && item.male ? item.male : { shape: item.shape, dye: item.dye ?? null };
+}
 
 export const EQUIP_SLOTS: { slot: EquipSlot; name: string }[] = [
   { slot: "weapon", name: "มือหลัก" },
@@ -324,12 +483,18 @@ export function stackLimit(id: string): number {
 export function describe(id: string): string {
   const item = ITEMS[id];
   if (!item) return "";
+  const extra = [item.lv ? `ต้องการเลเวล ${item.lv}` : "", item.maker ? `สร้างโดย ${item.maker}` : ""].filter(Boolean).join(" · ");
+  const text = describeBase(item);
+  return extra ? `${text}<br>${extra}` : text;
+}
+function describeBase(item: Item): string {
   if (item.kind === "weapon") {
     const w = WEAPON_TYPES[item.weapon!];
     const reach = w.projectile ? w.projectile.range : w.reach;
     const hits = w.hits ? ` × ${w.hits}` : "";
-    const hands = w.twoHanded ? "อาวุธสองมือ (ใช้มือรองด้วย)" : "มือเดียว · ใส่มือรองได้ (ตีซ้ำ 50%)";
-    return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ<br>${w.note}<br>${hands}`;
+    const hands = w.twoHanded ? "อาวุธสองมือ (ใช้มือรองด้วย)" : "มือเดียว · ใส่มือรองได้ (ตีซ้ำ 50%, ค่าสถานะครึ่งหนึ่ง)";
+    const stats = item.stats && Object.keys(item.stats).length ? `<br>${statText(item.stats)}` : "";
+    return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ${stats}<br>${w.note}<br>${hands}`;
   }
   if (item.kind === "book" || item.kind === "style") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
   if (item.kind === "offhand") return `${item.note}<br>${statText(item.stats)}<br>ใส่มือรอง (ใช้กับอาวุธสองมือไม่ได้)`;
@@ -337,7 +502,9 @@ export function describe(id: string): string {
   if (item.kind === "potion") return `${item.note}<br>ดับเบิลคลิกเพื่อดื่ม (บอทดื่มเองได้)`;
   if (item.kind === "top" || item.kind === "bottom") {
     const sh = SHAPES[item.kind][item.shape!];
-    return `${sh.note}<br>${sh.gender === "male" ? "สำหรับตัวละครชาย" : "สำหรับตัวละครหญิง"} · ใส่คู่กับ${item.kind === "top" ? "กางเกงหรือกระโปรง" : "เสื้อ"}ทรงไหนก็ได้`;
+    const stats = item.stats && Object.keys(item.stats).length ? `${statText(item.stats)}<br>` : "";
+    const who = item.male ? "ใส่ได้ทั้งตัวละครชายและหญิง (ทรงต่างกัน)" : sh.gender === "male" ? "สำหรับตัวละครชาย" : "สำหรับตัวละครหญิง";
+    return `${stats}${item.male ? item.note : sh.note}<br>${who} · ใส่คู่กับ${item.kind === "top" ? "กางเกงหรือกระโปรง" : "เสื้อ"}ทรงไหนก็ได้`;
   }
   return item.note ?? "";
 }
@@ -348,7 +515,7 @@ const GEAR_WHERE: Partial<Record<ItemKind, string>> = { hat: "ใส่ช่อ
 // A stat bag as the player reads it ("ป้องกัน +6 · ความเร็วเดิน +4%").
 const STAT_WORDS: Record<string, string> = {
   def: "ป้องกัน", mdef: "ต้านเวท", atk: "พลังโจมตี", matk: "พลังเวท", maxHp: "HP สูงสุด", maxMp: "MP สูงสุด", maxHpPct: "HP สูงสุด",
-  maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน", potion: "ยาฟื้นแรงขึ้น", hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท",
+  maxMpPct: "MP สูงสุด", move: "ความเร็วเดิน", luck: "โชคดี", potion: "ยาฟื้นแรงขึ้น", hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", matkPct: "พลังเวท",
   cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", drop: "โอกาสได้ของ", dmgRed: "ลดความเสียหาย",
 };
 const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "castRed", "crit", "critDmg", "drop", "dmgRed"]);

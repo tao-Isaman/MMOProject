@@ -23,6 +23,7 @@ import { loadImage } from "./assets";
 import { rand } from "./particles";
 import { behaviour, statsFor, PEOPLE } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
+import { fieldDrops } from "./drops";
 import { Player, directionIndex, directionVector } from "./player";
 import type { Hands } from "./look";
 import type { WeaponArt } from "./weapons";
@@ -1054,7 +1055,7 @@ export function variantOf(def: MonsterDef, level: number): Variant {
     element: def.element, eleDef: def.eleDef,
     aggro: def.aggro ? (def.kind === "boss" ? 650 : 320 + def.size * 0.4) : 0,
     flee: behaviour(def, "dodge") !== null ? (2 + 1.5 * level) * 1.6 : undefined,
-    weight: KINDS[def.kind].weight, drops: [], entry: def,
+    weight: KINDS[def.kind].weight, drops: fieldDrops(def), entry: def,
   };
 }
 

@@ -20,7 +20,7 @@
 
 import { mapColors, rgbToHsl, hslToRgb } from "./recolor";
 import type { Dye, RGB } from "./recolor";
-import { DYES, ITEMS, SHAPES, DEFAULT_SHAPE, FALLBACK_SHAPE, type Gender } from "./items";
+import { DYES, ITEMS, SHAPES, DEFAULT_SHAPE, FALLBACK_SHAPE, garmentLook, type Gender } from "./items";
 import { HAIR_COLORS, EYE_COLORS } from "./ui";
 import type { Look } from "./ui";
 import type { Equipped } from "./inventory";
@@ -496,8 +496,9 @@ export class Looks {
   // for the other build, or its body isn't ready yet.
   shapeFor(look: Look, equipped: Equipped, slot: "top" | "bottom"): { shape: string; dye: string | null; worn: boolean } {
     const item = ITEMS[equipped[slot] ?? ""];
-    const sh = item?.shape ? SHAPES[slot][item.shape] : undefined;
-    if (sh && sh.gender === look.gender && this.ready(sh.body)) return { shape: item!.shape!, dye: item!.dye ?? null, worn: true };
+    const g0 = item ? garmentLook(item, look.gender as Gender) : null;
+    const sh = g0?.shape ? SHAPES[slot][g0.shape] : undefined;
+    if (sh && sh.gender === look.gender && this.ready(sh.body)) return { shape: g0!.shape!, dye: g0!.dye, worn: true };
     const g = look.gender as Gender;
     const shape = [DEFAULT_SHAPE[g], FALLBACK_SHAPE[g]].find((s) => s && this.ready(SHAPES[slot][s]?.body)) ?? "mage";
     return { shape, dye: null, worn: false };
@@ -526,8 +527,9 @@ export class Looks {
     const r = this.resolve(look, equipped);
     for (const slot of ["top", "bottom"] as const) {
       const item = ITEMS[equipped[slot] ?? ""];
-      if (!item?.shape || r[slot].worn) continue;
-      const sh = SHAPES[slot][item.shape];
+      const shape = item && garmentLook(item, look.gender as Gender).shape;
+      if (!shape || r[slot].worn) continue;
+      const sh = SHAPES[slot][shape];
       if (sh.gender !== look.gender) return `${item.name}สำหรับตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"} จึงใช้ทรงตั้งต้นแทน`;
       return `${sh.name}ยังรอท่าทางจาก Oriverse ให้ครบ ระหว่างนี้ใช้ทรงตั้งต้นแทน`;
     }
