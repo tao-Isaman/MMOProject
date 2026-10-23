@@ -314,14 +314,14 @@ export class Allies {
   // every wolf standing leaps to its side and bites at once (`bite`: the skill's hit, once a
   // wolf), then goes on at it. How many leapt.
   pounce(m: Monster, bite: () => void): number {
-    let n = 0;
-    for (const a of this.list) {
-      if (!a.alive || a.kind !== "wolf") continue;
-      const d = dist(a, m) || 1, gap = a.radius + m.radius + 10;
-      if (d > gap) {
-        const from = { x: a.x, y: a.y };
-        a.x = m.x + ((a.x - m.x) / d) * gap;
-        a.y = m.y + ((a.y - m.y) / d) * gap;
+    const pack = this.list.filter((a) => a.alive && a.kind === "wolf");
+    pack.forEach((a, i) => {
+      const gap = a.radius + m.radius + 10;
+      if (dist(a, m) > gap) {
+        // they land round it side by side, from the way they came
+        const from = { x: a.x, y: a.y }, turn = Math.atan2(a.y - m.y, a.x - m.x) + (i - (pack.length - 1) / 2) * 0.9;
+        a.x = m.x + Math.cos(turn) * gap;
+        a.y = m.y + Math.sin(turn) * gap;
         resolve(a, a.radius);
         this.leap(from, a, a.s.color);
       }
@@ -330,9 +330,8 @@ export class Allies {
       a.swing = 0.35;
       this.hitBy.set(m, { by: a, t: this.clock });
       bite();
-      n++;
-    }
-    return n;
+    });
+    return pack.length;
   }
 
   // A map change: everyone is left behind.

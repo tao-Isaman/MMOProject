@@ -70,9 +70,9 @@ export const ASSASSIN_TREES: Record<string, Tree> = {
           combo: { after: ["assassin_venom_sting"], within: 3, more: (r) => 0.2 + 0.03 * r }, color: "#d0ff70" },
         desc: (r) => `แทงตัวที่ล็อกไว้ ${pct(lin(2.3, 0.23)(r))} ของพลังโจมตี แล้วพิษที่ค้างในตัวมันระเบิดทันที แรง ${pct(lin(0.8, 0.08)(r))} ของพิษที่เหลือ (พิษหมดไป) ใช้ต่อจากเขี้ยวงูเห่าภายใน 3 วิ แรงขึ้น ${pct(0.2 + 0.03 * r)} ใช้ได้เมื่อถือมีดสั้นหรือกรงเล็บ` },
       { id: "assassin_venom_dance", name: "ระบำอสรพิษ", kind: "active", max: 5, pos: [2, 2], req: [["assassin_venom_rupture", 5], ["assassin_venom_frenzy", 1]], glyph: "spin", need: SHORT,
-        skill: { type: "storm", stat: "atk", mult: lin(1.0, 0.12), pulses: 5, every: 0.25, poison: lin(0.3, 0.05), weaken: () => 0.2, debuff: 8, mp: 45, cd: 16, motion: "swing", radius: 230,
+        skill: { type: "storm", stat: "atk", mult: lin(0.9, 0.11), pulses: 5, every: 0.25, poison: lin(0.2, 0.04), weaken: () => 0.2, debuff: 8, mp: 45, cd: 16, motion: "swing", radius: 230,
           combo: { after: ["assassin_venom_rupture"], within: 4, more: () => 0.3 }, color: "#98e060" },
-        desc: (r) => `หมุนตัวกรีดพิษรอบตัว 2.3 ม. 5 ครั้ง ครั้งละ ${pct(lin(1.0, 0.12)(r))} ของพลังโจมตี พิษกัดอีก ${pct(lin(0.3, 0.05)(r))} ของดาเมจทุกครั้ง ศัตรูตีเบาลง 20% 8 วิ ใช้ต่อจากบีบพิษเข้าหัวใจภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือมีดสั้นหรือกรงเล็บ` },
+        desc: (r) => `หมุนตัวกรีดพิษรอบตัว 2.3 ม. 5 ครั้ง ครั้งละ ${pct(lin(0.9, 0.11)(r))} ของพลังโจมตี พิษกัดอีก ${pct(lin(0.2, 0.04)(r))} ของดาเมจทุกครั้ง ศัตรูตีเบาลง 20% 8 วิ ใช้ต่อจากบีบพิษเข้าหัวใจภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือมีดสั้นหรือกรงเล็บ` },
     ],
   },
   // ---- the spell: a dagger for the casters, sure hits of attack and magic ----
