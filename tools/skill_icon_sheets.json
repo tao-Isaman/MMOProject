@@ -257,7 +257,7 @@
   },
   {
    "name": "skill_icons_d12",
-   "done": false,
+   "done": true,
    "ids": [
     "arcanist_mana_sea",
     "arcanist_barrage",
@@ -280,7 +280,7 @@
   },
   {
    "name": "skill_icons_d13",
-   "done": false,
+   "done": true,
    "ids": [
     "ether_ward",
     "ether_flow",
@@ -303,7 +303,7 @@
   },
   {
    "name": "skill_icons_d14",
-   "done": false,
+   "done": true,
    "ids": [
     "rime_heart",
     "rime_breath",
@@ -326,7 +326,7 @@
   },
   {
    "name": "skill_icons_d15",
-   "done": false,
+   "done": true,
    "ids": [
     "levin_burst",
     "levin_reflex",
@@ -349,7 +349,7 @@
   },
   {
    "name": "skill_icons_d16",
-   "done": false,
+   "done": true,
    "ids": [
     "shade_abyssal_eclipse",
     "shade_blight_requiem",
@@ -372,7 +372,7 @@
   },
   {
    "name": "skill_icons_d17",
-   "done": false,
+   "done": true,
    "ids": [
     "mercy_grace",
     "mercy_blessed_ward",
@@ -395,7 +395,7 @@
   },
   {
    "name": "skill_icons_d18",
-   "done": false,
+   "done": true,
    "ids": [
     "psalm_renewal",
     "psalm_chant",
