@@ -1,13 +1,17 @@
 // Checks the skill trees (src/progression.ts with src/trees/*): compiles them with tsc into a
 // temporary folder, loads them in node and reports what would break or read wrong in the game:
-//   - a class tree without TREE_SKILLS[1] skills, a job branch without TREE_SKILLS[2]
+//   - a class tree without TREE_SKILLS[1] skills, a job branch without TREE_SKILLS[2], a third
+//     job's branch without TREE_SKILLS[3] (a stub, `stub: true`, may have none yet: its job isn't
+//     offered until it is written)
 //   - a tree that isn't laid out on the 4 x 4 grid (columns 0-3, rows 0-3), two nodes on one
 //     spot, a prerequisite outside the tree or not on a higher row, a rank asked for that the
 //     prerequisite can't reach, a max other than 1, 5 or 10
 //   - a glyph src/icons.ts can't draw, an unknown weapon, element or kind of monster
 //   - an active without a skill, a passive without stats, a desc or number that comes out as
 //     NaN, undefined or not a number at some rank, a skill type skills.ts doesn't know
-//   - a job branch or book the jobs table (JOBS) and the trees disagree about
+//   - a job branch or book the jobs tables (JOBS, JOBS3) and the trees disagree about
+//   - the third jobs' riders: an ally kind, a combo after a skill that doesn't exist, an autocast
+//     of one that doesn't, a terrain kind or a made item that isn't there
 // and, run without ids, the masteries and the elements:
 //   - a weapon without a mastery or without its in-hand picture (public/assets/weapons/<id>.png),
 //     a mastery for an unknown weapon, an unknown glyph or stat, a reward skill that's broken
@@ -24,7 +28,7 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const out = fs.mkdtempSync(path.join(os.tmpdir(), "treecheck-"));
 try {
-  execSync(`npx tsc src/progression.ts --ignoreConfig --outDir ${out} --module commonjs --target es2022 --skipLibCheck --lib es2022,dom --noCheck`, { cwd: root, stdio: "pipe" });
+  execSync(`npx tsc src/progression.ts src/poisons.ts --ignoreConfig --outDir ${out} --module commonjs --target es2022 --skipLibCheck --lib es2022,dom --noCheck`, { cwd: root, stdio: "pipe" });
 } catch (e) {
   // tsc still writes the files with --noCheck; only stop if nothing came out
   if (!fs.existsSync(path.join(out, "progression.js"))) {
@@ -35,9 +39,11 @@ try {
 global.localStorage = { getItem: () => null, setItem: () => {} };
 const P = require(path.join(out, "progression.js"));
 const items = require(path.join(out, "items.js"));
+require(path.join(out, "poisons.js")); // the poison vials join ITEMS
 const icons = fs.readFileSync(path.join(root, "src/icons.ts"), "utf8");
 const glyphs = new Set([...icons.slice(icons.indexOf("const GLYPHS")).matchAll(/^  ([a-z_]+): \(g/gm)].map((m) => m[1]));
-const TYPES = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "beam", "dash", "heal", "shield", "buff", "flower", "trap", "falcon", "decoy", "workshop"]);
+const TYPES = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "beam", "dash", "heal", "shield", "buff", "flower", "trap", "falcon", "decoy", "workshop",
+  "summon", "mimic", "smoke", "make"]);
 const statKeys = new Set([
   "maxHp", "maxMp", "atk", "matk", "def", "mdef", "hit", "flee", "crit", "critDmg", "aspd", "move", "hpRegen", "mpRegen", "cdr", "dmgRed", "castRed",
   "dmg", "reach", "stunHit", "xpPct", "drop", "pierce", "potion", "healPct", "multiShot", "poisonHit", "huntDmg", "buffTime", "reflect",
@@ -45,6 +51,8 @@ const statKeys = new Set([
   "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "statusRes", "doubleHit", "stealth", "ambush",
   ...P.ELEMENT_IDS.flatMap((e) => [`${e}Atk`, `${e}Def`]), ...P.RACES.map((r) => `${r}Dmg`),
 ]);
+// a stat that casts a skill by itself: autocast_<an active skill's id>
+const knownStat = (key) => statKeys.has(key) || (key.startsWith(P.AUTOCAST) && !!P.ACTIVES[key.slice(P.AUTOCAST.length)]);
 const weapons = new Set(Object.keys(items.WEAPON_TYPES));
 const only = process.argv.slice(2);
 let problems = 0;
@@ -54,16 +62,27 @@ const bad = (tree, msg) => {
 };
 const badText = (v) => typeof v !== "string" || /NaN|undefined|Infinity|\[object/.test(v);
 const badNum = (v) => typeof v !== "number" || !Number.isFinite(v);
+// terrain stats: a bag of known stats for each kind of map named
+const checkTerrain = (where, by, k) => {
+  for (const [kind, bag] of Object.entries(by || {})) {
+    if (!P.TERRAIN_KINDS.includes(kind)) bad(where, `terrain kind ${kind} (${P.TERRAIN_KINDS.join(", ")})`);
+    for (const [key, v] of Object.entries(bag || {})) if (!knownStat(key) || badNum(v)) bad(where, `terrain ${kind} ${key} at rank ${k}: ${v}`);
+  }
+};
 
 for (const [id, t] of Object.entries(P.TREES)) {
   if (only.length && !only.includes(id)) continue;
   if (!glyphs.has(t.glyph)) bad(id, `tree glyph "${t.glyph}" unknown`);
   if (!t.name || !t.note || !/^#[0-9a-f]{6}$/i.test(t.color || "")) bad(id, "tree needs name, note and a #rrggbb color");
   const spots = new Set(), byId = Object.fromEntries(t.nodes.map((n) => [n.id, n]));
-  // a class tree has TREE_SKILLS[1] skills, a job branch TREE_SKILLS[2]; a book tree 6-16
-  const want = t.cls ? P.TREE_SKILLS[1] : t.job ? P.TREE_SKILLS[2] : null;
-  if (want && t.nodes.length !== want) bad(id, `${t.nodes.length} nodes (a ${t.cls ? "class tree" : "job branch"} has ${want})`);
-  if (!want && (t.nodes.length < 6 || t.nodes.length > 16)) bad(id, `${t.nodes.length} nodes (6-16 fit the window)`);
+  // a class tree has TREE_SKILLS[1] skills, a job branch TREE_SKILLS[2], a third job's
+  // TREE_SKILLS[3]; a book tree 6-16; a stub what it has so far (only a third job's may be one)
+  const want = t.cls ? P.TREE_SKILLS[1] : t.job ? P.TREE_SKILLS[2] : t.job3 ? P.TREE_SKILLS[3] : null;
+  if (t.stub && !t.job3) bad(id, "only a third job's branch can be a stub");
+  if (t.stub && t.job3 && P.job3Open(t.job3)) bad(id, "a stub, but its job is open");
+  if (t.stub) { if (t.nodes.length > (want || 16)) bad(id, `${t.nodes.length} nodes`); }
+  else if (want && t.nodes.length !== want) bad(id, `${t.nodes.length} nodes (a ${t.cls ? "class tree" : t.job ? "job branch" : "third job's branch"} has ${want})`);
+  else if (!want && (t.nodes.length < 6 || t.nodes.length > 16)) bad(id, `${t.nodes.length} nodes (6-16 fit the window)`);
   for (const n of t.nodes) {
     const where = `${id}.${n.id}`;
     const [c, r] = n.pos || [];
@@ -85,11 +104,12 @@ for (const [id, t] of Object.entries(P.TREES)) {
       const d = typeof n.desc === "function" ? n.desc(k) : n.desc;
       if (badText(d)) bad(where, `desc at rank ${k}: ${d}`);
       if (n.kind === "passive") {
-        if (!n.stats) { bad(where, "passive without stats"); break; }
-        for (const [key, v] of Object.entries(n.stats(k))) {
-          if (!statKeys.has(key)) bad(where, `unknown stat ${key}`);
+        if (!n.stats && !n.terrain) { bad(where, "passive without stats"); break; }
+        for (const [key, v] of Object.entries(n.stats ? n.stats(k) : {})) {
+          if (!knownStat(key)) bad(where, `unknown stat ${key}`);
           if (badNum(v)) bad(where, `stat ${key} at rank ${k}: ${v}`);
         }
+        if (n.terrain) checkTerrain(where, n.terrain(k), k);
       }
     }
     if (n.kind === "active") {
@@ -107,24 +127,53 @@ for (const [id, t] of Object.entries(P.TREES)) {
         for (let k = 1; k <= n.max; k++) if (badNum(s[key](k))) bad(where, `${key}(${k}) = ${s[key](k)}`);
       }
       if (s.roll) for (let k = 1; k <= n.max; k++) for (const [key, v] of Object.entries(s.roll(k))) {
-        if (!statKeys.has(key) || badNum(v)) bad(where, `roll ${key} at rank ${k}: ${v}`);
+        if (!knownStat(key) || badNum(v)) bad(where, `roll ${key} at rank ${k}: ${v}`);
       }
       if (s.steal && !s.stealChance) bad(where, "steal without stealChance");
       if (s.buff) for (let k = 1; k <= n.max; k++) for (const [key, v] of Object.entries(s.buff(k))) {
-        if (!statKeys.has(key)) bad(where, `unknown buff stat ${key}`);
+        if (!knownStat(key)) bad(where, `unknown buff stat ${key}`);
         if (badNum(v)) bad(where, `buff ${key} at rank ${k}: ${v}`);
       }
-      const damaging = !["heal", "shield", "buff", "decoy", "workshop"].includes(s.type) && !(s.type === "dash" && !s.mult);
+      // the third jobs' types and riders
+      if (s.type === "summon" && !P.ALLY_KINDS.includes(s.ally)) bad(where, `summon of ally "${s.ally}" (${P.ALLY_KINDS.join(", ")})`);
+      if (s.type === "summon" && ["wolf", "clone", "golem"].includes(s.ally) && !s.mult) bad(where, `a ${s.ally} without mult does no damage`);
+      if (s.type === "summon" && s.ally === "statue" && !s.buff) bad(where, "a statue without buff gives nothing");
+      if (s.type === "make") {
+        if (!s.make || !items.ITEMS[s.make.item]) bad(where, `make: unknown item ${s.make?.item}`);
+        else {
+          for (const [it, c] of s.make.from) if (!items.ITEMS[it] || badNum(c)) bad(where, `make from ${it} x ${c}`);
+          for (let k = 1; k <= n.max; k++) if (badNum(s.make.count(k))) bad(where, `make count(${k}) = ${s.make.count(k)}`);
+        }
+      }
+      if (s.combo) {
+        for (const a of s.combo.after || []) if (!P.ACTIVES[a]) bad(where, `combo after unknown skill ${a}`);
+        if (!s.combo.after?.length) bad(where, "combo after nothing");
+        for (let k = 1; k <= n.max; k++) if (badNum(s.combo.more(k))) bad(where, `combo more(${k}) = ${s.combo.more(k)}`);
+      }
+      if (s.manaBurn) for (let k = 1; k <= n.max; k++) if (badNum(s.manaBurn(k))) bad(where, `manaBurn(${k})`);
+      if (s.terrain) for (let k = 1; k <= n.max; k++) checkTerrain(where, s.terrain(k), k);
+      if (s.terrain && s.type !== "buff") bad(where, "terrain only works on a buff");
+      const damaging = !["heal", "shield", "buff", "decoy", "workshop", "summon", "smoke", "make"].includes(s.type) && !(s.type === "dash" && !s.mult);
       if (damaging && !s.mult) bad(where, `${s.type} skill without mult`);
       if (["heal", "buff", "shield"].includes(s.type) && s.cast) bad(where, "support skills have no cast time");
     }
   }
   if (t.job && !P.JOBS[t.job]?.branches.includes(id)) bad(id, `job ${t.job} doesn't list this branch`);
+  if (t.job3 && !P.JOBS3[t.job3]?.branches.includes(id)) bad(id, `third job ${t.job3} doesn't list this branch`);
 }
 for (const [jid, j] of Object.entries(P.JOBS)) for (const b of j.branches) {
   if (only.length && !only.includes(b)) continue;
   if (!P.TREES[b]) bad(jid, `branch ${b} has no tree yet`);
   else if (P.TREES[b].job !== jid) bad(b, `tree must say job: "${jid}"`);
+}
+for (const [jid, j] of Object.entries(P.JOBS3)) {
+  if (!glyphs.has(j.glyph)) bad(jid, `job glyph "${j.glyph}" unknown`);
+  for (const f of j.from || []) if (!P.JOBS[f]) bad(jid, `from unknown second job ${f}`);
+  for (const b of j.branches) {
+    if (only.length && !only.includes(b)) continue;
+    if (!P.TREES[b]) bad(jid, `branch ${b} has no tree yet`);
+    else if (P.TREES[b].job3 !== jid) bad(b, `tree must say job3: "${jid}"`);
+  }
 }
 
 // ---- masteries ----

@@ -16,13 +16,15 @@ const path = require("path");
   await page.waitForSelector(".title-create, .title-chars", { timeout: 120000 });
   const data = await page.evaluate(async () => {
     const M = await import("/src/maps.ts");
+    const { jobMasters } = await import("/src/jobmasters.ts");
     const out = { links: {}, ships: {}, places: {} };
     for (const id of Object.keys(M.MAP_NAMES)) {
       const map = await M.loadMap(id, { flowers: 0 });
       out.links[id] = [...new Set(map.warps.map((w) => w.to))];
       // a gate's label reads "ประตูเหนือ · ขอบทะเลทราย": the part before the dot names the spot
       const labels = map.labels.map((l) => ({ x: l.x, y: l.y, text: l.text.split(" · ")[0] }));
-      for (const n of map.npcs) {
+      // (the third jobs' masters join the townsfolk from their own list, as main.ts does)
+      for (const n of [...map.npcs, ...jobMasters(id)]) {
         const near = labels.reduce((b, l) => (!b || Math.hypot(l.x - n.x, l.y - n.y) < Math.hypot(b.x - n.x, b.y - n.y) ? l : b), null);
         if (near) out.places[`${id}:${n.id}`] = near.text;
         if (n.ports) out.ships[id] = { npc: n.id, ports: n.ports };

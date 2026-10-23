@@ -86,11 +86,21 @@ export interface Look {
 export interface MonsterCtx {
   player: Vec2;
   hero: Hero;
-  bite: (m: Monster) => void; // a bite, shot, slam or burst lands (m.boost: how much harder)
+  // a bite, shot, slam or burst lands (m.boost: how much harder) on the player, or on `foe`
+  bite: (m: Monster, foe?: Vec2 | null) => void;
   note?: (m: Monster, text: string) => void;            // it healed itself
   summon?: (m: Monster, id: string, n: number) => void; // a boss calls for help
   unseen?: () => boolean; // the player hides: no monster goes for it
+  // one of the player's allies it goes for instead of her (src/allies.ts), or null
+  foe?: (m: Monster) => Foe | null;
 }
+
+// One of the player's allies (src/allies.ts), as a monster sees it: a big one (a wall) is
+// within reach sooner.
+export type Foe = Vec2 & { alive: boolean; radius: number };
+
+// Allies' walls (src/allies.ts): no monster walks through them.
+export const walls: { x: number; y: number; r: number }[] = [];
 
 const CELL = 64;
 const SCALE = 1.25;      // map px per sprite px
@@ -292,6 +302,7 @@ const STATUS: [(m: Monster) => boolean, string, string][] = [
   [(m) => m.weak > 0, "down", "#b58aff"],
   [(m) => m.expose > 0, "target", "#ff7a5a"],
   [(m) => m.blind > 0, "eye", "#7d7690"],
+  [(m) => m.silence > 0, "cry", "#9fb4ff"],
 ];
 
 // Shots that are things thrown or fired, not spells.
@@ -382,6 +393,8 @@ export class Monster {
   person: Person | null;
   body: Player | null = null; // a person is drawn as the player is
   race: Race = "formless";    // what it is (bestiary.ts; slimes are formless)
+  foe: Foe | null = null; // an ally of the player's it goes for (null: her)
+  silence = 0;   // s left it can't cast or shoot (a mana burn)
 
   constructor(variant: Variant, home: Vec2, look: Look, person: Person | null = null) {
     this.variant = variant;
@@ -468,7 +481,8 @@ export class Monster {
     this.freeze = 0;
     this.slow = this.slowPct = this.chill = this.chillPct = this.petrify = 0;
     this.burns = [];
-    this.weak = this.weakPct = this.expose = this.exposePct = this.blind = 0;
+    this.weak = this.weakPct = this.expose = this.exposePct = this.blind = this.silence = 0;
+    this.foe = null;
     this.alive = true;
     this.state = "idle";
     this.t = 0;
@@ -563,10 +577,10 @@ export class Monster {
     this.expose = Math.max(this.expose, t);
   }
 
-  // A blow lands on the player, `boost` times as hard.
-  land(ctx: MonsterCtx, boost = 1): void {
+  // A blow lands on the player (or the ally it goes for), `boost` times as hard.
+  land(ctx: MonsterCtx, boost = 1, foe = this.foe): void {
     this.boost = boost;
-    ctx.bite(this);
+    ctx.bite(this, foe);
     this.boost = 1;
   }
 
@@ -592,6 +606,7 @@ export class Monster {
     this.weak = Math.max(0, this.weak - dt);
     this.expose = Math.max(0, this.expose - dt);
     this.blind = Math.max(0, this.blind - dt);
+    this.silence = Math.max(0, this.silence - dt);
     this.biteCd = Math.max(0, this.biteCd - dt);
     this.angry = Math.max(0, this.angry - dt);
     this.chargeCd = Math.max(0, this.chargeCd - dt);
@@ -599,8 +614,13 @@ export class Monster {
     this.healCd = Math.max(0, this.healCd - dt);
     this.fleeT = Math.max(0, this.fleeT - dt);
     this.rush = Math.max(0, this.rush - dt);
-    const pl = ctx.player, alive = ctx.hero.alive;
-    const toPlayer = Math.hypot(pl.x - this.x, pl.y - this.y);
+    // whom it goes for: the player, or one of her allies (a wall in its way, a golem that draws
+    // it); "the player" below is whichever
+    const foe = this.alive ? ctx.foe?.(this) ?? null : null;
+    this.foe = foe;
+    const pl = foe ?? ctx.player, alive = foe ? foe.alive : ctx.hero.alive;
+    // (an ally wider than the player is that much nearer)
+    const toPlayer = Math.hypot(pl.x - this.x, pl.y - this.y) - (foe ? Math.max(0, foe.radius - 24) : 0);
     if (!this.alive) {
       // some burst as they fall
       if (this.state === "die" && this.explodes && !this.burst && this.t >= 0.2) {
@@ -623,18 +643,20 @@ export class Monster {
       return;
     }
     const fromHome = Math.hypot(this.x - this.home.x, this.y - this.home.y);
-    const unseen = ctx.unseen?.() ?? false;
+    const unseen = !foe && (ctx.unseen?.() ?? false);
+    // a mana burn: no spells, no shots, no healing or calling for help for a moment
+    const mute = this.silence > 0;
     if (alive && !unseen && this.variant.aggro && toPlayer < this.variant.aggro) this.angry = Math.max(this.angry, 2);
     if (!alive || unseen || fromHome > CHASE_LEASH + this.radius * 2) this.angry = this.rush = 0;
     // hurt: heal up, call for help, run off
-    if (this.heals && this.healCd <= 0 && this.hp < this.maxHp * 0.45) {
+    if (this.heals && !mute && this.healCd <= 0 && this.hp < this.maxHp * 0.45) {
       const n = Math.round(this.maxHp * 0.3);
       this.hp = Math.min(this.maxHp, this.hp + n);
       this.healCd = 12;
       ctx.note?.(this, `+${n}`);
     }
     const calls = [0.7, 0.35];
-    while (this.summons && ctx.summon && this.called < calls.length && this.hp < this.maxHp * calls[this.called]) {
+    while (this.summons && !mute && ctx.summon && this.called < calls.length && this.hp < this.maxHp * calls[this.called]) {
       this.called++;
       ctx.summon(this, this.summons, 2);
     }
@@ -644,7 +666,7 @@ export class Monster {
     }
     const free = this.state === "idle" || this.state === "hop";
     if (free && this.fleeT > 0) {
-      const d = toPlayer || 1;
+      const d = Math.hypot(pl.x - this.x, pl.y - this.y) || 1;
       this.goal = { x: this.x - ((pl.x - this.x) / d) * 300, y: this.y - ((pl.y - this.y) / d) * 300 };
       this.rush = 0;
       this.go();
@@ -662,9 +684,9 @@ export class Monster {
         }
       } else if (this.slams && this.slamCd <= 0 && toPlayer < this.radius + 160) {
         this.begin("slam", pl);
-      } else if (toPlayer < reach && this.biteCd <= 0) {
+      } else if (toPlayer < reach && this.biteCd <= 0 && !(mute && this.magical)) {
         this.begin("bite", pl);
-      } else if (this.ranged && toPlayer < RANGE && this.biteCd <= 0) {
+      } else if (this.ranged && !mute && toPlayer < RANGE && this.biteCd <= 0) {
         this.begin("shot", pl);
       } else if (this.charges && this.chargeCd <= 0 && toPlayer > 300 && toPlayer < 800) {
         this.rush = 1.4;
@@ -700,20 +722,21 @@ export class Monster {
 
   // Its attack under way: the slimes lunge; the blow lands partway through.
   private swing(dt: number, ctx: MonsterCtx, toPlayer: number): void {
-    const L = this.look, pl = ctx.player;
+    const L = this.look, pl = this.foe ?? ctx.player;
+    const far = Math.hypot(pl.x - this.x, pl.y - this.y) || 1; // (toPlayer: less a wide ally's girth)
     if (L.hop && this.blow === "bite" && this.t < 0.3 && toPlayer > 60) {
-      const d = toPlayer || 1;
+      const d = far;
       this.moveBy(((pl.x - this.x) / d) * 160 * dt, ((pl.y - this.y) / d) * 160 * dt);
     }
     if (!this.bitten && this.t >= L.strike) {
       this.bitten = true;
-      const alive = ctx.hero.alive;
+      const alive = this.foe ? this.foe.alive : ctx.hero.alive;
       if (this.blow === "bite") {
         if (toPlayer < this.reach + 30 && alive) this.land(ctx, this.boost);
       } else if (this.blow === "shot") {
-        const d = toPlayer || 1, dx = (pl.x - this.x) / d, dy = (pl.y - this.y) / d;
+        const d = far, dx = (pl.x - this.x) / d, dy = (pl.y - this.y) / d;
         shots.push({ x: this.x + dx * this.radius, y: this.y + dy * this.radius, z: this.height * 0.55 + (this.fly ? 50 : 0),
-          vx: dx * SHOT_SPEED, vy: dy * SHOT_SPEED, left: (d + 120) / SHOT_SPEED, t: 0, kind: this.ranged ?? "rock", owner: this });
+          vx: dx * SHOT_SPEED, vy: dy * SHOT_SPEED, left: (d + 120) / SHOT_SPEED, t: 0, kind: this.ranged ?? "rock", owner: this, foe: this.foe });
       } else {
         shots.push({ x: this.x, y: this.y, z: 0, vx: 0, vy: 0, left: 0.45, t: 0, kind: "slam", owner: this, ring: this.radius + 180 });
         if (toPlayer < this.radius + 180 && alive) this.land(ctx, 1.4);
@@ -736,6 +759,14 @@ export class Monster {
     for (let i = 0; i < n; i++) {
       const p = { x: this.x + dx / n, y: this.y + dy / n };
       resolve(p, this.radius);
+      for (const w of walls) {
+        // pushed out of an ally's wall
+        const ox = p.x - w.x, oy = p.y - w.y, d = Math.hypot(ox, oy), min = w.r + this.radius;
+        if (d < min) {
+          p.x = w.x + (ox / (d || 1)) * min;
+          p.y = w.y + (oy / (d || 1)) * min;
+        }
+      }
       if (Math.abs(heightAt(p.x, p.y) - heightAt(this.x, this.y)) > STEP_UP * Math.max(1, Math.hypot(p.x - this.x, p.y - this.y) / 20)) return false;
       this.x = p.x;
       this.y = p.y;
@@ -987,6 +1018,7 @@ export interface Shot {
   kind: string;  // what it is (ranged:<kind>), or "slam" / "burst"
   owner: Monster;
   ring?: number; // a ring: how wide it grows (cm)
+  foe?: Foe | null; // shot at one of the player's allies (null: at her)
 }
 export const shots: Shot[] = [];
 
@@ -996,7 +1028,7 @@ const SHOT_COLOR: Record<string, string> = {
   tongue: "#ff7aa0", vine: "#6fcf5a", slam: "#d8c8a0", burst: "#ffb05a", spark: "#fff27a", venom: "#8fdc4a", web: "#f4f4ee",
 };
 
-// Move the shots on; one that comes within reach of the player hits.
+// Move the shots on; one that comes within reach of the player (or the ally it was shot at) hits.
 export function updateShots(dt: number, ctx: MonsterCtx): void {
   for (let i = shots.length - 1; i >= 0; i--) {
     const s = shots[i];
@@ -1005,8 +1037,9 @@ export function updateShots(dt: number, ctx: MonsterCtx): void {
     if (!s.ring) {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
-      if (ctx.hero.alive && Math.hypot(ctx.player.x - s.x, ctx.player.y - s.y) < 55) {
-        s.owner.land(ctx);
+      const at = s.foe ?? ctx.player, there = s.foe ? s.foe.alive : ctx.hero.alive;
+      if (there && Math.hypot(at.x - s.x, at.y - s.y) < 55) {
+        s.owner.land(ctx, 1, s.foe ?? null);
         s.left = 0;
       }
     }

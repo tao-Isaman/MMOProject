@@ -7,8 +7,8 @@
 import { el } from "./ui";
 import { GENDERS, HAIR_COLORS, EYE_COLORS, swatchColor } from "./ui";
 import type { Look, ColorChoice } from "./ui";
-import { CLASSES, JOBS, Progress, jobName, jobIcon } from "./progression";
-import type { JobId } from "./progression";
+import { CLASSES, JOBS, JOBS3, Progress, jobName, jobIcon } from "./progression";
+import type { JobId, Job3Id } from "./progression";
 import { SHAPES, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
 import { starterForm, defaultStart, startGear } from "./starter";
@@ -97,8 +97,9 @@ export class Title {
       const eq = { ...NO_GEAR, ...readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped };
       this.portrait(cv, look, eq);
       el("strong", "", card).textContent = c.name;
-      const job = readJson<{ job?: JobId | null }>(saveKey("character.v1", c.id))?.job ?? null;
-      const who = { cls: CLASSES[c.cls] ? c.cls : null, job: job && JOBS[job] ? job : null };
+      const saved = readJson<{ job?: JobId | null; job3?: Job3Id | null }>(saveKey("character.v1", c.id));
+      const job = saved?.job ?? null, job3 = saved?.job3 ?? null;
+      const who = { cls: CLASSES[c.cls] ? c.cls : null, job: job && JOBS[job] ? job : null, job3: job3 && JOBS3[job3] ? job3 : null };
       const line = el("span", "", card);
       line.textContent = `${who.cls ? jobName(who) : "-"} · Lv ${c.level}`;
       const pic = jobIcon(who);

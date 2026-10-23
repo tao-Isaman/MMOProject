@@ -193,7 +193,7 @@ export class InventoryUI {
     if (confirm) ask(s.count);
     else {
       this.menuHead(s.id, info);
-      if (item.kind === "potion" || item.kind === "book" || item.kind === "style") button(item.kind === "potion" ? "ดื่ม" : "อ่าน", () => this.flash(this.use(index), true));
+      if (item.kind === "potion" || item.kind === "book" || item.kind === "style") button(item.kind === "potion" ? (item.restore ? "ดื่ม" : "ใช้") : "อ่าน", () => this.flash(this.use(index), true));
       else if (itemSlot(s.id)) {
         button(item.kind === "weapon" ? "ใส่มือหลัก" : "สวมใส่", () => this.wear(index));
         if (item.kind === "weapon" && fitsSlot(s.id, "offhand")) button("ใส่มือรอง", () => this.wear(index, "offhand"));

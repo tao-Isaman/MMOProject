@@ -64,7 +64,8 @@ export const STATE_TEXT: Record<BotState, string> = {
   rest: "นั่งพักฟื้น", return: "กลับเขตล่า", paused: "ผู้เล่นควบคุมอยู่",
 };
 
-const SUPPORT = new Set(["heal", "shield", "buff", "decoy"]);
+// (a summon and a smoke cloud are support too: called when a fight is on and they aren't up)
+const SUPPORT = new Set(["heal", "shield", "buff", "decoy", "summon", "smoke"]);
 // A buff lasting at least this long (s) is worth keeping up out of a fight as well.
 const LONG_BUFF = 60;
 export const isSupport = (s: SkillDef) => SUPPORT.has(s.type);
@@ -75,7 +76,7 @@ export function defaultRule(id: string): SkillRule {
   if (s.type === "heal") return { id, on: true, cond: "hp", value: 55 };
   if (s.type === "shield") return { id, on: true, cond: "hp", value: 75 };
   if (s.type === "nova" || s.type === "storm") return { id, on: true, cond: "mobs", value: 2 };
-  if ((s.type === "dash" && !s.mult) || s.type === "workshop") return { id, on: false, cond: "ready", value: 50 };
+  if ((s.type === "dash" && !s.mult) || s.type === "workshop" || s.type === "make" || s.type === "smoke") return { id, on: false, cond: "ready", value: 50 };
   return { id, on: true, cond: "ready", value: s.type === "flower" ? 2 : 50 };
 }
 
@@ -97,6 +98,7 @@ export function skillReach(s: SkillDef): { reach: number; area: number; self: bo
     case "cone": return { reach: (s.reach ?? 150) * 0.9, area: (s.reach ?? 150) * 0.9, self: true };
     case "nova": case "storm": return { reach: (s.radius ?? 200) * 0.85, area: (s.radius ?? 200) * 0.85, self: true };
     case "flower": return { reach: (s.radius ?? 450) * 0.75, area: (s.radius ?? 450) * 0.75, self: true };
+    case "mimic": return { reach: (s.range ?? 600) * 0.9, area: 160, self: false };
     default: return { reach: Infinity, area: 300, self: true };
   }
 }
@@ -503,6 +505,9 @@ export class Bot {
       else if (busy) {
         if (s.type === "heal") go = hpPct < 90;
         else if (s.type === "shield") go = !hero.shield;
+        else if (s.type === "summon") go = (this.d.skills.allies?.count(s.ally ?? "wolf") ?? 0) < (s.count ?? 1);
+        else if (s.type === "decoy") go = !this.d.skills.allies?.count("decoy");
+        else if (s.type === "smoke") go = !this.d.skills.clouds.length;
         else go = !hero.buffs.some((b) => b.id === r.id);
       } else if (fighting && s.type === "buff" && (s.duration ?? 8) >= LONG_BUFF) {
         // a blessing that lasts minutes is kept up between fights too, not left to lapse until
@@ -525,7 +530,7 @@ export class Bot {
     let reserve = 0;
     for (const r of this.settings.rules) {
       const a = ACTIVES[r.id];
-      if (!r.on || !a || isSupport(a.skill) || a.skill.type === "workshop" || !this.usable(r.id)) continue;
+      if (!r.on || !a || isSupport(a.skill) || a.skill.type === "workshop" || a.skill.type === "make" || !this.usable(r.id)) continue;
       const { reach, area, self } = skillReach(a.skill);
       if (dist > reach) continue;
       let go = r.cond === "ready";
