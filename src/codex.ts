@@ -14,7 +14,7 @@ import type { MapId, TownId } from "./maps";
 import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, THIRD_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open } from "./progression";
 import type { ElementId, Job3Id, JobId } from "./progression";
 import { QUESTS } from "./quests";
-import { STOCK } from "./shop";
+import { STOCK, TOWN_STOCK } from "./shop";
 import { el, makeWindow, itemTip } from "./ui";
 import { icon } from "./icons";
 import type { Img } from "./types";
@@ -315,6 +315,10 @@ function itemSources(): Map<string, string[]> {
     list.push(text);
   };
   for (const id of STOCK) add(id, `ร้านค้า ${(ITEMS[id].price ?? 0).toLocaleString()} ทอง`);
+  // the wares only some towns' shops have
+  const towns = new Map<string, string[]>();
+  for (const [town, ids] of Object.entries(TOWN_STOCK)) for (const id of ids) towns.set(id, [...(towns.get(id) ?? []), MAP_NAMES[town as TownId]]);
+  for (const [id, names] of towns) add(id, `ร้านค้าที่${names.join(" ")} ${(ITEMS[id].price ?? 0).toLocaleString()} ทอง`);
   for (const v of VARIANTS) for (const [id, c] of v.drops) add(id, `${v.name} (${MAP_NAMES.field}) ${pct(c)}`);
   for (const m of MONSTERS) for (const [id, c] of fieldDrops(m)) add(id, `${m.name} (${MAP_NAMES[m.field]}) ${pct(c)}`);
   const top = Math.max(...MONSTERS.map((m) => m.levels[1]));

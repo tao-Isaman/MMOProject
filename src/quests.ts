@@ -92,6 +92,7 @@ const ZAHARA = W("bahamas", "job_wizard", "จอมเวทซาฮาร่�
 const KENSHIN = W("osaki", "job_battlemage", "อาจารย์เคนชิน"), RAGNAR = W("iceberg", "job_warlord", "ราโกนาร์ผู้คลั่ง");
 const RAWEE = W("yodia", "job_thief", "ราวีจิ้งจอกเงา"), PIERRE = W("eden", "job_jester", "ปิแอร์ตัวตลก");
 const KHALID = W("bahamas", "job_mercenary", "กัปตันคาลิด"), SIGRID = W("iceberg", "job_inventor", "ซิกริดนักประดิษฐ์");
+const SAEED = W("noa", "job_merchant", "นายห้างซาอีด"), MARINA = W("venezia", "venezia_shop", "มาริน่า");
 
 const kill = (what: string | string[], count: number): Goal => ({ kind: "kill", what: typeof what === "string" ? [what] : what, count });
 const collect = (item: string, count: number, from?: string, chance = 0.5): Goal => ({ kind: "collect", item, count, from: from ? [from] : undefined, chance });
@@ -358,6 +359,19 @@ export const QUESTS: QuestDef[] = [
       { goal: talk, to: SIGRID, task: "กลับไปหาซิกริดนักประดิษฐ์ แล้วเลือกสายของนักประดิษฐ์", say: "ยินดีต้อนรับสู่โรงประดิษฐ์! ลองสร้างอะไรสักอย่างที่ไม่ระเบิดดูนะ" },
     ],
     reward: { gold: 3000, xp: 8000, items: [["potion_red", 5], ["potion_blue", 5]] } },
+  // the merchant (docs/v05_jobs.md): any class; buy the goods, carry them to a buyer in another
+  // town, bring the next order home
+  { id: "job_merchant", name: "บททดสอบพ่อค้า", giver: SAEED, level: 30, job: "merchant",
+    offer: "พ่อค้าเป็นได้ทุกคนที่เลเวล 30 ขึ้นไป ขอแค่รู้จักของ รู้จักทาง และรู้จักคน เริ่มจากของก่อน ไปเก็บขนแกะเมฆจากแกะขนเมฆที่ทุ่งหญ้าโนอามาให้ข้า 8 กระจุก",
+    steps: [
+      { goal: collect("cloud_wool", 8, "cloud_sheep"), to: SAEED, task: "เก็บขนแกะเมฆ 8 กระจุกจากแกะขนเมฆที่ทุ่งหญ้าโนอา",
+        say: "ขนชั้นดี ข้าทอเป็นผ้าไว้แล้วม้วนหนึ่ง ทีนี้ไปรู้จักทาง เอาห่อผ้านี้ไปส่งให้มาริน่าที่ร้านเครื่องมือเวนิชเซีย ราคาตกลงกันไว้แล้ว" },
+      { goal: talk, to: MARINA, task: "ส่งห่อผ้าขนแกะให้มาริน่าที่ร้านเครื่องมือเวนิชเซีย", gives: [["wool_bale", 1]], takes: [["wool_bale", 1]],
+        say: "ผ้าขนแกะจากโนอา! นุ่มอย่างกับเมฆจริง ๆ ลูกค้าที่ท่าเรือแย่งกันแน่ นี่ใบสั่งซื้อรอบหน้า ฝากไปให้ซาอีดด้วยนะ" },
+      { goal: talk, to: SAEED, task: "นำใบสั่งซื้อกลับไปให้นายห้างซาอีดที่โนอา แล้วเลือกสายของพ่อค้า", gives: [["trade_order", 1]], takes: [["trade_order", 1]],
+        say: "ได้ลูกค้าประจำมาด้วย เจ้ารู้จักคนแล้ว ตั้งแต่วันนี้เจ้าคือพ่อค้า ตั้งร้านในเมืองไหนก็ได้ ขอให้กำไรงาม!" },
+    ],
+    reward: { gold: 3000, xp: 8000, items: [["potion_orange", 3]] } },
 ];
 
 // the third jobs' quests, kept in their own file

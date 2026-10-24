@@ -76,7 +76,7 @@ export function defaultRule(id: string): SkillRule {
   if (s.type === "heal") return { id, on: true, cond: "hp", value: 55 };
   if (s.type === "shield") return { id, on: true, cond: "hp", value: 75 };
   if (s.type === "nova" || s.type === "storm") return { id, on: true, cond: "mobs", value: 2 };
-  if ((s.type === "dash" && !s.mult) || s.type === "workshop" || s.type === "make" || s.type === "smoke") return { id, on: false, cond: "ready", value: 50 };
+  if ((s.type === "dash" && !s.mult) || s.type === "workshop" || s.type === "make" || s.type === "smoke" || s.type === "stall") return { id, on: false, cond: "ready", value: 50 };
   return { id, on: true, cond: "ready", value: s.type === "flower" ? 2 : 50 };
 }
 

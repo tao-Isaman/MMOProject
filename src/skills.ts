@@ -89,6 +89,10 @@ interface SkillDeps {
   workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void; // a craft's skill opens it
   // a make skill: why the bag can't (dry), or takes the materials and gives the item (its words)
   make?: (make: NonNullable<SkillDef["make"]>, rank: number, dry: boolean) => string | null;
+  // the merchant's: the purse gold riders pay from and how full the bag is (0 to 1); the stall
+  // skill (why it can't open here when dry, else it opens)
+  purse?: { gold(): number; pay(n: number): void; fill(): number };
+  stall?: (dry: boolean) => string | null;
 }
 
 // The unit vector from a to b (null when they stand on each other).
@@ -215,6 +219,8 @@ export class Skills {
   allies?: Allies;
   workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void;
   make?: SkillDeps["make"];
+  purse?: SkillDeps["purse"];
+  stall?: SkillDeps["stall"];
   timers: { t: number; fn: () => void }[] = [];
   pending: Casting | null = null;
   traps: Trap[] = [];
@@ -241,6 +247,8 @@ export class Skills {
     this.allies = deps.allies;
     this.workshop = deps.workshop;
     this.make = deps.make;
+    this.purse = deps.purse;
+    this.stall = deps.stall;
   }
 
   get el(): Record<string, number> {
@@ -270,7 +278,14 @@ export class Skills {
     if (this.copy?.id === id) return null; // the copy costs no MP
     if (this.hero.mp < mpCost(id, this.progress.skillRank(id))) return "MP ไม่พอ";
     if (a.skill.type === "make" && a.skill.make && this.make) return this.make(a.skill.make, this.progress.skillRank(id), true);
+    if (a.skill.gold && (this.purse?.gold() ?? 0) < this.goldCost(a.skill, this.progress.skillRank(id))) return "ทองไม่พอ";
+    if (a.skill.type === "stall" && this.stall) return this.stall(true);
     return null;
+  }
+
+  // The gold a merchant's skill costs at a rank (more as she grows).
+  goldCost(s: SkillDef, rank: number): number {
+    return Math.round(at(s.gold, rank) * this.progress.level);
   }
 
   // The monster a single-target skill locks on to: the player's target, else the one nearest
@@ -342,6 +357,11 @@ export class Skills {
     const cd = (s.type === "mimic" ? s.every ?? 0.8 : s.cd) * (1 - this.hero.stats.cdr);
     this.hero.cooldowns.set(id, cd);
     this.hero.cdTotal.set(id, cd);
+    if (s.gold) {
+      const cost = this.goldCost(s, rank);
+      this.purse?.pay(cost);
+      this.floaters.add(this.player.x, this.player.y, 175, `-${cost.toLocaleString()} ทอง`, "info");
+    }
     // a combo: right after one of the skills it follows, it hits harder
     const more = this.comboMore(s, rank);
     if (more) {
@@ -361,7 +381,7 @@ export class Skills {
     if (s.type === "flower") p.startCast(s.cast ?? CAST_TIME, HOVER_END);
     else if (!cast) p.startMotion(s.motion, dir, this.weaponStats());
     this.effect(id, s, rank, dir, aim, lock);
-    if (s.type !== "workshop") this.afterCast();
+    if (s.type !== "workshop" && s.type !== "stall") this.afterCast();
   }
 
   // The monster an area spell being cast follows: the target, else the one nearest the aimed
@@ -507,6 +527,7 @@ export class Skills {
     if (chained) r.dmg = Math.max(1, Math.round(r.dmg * ((this.el.lightning ?? 0) >= 50 ? 0.6 : 0.3)));
     let more = 1 + (s.vs?.[m.race] ?? 0);
     if (s.masteryScale) more *= 1 + s.masteryScale * this.masteryLevel();
+    if (s.bag) more *= 1 + s.bag(rank) * (this.purse?.fill() ?? 0); // a cart loaded full hits hardest
     if (s.detonate) {
       // the poison it carries goes off at once
       const left = m.burns.filter((b) => b.poison).reduce((a, b) => a + b.dps * b.t, 0);
@@ -625,7 +646,7 @@ export class Skills {
         // `hits` shots one after another (a volley of arrows)
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
-            kind: s.arrow ? "arrow" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
+            kind: s.arrow ? "arrow" : s.bullet ? "bullet" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
             target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock),
           }));
         }
@@ -636,7 +657,7 @@ export class Skills {
           for (let i = 0; i < count; i++) {
             const a = base + (i / (count - 1) - 0.5) * spread;
             this.combat.shoot({ x: p.x, y: p.y }, { x: Math.cos(a), y: Math.sin(a) }, {
-              kind: s.arrow ? "arrow" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
+              kind: s.arrow ? "arrow" : s.bullet ? "bullet" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
               onHit: (m, d) => this.hit(m, s, rank, d),
             });
           }
@@ -768,6 +789,9 @@ export class Skills {
       }
       case "workshop":
         if (s.bench) this.workshop?.(s.bench);
+        break;
+      case "stall":
+        this.stall?.(false);
         break;
       case "decoy":
       case "summon": {

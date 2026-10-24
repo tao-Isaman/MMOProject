@@ -110,6 +110,8 @@ export const AUTOCAST = "autocast_";
 //           `buff` on top); a blow from it shows her for a moment, then the smoke hides her again.
 //   make    turns materials into an item: `make.from` taken from the bag, `make.count(rank)` of
 //           `make.item` given (poison vials, src/poisons.ts).
+// The merchant's (src/stall.ts):
+//   stall   opens the stall's window, in a town only (JobDef.skill, not in a tree).
 // Riders any skill can carry: `combo` (stronger right after another skill), `manaBurn` (more on
 // casters, `silence` s of no casting or shooting), `hits` on nova, beam and dash too (bolt, cone
 // and blast had it), `terrain` on a buff (stats by the kind of map, src/terrain.ts).
@@ -147,6 +149,7 @@ export interface SkillDef {
   count?: number;
   spread?: number;
   arrow?: boolean;
+  bullet?: boolean;          // bolt, fan: its shots fly as a gun's bullets
   distance?: number;
   ticks?: number;
   poison?: ByRank<number>;   // poison for this much of the hit's damage over 4 s
@@ -181,6 +184,9 @@ export interface SkillDef {
   // a coin is flipped on every hit (flipCoin; luck helps it come up heads): heads, the hit does
   // this much more (0.5: +50%); tails, as much less
   coin?: ByRank<number>;
+  // ---- the merchant's ----
+  gold?: ByRank<number>;     // each use costs this much gold times the player's level (none: can't)
+  bag?: ByRank<number>;      // up to this much more damage, by how full the bag is (all of it full)
   // ---- the fourth jobs' (docs/v05_jobs.md) ----
   // orb     adds an orb of element `orb` to the three the player holds (a fourth sends the oldest
   //         away); each orb held gives `buff` at this skill's rank for as long as it is held (two
@@ -256,6 +262,7 @@ export interface Mastery {
   perDesc: string;
   rewards: MasteryReward[];
   book?: string;
+  bookName?: string; // its book's own name (else "ตำราความเชี่ยวชาญ: <name>")
 }
 
 // A milestone on an element's line: stats it adds, or an effect skills.ts checks by level.
@@ -323,7 +330,7 @@ export interface Active {
   max: number;
   skill: SkillDef;
   desc: string | ByRank<string>;
-  source: { tree?: string; mastery?: string; at?: number };
+  source: { tree?: string; mastery?: string; at?: number; job?: JobId };
   need?: Need;
 }
 
@@ -342,9 +349,11 @@ export const STAT_NAMES: Record<string, string> = {
   // v0.5: attack from max HP (hpToAtk: that share of max HP), a blow back when hit (counter: the
   // chance, the blow 150% of attack), allies stronger and tougher (allyPct)
   hpToAtk: "HP เป็นพลังโจมตี", counter: "โอกาสสวนกลับ", allyPct: "พลังผู้ช่วย",
+  // the merchant's stall (stall.ts): goods on it, how often customers come, dearer sales
+  stallSlots: "ช่องวางของในร้าน", stallRate: "ลูกค้ามาถี่ขึ้น", stallMarkup: "ขายแพงกว่าราคากลางได้",
 };
 export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush",
-  "hpToAtk", "counter", "allyPct"]);
+  "hpToAtk", "counter", "allyPct", "stallRate", "stallMarkup"]);
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
@@ -456,7 +465,7 @@ export const JOBS: Record<JobId, JobDef> = {
   merchant: {
     name: "พ่อค้า", from: null, branches: ["merchant_trade", "merchant_cart"],
     note: "พ่อค้าผู้เดินทางไปทั่ว ตั้งร้านขายของในเมืองได้ ค้าขายเก่งจนเงินทองไหลมาเทมา หรือเข็นเกวียนสินค้าลุยศัตรูและทุ่มทุนโจมตี",
-    bonus: { atk: 7, maxHp: 84, def: 4.2, luck: 3 }, growth: { atk: 0.4, maxHp: 3.6, def: 0.2 },
+    bonus: { atk: 7, maxHp: 84, def: 4.2, luck: 3 }, growth: { atk: 0.4, maxHp: 3.6, def: 0.2 }, skill: "merchant_stall",
   },
 };
 
@@ -1011,6 +1020,11 @@ function craftMastery(id: string, name: string, glyph: string, what: string, mak
   };
 }
 
+// Brewing (workshop.ts BREWS): the strong potions from materials, anywhere and without a fee,
+// each from the level BREW_AT gives it; every level adds BREW_BONUS of a chance of one potion more.
+export const BREW_BONUS = 0.02;
+export const BREW_AT: Record<string, number> = { potion_orange: 1, potion_yellow: 10, potion_white: 20 };
+
 export const MASTERIES: Record<string, Mastery> = {
   // all round: damage, aim and a little of everything
   sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword", {
@@ -1116,7 +1130,7 @@ export const MASTERIES: Record<string, Mastery> = {
     p5: { name: "ศูนย์เล็งนิ่ง", stats: { reach: 0.15 }, desc: "ระยะยิง +15% เมื่อถือปืน" },
     p10: { name: "บรรจุเร็ว", stats: { aspd: 0.08 }, desc: "ความเร็วโจมตี +8% เมื่อถือปืน" },
     s15: { id: "gun_buckshot", name: "ยิงลูกปราย", glyph: "fan",
-      skill: { type: "fan", stat: "atk", mult: () => 1.3, count: 5, spread: 36, mp: 14, cd: 6, motion: "thrust", speed: 1900, range: 560, radius: 20, color: "#ffe0a0" },
+      skill: { type: "fan", stat: "atk", mult: () => 1.3, count: 5, spread: 36, mp: 14, cd: 6, motion: "thrust", speed: 1900, range: 560, radius: 20, bullet: true, color: "#ffe0a0" },
       desc: "ยิงกระสุน 5 นัดเป็นรูปพัด นัดละ 130% ของพลังโจมตี" },
     p20: { name: "กระสุนเจาะเกราะ", stats: { pierce: 0.1 }, desc: "ทะลุเกราะ +10% เมื่อถือปืน" },
     p30: { name: "มือปืน", stats: { atkPct: 0.12, critDmg: 0.3 }, desc: "พลังโจมตี +12% แรงคริติคอล +30% เมื่อถือปืน" },
@@ -1161,6 +1175,18 @@ export const MASTERIES: Record<string, Mastery> = {
       { at: 10, kind: "passive", name: "ตาไว", glyph: "eye", stats: { xpPct: 0.1 }, desc: "ค่าประสบการณ์ +10%" },
       { at: 15, kind: "passive", name: "รู้แหล่ง", glyph: "leaf", stats: { drop: 0.1 }, desc: "โอกาสได้ของดรอป +10%" },
       { at: 20, kind: "passive", name: "นักเดินทาง", glyph: "dash", stats: { move: 0.05 }, desc: "ความเร็วเดิน +5%" },
+    ],
+  },
+  // brewing, opened by its book (the potion brewer's)
+  brewing: {
+    name: "ปรุงยา", kind: "life", book: "book_brewing", bookName: "ตำรานักปรุงยา", glyph: "drop", max: 30,
+    per: {}, perDesc: `ปรุงได้ยาเพิ่มอีกขวด ${pct(BREW_BONUS)} ต่อระดับ`,
+    rewards: [
+      { at: 1, kind: "active", id: "brewing_make", name: "ปรุงยา", glyph: "drop",
+        skill: { type: "workshop", mp: 0, cd: 2, motion: "cast", bench: { tab: "craft", craft: "brewing" }, color: "#ffb870" },
+        desc: "ตั้งเตาปรุงยาได้ทุกที่ ปรุงยาส้ม (ฟื้น HP 300) จากเยลลี่และเศษอัญมณี ไม่เสียค่าจ้าง ถูกกว่าซื้อจากร้านมาก" },
+      { at: BREW_AT.potion_yellow, kind: "passive", name: "สูตรยาเหลือง", glyph: "drop", desc: "ปรุงยาเหลือง (ฟื้น HP 550) ได้" },
+      { at: BREW_AT.potion_white, kind: "passive", name: "สูตรยาขาว", glyph: "drop", desc: "ปรุงยาขาว (ฟื้น HP 1000) ได้" },
     ],
   },
   // the crafts, opened by an inventor's branch or a book
@@ -1481,7 +1507,7 @@ function addBook(kind: BookKind, id: string, own: string | undefined, name: stri
   };
 }
 for (const [id, t] of Object.entries(TREES)) if (!t.job && !t.job3 && !t.job4) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
-for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.name, m.glyph, "#e8c98a", null);
+for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.bookName ?? m.name, m.glyph, "#e8c98a", null);
 for (const [id, e] of Object.entries(ELEMENTS)) addBook("element", id, e.book, e.name, e.glyph, e.color, null);
 for (const [id, m] of Object.entries(MASTERIES)) {
   if (m.max2) addBook("mastery2", id, undefined, `${m.name} ขั้นสอง`, m.glyph, "#ffd36b", null,
@@ -1511,6 +1537,14 @@ for (const [mid, m] of Object.entries(MASTERIES)) {
     }
   }
 }
+
+// The jobs' own actives (JobDef.skill), known whatever the branch: the merchant's stall, opened
+// in town (stall.ts).
+ACTIVES.merchant_stall = {
+  id: "merchant_stall", name: "เปิดร้าน", glyph: "coin", color: "#e8c36a", max: 1, source: { job: "merchant" },
+  skill: { type: "stall", mp: 0, cd: 3, motion: "cast", color: "#e8c36a" },
+  desc: "ตั้งร้านขายของในเมือง: วางของจากกระเป๋า ตั้งราคาและชื่อร้านเอง ชาวเมืองจะแวะมาซื้อ ขึ้นป้ายชื่อร้านเหนือหัว เดินเมื่อไรร้านปิดและของที่เหลือกลับเข้ากระเป๋า",
+};
 
 // What a skill costs in MP at a rank: the cost it is written with is rank 1's, and each rank
 // after costs more, up to MP_GROWTH more at its top rank (a one-rank skill stays as written).
@@ -1608,6 +1642,9 @@ export class Progress {
     const craft = TREES[branch].opens;
     if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
     this.bonus += JOB_POINTS;
+    // the job's own skill (the merchant's stall) goes on the bar
+    const own = JOBS[id].skill;
+    if (own) this.autoSlot(own);
     this.changed();
     return true;
   }
@@ -1835,6 +1872,7 @@ export class Progress {
     const a = ACTIVES[id];
     if (!a) return 0;
     if (a.source.tree) return this.trees().includes(a.source.tree) ? this.ranks[id] ?? 0 : 0;
+    if (a.source.job) return this.job === a.source.job ? 1 : 0;
     return (this.mastery[a.source.mastery!] ?? 0) >= a.source.at! ? 1 : 0;
   }
 

@@ -14,6 +14,8 @@ const DEG = Math.PI / 180;
 // sprite sits behind the hand, and whether a second copy goes in the other hand.
 export interface WeaponArt {
   grip: number;     // fraction of the sprite's height from the top where the hand holds it
+  gripX?: number;   // and of its width from the left (default the middle)
+  aimed?: boolean;  // a gun: pointed where she shoots (aimAngle), not held at heldAngle
   art?: string;     // another weapon's image
   pair?: boolean;   // one in each hand
   twoHand?: boolean; // held in both hands: the grip between them, along the line through them
@@ -36,19 +38,29 @@ export const WEAPON_ART: Record<WeaponId, WeaponArt> = {
   // points; the claw's band sits on the fist with the blades reaching on past it
   knuckle: { grip: 0.64 },
   claw: { grip: 0.84 },
-  // v0.5 guns (placeholders: copies of the dagger and the spear until their own art is drawn)
-  pistol: { grip: 0.75 },
-  rifle: { grip: 0.62, twoHand: true },
+  // the guns, muzzle up: held by the grip, which bends off to the right of the barrel
+  pistol: { grip: 0.7, gripX: 0.62, aimed: true },
+  rifle: { grip: 0.68, gripX: 0.55, aimed: true, twoHand: true },
 };
 
 // Angle (radians, 0 = pointing up the screen, clockwise) a weapon is held at while she faces
 // `facing` (a screen angle): leaning out to the side she faces, upright when she faces away and
 // out past her right hand (the screen's left) when she faces the camera. It stays the same all
 // through an attack: the weapon moves with her hand, it does not swing on its own.
-export function heldAngle(facing: number): number {
+// An aimed weapon (a gun) points the way she shoots instead (aimAngle).
+export function heldAngle(facing: number, art?: WeaponArt): number {
+  if (art?.aimed) return aimAngle(facing);
   const side = Math.sin(facing), down = -Math.cos(facing);
   if (Math.abs(side) < 0.3) return down > 0 ? -40 * DEG : 0;
   return Math.sign(side) * 55 * DEG;
+}
+
+// A gun points the way she faces; facing away it leans a little right of upright, facing the
+// camera it points down to the screen's right (straight up or down it would read as a stick).
+function aimAngle(facing: number): number {
+  const side = Math.sin(facing), down = -Math.cos(facing);
+  if (Math.abs(side) < 0.3) return down > 0 ? 140 * DEG : 25 * DEG;
+  return facing;
 }
 
 // Screen angle (0 = up, clockwise) of a world facing vector; the forward axis is squashed.
@@ -57,14 +69,16 @@ export function screenAngle(v: Vec2): number {
   return Math.atan2(-s.left, s.fwd * Math.SQRT1_2);
 }
 
-// Draw one weapon sprite with its grip at (x, y) screen px.
+// Draw one weapon sprite with its grip at (x, y) screen px. An aimed one pointing left is
+// mirrored, so that its grip hangs down on either side.
 export function drawWeapon(ctx: CanvasRenderingContext2D, img: Img | undefined, art: WeaponArt, x: number, y: number, angle: number, scale: number, alpha = 1): void {
   if (!img) return;
   const w = img.width * scale, h = img.height * scale;
   ctx.globalAlpha = alpha;
   const a = art.upright ? angle * 0.25 : angle;
-  ctx.setTransform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), x, y);
-  ctx.drawImage(img, -w / 2, -h * art.grip, w, h);
+  const flip = art.aimed && Math.sin(a) < 0 ? -1 : 1;
+  ctx.setTransform(Math.cos(a) * flip, Math.sin(a) * flip, -Math.sin(a), Math.cos(a), x, y);
+  ctx.drawImage(img, -w * (art.gripX ?? 0.5), -h * art.grip, w, h);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
 }

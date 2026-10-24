@@ -33,6 +33,9 @@ const ZERO = {
   // trade (the wandering merchant's book): a share off what NPC shops charge, a share more for
   // what they buy, extra bag slots, more gold from monsters, a share off a guide's fare
   buyDisc: 0, sellBonus: 0, bagSlots: 0, goldPct: 0, fareDisc: 0,
+  // the merchant's stall (stall.ts): more goods on it, customers this much more often, and this
+  // much over the fair price they will still pay
+  stallSlots: 0, stallRate: 0, stallMarkup: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };

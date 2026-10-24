@@ -43,7 +43,8 @@ export function skillTip(id: string, rank: number): string {
   const a = ACTIVES[id], s = a.skill;
   const r = Math.max(1, rank);
   const desc = typeof a.desc === "function" ? a.desc(r) : a.desc;
-  const where = a.source.tree ? `ต้น${TREES[a.source.tree].name}` : `ความเชี่ยวชาญ${MASTERIES[a.source.mastery!].name} ระดับ ${a.source.at}`;
+  const where = a.source.tree ? `ต้น${TREES[a.source.tree].name}` : a.source.job ? `สกิลอาชีพ${JOBS[a.source.job].name}`
+    : `ความเชี่ยวชาญ${MASTERIES[a.source.mastery!].name} ระดับ ${a.source.at}`;
   // what its hits are made of, for the skills that do damage
   const element = s.mult ? ` · ${s.element ? `<span style="color:${ELEMENTS[s.element].color}">ธาตุ${ELEMENTS[s.element].name}</span>` : "ไร้ธาตุ"}` : "";
   return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>MP ${mpCost(id, r)} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}${element}<br>${desc}`;
@@ -641,6 +642,14 @@ export class SkillUI {
     const head = el("div", "sk-canvas-head", box);
     el("strong", "", head).textContent = tree.name;
     el("span", "", head).textContent = tree.note;
+    // the job's own skill (the merchant's stall) beside its branch, to drag onto the bar
+    const own = tree.job && this.real.job === tree.job ? JOBS[tree.job].skill : undefined;
+    if (own) {
+      const line = el("div", "sk-own", head);
+      this.skillIcon(line, own, ACTIVES[own].glyph, ACTIVES[own].color, own, true).classList.add("small");
+      line.append(`สกิลอาชีพ: ${ACTIVES[own].name} (ลากไปวางที่แถบสกิล)`);
+      this.hoverTip(line, () => skillTip(own, 1));
+    }
     const rows = Math.max(...tree.nodes.map((n) => n.pos[1])) + 1;
     const cols = Math.max(...tree.nodes.map((n) => n.pos[0])) + 1;
     const stage = el("div", "sk-stage", box);

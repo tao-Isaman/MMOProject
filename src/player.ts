@@ -346,7 +346,7 @@ export class Player {
     const row = viewRow(this.dir);
     const behind = row >= 3 && row <= 5;
     const toScreen = ([hx, hy]: [number, number]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
-    const held = heldAngle(screenAngle(this.aimDir()));
+    const facing = screenAngle(this.aimDir()), held = heldAngle(facing, weapon?.art), offHeld = heldAngle(facing, offhand?.art);
     // an off hand hidden behind her (or never seen in this direction) holds its gear behind her
     const offHidden = !hand?.l || !!hand.lh;
     const offBehind = behind || offHidden;
@@ -354,13 +354,14 @@ export class Player {
       if (!hand || !offhand) return;
       const l: [number, number] = hand.l ?? [hand.c[0], hand.c[1] + 4];
       const [lx, ly] = toScreen(l);
-      drawWeapon(ctx, offhand.img, offhand.art, lx, ly, held, s * (offhand.art.scale ?? 1));
+      drawWeapon(ctx, offhand.img, offhand.art, lx, ly, offHeld, s * (offhand.art.scale ?? 1));
     };
     const drawMain = () => {
       if (!hand || !weapon || !mainShown) return;
       let [x, y] = toScreen(hand.r);
-      // a two-handed sword or spear is held in both hands: its grip between them
-      if (weapon.art.twoHand && hand.l && !offHidden) [x, y] = toScreen([(hand.r[0] + hand.l[0]) / 2, (hand.r[1] + hand.l[1]) / 2]);
+      // a two-handed sword or spear is held in both hands: its grip between them (a gun aimed
+      // away from the camera stays in the hand that points it, or her back would hide it)
+      if (weapon.art.twoHand && hand.l && !offHidden && !(weapon.art.aimed && behind)) [x, y] = toScreen([(hand.r[0] + hand.l[0]) / 2, (hand.r[1] + hand.l[1]) / 2]);
       const wscale = s * (weapon.art.scale ?? 1);
       drawWeapon(ctx, weapon.img, weapon.art, x, y, held, wscale);
       if (weapon.art.pair && hand.l) {
