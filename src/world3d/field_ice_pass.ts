@@ -4,10 +4,13 @@
 // shelf carries the giant ice crystal; then a gorge cuts straight across the pass, an icy river at
 // its bottom fed by a frozen waterfall, and the only way over is the rope bridge. Past it the
 // trail drops to the north floor, where Iceberg keeps a watch post above the road down to the
-// town's south gate.
+// town's south gate. Behind the post a bay in the east wall runs on into a cleft broken right
+// through the walls, each step of them standing back from it in turn: a track leaves the trail
+// below the watch post and goes out through the cleft east to the old royal mine.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: south -> snow_foothills, north -> iceberg (its south gate)
+//   ways out: south -> snow_foothills, north -> iceberg (its south gate), east -> old_royal_mine
+//   (through the cleft, n 0.82)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -26,12 +29,23 @@ const A = 9000; // the ground
 // ---- the walls: each side rises in three steps, the first one's inner edge is the pass ----
 const EW_IN: XY[] = [[A, -1500], [5500, -2000], [5200, -3300], [4300, -3200], [3200, -1900], [2100, -1600], [1300, -900], [0, -900], [-400, -2100], [-800, -3600], [-1800, -3700], [-2400, -2600], [-3500, -2400], [-4400, -2900], [-5500, -2400], [-A, -2500]];
 const WW_IN: XY[] = [[A, 2600], [5500, 2900], [4500, 2500], [3900, 3300], [3000, 3100], [2200, 1900], [1300, 1100], [0, 1100], [-1000, 2500], [-2000, 2300], [-2700, 2800], [-3000, 3800], [-3900, 3900], [-4600, 3200], [-5500, 2800], [-A, 2900]];
-const EW1: XY[] = [[-A, -A], [A, -A], ...EW_IN];
+// (the east walls are broken through by the cleft out to the old royal mine, below: each in two)
 const WW1: XY[] = [[A, A], [-A, A], ...[...WW_IN].reverse()];
-const EW2: XY[] = [[-A, -A], [A, -A], [A, -3000], [5500, -4000], [3800, -3900], [2800, -2800], [1500, -2500], [200, -2600], [-600, -4600], [-2000, -4700], [-3000, -3600], [-5000, -3700], [-A, -3800]];
 const WW2: XY[] = [[A, A], [-A, A], [-A, 4200], [-4000, 4900], [-2500, 4800], [-1500, 3600], [0, 2800], [1500, 2700], [2600, 3900], [4000, 4200], [5500, 3600], [A, 4000]];
-const EW3: XY[] = [[-A, -A], [A, -A], [A, -5000], [5000, -5800], [2000, -5000], [-1000, -6200], [-3000, -5200], [-A, -5500]];
 const WW3: XY[] = [[A, A], [-A, A], [-A, 6000], [-2000, 6400], [1000, 5500], [4000, 6200], [A, 5800]];
+
+// ---- the cleft east to the old royal mine: from the north floor's bay a canyon through the east
+// walls out to the edge, its floor level with the floor; the first step's walls stand 1.2 m
+// apart, the second's and the third's further back each side ----
+const EW1N: XY[] = [[4150, -A], [A, -A], [A, -1500], [5500, -2000], [5200, -3300], [4300, -3200], [4220, -3700], [4170, -4600], [4220, -5600], [4170, -7000]];
+const EW1S: XY[] = [[-A, -A], [2950, -A], [2960, -7000], [3000, -5600], [2960, -4600], [3060, -3600], [2960, -2700], [2900, -1820], ...EW_IN.slice(EW_IN.findIndex(([x]) => x === 2100))];
+const EW2N: XY[] = [[4500, -A], [A, -A], [A, -3000], [5500, -4000], [4500, -3940], [4460, -4600], [4470, -5600], [4520, -7000]];
+const EW2S: XY[] = [[-A, -A], [2650, -A], [2690, -7000], [2650, -5600], [2700, -4600], [2760, -3600], [2650, -2770], [1500, -2500], [200, -2600], [-600, -4600], [-2000, -4700], [-3000, -3600], [-5000, -3700], [-A, -3800]];
+const EW3N: XY[] = [[4850, -A], [A, -A], [A, -5000], [5000, -5800], [4850, -5760], [4900, -7000]];
+const EW3S: XY[] = [[-A, -A], [2300, -A], [2320, -7000], [2250, -5070], [2000, -5000], [-1000, -6200], [-3000, -5200], [-A, -5500]];
+const E_EXIT: XY = [3550, -5150];
+// the track: off the trail below the watch post, past the woodpile into the bay and the cleft
+const CLEFT_WAY: XY[] = smooth([[4300, -450], [3950, -1000], [3560, -1700], [3600, -2500], [3640, -3400], [3600, -4300], E_EXIT, [3560, -6600], [3560, -A - 200]]);
 
 // ---- the ledges: A south of the gorge (400) with the crystal shelf A2 (700) on it, B north of the
 // gorge (399, a hair lower: the bridge runs from A's edge down onto it) ----
@@ -73,9 +87,9 @@ export function build(_quality: { flowers: number }): Town {
       { poly: dz(B1), h: 399, ramps: [BRIDGE_B, RB] },
       { poly: dz(A1), h: 400, ramps: [RA, BRIDGE_A] },
       { poly: dz(A2), h: 700, ramps: [RA2] },
-      { poly: dz(EW1), h: 650 }, { poly: dz(WW1), h: 700 },
-      { poly: dz(EW2), h: 1150 }, { poly: dz(WW2), h: 1200 },
-      { poly: dz(EW3), h: 1650 }, { poly: dz(WW3), h: 1700 },
+      { poly: dz(EW1N), h: 650 }, { poly: dz(EW1S), h: 650 }, { poly: dz(WW1), h: 700 },
+      { poly: dz(EW2N), h: 1150 }, { poly: dz(EW2S), h: 1150 }, { poly: dz(WW2), h: 1200 },
+      { poly: dz(EW3N), h: 1650 }, { poly: dz(EW3S), h: 1650 }, { poly: dz(WW3), h: 1700 },
     ],
     rock: "Snowland_GlacierCliff",
   });
@@ -93,7 +107,7 @@ export function build(_quality: { flowers: number }): Town {
     ...smooth([along(RB.top, RB.bottom, len(RB) + 400), [4700, -330], N_EXIT, [7600, -150]]),
   ];
   const SHELF_WAY: XY[] = [...smooth([[-1700, -200], along(RA2.bottom, RA2.top, -250)]), RA2.bottom, RA2.top, ...smooth([along(RA2.bottom, RA2.top, len(RA2) + 300), [-1250, 1250]])];
-  const roads = [band(MAIN, 440), band(SHELF_WAY, 380)];
+  const roads = [band(MAIN, 440), band(SHELF_WAY, 380), band(CLEFT_WAY, 420)];
 
   // the river at the bottom of the gorge (its ends run in under the walls)
   const RIVER: XY[] = [[GORGE.x0 + 130, -980], [GORGE.x1 - 130, -980], [GORGE.x1 - 130, 1180], [GORGE.x0 + 130, 1180]];
@@ -103,6 +117,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- ways out ----
   f.exit("snow_foothills", S_EXIT, [-4400, 260]);
   f.exit("iceberg", N_EXIT, [4450, -320]);
+  f.exit("old_royal_mine", E_EXIT, [3600, -4450]);
 
   // the river: dark cold water down in the gorge
   const river = f.waterSheet({ x0: GORGE.x0 - 200, x1: GORGE.x1 + 200, y0: -1600, y1: 1800 }, -14, "Snowland_RiverWater");
@@ -177,6 +192,9 @@ export function build(_quality: { flowers: number }): Town {
   prop("iceberg:sled", [3700, 1300], -60, 130);
   prop("snowland:trail_sign", [4900, 150], -90, 80, ring(30, "post"));
   prop("iceberg:lantern_post", [4900, -650], 0, 50, ring(25, "post"));
+  // the way out through the cleft: a sign where it leaves the trail, a cairn at the cleft's mouth
+  prop("snowland:trail_sign", [4500, -1250], towards(1, 1), 80, ring(30, "post"));
+  if (free(3250, -2500, 70)) prop("snowland:cairn", [3250, -2500], 0, 70, ring(45));
 
   // ---- rocks along the walls and in the open ----
   const ROCKS: [string, XY, number][] = [
@@ -213,7 +231,7 @@ export function build(_quality: { flowers: number }): Town {
   f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["SnowPine", "SnowPineSmall"], (x, y) => f.h(x, y) < 640 || inPoly(A2, x, y) || onTrack(x, y), { count: 90, spacing: 520, tries: 3000 });
 
   // ---- monsters ----
-  const quiet = (x: number, y: number) => inPoly(EW1, x, y) || inPoly(WW1, x, y) || Math.hypot(x - POST[0], y - POST[1]) < 900 || (x > GORGE.x0 - 400 && x < GORGE.x1 + 400 && Math.abs(y - BRIDGE_Y) < 600);
+  const quiet = (x: number, y: number) => inPoly(EW1N, x, y) || inPoly(EW1S, x, y) || inPoly(WW1, x, y) || (x > 2900 && x < 4300 && y < -1800) || Math.hypot(x - POST[0], y - POST[1]) < 900 || (x > GORGE.x0 - 400 && x < GORGE.x1 + 400 && Math.abs(y - BRIDGE_Y) < 600);
   f.monsterSpots(ground, { x0: -R + 200, x1: R - 200, y0: -R + 200, y1: R - 200 }, { step: 560, keepOut: quiet });
 
   const npcs: NpcSpec[] = [
@@ -236,6 +254,7 @@ export function build(_quality: { flowers: number }): Town {
     labels: [
       { x: S_EXIT[0] + 150, y: S_EXIT[1], text: "ทางไปเชิงเขาหิมะ", kind: "gate" },
       { x: N_EXIT[0] - 150, y: N_EXIT[1], text: "ทางไปไอซ์เบิร์ก", kind: "gate" },
+      { x: E_EXIT[0] - 200, y: E_EXIT[1] + 250, text: "ทางไปเหมืองหลวงเก่า", kind: "gate" },
       { x: (GORGE.x0 + GORGE.x1) / 2, y: BRIDGE_Y, text: "สะพานเชือกข้ามหุบเหว" },
       { x: SPIRE[0] - 500, y: SPIRE[1], text: "เสาผลึกน้ำแข็งยักษ์" },
       { x: GROTTO[0] + 300, y: GROTTO[1], text: "ซอกผลึกน้ำแข็ง", kind: "small" },

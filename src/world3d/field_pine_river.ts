@@ -6,7 +6,8 @@
 // above the lumberjacks' camp on the west bank below the falls (their logs piled by the water);
 // the track comes down past the camp, by the ridge with its fire lookout, over the river on a
 // long plank bridge and out the east side toward the steppe, where the pines thin and the ground
-// dries into the steppe's yellow grass.
+// dries into the steppe's yellow grass. East of the falls a track leaves the loop over the dry
+// hill and climbs the mountains' edge by a ramp, the way north to the royal hunting forest.
 //
 // Full size in its own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
@@ -194,6 +195,12 @@ const T_RIDGE: XY[] = [...smooth([[-450, 1580], [-700, 2150], [-1050, 2430], RW1
 const T_CAMP: XY[] = smooth([[100, 1700], [1300, 1850], [2100, 1750], [3000, 1450], [3450, 1150]]);
 const T_EAST: XY[] = smooth([[-500, -1500], [800, -2300], [2000, -3150], [1300, -4300], [-800, -3800]]);
 const T_STONES: XY[] = [RE1.bottom, RE1.top, [-2900, -2000], RE2.bottom, RE2.top, [-3650, -2650]];
+// the way north to the royal hunting forest: off the loop over the dry hill, up a ramp onto the
+// mountains' edge east of the falls, out over the north edge where the forest's own way south
+// meets it (e 0.64)
+const RN = { top: [4292, -1700] as XY, bottom: [2800, -1600] as XY, width: 460 };
+const WAY_N: XY = [4650, -1500], ARRIVE_N: XY = [3980, -1660];
+const T_NORTH: XY[] = [...smooth([[1250, -2660], [1900, -2050], [2450, -1620]], 4), RN.bottom, RN.top, ...smooth([[4500, -1580], WAY_N, [5600, -1500], [8400, -1500]], 4)];
 
 // the way to the royal road where the road's own way out meets this edge (n 0.78)
 const WAY_W: XY = [2690, 5150], ARRIVE_W: XY = [2470, 4500];
@@ -213,7 +220,7 @@ export function build(quality: { flowers: number }): Town {
       { x: 600, y: -4700, r: 800, h: -60 },
     ],
     plateaus: [
-      { poly: dense(PN), h: 500 },
+      { poly: dense(PN), h: 500, ramps: [RN] },
       { poly: dense(PW), h: 300, ramps: [RW1] },
       { poly: dense(PE), h: 340, ramps: [RE1] },
       { poly: dense(PE2), h: 660, ramps: [RE2] },
@@ -222,7 +229,7 @@ export function build(quality: { flowers: number }): Town {
     keep: [FALLS], // the falls pour over the edge just where it is drawn
   });
   const { put, rnd } = f;
-  const tracks = [T1, T_RIDGE, T_CAMP, T_EAST, T_STONES];
+  const tracks = [T1, T_RIDGE, T_CAMP, T_EAST, T_STONES, T_NORTH];
   const ground = f.ground({
     area: AREA,
     roads: tracks.map((t, i) => band(t, i === 0 ? 480 : 400)),
@@ -354,6 +361,9 @@ export function build(quality: { flowers: number }): Town {
   f.exit("west_steppe", WAY_E, ARRIVE_E);
   P("plains:signpost", [-480, -5000], 0, 80);
   P("trunrada:standing_stone", [380, -5250], 20, 90);
+  f.exit("royal_hunt", WAY_N, ARRIVE_N);
+  P("plains:signpost", [2350, -2100], 210, 80);
+  P("trunrada:standing_stone", [4600, -1050], 10, 90);
 
   // ---- the lumberjacks' camp on the west bank below the falls ----
   P("plains:hunter_lodge", [2400, 2750], 90, 560);
@@ -427,7 +437,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the rim: pines all round, thinning to the steppe in the east; the mountains' top ----
   const inside = (x: number, y: number) => x > B.minX - 250 && x < B.maxX + 250 && y > B.minY - 250 && y < B.maxY + 250;
-  f.woods(AREA, ["Pine", "Pine", "PineSmall", "Pine", "Birch"], (x, y) => inside(x, y) || y < -5700 || wet(x, y, 120) || onBeach(x, y) || toLine([x, y], T1) < 320 || (x > 4200 && Math.abs(y - FALLS_Y) < 500 && x < 5400), { count: 820, tries: 9000, spacing: 400 });
+  f.woods(AREA, ["Pine", "Pine", "PineSmall", "Pine", "Birch"], (x, y) => inside(x, y) || y < -5700 || wet(x, y, 120) || onBeach(x, y) || toLine([x, y], T1) < 320 || toLine([x, y], T_NORTH) < 320 || (x > 4200 && Math.abs(y - FALLS_Y) < 500 && x < 5400), { count: 820, tries: 9000, spacing: 400 });
   f.woods({ ...AREA, y1: -5800 }, ["PineSmall", "Birch", "Bush", "Bush"], (x, y) => inside(x, y) || toLine([x, y], T1) < 320 || wet(x, y, 120) || onBeach(x, y), { count: 120, tries: 2000, spacing: 700 });
   for (let i = 0; i < 110; i++) {
     const x = AREA.x0 + rnd() * (AREA.x1 - AREA.x0), y = AREA.y0 + rnd() * (-5800 - AREA.y0);
@@ -475,6 +485,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -5000, y: 200, text: "ทะเลใน" },
       { x: WAY_W[0], y: WAY_W[1] - 250, text: "ทางไปถนนหลวง", kind: "gate" },
       { x: WAY_E[0], y: WAY_E[1] + 250, text: "ทางไปสเตปป์ตะวันตก", kind: "gate" },
+      { x: WAY_N[0] - 250, y: WAY_N[1] + 250, text: "ทางไปป่าล่าสัตว์หลวง", kind: "gate" },
     ],
   });
 }
