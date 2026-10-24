@@ -226,6 +226,11 @@ export function build(_quality: { flowers: number }): Town {
   prop("snowland:cairn", [2500, -1500], 0, 70, ring(45));
   prop("royalmount:icicle_crag", [4300, -4100], 200, 260, { s: 0.8, ...ring(170) });
   prop("royalmount:silver_boulder", [3500, -1350], 60, 200, { s: 0.8, ...ring(110) });
+  // the huntsmen's things up on the rise: a hay rack, a hide of deadfall, the stones they rest on
+  if (free(2900, -4500, 220)) prop("royalmount:deer_feeder", [2900, -4500], 40, 230, { solid: [{ kind: "rack", x: 0, y: -40, w: 170, d: 260, rot: 0 }] });
+  if (free(3700, -4300, 300)) prop("royalmount:deadfall", [3700, -4300], 150, 380, { s: 0.8, solid: [{ kind: "log", x: 0, y: 0, w: 560, d: 140, rot: 78 }] });
+  for (const at of [[2300, -1700], [4200, -2000], [2600, -2400]] as XY[]) if (free(at[0], at[1], 130)) prop("snowland:snow_boulder", at, rnd() * 360, 170, ring(110));
+  if (free(3100, -1400, 80)) prop("royalmount:royal_waystone", [3100, -1400], towards(-1, 0), 80, ring(45, "post"));
 
   // ---- the knoll of old pines and the hunters' camp on it ----
   const CAMP: XY = [-2600, 3600];

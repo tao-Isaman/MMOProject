@@ -1340,7 +1340,7 @@ export const KIT: Kit = {
     put("ice_bridge", [-200, 300, 0], 90, 0.6);
     put("ice_shelf", [300, 500, 0], 0);
     // the mine in the south
-    put("sealed_adit", [-1300, -400, 0], 180, 0.7);
+    put("sealed_adit", [-1100, -500, 0], 0, 0.7);
     for (let k = 0; k < 4; k++) put("mine_rails", [-1650, 400 + k * 400, 0], 90);
     put("minecart", [-1650, -1100, 0], 90);
     put("headframe", [-1700, 1300, 0], 180, 0.7);

@@ -24,12 +24,13 @@ import { KIT as ROYAL } from "./kits/royalmount";
 import { KIT as SNOW, blobPoly } from "./kits/snowland";
 import { KIT as NORTHCOLD } from "./kits/northcold";
 import { KIT as ICEBERG } from "./kits/iceberg";
-import { KIT as WESTMOUNT, smooth, band, inPoly, toLine, dense, towards, runAlong, rampOff, beyond } from "./kits/westmount";
+import { KIT as PLAINS } from "./kits/plains";
+import { KIT as WESTMOUNT, smooth, band, inPoly, toLine, nearestOn, dense, towards, runAlong, rampOff, beyond } from "./kits/westmount";
 import type { XY } from "./kits/westmount";
 import type { NpcSpec } from "../npcs";
 import type { SolidSpec } from "../world";
 
-useKits(ROYAL, SNOW, NORTHCOLD, ICEBERG, WESTMOUNT);
+useKits(ROYAL, SNOW, NORTHCOLD, ICEBERG, WESTMOUNT, PLAINS);
 
 const R = 5500; // the walkable box
 const A = 9000; // the ground
@@ -97,12 +98,23 @@ export function build(_quality: { flowers: number }): Town {
   // bare, ragged patches of it round their edges)
   const WORKED: XY[][] = [blobPoly([2700, 600], 2100, 3300, 5052, 0.14, 40), blobPoly([-1900, 1500], 1500, 1500, 5053, 0.16, 30), blobPoly([100, -2500], 1100, 1300, 5054, 0.16, 26)];
   const rndP = seeded(5051), bare: XY[][] = [...WORKED], centres: [number, number, number][] = [];
+  const clear = (cx: number, cy: number, r: number) => centres.every(([qx, qy, qr]) => Math.hypot(qx - cx, qy - cy) > 1.3 * (qr + r));
   for (let x = -A; x < A; x += 340)
     for (let y = -A; y < A; y += 340) {
       const cx = x + rndP() * 340, cy = y + rndP() * 340, k = Math.max(0, worked(cx, cy) + 0.35), r = 340 * (0.3 + 0.5 * Math.min(1, k)) * (0.8 + rndP() * 0.4);
-      if (k <= 0.05 || rndP() > Math.min(1, k) * 0.8) continue;
       const p = blobPoly([cx, cy], r * (0.8 + rndP() * 0.5), r * (0.7 + rndP() * 0.4), 7000 + bare.length, 0.22, 16);
-      if (p.every(([px, py]) => !WORKED.some((w) => inPoly(w, px, py))) && centres.every(([qx, qy, qr]) => Math.hypot(qx - cx, qy - cy) > 1.4 * (qr + r))) {
+      const inW = WORKED.findIndex((w) => inPoly(w, cx, cy));
+      // inside the worked ground: islands of snow left lying (rings inside a ring fill again)
+      if (inW >= 0) {
+        if (rndP() < 0.3 && p.every(([px, py]) => inPoly(WORKED[inW], px, py)) && clear(cx, cy, r)) {
+          bare.push(blobPoly([cx, cy], r * 0.7, r * 0.55, 7500 + bare.length, 0.25, 14));
+          centres.push([cx, cy, r * 0.7]);
+        }
+        continue;
+      }
+      // round it: ragged patches of bare stone thinning out
+      if (k <= 0.05 || rndP() > Math.min(1, k) * 0.8) continue;
+      if (p.every(([px, py]) => !WORKED.some((w) => inPoly(w, px, py))) && clear(cx, cy, r)) {
         bare.push(p);
         centres.push([cx, cy, r]);
       }
@@ -113,7 +125,8 @@ export function build(_quality: { flowers: number }): Town {
     const ringP = Math.sign(ar(h)) === Math.sign(ar(outer)) ? [...h].reverse() : h;
     notBare.push(...ringP, ringP[0], outer[0]);
   }
-  const stone = f.ground({ area, roads, plazas: [], water: [SEA, notBare], base: "rock", road: ROAD, tint: "#bcc0c8" });
+  // (the tracks cut out of it: the snow's own tracks show through)
+  const stone = f.ground({ area, roads: [], plazas: [], water: [SEA, notBare, ...roads], base: "rock", road: ROAD, tint: "#e4e6ec" });
   stone.mesh.position.y += 3;
   stone.mesh.renderOrder = 1;
 
@@ -218,6 +231,23 @@ export function build(_quality: { flowers: number }): Town {
   prop("common:crate", [-930, 2470], 60, 60);
   prop("iceberg:snowy_barrels", [-1100, 2950], 90, 120);
 
+  // ---- the old checkpoint on the road from the palace's back gate, the miners' camp abandoned in
+  // the woods east of it ----
+  const cp = nearestOn(SOUTH, [-3500, -500]);
+  prop("plains:checkpoint_gate", cp.at, runAlong(cp.dir[0], cp.dir[1]), 640, { solid: [
+    { kind: "tower", x: 0, y: -430, w: 330, d: 330, rot: 0 }, { kind: "tower", x: 0, y: 430, w: 330, d: 330, rot: 0 },
+    { kind: "post", x: -232, y: -290, r: 22 }, { kind: "post", x: -232, y: 290, r: 16 },
+    { kind: "box", x: -232, y: 425, w: 50, d: 170, rot: 0 }, { kind: "box", x: -210, y: -410, w: 80, d: 140, rot: 0 }, { kind: "box", x: 213, y: -440, w: 56, d: 250, rot: 0 },
+  ] });
+  const CAMP: XY = [-3100, -3300];
+  prop("northcold:miners_shack", [CAMP[0] + 500, CAMP[1] + 300], towards(-1, 0.3), 380);
+  prop("northcold:miners_shack", [CAMP[0] - 450, CAMP[1] - 350], towards(1, 0.5), 380);
+  prop("snowland:cold_campfire", CAMP, 0, 150, ring(70));
+  prop("snowland:supply_cache", [CAMP[0] + 100, CAMP[1] - 650], 70, 220, { solid: [{ kind: "box", x: -10, y: 0, w: 330, d: 140, rot: 0 }] });
+  prop("snowland:log_pile", [CAMP[0] - 600, CAMP[1] + 500], 20, 260);
+  prop("common:crate", [CAMP[0] + 350, CAMP[1] - 250], 30, 60);
+  prop("iceberg:snowy_barrels", [CAMP[0] - 200, CAMP[1] + 450], 10, 120);
+
   // ---- the ways out ----
   prop("royalmount:royal_waystone", [-4600, 500], towards(1, -0.3), 80, ring(45, "post"));
   prop("royalmount:royal_waystone", [-480, -4700], towards(0.6, 1), 80, ring(45, "post"));
@@ -255,7 +285,7 @@ export function build(_quality: { flowers: number }): Town {
   f.woods(area, ["wind_pine"], (x, y) => f.h(x, y) < 1150 || onTrack(x, y) || inPoly(SEA, x - 300, y), { count: 40, spacing: 900, tries: 2000, kit: "westmount" });
 
   // ---- monsters: the floor, the upper bench and the top bench ----
-  const quiet = (x: number, y: number) => Math.hypot(x - SMELTER[0], y - SMELTER[1]) < 900 || Math.hypot(x - ADIT[0], y - ADIT[1]) < 700;
+  const quiet = (x: number, y: number) => Math.hypot(x - SMELTER[0], y - SMELTER[1]) < 900 || Math.hypot(x - ADIT[0] + 500, y - ADIT[1]) < 1000;
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 720, keepOut: quiet, max: 52 });
 
   const npcs: NpcSpec[] = [
@@ -294,6 +324,8 @@ export function build(_quality: { flowers: number }): Town {
       { x: 3550, y: 4300, text: "หุบผาสู่ช่องเขาน้ำแข็ง", kind: "small" },
       { x: 4000, y: -1800, text: "หน้าผาริมทะเลเหนือ", kind: "small" },
       { x: -500, y: 3200, text: "กระท่อมคนงานเหมือง", kind: "small" },
+      { x: cp.at[0] + 450, y: cp.at[1] - 300, text: "ด่านทางเข้าเหมืองหลวง", kind: "small" },
+      { x: CAMP[0] + 300, y: CAMP[1] + 900, text: "ค่ายคนงานเหมืองร้าง", kind: "small" },
     ],
   });
 }

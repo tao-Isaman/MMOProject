@@ -78,7 +78,7 @@ const FALLS: XY = [3700, -150];
 // ---- the dry grass coming through toward the steppe (south) and the meadow (east): all of it
 // past a ragged line a fifth of the way in, patches of it in the snow inside the line that thin
 // out away from it ----
-const rag = (t: number, k: number) => 360 * Math.sin(t / 700 + k) + 220 * Math.sin(t / 290 + 2 * k) + 110 * Math.sin(t / 120 + 3 * k);
+const rag = (t: number, k: number) => 380 * Math.sin(t / 700 + k) + 220 * Math.sin(t / 290 + 2 * k) + 50 * Math.sin(t / 130 + 3 * k);
 const southLine = (y: number) => -4300 + rag(y, 1.3);
 const eastLine = (x: number) => -4300 + rag(x, 2.1);
 const DRY: XY[] = [];
@@ -238,6 +238,9 @@ export function build(_quality: { flowers: number }): Town {
   prop("royalmount:hot_spring", SPRING2, 200, 330, { s: 0.85, solid: [{ kind: "pool", x: 0, y: 0, r: 250 }] });
   prop("royalmount:hermit_hut", HUT, towards(-1, 0.6), 420, { solid: [{ kind: "building", x: 0, y: 0, w: 500, d: 420, rot: 0 }] });
   prop("snowland:cairn", [3350, -4450], 0, 70, ring(45));
+  // the hermit's bench and firewood by the springs, his drying rack
+  prop("snowland:log_pile", [3150, -5350], 80, 260);
+  if (free(3300, -2900, 120)) prop("snowland:lean_to", [3300, -2900], towards(0.3, 1), 260);
   prop("royalmount:icicle_crag", [4300, -2900], 30, 240, { s: 0.75, ...ring(160) });
 
   // ---- the waystone where the paths part, the ways out ----
@@ -259,6 +262,9 @@ export function build(_quality: { flowers: number }): Town {
   for (const [id, at, r] of ROCKS) if (free(at[0], at[1], r)) prop(id, at, rnd() * 360, r + 40, ring(r * 0.8));
   scatter("royalmount:deadfall", [-2000, 2500], 2500, 3, 320, () => ({ solid: [{ kind: "log", x: 0, y: 0, w: 560, d: 140, rot: 78 }] }), (x, y) => inBox(x, y) && dryness(x, y) < 0.4);
   scatter("snowland:snowy_stump", [0, 0], 5200, 8, 80, () => ring(40, "tree"));
+  // the valley floor round the waystone: crags with icicles, boulders, dogwood
+  for (const at of [[-2400, -300], [-200, 1300], [-2800, 2400], [300, -3200], [-3700, 1800], [-1000, -3100]] as XY[])
+    if (free(at[0], at[1], 170)) prop(rnd() < 0.5 ? "royalmount:icicle_crag" : "snowland:rock_cluster", at, rnd() * 360, 230, { s: 0.7 + rnd() * 0.3, ...ring(130) });
 
   // ---- the trees: snowy pines in the west and up on the ledges, birches and pines out on the dry
   // ground toward the steppe and the meadow ----
