@@ -1,16 +1,17 @@
 // แหลมทะเลตะวันตก (the west cape), monsters Lv 188-200, the hardest ground in the land: the
-// westernmost cape of the continent, a long headland running out from Suzhou's shore into a wild
-// sea that closes it in on the north, the west and the south. The way in comes from Suzhou over the
-// east edge, through heath and wind-torn pines, past a broken beacon on the north point and
-// another on the south. Up a ramp the spine of the cape rises as a cliff top above the sea, a third
-// beacon fallen on it; along the south shore below it a strip of rocky beach leads to the cove
-// where a great carrack lies broken on the reef, storm rocks and spray all round, and a second ramp
-// climbs from there back onto the cliff top. At the very tip, a step higher again, is the shrine of
-// the sea dragon: its stone gate with dragons coiled up the pillars, and beyond it, on the last
-// rock before the open sea, the altar where a stone dragon holds out its glowing pearl.
+// westernmost cape of the continent, a long headland running out from the foot of the western
+// pass into a wild sea that closes it in on the north, the west and the south. The way in comes
+// down from the pass over the east edge, along the neck of land between the pass's sea cliffs,
+// through heath and wind-torn pines, past a broken beacon on the north point and another on the
+// south. Up a ramp the spine of the cape rises as a cliff top above the sea, a third beacon fallen
+// on it; along the south shore below it a strip of rocky beach leads to the cove where a great
+// carrack lies broken on the reef, storm rocks and spray all round, and a second ramp climbs from
+// there back onto the cliff top. At the very tip, a step higher again, is the shrine of the sea
+// dragon: its stone gate with dragons coiled up the pillars, and beyond it, on the last rock
+// before the open sea, the altar where a stone dragon holds out its glowing pearl.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   way out: east -> suzhou (a dead end: the cape goes nowhere else)
+//   way out: east -> west_pass (a dead end: the cape goes nowhere else)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -145,7 +146,7 @@ export function build(quality: { flowers: number }): Town {
   f.blockBand(SHORE_IN.map((i) => seaward(i, 260)), 520, { kind: "sea" });
 
   // ---- the way out ----
-  f.exit("suzhou", E_EXIT, [-60, -4450]);
+  f.exit("west_pass", E_EXIT, [-60, -4450]);
 
   // ---- placing things ----
   const taken: [number, number, number][] = [];
@@ -278,7 +279,7 @@ export function build(quality: { flowers: number }): Town {
       lines: [
         "มังกรทะเลหลับใหลอยู่ใต้คลื่นตรงสุดแหลมนี้ ไข่มุกในมือรูปสลักคือดวงใจของมัน",
         "หอไฟทั้งสามดับลงคืนเดียวกับที่เรือใหญ่ลำนั้นชนแนวหิน ตั้งแต่นั้นทะเลก็ไม่เคยสงบอีกเลย",
-        "สัตว์ร้ายบนแหลมนี้แข็งแกร่งที่สุดในแผ่นดิน ถ้ายังไม่แน่ใจในฝีมือ จงกลับไปซูโจวเสียเถิด",
+        "สัตว์ร้ายบนแหลมนี้แข็งแกร่งที่สุดในแผ่นดิน ถ้ายังไม่แน่ใจในฝีมือ จงย้อนขึ้นช่องเขากลับไปซูโจวเสียเถิด",
       ] },
     { id: "cape_sailor", x: -2300, y: -1300, face: 200, name: "เปียโตร", title: "ผู้รอดชีวิตจากเรืออับปาง", role: "talk",
       look: { gender: "male", hair: "", hairColor: "auburn", eyes: "blue", top: "top_warrior_forest", bottom: "bottom_warrior_cocoa" },
@@ -297,7 +298,7 @@ export function build(quality: { flowers: number }): Town {
     spawn: { x: -60, y: -4300 },
     npcs,
     labels: [
-      { x: E_EXIT[0] + 150, y: E_EXIT[1] + 150, text: "ทางไปซูโจว", kind: "gate" },
+      { x: E_EXIT[0] + 150, y: E_EXIT[1] + 150, text: "ทางไปช่องเขาตะวันตก", kind: "gate" },
       { x: GATE[0] - 450, y: GATE[1] - 200, text: "ศาลมังกรทะเล" },
       { x: WRECK[0] + 1200, y: WRECK[1] - 300, text: "ซากเรือใหญ่บนแนวหิน" },
       { x: 500, y: 0, text: "ผาริมทะเล" },

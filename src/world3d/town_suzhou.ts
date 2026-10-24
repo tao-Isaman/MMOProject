@@ -4,9 +4,9 @@
 // streets, stone hump bridges over the canals, willows on their banks, and the octagonal pagoda
 // on the headland by the harbour mouth, which is the harbour's lighthouse.
 //
-// The plan (plan pixels, u right = east, v down = south; 20 cm a pixel; the sea on the west):
-//   - the harbour along the west shore: a granite quay (u 200) from the north wall down to the
-//     Grand Canal's mouth, three wooden piers out into the sea with junks alongside (the main
+// The plan (plan pixels, u right = east, v down = south; 20 cm a pixel; the open sea on the west):
+//   - the harbour along the whole west shore: a granite quay (u 200) from the north wall down to
+//     the Grand Canal's mouth, three wooden piers out into the sea with junks alongside (the main
 //     pier, where the captain stands, in the middle), warehouses and shophouses facing the quay;
 //     the landing square at the main pier (the spawn and the travel guide), the silk market just
 //     south of it, the temple of the sea goddess north of it;
@@ -14,20 +14,21 @@
 //     canal on a hump bridge (the tea house on the far bank, its balcony over the water), through
 //     the crossroads with the avenue, past shophouses under strings of lanterns, to the gate of
 //     the governor's yamen at its east end;
-//   - the avenue from the north gate (over the mountains to Noa) to the south gate (the rice
+//   - the avenue from the north gate (up into the western pass) to the south gate (the rice
 //     terraces), crossing the Grand Canal on a hump bridge;
 //   - two canals: the north canal (u 395-430) from near the north wall south into the Grand
-//     Canal (v 470-505), which runs from the harbour east almost to the east wall; walks along
-//     their banks with willows and lantern posts, bridges where the streets and lanes cross;
+//     Canal (v 470-505), which runs from the harbour east to the yamen's corner; walks along
+//     their banks with willows and lantern posts, bridges where the streets and lanes cross; the
+//     north walk runs on out of the east gate as the road to the lagoon marsh;
 //   - north-east: lantern lane between rows of townhouses; south-west: rows of townhouses along
-//     the canal, the fish lane and the west road; the smith's forge by the west gate;
+//     the canal, the fish lane and the west road, which comes down to the fish pier on the quay,
+//     the smith's forge at its foot;
 //   - the headland at the south-west corner of the harbour, with the pagoda on it; south of it
-//     the west wall stands right on the shore, and out of its gate a causeway runs west over
-//     the sea toward the western cape, lined with willows and lanterns;
+//     the quay runs on along the shore to the south wall, past the fish pier;
 //   - south-east: a walled garden entered through a moon gate off the avenue (lotus ponds,
 //     pavilions, Taihu rocks, willows).
-// A grey brick city wall with corner towers on the north, east and south, three open gates
-// (north, south, and the causeway gate on the west).
+// A grey brick city wall with corner towers on the north, east and south (the harbour lies open
+// to the sea), three open gates: north, south, and east in the middle of the east wall.
 //
 // The water (sea and canals) is one sheet 110 cm below the ground, showing through holes cut in
 // it; the quay and canal walls drop to it. Everything placed here comes from the town kits; the
@@ -64,18 +65,17 @@ const { P, rect } = new Plan(20, 560, 325);
 const SEA = -110;                        // the water's surface
 const QUAY = 200;                        // the harbour quay (u); the sea west of it
 const N = 100, S = 820, E = 900;         // the north and south walls (v), the east wall (u)
-const WW = 208;                          // the west wall (u), on the shore south of the headland
 const AV: [number, number] = [535, 585]; // the avenue (u)
 const MS: [number, number] = [300, 350]; // the main street (v)
 const CA: [number, number] = [470, 505]; // the Grand Canal (v), from the harbour east to CA_END
 const CB: [number, number] = [395, 430]; // the north canal (u), from CB_END south into the Grand Canal
-const CA_END = 880, CB_END = 140;
+const CA_END = 850, CB_END = 140;
 const LL: [number, number] = [195, 215]; // lantern lane (v)
 const FL: [number, number] = [605, 620]; // the fish lane (v)
-const WR: [number, number] = [705, 735]; // the west road and the causeway (v)
+const WR: [number, number] = [705, 735]; // the west road (v), down to the fish pier
 const HEAD = { u0: 105, u1: QUAY, v0: 525, v1: 625 }; // the pagoda's headland
-const PIERS: [number, number][] = [[175, 4], [325, 6], [430, 5]]; // piers (v, 4 m sections)
-const GATE_U = 560, GATE_W_V = 720;
+const PIERS: [number, number][] = [[175, 4], [325, 6], [430, 5], [720, 4]]; // piers (v, 4 m sections), the fish pier last
+const GATE_U = 560, GATE_E_V = 460; // the north and south gates (u), the east gate (v)
 // bridges: over the Grand Canal (u) and the north canal (v)
 const BRIDGES_A = [222, 330, 560, 720];
 const BRIDGES_B = [240, 325, 420];
@@ -96,8 +96,8 @@ export function buildSuzhou(quality: { flowers: number }): Town {
     rect(CB[0] - 15, CB_END, CB[0], CA[0]),      // the north canal's west walk
     rect(CB[1], CB_END, CB[1] + 19, CA[0]),      // and its east walk
     rect(250, FL[0] - 4, AV[0], FL[1] + 4),      // the fish lane
-    rect(-420, WR[0], QUAY, WR[1]),              // the causeway
     rect(QUAY, WR[0] - 4, AV[0], WR[1] + 4),     // the west road
+    rect(CA_END - 20, GATE_E_V - 12, E + 120, GATE_E_V + 12), // on from the canal's north walk out of the east gate
     rect(320, CA[1] + 15, 342, FL[0]),           // an alley from the canal to the fish lane
     rect(AV[1], 642, 630, 662),                  // the path to the garden's moon gate
     rect(708, CA[0] - 15, 732, CA[1] + 15), rect(708, CA[1] + 15, 732, 572), // the lane over the canal to the garden's other moon gate
@@ -105,6 +105,7 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   const plazas: Poly[] = [
     rect(QUAY, N - 20, QUAY + 42, CA[0]),        // the quay promenade
     rect(QUAY, CA[1], 250, HEAD.v1),             // and on round the canal mouth to the headland
+    rect(QUAY, HEAD.v1, QUAY + 42, S + 20),      // the quay south of it, past the fish pier
     rect(HEAD.u0, HEAD.v0, HEAD.u1, HEAD.v1),    // the pagoda's headland
     rect(QUAY + 42, 255, 330, 398),              // the landing square
     rect(290, MS[1], CB[0] - 15, CA[0] - 15),    // the silk market
@@ -116,12 +117,10 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   ];
   const AREA = { x0: P(0, 1500)[0], x1: P(0, -800)[0], y0: P(1500, 0)[1], y1: P(-700, 0)[1] };
   const water: Poly[] = [
-    // the sea north of the causeway, round the headland, and south of it
-    [P(-700, -800), P(QUAY, -800), P(QUAY, HEAD.v0), P(HEAD.u0, HEAD.v0), P(HEAD.u0, HEAD.v1), P(QUAY, HEAD.v1), P(QUAY, WR[0]), P(-700, WR[0])],
-    [P(-700, WR[1]), P(QUAY, WR[1]), P(QUAY, 1500), P(-700, 1500)],
+    // the sea all along the west, round the headland
+    [P(-700, -800), P(QUAY, -800), P(QUAY, HEAD.v0), P(HEAD.u0, HEAD.v0), P(HEAD.u0, HEAD.v1), P(QUAY, HEAD.v1), P(QUAY, 1500), P(-700, 1500)],
     rect(QUAY - 2, CA[0], CA_END, CA[1]),
     rect(CB[0], CB_END, CB[1], CA[0] + 1),
-    rect(-700, WR[0] - 1, -420, WR[1] + 1),      // (the sea past the causeway's end)
   ];
   const ground = buildPaved({ area: AREA, roads, plazas, water, base: "grass", road: [0.70, 0.69, 0.67], plaza: [0.86, 0.85, 0.82] });
 
@@ -138,23 +137,22 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   };
 
   // ---- the city wall: 8 m lengths of grey brick, towers at the corners and along the runs,
-  // gate towers over the three gates ----
-  const GATE_N: [number, number] = P(GATE_U, N), GATE_S: [number, number] = P(GATE_U, S), GATE_W: [number, number] = P(WW, GATE_W_V);
+  // gate towers over the three gates; on the west the harbour lies open to the sea ----
+  const GATE_N: [number, number] = P(GATE_U, N), GATE_S: [number, number] = P(GATE_U, S), GATE_E: [number, number] = P(E, GATE_E_V);
   const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) =>
     town.wall(P(a[0], a[1]), P(b[0], b[1]), out, "suzhou:city_wall", { gaps: gaps.map((g) => g * 20), len: 800, gap: 1700 });
   run([QUAY + 18, N], [E, N], "n", [GATE_U - QUAY - 18]);
-  run([WW, S], [E, S], "s", [GATE_U - WW]);
-  run([E, N], [E, S], "e");
-  run([WW, HEAD.v1 + 18], [WW, S], "w", [GATE_W_V - HEAD.v1 - 18]);
+  run([QUAY + 18, S], [E, S], "s", [GATE_U - QUAY - 18]);
+  run([E, N], [E, S], "e", [GATE_E_V - N]);
   const tower = (u: number, v: number) => put("suzhou:wall_tower", P(u, v), 0, { solid: [{ kind: "tower", x: 0, y: 0, w: 740, d: 740, rot: 0 }] });
-  for (const [u, v] of [[QUAY + 18, N], [E, N], [E, S], [WW, S], [WW, HEAD.v1 + 18], [380, N], [740, N], [380, S], [740, S], [E, 487], [E, 700]] as const) tower(u, v);
+  for (const [u, v] of [[QUAY + 18, N], [E, N], [E, S], [QUAY + 18, S], [380, N], [740, N], [380, S], [740, S], [E, 250], [E, 700]] as const) tower(u, v);
   const gateSolid: SolidSpec[] = [
     { kind: "gate", x: 0, y: -540, w: 1000, d: 620, rot: 0 },
     { kind: "gate", x: 0, y: 540, w: 1000, d: 620, rot: 0 },
   ];
   put("suzhou:city_gate", GATE_N, FACE.n, { solid: gateSolid });
   put("suzhou:city_gate", GATE_S, FACE.s, { solid: gateSolid });
-  put("suzhou:city_gate", GATE_W, FACE.w, { solid: gateSolid });
+  put("suzhou:city_gate", GATE_E, FACE.e, { solid: gateSolid });
 
   // ---- the harbour: the quay, piers, the headland, the shore, boats ----
   edge([QUAY, N - 30], [QUAY, CA[0]], "w", "suzhou:quay", 10);
@@ -162,12 +160,7 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   edge([HEAD.u0, HEAD.v0], [QUAY, HEAD.v0], "n", "suzhou:quay", 10);
   edge([HEAD.u0, HEAD.v0], [HEAD.u0, HEAD.v1], "w", "suzhou:quay", 10);
   edge([HEAD.u0, HEAD.v1], [QUAY, HEAD.v1], "s", "suzhou:quay", 10);
-  edge([QUAY, HEAD.v1], [QUAY, WR[0]], "w", "suzhou:quay", 10);
-  edge([QUAY, WR[1]], [QUAY, S + 10], "w", "suzhou:quay", 10);
-  // the causeway's two edges, out to sea
-  edge([-420, WR[0]], [QUAY, WR[0]], "n", "suzhou:quay", 10);
-  edge([-420, WR[1]], [QUAY, WR[1]], "s", "suzhou:quay", 10);
-  edge([-420, WR[0]], [-420, WR[1]], "w", "suzhou:quay", 10);
+  edge([QUAY, HEAD.v1], [QUAY, S + 10], "w", "suzhou:quay", 10);
   // natural shore beyond the walls
   edge([QUAY, -600], [QUAY, N - 30], "w", "suzhou:shore_rocks", 30);
   edge([QUAY, S + 10], [QUAY, 1450], "w", "suzhou:shore_rocks", 30);
@@ -180,23 +173,27 @@ export function buildSuzhou(quality: { flowers: number }): Town {
     extra.push({ kind: "sea", x: (xa + xb) / 2, y: (ya + yb) / 2, w: Math.abs(xb - xa), d: Math.abs(yb - ya), rot: 0 });
   };
   {
-    let v = N - 70;
-    for (const [pv] of PIERS) {
-      seaBox(-20, QUAY, v, pv - 8);
-      v = pv + 8;
-    }
-    seaBox(-20, QUAY, v, HEAD.v0);
+    // along the quay from v0 to v1, open at the roots of the piers
+    const quaySide = (v0: number, v1: number) => {
+      let v = v0;
+      for (const [pv] of PIERS) {
+        if (pv < v0 || pv > v1) continue;
+        seaBox(-20, QUAY, v, pv - 8);
+        v = pv + 8;
+      }
+      seaBox(-20, QUAY, v, v1);
+    };
+    quaySide(N - 70, HEAD.v0);
+    quaySide(HEAD.v1, S + 80);
     for (const [pv, n] of PIERS) seaBox(-20, QUAY - 20 * n, pv - 8, pv + 8);
     seaBox(-20, HEAD.u0, HEAD.v0, HEAD.v1);
-    seaBox(-20, QUAY, HEAD.v1, WR[0]);
-    seaBox(-20, QUAY, WR[1], S + 80);
   }
   // junks alongside the piers and out at anchor, sampans about the harbour
   put("suzhou:junk", P(128, 298), FACE.w, { z: SEA - 62 });
   put("suzhou:junk", P(142, 454), FACE.w, { z: SEA - 62 });
   put("suzhou:junk", P(30, 225), -70, { z: SEA - 62 });
   put("suzhou:junk", P(10, 575), -100, { z: SEA - 62 });
-  for (const [u, v, h] of [[150, 196, 95], [120, 150, 80], [175, 360, -85], [60, 350, 100], [165, 505, 90], [80, 680, 40], [120, 760, -60]] as const)
+  for (const [u, v, h] of [[150, 196, 95], [120, 150, 80], [175, 360, -85], [60, 350, 100], [165, 505, 90], [80, 680, 40], [120, 775, -60], [160, 736, 92], [135, 703, -88]] as const)
     put("suzhou:sampan", P(u, v), h, { z: SEA - 30 });
   // cargo and lamps on the quay
   for (let v = 120; v <= 460; v += 50) if (!PIERS.some(([p]) => Math.abs(p - v) < 14)) put("suzhou:lantern_post", P(QUAY + 6, v), FACE.w, { solid: post() });
@@ -259,7 +256,7 @@ export function buildSuzhou(quality: { flowers: number }): Town {
     if (i % 2) lamp(CB[0] - 4, v, FACE.e), lamp(CB[1] + 4, v + 21, FACE.w);
     else willow(CB[0] - 6, v), willow(CB[1] + 6, v + 21);
   }
-  for (const [u, v] of [[412, 130], [CA_END + 8, 487]] as const) willow(u, v);
+  for (const [u, v] of [[412, 130], [CA_END + 10, 490]] as const) willow(u, v);
   // boats in the canals
   for (const [u, v, h] of [[290, 487, 90], [455, 482, -88], [640, 492, 92], [800, 485, -90], [412, 190, 0], [412, 380, 180]] as const)
     put("suzhou:sampan", P(u, v), h, { z: SEA - 28, s: 0.85 });
@@ -354,13 +351,13 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   cwall([742, 222], [742, 302], "w");
   cwall([742, 348], [742, 428], "w");
   cwall([742, 222], [E - 8, 222], "n");
-  cwall([742, 428], [E - 8, 428], "s");
+  cwall([742, 428], [E - 26, 428], "s"); // (to the east gate's side)
   for (const v of [302, 348]) put("suzhou:stone_lion", P(728, v), FACE.w);
   for (const [u, v] of [[704, 286], [704, 364]] as const) lamp(u, v, FACE.w);
   for (const [u, v] of [[790, 250], [790, 400], [812, 250], [812, 400]] as const) put("flora:Pine", P(u, v), rnd() * 360, { s: 0.7 });
   for (const v of [270, 380]) put("suzhou:taihu_rock", P(798, v), rnd() * 360);
 
-  // ---- the smith's forge by the west gate ----
+  // ---- the smith's forge at the foot of the west road, by the fish pier ----
   put("suzhou:forge", P(272, 684), FACE.s);
   put("suzhou:tea_chests", P(250, 692), 0, { s: 0.6 });
 
@@ -385,12 +382,10 @@ export function buildSuzhou(quality: { flowers: number }): Town {
   for (const s of [-1, 1]) put("suzhou:stone_lion", P(619, 652.5 + s * 8.5), FACE.w, { s: 0.7 }), put("suzhou:stone_lion", P(720 + s * 8.5, 562), FACE.n, { s: 0.7 });
   for (const [u, v] of [[640, 640], [640, 666]] as const) lamp(u, v, FACE.w);
 
-  // ---- the causeway out of the west gate: willows and lanterns over the sea ----
-  for (let u = WW - 64; u >= -400; u -= 36) {
-    const i = Math.round((WW - 64 - u) / 36);
-    if (i % 2) lamp(u, WR[0] + 4, FACE.s), lamp(u - 18, WR[1] - 4, FACE.n);
-    else willow(u, WR[0] + 5, 0.8), willow(u - 18, WR[1] - 5, 0.8);
-  }
+  // ---- the quay south of the headland: lamps, the catch in baskets and crates by the fish pier ----
+  for (const v of [650, 690, 760, 800]) lamp(QUAY + 6, v, FACE.w);
+  for (const [u, v, h] of [[226, 700, 15], [224, 748, -20]] as const) put("suzhou:porcelain_jars", P(u, v), h, { s: 0.7 });
+  for (const [u, v] of [[214, 688], [230, 762], [212, 782]] as const) put("common:crate", P(u, v), rnd() * 90);
 
   // ---- the greens left between: trees and garden rocks wherever there is room ----
   town.greens(ground, { x0: P(0, S)[0], x1: P(0, N)[0], y0: P(E, 0)[1], y1: P(QUAY + 40, 0)[1] }, { trees: ["RoundTree", "Bamboo", "Pine", "SmallTree", "Bamboo"], other: "suzhou:taihu_rock", chance: 0.75, step: 460, margin: 300 });
@@ -401,7 +396,8 @@ export function buildSuzhou(quality: { flowers: number }): Town {
     const [u, v] = toPlan(x, y);
     const inside = u > QUAY - 10 && u < E + 25 && v > N - 25 && v < S + 25;
     const road = Math.abs(u - GATE_U) < 45 && (v < N || v > S);
-    return inside || road || u < QUAY + 25 || Math.abs(v - GATE_W_V) < 30;
+    const east = u > E && Math.abs(v - GATE_E_V) < 30;
+    return inside || road || east || u < QUAY + 25;
   };
   const WOODS = { x0: P(0, 1400)[0], x1: P(0, -700)[0], y0: P(1450, 0)[1], y1: P(QUAY, 0)[1] };
   town.woods(WOODS, ["Pine", "Pine", "PineSmall", "Bamboo", "RoundTree", "Pine"], keepOut, { count: 520, tries: 30000, spacing: 360 });
@@ -429,9 +425,9 @@ export function buildSuzhou(quality: { flowers: number }): Town {
     bounds: { minX: P(0, S + 50)[0], maxX: P(0, N - 50)[0], minY: P(E + 35, 0)[1], maxY: P(60, 0)[1] },
     spawn: pt(268, 332),
     npcs: suzhouNpcs(),
-    // north over the mountains toward Noa, south to the rice terraces, west along the causeway
-    // to the cape
-    ...waysOut([gateWay(GATE_N, "n", "west_pass", 760, 760), gateWay(GATE_S, "s", "rice_terraces", 760, 760), gateWay(GATE_W, "w", "west_cape", 900, 760)]),
+    // north up into the western pass, south to the rice terraces, east to the lagoon marsh (the
+    // bounds lie closer outside the east wall: that warp just past the gate's outer face)
+    ...waysOut([gateWay(GATE_N, "n", "west_pass", 760, 760), gateWay(GATE_S, "s", "rice_terraces", 760, 760), gateWay(GATE_E, "e", "lagoon_marsh", 600, 760)]),
     closed: [],
     labels: [
       { ...pt(215, 352), text: "ท่าเรือซูโจว" },
@@ -449,11 +445,11 @@ export function buildSuzhou(quality: { flowers: number }): Town {
       { ...pt(750, 652), text: "สวนหลิว" },
       { ...pt(740, 205), text: "ตรอกโคมแดง", kind: "small" },
       { ...pt(400, 612), text: "ตรอกปลา", kind: "small" },
-      { ...pt(140, 724), text: "ทำนบหลิว", kind: "small" },
+      { ...pt(150, 744), text: "ท่าปลา", kind: "small" },
       { ...pt(272, 700), text: "โรงตีเหล็ก", kind: "small" },
       { x: GATE_N[0] - 650, y: GATE_N[1] - 300, text: "ประตูเหนือ · ช่องเขาตะวันตก", kind: "gate" },
       { x: GATE_S[0] + 650, y: GATE_S[1] - 300, text: "ประตูใต้ · นาขั้นบันได", kind: "gate" },
-      { x: GATE_W[0], y: GATE_W[1] + 650, text: "ประตูตะวันตก · แหลมทะเลตะวันตก", kind: "gate" },
+      { x: GATE_E[0] + 300, y: GATE_E[1] + 650, text: "ประตูตะวันออก · บึงลากูน", kind: "gate" },
     ],
   });
 }
@@ -485,13 +481,13 @@ function suzhouNpcs(): NpcSpec[] {
     { id: "suzhou_guard_n2", ...at(576, 134), face: 180, name: "ทหารยามจาง", title: "ทหารยามประตูเหนือ", role: "talk", look: guard("top_warrior_forest"),
       lines: ["ของบนช่องเขาดุร้ายนัก ถ้ายังไม่แกร่งพออย่าเพิ่งออกไป", "พ่อค้าที่จะไปโนอาส่วนมากนั่งเรือไปอีเดนแล้วเดินบกต่อ ปลอดภัยกว่า"] },
     { id: "suzhou_guard_s1", ...at(544, 788), face: 0, name: "ทหารยามเฉิน", title: "ทหารยามประตูใต้", role: "talk", look: guard(),
-      lines: ["ออกประตูใต้ไปเป็นนาขั้นบันได ข้าวกับใบชาของซูโจวปลูกที่นั่นทั้งหมด", "เดินเลยนาไปทางตะวันออกจะถึงบึงลากูน หมอกพิษหนาจนมองไม่เห็นทาง"] },
+      lines: ["ออกประตูใต้ไปเป็นนาขั้นบันได ข้าวกับใบชาของซูโจวปลูกที่นั่นทั้งหมด", "นาขั้นบันไดลดหลั่นลงไปจนจรดชายหาด ขึ้นไปยืนขั้นบนสุดจะเห็นทะเลตะวันตกสุดสายตา"] },
     { id: "suzhou_guard_s2", ...at(576, 788), face: 0, name: "ทหารยามโจว", title: "ทหารยามประตูใต้", role: "talk", look: guard("top_warrior_forest"),
       lines: ["ช่วงนี้มีของแปลกๆ ลงมากินข้าวในนาตอนกลางคืน ชาวนาบ่นกันทั้งหมู่บ้าน", "ถ้าบาดเจ็บกลับมา ไปหาแม่หมอที่ศาลเจ้าแม่ทับทิมริมท่าเรือนะ"] },
-    { id: "suzhou_guard_w1", ...at(250, 708), face: -90, name: "ทหารยามหม่า", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard(),
-      lines: ["ทำนบหลิวนี้ทอดยาวกลางทะเลไปถึงแหลมทะเลตะวันตก ปลายสุดของทวีป", "ที่แหลมทะเลคลั่งทั้งปี มีซากเรือแตกเต็มหาด กับศาลมังกรทะเลเก่าแก่"] },
-    { id: "suzhou_guard_w2", ...at(250, 732), face: -90, name: "ทหารยามซ่ง", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior_forest"),
-      lines: ["ของที่แหลมนั่นแข็งแกร่งที่สุดในแดนตะวันตก ขนาดทหารเก่าๆ ยังไม่กล้าไป", "เดินบนทำนบระวังลื่น คลื่นซัดขึ้นมาถึงต้นหลิวเลยบางคืน"] },
+    { id: "suzhou_guard_e1", ...at(866, 443), face: 90, name: "ทหารยามหม่า", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard(),
+      lines: ["ออกประตูตะวันออกไปคือบึงลากูน ทางไม้กระดานผุทอดข้ามน้ำไปถึงที่ราบใต้โนอา", "หมอกพิษลอยมาจากบึงทุกเช้า ได้กลิ่นเหม็นเน่าเมื่อไรให้รีบปิดจมูกไว้"] },
+    { id: "suzhou_guard_e2", ...at(866, 477), face: 90, name: "ทหารยามซ่ง", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_forest"),
+      lines: ["ของในบึงนั่นดุร้ายนัก ขนาดทหารเก่าๆ ยังไม่กล้าลงไปลึก", "จะไปแหลมทะเลตะวันตกต้องออกประตูเหนือขึ้นช่องเขา แล้วลงทางตะวันตกไปตามคอแผ่นดิน ปลายสุดของทวีปอยู่ตรงนั้น"] },
     { id: "suzhou_pagoda_keeper", ...at(204, 576), face: -90, name: "ตาเฒ่าโหลว", title: "ผู้เฝ้าเจดีย์ประภาคาร", role: "talk", look: man("top_warrior_navy", "silver", "bottom_warrior_cocoa"),
       lines: ["ข้าจุดไฟบนยอดเจดีย์นี้ทุกคืนมาสี่สิบปีแล้ว เรือสำเภาทุกลำมองหาแสงนี้กลับบ้าน", "ตำนานว่ามังกรทะเลนอนอยู่ใต้คลื่นที่แหลมทะเลตะวันตก ใครลบหลู่ศาลของมัน ทะเลจะคลั่งเจ็ดวันเจ็ดคืน", "คืนเดือนมืดข้าเคยเห็นเกล็ดสีเขียวมรกตเป็นประกายกลางทะเล ยาวกว่าเรือสำเภาสามลำต่อกัน", "ชาวเรือเชื่อว่ามังกรคุ้มครองซูโจวอยู่ ตราบใดที่ไฟบนเจดีย์ยังไม่ดับ"] },
     { id: "suzhou_silk", ...at(338, 425), face: 0, name: "เถ้าแก่ซู", title: "พ่อค้าผ้าไหม", role: "talk", look: man("top_warrior_navy", "ink", "bottom_warrior_cocoa"),
@@ -501,7 +497,7 @@ function suzhouNpcs(): NpcSpec[] {
     { id: "suzhou_fisher", ...at(160, 175), face: -90, name: "อาเฉียง", title: "ชาวประมง", role: "talk", look: man("top_warrior_forest", "auburn", "bottom_warrior_cocoa"),
       lines: ["ปลาทะเลตะวันตกตัวโตกว่าที่ไหน แต่ห้ามออกไปไกลเกินแหลมเด็ดขาด", "เมื่อเดือนก่อนอวนข้าติดเกล็ดใหญ่เท่าฝ่ามือขึ้นมา สีเขียววาวเหมือนหยก ตาเฒ่าโหลวบอกว่าเป็นของมังกร"] },
     { id: "suzhou_clerk", ...at(722, 318), face: 90, name: "ขุนเหวิน", title: "เสมียนจวนเจ้าเมือง", role: "talk", look: man("top_warrior_navy", "ink", "bottom_warrior_black"),
-      lines: ["นี่คือจวนท่านเจ้าเมือง ผู้ดูแลท่าเรือและภาษีการค้าทั้งหมดของซูโจว", "เรือที่เข้าท่าต้องเสียภาษีเป็นใบชาหนึ่งหีบต่อสิบหีบ ท่านเจ้าเมืองเคร่งครัดนัก", "ประตูเหนือไปช่องเขา ประตูใต้ไปนาขั้นบันได ประตูตะวันตกออกทำนบไปแหลม จำไว้ให้ดี"] },
+      lines: ["นี่คือจวนท่านเจ้าเมือง ผู้ดูแลท่าเรือและภาษีการค้าทั้งหมดของซูโจว", "เรือที่เข้าท่าต้องเสียภาษีเป็นใบชาหนึ่งหีบต่อสิบหีบ ท่านเจ้าเมืองเคร่งครัดนัก", "ประตูเหนือไปช่องเขา ประตูใต้ไปนาขั้นบันได ประตูตะวันออกไปบึงลากูน จำไว้ให้ดี"] },
     { id: "suzhou_meimei", ...at(700, 652), face: 90, name: "เสี่ยวเหมย", title: "เด็กหญิงในสวนหลิว", role: "talk", look: woman("top_rose", "bottom_wine", "ink", "twintail", "teal"),
       lines: ["ลอดประตูพระจันทร์เข้ามาแล้วอธิษฐาน ว่ากันว่าจะสมหวังนะ", "ดอกบัวในสระบานตอนเช้า ส่วนหินไท่หูรูพรุนนั่นมาจากก้นทะเลสาบเชียวนะ"] },
   ];
