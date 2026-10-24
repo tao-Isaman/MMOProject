@@ -1,9 +1,9 @@
 // Stats and damage. computeStats folds class, level, passives, masteries, elements, the weapon
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
-import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet } from "./progression";
-import { ITEMS, OFFHAND_DAMAGE, offhandKind } from "./items";
-import type { ElementId, Progress, Race, SkillDef, StatBag } from "./progression";
+import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet, offKind } from "./progression";
+import { ITEMS, OFFHAND_DAMAGE } from "./items";
+import type { ElementId, FormId, Progress, Race, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
 import { rand } from "./particles";
 
@@ -33,6 +33,10 @@ const ZERO = {
   // trade (the wandering merchant's book): a share off what NPC shops charge, a share more for
   // what they buy, extra bag slots, more gold from monsters, a share off a guide's fare
   buyDisc: 0, sellBonus: 0, bagSlots: 0, goldPct: 0, fareDisc: 0,
+  // the fourth jobs': this share of max HP added to attack (after the multipliers); the chance a
+  // monster's blow that lands is struck straight back for 150% of attack (combat.ts counter); how
+  // much more HP the player's allies have and how much harder they hit (allies.ts)
+  hpToAtk: 0, counter: 0, allyPct: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };
@@ -67,8 +71,9 @@ function add(into: Record<string, number>, from: StatBag, k = 1): void {
 
 // progress: Progress; weaponItem: the main-hand weapon's item id or null; buffs: [{ stats }];
 // offhandId: what the off hand holds (a weapon counts for its mastery and half its stats, gear
-// adds its stats); worn: the clothes, hat, shoes, rings and trinkets worn (their stats)
-export function computeStats(progress: Progress, weaponItem: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null, worn: (string | null)[] = []): Stats {
+// adds its stats); worn: the clothes, hat, shoes, rings and trinkets worn (their stats); form:
+// the shape she is in (passives that need one count only in it)
+export function computeStats(progress: Progress, weaponItem: string | null, buffs: { stats: StatBag }[] = [], offhandId: string | null = null, worn: (string | null)[] = [], form: FormId | null = null): Stats {
   const mainItem = weaponItem ? ITEMS[weaponItem] : undefined;
   const weaponId = mainItem?.weapon ?? null;
   const cls = CLASSES[progress.cls ?? "mage"];
@@ -82,7 +87,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
     add(bag, job.bonus);
     add(bag, job.growth, Math.max(0, progress.level - JOB_LEVEL));
   }
-  const offWeapon = offhandKind(offhandId);
+  const offWeapon = offKind(offhandId);
   for (const [id, lv] of Object.entries(progress.elements)) {
     add(bag, ELEMENTS[id].per, lv);
     for (const m of ELEMENTS[id].marks) if (m.stats && lv >= m.at) add(bag, m.stats);
@@ -90,7 +95,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
   for (const treeId of progress.trees()) {
     for (const n of TREES[treeId].nodes) {
       const r = progress.ranks[n.id];
-      if (r && n.kind === "passive" && n.stats && needMet(n.need, weaponId, offWeapon)) add(bag, n.stats(r));
+      if (r && n.kind === "passive" && n.stats && needMet(n.need, weaponId, offWeapon, form)) add(bag, n.stats(r));
     }
   }
   for (const [id, lv] of Object.entries(progress.mastery)) {
@@ -116,6 +121,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
   s.def *= 1 + s.defPct;
   s.mdef *= 1 + s.mdefPct;
   s.mpRegen *= 1 + s.mpRegenPct;
+  s.atk += s.maxHp * s.hpToAtk;
   s.crit = Math.min(CRIT_CAP, s.crit);
   s.cdr = Math.min(0.5, s.cdr);
   s.castRed = Math.min(0.6, s.castRed);
@@ -128,6 +134,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
   s.magicDodge = Math.min(0.6, s.magicDodge);
   s.statusRes = Math.min(STATUS_RES_CAP, s.statusRes);
   s.doubleHit = Math.min(0.6, s.doubleHit);
+  s.counter = Math.min(0.6, s.counter);
   return s;
 }
 

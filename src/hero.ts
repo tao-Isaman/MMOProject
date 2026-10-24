@@ -1,12 +1,14 @@
 // The player's live state in a fight: HP, MP, shield, buffs, skill cooldowns, death. Besides the
-// buffs, two things go into the stats here: the third job's bonus and growth (job3Stats) and
-// whatever the kind of map underfoot gives (terrain passives and buffs, src/terrain.ts).
+// buffs, three things go into the stats here: the third job's bonus and growth (job3Stats),
+// whatever the kind of map underfoot gives (terrain passives and buffs, src/terrain.ts) and the
+// element orbs she holds (an orb skill's buff for each). The shape she is in (a druid's form) is
+// a buff of her own that marks it; falling takes it and the orbs away.
 
 import { computeStats } from "./stats";
 import type { Stats } from "./stats";
-import { TREES, job3Stats, needMet } from "./progression";
-import type { ElementId, Progress, StatBag } from "./progression";
-import { ITEMS, offhandKind } from "./items";
+import { ACTIVES, TREES, job3Stats, needMet, offKind } from "./progression";
+import type { ElementId, FormId, Progress, StatBag } from "./progression";
+import { ITEMS } from "./items";
 import type { TerrainKind } from "./terrain";
 
 export interface Buff {
@@ -18,7 +20,15 @@ export interface Buff {
   enchant?: ElementId; // the weapon hits in this element while it lasts
   // a terrain buff: its own stats, and more by the kind of map (stats is the sum for the one now)
   terrain?: { base: StatBag; by: Partial<Record<TerrainKind, StatBag>> };
+  form?: FormId; // the shape she is in while it lasts (its id: the form skill's)
 }
+
+// An element orb held (SkillDef type "orb"): the skill that called it and its element.
+export interface Orb {
+  id: string;
+  el: ElementId;
+}
+export const MAX_ORBS = 3;
 
 // Two bags of stats added up.
 function plus(a: StatBag, b: StatBag | undefined): StatBag {
@@ -50,6 +60,7 @@ export class Hero {
   regenMp = 0;
   mp = Infinity;
   terrain: TerrainKind = "town"; // the kind of map she stands on (main.ts sets it on every map)
+  orbs: Orb[] = [];               // oldest first
 
   // weapon(), offhand(): what each hand holds; worn(): the hat, shoes, rings and trinkets
   constructor(progress: Progress, weapon: () => string | null, offhand: () => string | null = () => null, worn: () => (string | null)[] = () => []) {
@@ -68,7 +79,9 @@ export class Hero {
 
   recompute(): void {
     const more = [{ stats: job3Stats(this.progress) }, { stats: this.terrainPassives() }];
-    this.stats = computeStats(this.progress, this.weapon(), [...this.buffs, ...more], this.offhand(), this.worn());
+    // each orb its skill's buff at that skill's rank (two of one element: twice)
+    const orbs = this.orbs.map((o) => ({ stats: ACTIVES[o.id]?.skill.buff?.(this.progress.skillRank(o.id)) ?? {} }));
+    this.stats = computeStats(this.progress, this.weapon(), [...this.buffs, ...more, ...orbs], this.offhand(), this.worn(), this.form?.form ?? null);
     this.hp = Math.min(this.hp, this.stats.maxHp);
     this.mp = Math.min(this.mp, this.stats.maxMp);
   }
@@ -128,6 +141,10 @@ export class Hero {
     if (this.hp <= 0) {
       this.hp = 0;
       this.dead = RESPAWN_TIME;
+      // she falls as herself, and her orbs go
+      this.orbs = [];
+      this.buffs = this.buffs.filter((b) => !b.form);
+      this.recompute();
       return { lost, absorbed, died: true };
     }
     return { lost, absorbed };
@@ -154,6 +171,39 @@ export class Hero {
     this.recompute();
   }
 
+  // The shape she is in (a form skill's buff), if any.
+  get form(): Buff | undefined {
+    return this.buffs.find((b) => b.form);
+  }
+
+  // Into a shape for `duration` s with its stats (out of any other first).
+  takeForm(id: string, name: string, form: FormId, stats: StatBag, duration: number): void {
+    this.buffs = this.buffs.filter((b) => !b.form);
+    this.buffs.push({ id, name, stats, t: duration, duration, form });
+    this.recompute();
+  }
+
+  // Herself again. Whether she was in a shape.
+  endForm(): boolean {
+    if (!this.form) return false;
+    this.buffs = this.buffs.filter((b) => !b.form);
+    this.recompute();
+    return true;
+  }
+
+  // An orb of `el` from orb skill `id`: a fourth sends the oldest away.
+  addOrb(id: string, el: ElementId): void {
+    this.orbs.push({ id, el });
+    if (this.orbs.length > MAX_ORBS) this.orbs.shift();
+    this.recompute();
+  }
+
+  // What an invoke reads the orbs as: their elements sorted and joined by "+" ("fire+fire+ice"),
+  // or null while fewer than three are held.
+  get orbKey(): string | null {
+    return this.orbs.length < MAX_ORBS ? null : this.orbs.map((o) => o.el).sort().join("+");
+  }
+
   // On to another kind of map: the terrain buffs and passives change with it.
   setTerrain(kind: TerrainKind): void {
     this.terrain = kind;
@@ -164,11 +214,11 @@ export class Hero {
   // What the learned passives with terrain stats give on this kind of map (while their need is met).
   terrainPassives(): StatBag {
     let out: StatBag = {};
-    const main = this.weapon(), w = (main && ITEMS[main]?.weapon) ?? null, off = offhandKind(this.offhand());
+    const main = this.weapon(), w = (main && ITEMS[main]?.weapon) ?? null, off = offKind(this.offhand()), form = this.form?.form ?? null;
     for (const tree of this.progress.trees()) {
       for (const n of TREES[tree]?.nodes ?? []) {
         const r = this.progress.ranks[n.id];
-        if (r && n.terrain && needMet(n.need, w, off)) out = plus(out, n.terrain(r)[this.terrain]);
+        if (r && n.terrain && needMet(n.need, w, off, form)) out = plus(out, n.terrain(r)[this.terrain]);
       }
     }
     return out;

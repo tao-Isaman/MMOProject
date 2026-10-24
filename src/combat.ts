@@ -1,17 +1,18 @@
-// Hits: normal attacks per weapon type, projectiles (arrows, staff bolts and skill shots),
-// burning, and the floating numbers. Damage numbers come from stats.js.
+// Hits: normal attacks per weapon type (and a druid's in a form), projectiles (arrows, staff
+// bolts and skill shots), the counter, burning, and the floating numbers. Damage numbers come
+// from stats.js.
 
 import { mapX, mapY, S2, toView } from "./projection";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
-import { basicDamage, isMagic, poisonScale, lucky } from "./stats";
+import { basicDamage, isMagic, poisonScale, lucky, skillDamage } from "./stats";
 import type { Hit, Stats } from "./stats";
 import type { Hero } from "./hero";
 import type { Monster } from "./monsters";
 import type { Target } from "./player";
-import type { ElementId } from "./progression";
+import type { ElementId, SkillDef } from "./progression";
 import type { Img, Textures, Vec2, View } from "./types";
 
 export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
@@ -29,6 +30,21 @@ export function weaponStats(weaponId: string | null, stats: Stats | null = null)
     projectile: w.projectile && { ...w.projectile, range: w.projectile.range * reach },
   };
 }
+
+// A form's normal attack (SkillDef.formAttack) as a weapon to swing: a blow `reach` in front, or
+// a shot as far as `range`, one every `every` s, with the wielder's attack speed and reach.
+export type FormAttack = NonNullable<SkillDef["formAttack"]>;
+export function formWeapon(fa: FormAttack, stats: Stats): WeaponType {
+  const reach = 1 + stats.reach;
+  return {
+    name: "ร่างแปลง", motion: "swing", hit: "arc", arc: 100, reach: (fa.reach ?? 130) * reach, damage: [0, 0],
+    interval: (fa.every ?? 1) / (1 + stats.aspd),
+    projectile: fa.kind === "ranged" ? { kind: "bolt", speed: 950, range: (fa.range ?? 560) * reach, radius: 26 } : undefined,
+  };
+}
+
+// The counter: 150% of attack (and the weapon in hand), a physical skill hit.
+const COUNTER: SkillDef = { type: "cone", stat: "atk", mult: () => 1.5, mp: 0, cd: 0, motion: "swing", color: "#ffd27a" };
 
 // How close the player walks before attacking a target with this weapon.
 export function attackRange(w: WeaponType): number {
@@ -276,6 +292,49 @@ export class Combat {
     if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir: at, w, m: near ? target : null });
   }
 
+  // A normal attack in a form (the druid's): a blow at the one in front within reach, or a shot in
+  // the form's colour that homes in on it; `mult` of attack (or magic attack) in its element,
+  // `heal` of the damage done back as HP. Like a weapon's blow, it may set an autocast going.
+  formStrike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, fa: FormAttack, rank: number, w: WeaponType, color: string): void {
+    const blow: SkillDef = { type: "cone", stat: fa.stat ?? "atk", element: fa.element, mult: fa.mult, mp: 0, cd: 0, motion: "swing", color };
+    const origin = { x: player.x, y: player.y };
+    const land = (m: Monster, d: Vec2) => {
+      const r = skillDamage(this.hero.stats, this.hero.progress.elements, blow, rank, m);
+      this.apply(m, r, d);
+      if (r.miss) return;
+      if (fa.element) this.onElement?.(m, fa.element, r.dmg);
+      const got = fa.heal && this.hero.alive ? this.hero.heal(r.dmg * fa.heal(rank)) : 0;
+      if (got >= 1) this.floaters.add(player.x, player.y, 130, `+${Math.round(got)}`, "heal");
+      this.onBasicHit?.(m);
+    };
+    const dir = player.aimDir();
+    if (w.projectile) {
+      const p = w.projectile, target = this.lockOn(player, dir, p.range);
+      const aim = target ? this.toward(origin, target) : dir;
+      this.shoot(origin, aim, { kind: "skill", speed: p.speed, range: p.range, radius: p.radius, color, target, onHit: land });
+      return;
+    }
+    const target = this.lockOn(player, dir, w.reach + 40);
+    const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
+    const at = near ? this.toward(origin, target) : dir;
+    if (near) land(target, at);
+    this.slashFx(origin, at, w);
+  }
+
+  // The counter stat: a monster whose blow just landed on the player (from close by) is struck
+  // straight back, "สวนกลับ" over her. w: the weapon in hand (its power), null without one.
+  counter(m: Monster, from: Vec2, w: WeaponType | null): void {
+    const dir = this.toward(from, m);
+    this.floaters.add(from.x, from.y, 165, "สวนกลับ", "level");
+    this.apply(m, skillDamage(this.hero.stats, this.hero.progress.elements, COUNTER, 1, m, w), dir);
+    this.slashFx(from, dir, w ?? UNARMED);
+  }
+
+  private toward(a: Vec2, b: Vec2): Vec2 {
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+    return { x: dx / d, y: dy / d };
+  }
+
   // Launch a projectile from `origin` along unit `aim`: { kind, speed, range, radius, pierce,
   // color, onHit(monster, dir) }.
   shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
@@ -389,7 +448,7 @@ export class Combat {
       p.left -= step;
       p.age += dt;
       if (p.kind !== "arrow") {
-        this.fx.add({ x: p.x, y: p.y, z: p.z, layer: AIR_GLOW, tex: p.kind === "bolt" ? this.tex.mint : this.tex.sparkle, life: 0.25,
+        this.fx.add({ x: p.x, y: p.y, z: p.z, layer: AIR_GLOW, tex: p.color ? this.tex.glowFor(p.color) : p.kind === "bolt" ? this.tex.mint : this.tex.sparkle, life: 0.25,
           size: [[0, p.kind === "wave" ? 40 : 26], [1, 6]], alpha: [[0, 0.6], [1, 0]] });
       }
       let gone = p.left <= 0;
@@ -453,7 +512,7 @@ export class Combat {
       } else {
         const r = (p.kind === "wave" ? 26 : 16) * k;
         ctx.globalCompositeOperation = "lighter";
-        ctx.drawImage(this.tex.flash, px - r, py - r, r * 2, r * 2);
+        ctx.drawImage(p.color ? this.tex.glowFor(p.color) : this.tex.flash, px - r, py - r, r * 2, r * 2);
         ctx.globalCompositeOperation = "source-over";
       }
     }

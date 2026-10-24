@@ -6,9 +6,9 @@ import type { Look } from "./ui";
 import { skillIcon, hasArt, icon } from "./icons";
 import {
   TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
-  JOBS, AUTOCAST, jobGlyph,
+  JOBS, AUTOCAST, jobGlyph, offKind,
 } from "./progression";
-import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText, offhandKind } from "./items";
+import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
 import type { WeaponId } from "./items";
 import type { Inventory } from "./inventory";
 import { starterForm, defaultStart } from "./starter";
@@ -38,7 +38,8 @@ function roleIcon(p: Progress): string | null {
   return glyphPics.get(key)!;
 }
 
-// Tooltip text for an active skill at a rank.
+// Tooltip text for an active skill at a rank (an invoke: its spells by their orbs, instead of
+// its own MP and cooldown).
 export function skillTip(id: string, rank: number): string {
   const a = ACTIVES[id], s = a.skill;
   const r = Math.max(1, rank);
@@ -46,7 +47,16 @@ export function skillTip(id: string, rank: number): string {
   const where = a.source.tree ? `ต้น${TREES[a.source.tree].name}` : `ความเชี่ยวชาญ${MASTERIES[a.source.mastery!].name} ระดับ ${a.source.at}`;
   // what its hits are made of, for the skills that do damage
   const element = s.mult ? ` · ${s.element ? `<span style="color:${ELEMENTS[s.element].color}">ธาตุ${ELEMENTS[s.element].name}</span>` : "ไร้ธาตุ"}` : "";
-  return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>MP ${mpCost(id, r)} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}${element}<br>${desc}`;
+  const cost = s.invoke ? invokeLines(id, r).join("<br>") : `MP ${mpCost(id, r)} · คูลดาวน์ ${s.cd} วิ${s.cast ? ` · ร่าย ${s.cast} วิ` : ""}${element}`;
+  return `<strong>${a.name}${a.max > 1 ? ` · ระดับ ${rank}/${a.max}` : ""}</strong>${where}<br>${cost}<br>${desc}`;
+}
+
+// An invoke's spells, one a line: the orbs in their colours, the spell, its MP and cooldown (html).
+function invokeLines(id: string, rank: number): string[] {
+  return Object.entries(ACTIVES[id]?.skill.invoke ?? {}).map(([key, sp]) => {
+    const orbs = key.split("+").map((e) => `<span style="color:${ELEMENTS[e].color}">●</span>`).join("");
+    return `${orbs} ${sp.name} · MP ${mpCost(id, rank, sp.skill.mp)} · ${sp.skill.cd} วิ`;
+  });
 }
 
 // ---- HP / MP / EXP ----
@@ -230,7 +240,8 @@ export class ProfileUI {
     this.table.replaceChildren(...Object.entries(STAT_NAMES).map(([k, name]) => {
       const row = el("div", "st-row");
       el("span", "", row).textContent = name;
-      el("b", "", row).textContent = fmt(k, s[k as keyof Stats]);
+      // (HP to attack: what it adds now, already in the attack above)
+      el("b", "", row).textContent = fmt(k, s[k as keyof Stats]) + (k === "hpToAtk" && s.hpToAtk ? ` (+${Math.round(s.maxHp * s.hpToAtk)})` : "");
       return row;
     }));
     // attack / defence in every element the character knows (and any other it has some of)
@@ -343,7 +354,7 @@ function rankParts(node: TreeNode, r: number): string[] {
   if (node.kind === "passive") return node.stats ? [bagText(node.stats(r))] : [];
   const s = node.skill!, out: string[] = [];
   if (s.mult) out.push(`${pct(s.mult(r))} ของ${statName(s)}${s.hits ? ` × ${s.hits}` : s.pulses ? ` × ${s.pulses}` : s.ticks ? ` × ${s.ticks}` : ""}`);
-  if (s.heal) out.push(`ฟื้น ${pct(s.heal(r))} HP สูงสุด`);
+  if (s.heal) out.push(`ฟื้น ${pct(s.heal(r))} HP สูงสุด${s.hot ? ` ใน ${s.ticks ?? 5} วิ` : ""}`);
   if (s.base) out.push(s.type === "summon" || s.type === "decoy" ? `HP ${pct(s.base(r))} ของ HP สูงสุด` : `โล่ ${pct(s.base(r))} MP สูงสุด`);
   if (s.combo) out.push(`คอมโบ +${pct(s.combo.more(r))}`);
   if (s.manaBurn) out.push(`ใส่ตัวร่ายเวท +${pct(s.manaBurn(r))}`);
@@ -354,7 +365,11 @@ function rankParts(node: TreeNode, r: number): string[] {
   if (s.weaken) out.push(`ศัตรูตีเบาลง ${pct(s.weaken(r))}`);
   if (s.expose) out.push(`ศัตรูโดนแรงขึ้น ${pct(s.expose(r))}`);
   if (s.blind) out.push(`ตาบอด ${num(s.blind(r))} วิ`);
-  if (s.buff) out.push(bagText(s.buff(r)));
+  if (s.buff) out.push(`${bagText(s.buff(r))}${s.type === "orb" ? " ต่อลูก" : ""}`);
+  // a form's blow, an invoke's spells
+  const fa = s.formAttack;
+  if (fa) out.push(`ตีปกติ ${pct(fa.mult(r))} ของ${fa.stat === "matk" ? "พลังเวท" : "พลังโจมตี"}${fa.heal ? ` ฟื้น ${pct(fa.heal(r))} ของดาเมจ` : ""}`);
+  if (s.invoke) out.push(`เวท ${Object.keys(s.invoke).length} แบบ`);
   out.push(`MP ${mpCost(node.id, r)}`);
   return out;
 }
@@ -493,9 +508,9 @@ export class SkillUI {
   }
 
   // `id`: the skill whose picture to show if it has one (null for trees, masteries, elements)
-  // The weapon type in the off hand (null: empty, or not a weapon).
+  // What the off hand holds (offKind: a weapon type, "shield", "gear", null when empty).
   offWeapon(): string | null {
-    return offhandKind(this.hero.offhand());
+    return offKind(this.hero.offhand());
   }
 
   skillIcon(parent: HTMLElement, id: string | null, glyph: string, color: string, activeId: string | null | undefined, learned: boolean): HTMLElement {
@@ -733,8 +748,8 @@ export class SkillUI {
     }
     el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
     if (n.need) {
-      const ok = needMet(n.need, this.weapon(), this.offWeapon());
-      el("p", ok ? "sk-ok" : "sk-miss", panel).textContent = `${ok ? "✓" : "✗"} ${n.kind === "active" ? "ใช้ได้เมื่อถือ" : "ได้ผลเมื่อถือ"}${needText(n.need, (w) => WEAPON_TYPES[w].name)}`;
+      const ok = needMet(n.need, this.weapon(), this.offWeapon(), this.hero.form?.form ?? null);
+      el("p", ok ? "sk-ok" : "sk-miss", panel).textContent = `${ok ? "✓" : "✗"} ${n.kind === "active" ? "ใช้ได้เมื่อ" : "ได้ผลเมื่อ"}${needText(n.need, (w) => WEAPON_TYPES[w].name)}`;
     }
     if (n.kind === "active" && n.skill) {
       const s = n.skill;
@@ -743,7 +758,8 @@ export class SkillUI {
       const cast = s.cast ? ` · ร่าย ${+(s.cast * (1 - red)).toFixed(2)} วิ${red ? ` (ปกติ ${s.cast})` : ""}` : "";
       // (MP grows with the rank: the next rank's is shown while it can still be raised)
       const mpNow = mpCost(n.id, Math.max(1, rank)), mpNext = rank && rank < n.max ? mpCost(n.id, rank + 1) : mpNow;
-      el("p", "sk-meta", panel).textContent = `MP ${mpNow}${mpNext !== mpNow ? ` (ระดับถัดไป ${mpNext})` : ""} · คูลดาวน์ ${s.cd} วิ${cast}`;
+      if (s.invoke) for (const line of invokeLines(n.id, Math.max(1, rank))) el("p", "sk-meta", panel).innerHTML = line;
+      else el("p", "sk-meta", panel).textContent = `MP ${mpNow}${mpNext !== mpNow ? ` (ระดับถัดไป ${mpNext})` : ""} · คูลดาวน์ ${s.cd} วิ${cast}`;
     }
 
     // requirements
