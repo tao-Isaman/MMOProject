@@ -156,6 +156,11 @@ export function build(quality: { flowers: number }): Town {
       const cx = x + rndP() * 420, cy = y + rndP() * 420, k = Math.max(thawS(cx), thawE(cy)), r = 420 * (0.35 + 0.45 * k) * (0.8 + rndP() * 0.4);
       if (k > 0.02 && rndP() < k) patches.push(blobPoly([cx, cy], r * (0.8 + rndP() * 0.5), r * (0.7 + rndP() * 0.4), 5400 + patches.length, 0.22, 14));
     }
+  // and here and there all over, where the wind has blown the snow thin and the grass shows
+  for (let i = 0; i < 40; i++) {
+    const c: XY = [-5200 + rndP() * 9600, -5200 + rndP() * 10000], r = 160 + rndP() * 320;
+    if (!inPoly(SEA, c[0], c[1]) && toLine(c, SHORE) > r + 200) patches.push(blobPoly(c, r * (0.9 + rndP() * 0.5), r * (0.7 + rndP() * 0.4), 5600 + patches.length, 0.22, 14));
+  }
   const snow = f.ground({ area, roads, plazas: [], water: [SEA, ...patches], base: "snow", road: ROAD });
   snow.mesh.position.y += 6;
   snow.mesh.renderOrder = 2;
@@ -326,12 +331,15 @@ export function build(quality: { flowers: number }): Town {
   // ---- the snow pine forest over the south and the middle: groves with glades between, fallen
   // trees and stumps; toward the primeval forest pines without snow and broadleaves among them ----
   const kindsAt = (x: number) => (x < -3600 ? ["Pine", "SnowPine", "PineSmall", "Birch", "SnowPineSmall"] : x < -2400 ? ["SnowPine", "Pine", "SnowPineSmall", "SnowPine"] : ["SnowPine", "SnowPineSmall", "SnowPine", "SnowPineSmall"]);
+  // (stands of pines up on the terraces, in the lee of the upper ones)
+  const TERRACE_STANDS: [XY, number][] = [[[-1900, 2700], 650], [[-2300, 4100], 500], [[-900, 4000], 500], [[600, 3900], 450], [[-1300, 1900], 450], [[2300, 4300], 400]];
   const GLADES: [XY, number][] = [[HUB, 650], [[-3000, -2600], 700], [[-3600, 2500], 800], [[-500, -3300], 600], [[-4300, -4200], 700], [[700, -2200], 600], [[-2400, 1000], 500]];
   for (let x = -R + 150; x < R; x += 420)
     for (let y = -R + 150; y < R; y += 420) {
       const px = x + (rnd() - 0.5) * 340, py = y + (rnd() - 0.5) * 340;
       const floor = f.h(px, py) < 200, edge = Math.min(R - Math.abs(px), R - Math.abs(py));
-      const want = !floor ? (px < 2500 ? 0.12 : 0.04) : edge < 800 ? 0.65 : 0.46;
+      const stand = TERRACE_STANDS.some(([c, r]) => Math.hypot(px - c[0], py - c[1]) < r);
+      const want = !floor ? (stand ? 0.6 : px < 2500 ? 0.1 : 0.03) : edge < 800 ? 0.65 : 0.46;
       if (rnd() > want || GLADES.some(([c, r]) => Math.hypot(px - c[0], py - c[1]) < r) || inPoly(BEACH, px, py) || nearTrack(px, py, 330) || !free(px, py, 160, 40)) continue;
       const kinds = kindsAt(px);
       put(`flora:${kinds[Math.floor(rnd() * kinds.length)]}`, [px, py], rnd() * 360, { s: 0.75 + rnd() * 0.35 });

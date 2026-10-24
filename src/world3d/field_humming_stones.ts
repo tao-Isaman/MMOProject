@@ -68,8 +68,9 @@ const WD: XY[] = [
 ];
 // (its seaward side a little out past the down's, so its cliffs go straight down to the sea)
 const HP: XY[] = [[2700, 3700], [2800, 2500], [3300, 2250], [3800, 2200], [4400, 2270], [4880, 2750], [5000, 3500], [4730, 4110], [4250, 4430], [3500, 4580], [3050, 4400]];
-const RIDGE_E: XY[] = [[-6250, -450], [-6400, -2000], [-6200, -3500], [-6500, -5000], [-6300, -A], [-A, -A], [-A, -450]];
-const RIDGE_W: XY[] = [[-A, 1050], [-6200, 1050], [-6450, 2500], [-6250, 4000], [-6400, 5200], [-6600, 6100], [-A, 6300]];
+// (the gap between them just where the downs' own ridge leaves its gap, so the two run on as one)
+const RIDGE_E: XY[] = [[-6250, -250], [-6400, -2000], [-6200, -3500], [-6500, -5000], [-6300, -A], [-A, -A], [-A, -250]];
+const RIDGE_W: XY[] = [[-A, 900], [-6250, 900], [-6450, 2500], [-6250, 4000], [-6400, 5200], [-6600, 6100], [-A, 6300]];
 
 // ramps: top on the edge, bottom out below
 const RE1 = rampOff([-500, -2950], [700, -2800], [0, -4000], 1250, 460);
@@ -151,9 +152,11 @@ export function build(_quality: { flowers: number }): Town {
       const cx = x + rndP() * 420, cy = y + rndP() * 420, k = thaw(cx), r = 420 * (0.35 + 0.45 * k) * (0.8 + rndP() * 0.4);
       if (rndP() < k) patches.push(blobPoly([cx, cy], r * (0.8 + rndP() * 0.5), r * (0.7 + rndP() * 0.4), 5200 + patches.length, 0.22, 14));
     }
-  // and a few in the lee of the valley's rises, where the wind has blown the snow off
-  for (const [c, r] of [[[-2300, -2600], 380], [[1650, -1650], 300], [[-1300, 700], 280], [[-4500, -3100], 420], [[-200, 3700], 300], [[-2600, 3300], 360]] as [XY, number][])
-    patches.push(blobPoly(c, r * 1.2, r, 5300 + patches.length, 0.2, 14));
+  // and here and there all over, where the wind has blown the snow thin and the grass shows
+  for (let i = 0; i < 46; i++) {
+    const c: XY = [-5200 + rndP() * 9400, -5200 + rndP() * 9800], r = 160 + rndP() * 340;
+    if (!inPoly(SEA, c[0], c[1]) && toLine(c, SHORE) > r + 200) patches.push(blobPoly(c, r * (0.9 + rndP() * 0.5), r * (0.7 + rndP() * 0.4), 5300 + patches.length, 0.22, 14));
+  }
   const snow = f.ground({ area, roads, plazas: [], water: [SEA, ...patches], base: "snow", road: ROAD });
   snow.mesh.position.y += 4;
   snow.mesh.renderOrder = 1;
@@ -305,13 +308,16 @@ export function build(_quality: { flowers: number }): Town {
   // ---- snow pines: thick at the field's edges and in stands down the valley's sides, thin out
   // in the middle and up on the levels; glades kept round the landmarks; a few snapped ----
   const GLADES: [XY, number][] = [[GROVE, 1250], [HARP, 900], [HERMIT, 900], [FORT, 1300], [HUB, 600], [E_EXIT, 900], [S_EXIT, 900], ...CAVES.map(([c]): [XY, number] => [c, 650])];
-  const STANDS: [XY, number][] = [[[-2600, -3300], 900], [[-4400, -4300], 1000], [[-1700, 1900], 800], [[1800, -2200], 700], [[-300, -3500], 600], [[2500, -4500], 900], [[-3300, 3300], 900], [[-4800, 900], 700], [[2200, 1300], 500], [[-2700, -800], 600]];
-  for (let x = -R + 150; x < R; x += 500)
-    for (let y = -R + 150; y < R; y += 500) {
-      const px = x + (rnd() - 0.5) * 400, py = y + (rnd() - 0.5) * 400;
+  const STANDS: [XY, number][] = [
+    [[-2600, -3300], 900], [[-4400, -4300], 1000], [[-1700, 1900], 800], [[1800, -2200], 700], [[-300, -3500], 600], [[2500, -4500], 900], [[-3300, 3300], 900], [[-4800, 900], 700],
+    [[2200, 1300], 600], [[-2700, -800], 600], [[1700, 2100], 500], [[-500, 1500], 550], [[2600, -1700], 450], [[1500, 3700], 600], [[-1500, 3900], 650], [[-600, -2400], 450], [[3300, -5000], 600],
+  ];
+  for (let x = -R + 150; x < R; x += 360)
+    for (let y = -R + 150; y < R; y += 360) {
+      const px = x + (rnd() - 0.5) * 300, py = y + (rnd() - 0.5) * 300;
       const edge = Math.min(R - Math.abs(px), R - Math.abs(py)), stand = STANDS.some(([c, r]) => Math.hypot(px - c[0], py - c[1]) < r);
-      const want = edge < 650 ? 0.55 : stand ? 0.6 : f.h(px, py) > 200 ? 0.12 : 0.2;
-      if (rnd() > want || GLADES.some(([c, r]) => Math.hypot(px - c[0], py - c[1]) < r) || inPoly(BEACH, px, py) || nearTrack(px, py, 330) || !free(px, py, 170, 150)) continue;
+      const want = edge < 650 ? 0.45 : stand ? 0.78 : f.h(px, py) > 200 ? 0.09 : 0.15;
+      if (rnd() > want || GLADES.some(([c, r]) => Math.hypot(px - c[0], py - c[1]) < r) || inPoly(BEACH, px, py) || nearTrack(px, py, 330) || !free(px, py, 140, 20)) continue;
       put(`flora:${["SnowPine", "SnowPineSmall", "SnowPine", "SnowPineSmall", "PineSmall"][Math.floor(rnd() * 5)]}`, [px, py], rnd() * 360, { s: 0.7 + rnd() * 0.4 });
       take(px, py, 170);
     }
