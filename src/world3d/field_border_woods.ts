@@ -8,7 +8,9 @@
 //   - east, the ward hill: a broad rise (3 m) and on it a higher crag (6.4 m) where an old
 //     rune circle of Kradia's mages still holds a seal, its keeper beside it (ramps up both);
 //   - a pond in a glade by the bluff, an old lumber clearing in the south-east, hills and a
-//     hollow between.
+//     hollow between;
+//   - (v0.4) a track west from the main one past the pond's glade to the golden maples (the
+//     west edge), and one south from the lumber track to the witch's cape (the south edge).
 // Full size, north +X, west +Y; finishField scales it by TOWN_SCALE.
 
 import * as THREE from "three";
@@ -50,6 +52,12 @@ const OLD_MAPLE: XY = [3650, 3550];
 const POND_C: XY = [-150, 2350];
 const CLEARING: XY = [-3600, -2600];
 const EXIT: XY = [5150, 300], BACK: XY = [4450, 330];
+// ---- v0.4: the ways west to the golden maples and south to the witch's cape, where their own
+// ways out are ----
+const EXIT_W: XY = [600, 5150], BACK_W: XY = [620, 4450];
+const EXIT_S: XY = [-5150, 0], BACK_S: XY = [-4450, -20];
+const TO_GOLDEN: XY[] = chaikin([[700, 150], [900, 1100], [950, 2000], [900, 3200], [700, 4300], EXIT_W, [600, A + 200]], 2);
+const TO_CAPE: XY[] = chaikin([[-2300, -600], [-3100, -350], [-4100, -150], EXIT_S, [-A - 200, 0]], 2);
 
 export function build(_quality: { flowers: number }): Town {
   const f = new FieldBuilder(109, {
@@ -81,11 +89,12 @@ export function build(_quality: { flowers: number }): Town {
   const TO_CLEARING = chaikin([[700, 150], [-200, -150], [-1300, -250], [-2300, -600], [-3100, -1200], [-3500, -2100], CLEARING], 2);
   const TO_POND = chaikin([[0, 600], [-50, 1100], [-150, 1650]], 1);
   const RAMP_PATHS: XY[][] = RAMPS.map((r) => [r.bottom, r.top]);
-  const PATHS = [MAIN, CAMP_PATH, TO_KNOLL, ON_KNOLL, TO_WARD, ON_WARD, ON_CRAG, TO_CLEARING, TO_POND, ...RAMP_PATHS];
+  const PATHS = [MAIN, CAMP_PATH, TO_KNOLL, ON_KNOLL, TO_WARD, ON_WARD, ON_CRAG, TO_CLEARING, TO_POND, ...RAMP_PATHS, TO_GOLDEN, TO_CAPE];
   const roads: Poly[] = [
     bandPoly(MAIN, 470, 60), bandPoly(CAMP_PATH, 430, 40), bandPoly(TO_KNOLL, 420, 40), bandPoly(ON_KNOLL, 400, 40),
     bandPoly(TO_WARD, 440, 50), bandPoly(ON_WARD, 420, 40), bandPoly(ON_CRAG, 400), bandPoly(TO_CLEARING, 400, 50), bandPoly(TO_POND, 360, 30),
     ...RAMPS.map((r) => bandPoly([r.bottom, r.top], r.width - 40)),
+    bandPoly(TO_GOLDEN, 420, 40), bandPoly(TO_CAPE, 420, 40),
   ];
   // the pond: a ragged oval in the glade under the bluff
   const POND: XY[] = [];
@@ -115,6 +124,13 @@ export function build(_quality: { flowers: number }): Town {
   put("kradia:arcane_lamp", [4250, 0], 0);
   put("kradia:barricade", [5150, -500], 90);
   put("kradia:barricade", [5150, 1150], 90);
+
+  // ---- v0.4: the ways out to the golden maples (west) and the witch's cape (south) ----
+  f.exit("golden_maples", EXIT_W, BACK_W);
+  f.exit("witch_cape", EXIT_S, BACK_S);
+  put("frontier:signpost", [1150, 4650], -90);
+  put("kradia:banner_pole", [-4900, 600], 0);
+  put("frontier:signpost", [-4600, -550], 0);
 
   // ---- the outpost on the bluff ----
   f.wall([CAMP.x1, CAMP.y0], [CAMP.x1, CAMP.y1], "n", "frontier:palisade", { gaps: [GATE[1] - CAMP.y0], len: 400, gap: 560 });
@@ -185,7 +201,7 @@ export function build(_quality: { flowers: number }): Town {
   ];
   const keep = (x: number, y: number) =>
     onTrack(x, y, 430) || nearRamp(RAMPS, x, y, 260) || inCamp(x, y, 450) || near(GATE, x, y, 900) || near(POND_C, x, y, 900) ||
-    near(WARD_CIRCLE, x, y, 1000) || near(OLD_MAPLE, x, y, 650) || near(CLEARING, x, y, 1000) || near(EXIT, x, y, 900);
+    near(WARD_CIRCLE, x, y, 1000) || near(OLD_MAPLE, x, y, 650) || near(CLEARING, x, y, 1000) || near(EXIT, x, y, 900) || near(EXIT_W, x, y, 900) || near(EXIT_S, x, y, 900);
   const KINDS = ["frontier:red_maple", "frontier:red_maple", "frontier:red_maple", "flora:AutumnTree", "flora:AutumnTree", "flora:AutumnTree", "flora:PineSmall", "flora:Pine", "flora:Birch", "frontier:red_bush"];
   for (let x = -R + 260; x < R; x += 540)
     for (let y = -R + 260; y < R; y += 540) {
@@ -213,7 +229,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- the rim: thick woods all round outside the bounds (on the bluff and the ward hill too),
   // the road on north to Kradia left open ----
-  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || distToPath(MAIN, x, y) < 450;
+  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || distToPath(MAIN, x, y) < 450 || distToPath(TO_GOLDEN, x, y) < 450 || distToPath(TO_CAPE, x, y) < 450;
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["red_maple"], rimOut, { count: 260, tries: 5000, spacing: 520, kit: "frontier" });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["AutumnTree", "AutumnTree", "Pine", "PineSmall"], rimOut, { count: 300, tries: 5000, spacing: 430 });
 
@@ -251,6 +267,8 @@ export function build(_quality: { flowers: number }): Town {
     npcs: [soldier, keeper],
     labels: [
       { x: 4600, y: 300, text: "ทางไปคราเดีย", kind: "gate" },
+      { x: 600, y: 4900, text: "ทางไปป่าเมเปิลทอง", kind: "gate" },
+      { x: -4900, y: 0, text: "ทางไปแหลมแม่มด", kind: "gate" },
       { x: -3200, y: 2650, text: "ค่ายลาดตระเวนชายแดน" },
       { x: 1300, y: -3800, text: "ผนึกเวทโบราณ" },
       { x: 3500, y: 3100, text: "ต้นเมเปิลพันปี" },

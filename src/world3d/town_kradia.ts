@@ -306,7 +306,7 @@ export function buildKradia(quality: { flowers: number }): Town {
 
   // ---- build ----
   const pt = (u: number, v: number) => ({ x: P(u, v)[0], y: P(u, v)[1] });
-  // a bar across the far end of each gate's passage (none of them leads anywhere yet)
+  // how far out past each gate its way out lies
   const OUT = 420;
   return town.finish({
     ground,
@@ -317,18 +317,18 @@ export function buildKradia(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0 && x < NORTH - 500 && x > SOUTH + 500 && y < WEST - 500 && y > EAST + 500,
       density: 0.12 * quality.flowers,
     },
-    // the west gate is still shut: a bar across the far end of its passage
-    late: [{ kind: "closed", x: GW[0], y: GW[1] + OUT, w: 520, d: 200, rot: 0 }],
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(446, 436),
     npcs: kradiaNpcs(),
-    // north to the old stone plain, south into the border woods, east out to the front line
+    // north to the old stone plain, south into the border woods, east out to the front line, west
+    // along the caravan road (v0.4: the west gate opened)
     ...waysOut([
       gateWay(GN, "n", "stone_plain", OUT + 60, 450),
       gateWay(GS, "s", "border_woods", OUT + 60, 450),
       gateWay(GE, "e", "border_line", OUT + 60, 450),
+      gateWay(GW, "w", "caravan_road", OUT + 60, 450),
     ]),
-    closed: [{ x: GW[0], y: GW[1] + 250, r: 260, text: "ประตูตะวันตกยังไม่เปิด ทางกลับอีเดนกำลังสำรวจ" }],
+    closed: [],
     // names on the map window
     labels: [
       { ...pt(395, 453), text: "หอคอยจอมเวท" },
@@ -342,7 +342,7 @@ export function buildKradia(quality: { flowers: number }): Town {
       { ...pt(300, 268), text: "ถนนวงแหวน", kind: "small" },
       { x: GN[0] + 100, y: GN[1], text: "ประตูเหนือ · ที่ราบหินโบราณ", kind: "gate" },
       { x: GS[0] - 100, y: GS[1], text: "ประตูใต้ · ป่าชายแดน", kind: "gate" },
-      { x: GW[0], y: GW[1] + 100, text: "ประตูตะวันตก (ปิด)", kind: "gate" },
+      { x: GW[0], y: GW[1] + 100, text: "ประตูตะวันตก · ถนนคาราวาน", kind: "gate" },
       { x: GE[0], y: GE[1] - 100, text: "ประตูตะวันออก · แนวป้องกัน", kind: "gate" },
     ],
   });
@@ -366,7 +366,7 @@ function kradiaNpcs(): NpcSpec[] {
     { id: "kradia_guard_e", ...at(664, 402), face: 90, name: "ทหารยามคาสปาร์", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_navy", "auburn"),
       lines: ["ออกประตูตะวันออกไปคือแนวป้องกันชายแดน สนามรบเก่า เลยไปอีกคือดินแดนอสูร ไม่แกร่งจริงอย่าไป", "เมื่อคืนเห็นแสงสีแดงวูบวาบอยู่ไกลๆ ทางตะวันออกอีกแล้ว", "ถ้าได้ยินระฆังจากหอคอยจอมเวท ให้รีบหลบเข้าบ้านทันที"] },
     { id: "kradia_guard_w", ...at(176, 434), face: -90, name: "ทหารยามวิคเตอร์", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior"),
-      lines: ["ประตูตะวันตกยังไม่เปิด ทางกลับอีเดนกำลังสำรวจอยู่", "อยากไปอีเดนเร็วๆ ก็ไปหาผู้นำทางที่ลานรูนกลางเมืองสิ"] },
+      lines: ["ออกประตูตะวันตกไปคือถนนคาราวานตะวันออก ทางเก่าไปทรุนราดา ข้ามสะพานเก็บค่าผ่านทางไปก็ถึงทุ่งหญ้า", "แรดเกราะเหล็กบนถนนคาราวานตัวแข็งยิ่งกว่ากำแพงเมืองนี้อีก ระวังให้ดี", "อยากไปอีเดนเร็วๆ ก็ไปหาผู้นำทางที่ลานรูนกลางเมืองสิ"] },
     { id: "kradia_guard_s", ...at(408, 628), face: 0, name: "ทหารยามบอริส", title: "ทหารยามประตูใต้", role: "talk", look: guard("top_warrior", "silver"),
       lines: ["ออกประตูใต้ไปคือป่าชายแดน ป่าใบแดงที่หน่วยลาดตระเวนของเราตั้งฐานอยู่", "ได้ยินว่าลงใต้ไปจนสุดฝั่ง มีเรือข้ามไปเกาะโอซากิได้"] },
     travelGuide("kradia", P(460, 430), look([460, 430], [446, 436])),

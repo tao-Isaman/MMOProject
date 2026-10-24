@@ -74,7 +74,7 @@ defineMaterial("Eastcoast_Lichen", { map: "felt", tint: "#b3ad6a", rough: 1 });
 defineMaterial("Eastcoast_Sign", { map: "plaster", tint: "#2f5872", rough: 0.8 });
 // the golden maples: bark, the crowns' cores and cards, the fairies' glow, toadstools
 defineMaterial("Eastcoast_MapleBark", { map: "bark", tint: "#6a5546", bump: 3 });
-defineMaterial("Eastcoast_GoldCore", { map: "foliage", tint: "#dca534", rough: 0.95, bump: 1.5 });
+defineMaterial("Eastcoast_GoldCore", { map: "foliage", tint: "#e8b640", rough: 0.95, bump: 1.5 });
 defineMaterial("Eastcoast_GoldBushCore", { map: "foliage", tint: "#b67a22", rough: 0.95, bump: 1.5 });
 defineMaterial("Eastcoast_GoldCardDark", { card: "leaves", tint: "#c27a1e", rough: 0.85 });
 defineMaterial("Eastcoast_GoldCard", { card: "leaves", tint: "#e5a92c", rough: 0.8 });
@@ -112,6 +112,7 @@ defineMaterial("Eastcoast_Gravel", { map: "cobble", tint: "#a59f93", bump: 1.5 }
 defineMaterial("Eastcoast_Ember", { tint: "#ff8a3a", rough: 1, glow: "#ff4a12", glowI: 1.8 });
 defineMaterial("Eastcoast_Flame", { tint: "#ffb04a", rough: 1, glow: "#ff6a1a", glowI: 2 });
 defineMaterial("Eastcoast_Soot", { map: "felt", tint: "#2e2a28", rough: 1 });
+defineMaterial("Eastcoast_BlackWater", { tint: "#1c2827", rough: 0.06, opacity: 0.95 });
 // cliff faces for the fields: the coast's granite, the witch's cape's dark rock
 defineMaterial("Eastcoast_CliffGranite", { map: "crag", tint: "#a0968a", bump: 4 });
 defineMaterial("Eastcoast_CliffDark", { map: "crag", tint: "#6e6a6c", bump: 4 });
@@ -809,7 +810,7 @@ function quarryCrane(): Geo {
 
 // The golden maple: a sturdy grey-brown trunk and a broad layered crown of gold leaves, amber in
 // the shade and pale gold where the sun catches it; about 9.5 m tall and 9 m across.
-const GOLD: CanopyLook = { card: "maple", dark: [206, 132, 30], mid: [246, 192, 58], light: [255, 238, 132], core: "Eastcoast_GoldCore" };
+const GOLD: CanopyLook = { card: "maple", dark: [218, 150, 38], mid: [252, 206, 72], light: [255, 244, 156], core: "Eastcoast_GoldCore" };
 function goldenMaple(): THREE.Object3D {
   return crownTreeObject({
     seed: 211, trunk: [[0, 0, 0], [-15, 20, 170], [-30, 30, 330]], radius: 32, bark: "Eastcoast_MapleBark", leaf: 56, look: GOLD,
@@ -1152,6 +1153,8 @@ function cauldron(): Geo {
   return merge(...out);
 }
 
+// where the ring's standing stones are (item frame), for a field's solids
+export const CIRCLE_STONES: [number, number][] = [1, 2, 3, 4, 5, 7, 8, 9].map((i) => [Math.cos(Math.PI + (i / 10) * TAU) * 480, Math.sin(Math.PI + (i / 10) * TAU) * 480]);
 // The ring of standing stones over the sea (11 x 11 m, 3.6 m): nine weathered stones round a
 // worn ring of gravel, two of them carrying a lintel over the way in from the front, one fallen;
 // in the middle the altar slab with glowing runes cut in it and offerings of shells and candles;
@@ -1159,9 +1162,10 @@ function cauldron(): Geo {
 function seaStoneCircle(): Geo {
   const out: Geo[] = [], rnd = seeded(401), R = 480;
   out.push(scale(torus(R, 70, 36, 6, "Eastcoast_Gravel"), [1, 1, 0.06]));
-  for (let i = 0; i < 9; i++) {
-    const a = Math.PI + ((i + 0.5) / 9) * TAU, x = Math.cos(a) * R, y = Math.sin(a) * R;
-    if (i === 8) {
+  // (nine stones on the ring at tenths of the way round, the tenth place, at -X, left for the way in)
+  for (let i = 1; i < 10; i++) {
+    const a = Math.PI + (i / 10) * TAU, x = Math.cos(a) * R, y = Math.sin(a) * R;
+    if (i === 6) {
       // the fallen one, lying outwards
       const g = stone([90, 70, 300], 0.18, 410, "Eastcoast_CircleStone", [0, 0, 0]);
       out.push(translate(rotateZ(rotateY(g, 84), a * DEG), [x + Math.cos(a) * 60, y + Math.sin(a) * 60, 30]));
@@ -1304,6 +1308,128 @@ export function mapleLog(seed: number, len = 520): Geo {
   return fallenTrunk({ seed, len, r: 30, bark: "Eastcoast_MapleBark", wood: endGrain("#caa070"), moss: "Eastcoast_Moss", stubs: 2, broken: seed % 2 === 0 });
 }
 
-// the materials a field paints the sea and the cliffs with
-export const COAST = { sea: "WaterSea", cliff: "Eastcoast_CliffGranite", cliffDark: "Eastcoast_CliffDark" };
-export { material };
+// =================================== for the fields ===================================
+// Shapes the east coast's fields draw with (centimetres, north +X, west +Y).
+export type XY = [number, number];
+export type Poly = XY[];
+// a Catmull-Rom curve through the points, `per` steps a span
+export function smooth(pts: XY[], per = 4): XY[] {
+  const out: XY[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let k = 0; k < per; k++) {
+      const t = k / per, t2 = t * t, t3 = t2 * t;
+      const c = (j: 0 | 1) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
+      out.push([c(0), c(1)]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+// a strip `w` wide along a polyline
+export function band(pts: XY[], w: number): Poly {
+  const left: XY[] = [], right: XY[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    left.push([pts[i][0] + (nx * w) / 2, pts[i][1] + (ny * w) / 2]);
+    right.push([pts[i][0] - (nx * w) / 2, pts[i][1] - (ny * w) / 2]);
+  }
+  return [...left, ...right.reverse()];
+}
+// whether a point is inside a polygon
+export function inPoly(poly: Poly, x: number, y: number): boolean {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+// the nearest point of a polyline: its segment, the point, how far away
+export function nearestOn(pts: XY[], x: number, y: number): { i: number; q: XY; d: number; dir: XY } {
+  let best = { i: 0, q: pts[0], d: Infinity, dir: [1, 0] as XY };
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L2));
+    const q: XY = [ax + dx * t, ay + dy * t], d = Math.hypot(q[0] - x, q[1] - y);
+    if (d < best.d) best = { i, q, d, dir: [dx / Math.sqrt(L2), dy / Math.sqrt(L2)] };
+  }
+  return best;
+}
+export const distTo = (pts: XY[], x: number, y: number): number => nearestOn(pts, x, y).d;
+// points every `step` along a polyline, with the way it runs there
+export function every(pts: XY[], step: number, from = 0): { p: XY; d: XY }[] {
+  const out: { p: XY; d: XY }[] = [];
+  let carry = from;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], L = Math.hypot(bx - ax, by - ay);
+    if (L < 1) continue;
+    const d: XY = [(bx - ax) / L, (by - ay) / L];
+    for (let s2 = carry; s2 < L; s2 += step) out.push({ p: [ax + d[0] * s2, ay + d[1] * s2], d });
+    carry = (((carry - L) % step) + step) % step;
+  }
+  return out;
+}
+// a wobbly ellipse
+export function blob(c: XY, rx: number, ry: number, seed: number, n = 22, wob = 0.08): Poly {
+  const out: Poly = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, k = 1 + wob * Math.sin(a * 3 + seed) + wob * 0.6 * Math.cos(a * 5 + seed * 2);
+    out.push([c[0] + Math.cos(a) * rx * k, c[1] + Math.sin(a) * ry * k]);
+  }
+  return out;
+}
+// a line `d` in from a line with the land on its left (out on its right for d < 0)
+export function inland(line: XY[], d: number): XY[] {
+  return line.map((p, i): XY => {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    return [p[0] - (dy / l) * d, p[1] + (dx / l) * d];
+  });
+}
+// the heading that turns a piece's front (-X) toward the world direction (dx, dy)
+export const faceDir = (dx: number, dy: number): number => (Math.atan2(-dy, -dx) * 180) / Math.PI;
+export const faceTo = (from: XY, to: XY): number => faceDir(to[0] - from[0], to[1] - from[1]);
+// a polyline's length, and the point `d` along it with its direction
+export const lengthOf = (pts: XY[]): number => pts.slice(1).reduce((t, p, i) => t + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+export function along(pts: XY[], d: number): { p: XY; dir: XY } {
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], L = Math.hypot(bx - ax, by - ay);
+    if (d <= L || i + 2 === pts.length) {
+      const t = Math.min(1, d / (L || 1));
+      return { p: [ax + (bx - ax) * t, ay + (by - ay) * t], dir: [(bx - ax) / (L || 1), (by - ay) / (L || 1)] };
+    }
+    d -= L;
+  }
+  return { p: pts[0], dir: [1, 0] };
+}
+// A plateau's outline with its sharp corners cut (a turn over `maxTurn` degrees becomes two
+// gentler ones), so the rock faces of its two edges meet without a gap.
+export function bevel(poly: Poly, maxTurn = 35, cut = 260): Poly {
+  const out: Poly = [], n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const p = poly[(i + n - 1) % n], c = poly[i], q = poly[(i + 1) % n];
+    const ax = c[0] - p[0], ay = c[1] - p[1], bx = q[0] - c[0], by = q[1] - c[1], la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    const turn = (Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))) * 180) / Math.PI;
+    if (turn <= maxTurn) {
+      out.push(c);
+      continue;
+    }
+    const d = Math.min(cut, la * 0.3, lb * 0.3);
+    out.push([c[0] - (ax / la) * d, c[1] - (ay / la) * d], [c[0] + (bx / lb) * d, c[1] + (by / lb) * d]);
+  }
+  return out;
+}
+// A flat sheet (the sea) filling a polygon at height z (world cm, Z up), in three.js space.
+export function seaSheet(poly: Poly, z = -14, mat = "WaterSea"): THREE.Mesh {
+  const shape = new THREE.Shape();
+  poly.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).applyMatrix4(new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1)), material(mat));
+  m.position.y = z;
+  m.receiveShadow = true;
+  return m;
+}
+
+// the materials the fields paint the cliffs with
+export const COAST = { cliff: "Eastcoast_CliffGranite", cliffDark: "Eastcoast_CliffDark" };

@@ -5,7 +5,9 @@
 // standing stones climbs to a higher step and the herders' lookout tower. A herders' camp of
 // felt yurts round a well sweep and a pond lies south-west, haystacks on a rise north-east, a
 // dry hollow with bleaching bones in the middle. Mesas wall the north and south; birch and
-// pine woods close the west and east past the ways out.
+// pine woods close the west and east past the ways out. A track branches south off the main one
+// between the pond and the lookout's mesa, through a gap in the south mesa wall, down to the
+// grassland on the cliffs over the inner sea.
 //
 // Full size around the origin (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
@@ -34,7 +36,9 @@ const RAMP_B = { top: [-1400, -2950] as XY, bottom: [-400, -2950] as XY, width: 
 const RAMP_STEP = { top: [-3100, -3150] as XY, bottom: [-2323, -2805] as XY, width: 420 };
 // the rim: mesa walls north and south, lower mesas among the woods east and west
 const WALL_N: XY[] = [[5900, -9800], [6300, -7400], [5800, -5900], [6400, -4300], [6000, -2700], [6500, -1000], [5900, 600], [6300, 2300], [5800, 3900], [6400, 5600], [6000, 7300], [6200, 9800], [9800, 9800], [9800, -9800]];
-const WALL_S: XY[] = [[-5900, -9800], [-6400, -7600], [-5900, -6000], [-6300, -4200], [-5800, -2500], [-6400, -800], [-6000, 900], [-6500, 2600], [-5900, 4300], [-6300, 6000], [-5900, 7700], [-6200, 9800], [-9800, 9800], [-9800, -9800]];
+// (the south wall in two, the gap between them where the track runs south to the sea cliffs)
+const WALL_S: XY[] = [[-5900, -9800], [-6400, -7600], [-5900, -6000], [-6300, -4200], [-5800, -2500], [-6300, -1200], [-6150, -650], [-9800, -650], [-9800, -9800]];
+const WALL_S2: XY[] = [[-6150, 650], [-6300, 1300], [-6500, 2600], [-5900, 4300], [-6300, 6000], [-5900, 7700], [-6200, 9800], [-9800, 9800], [-9800, 650]];
 const RIM_E: XY[] = [[1300, -6300], [3000, -6000], [3700, -7300], [2900, -8700], [1100, -8600], [600, -7300]];
 const RIM_W: XY[] = [[-1500, 6200], [-3100, 6300], [-3800, 7600], [-2700, 8900], [-1000, 8600], [-700, 7300]];
 const RIM_E2: XY[] = [[-2300, -6600], [-3800, -6200], [-4900, -7100], [-4300, -8600], [-2600, -8900], [-1900, -7700]];
@@ -63,6 +67,7 @@ const TERRAIN = {
     { poly: densify(MESA_C), h: 480 },
     { poly: densify(WALL_N), h: 680 },
     { poly: densify(WALL_S), h: 620 },
+    { poly: densify(WALL_S2), h: 620 },
     { poly: densify(RIM_E), h: 430 },
     { poly: densify(RIM_W), h: 400 },
     { poly: densify(RIM_E2), h: 360 },
@@ -75,6 +80,8 @@ const TO_KURGAN: XY[] = smooth([[-780, 2700], [-300, 2960], [50, 3000], [1350, 2
 const TO_LOOKOUT: XY[] = smooth([[480, -2620], [-400, -2950], [-1400, -2950], [-2000, -2870], [-2323, -2805], [-3100, -3150], [-3450, -3330]]);
 const TO_CAMP: XY[] = smooth([[-720, 2050], [-1500, 2250], [-2300, 2700], [-2800, 2850], [-3300, 2900]]);
 const TO_HAY: XY[] = smooth([[380, -350], [1300, -1050], [2200, -1700], [2700, -2300]]);
+// ---- v0.4: the way south to the inner sea cliffs (ทุ่งผาริมทะเลใน), the middle of the south edge ----
+const TO_SEA_CLIFFS: XY[] = smooth([[150, 350], [-600, 380], [-1500, 330], [-2300, 120], [-3200, -60], [-4100, -60], [-4600, -20], [-5150, 0], [-AREA - 200, 0]]);
 
 // the last build's own check (see fieldReport), for building the field; the game never calls it
 export let REPORT: () => string[] = () => [];
@@ -85,7 +92,7 @@ export function build(quality: { flowers: number }): Town {
   const ground = f.ground({
     area: { x0: -AREA, y0: -AREA, x1: AREA, y1: AREA },
     base: "steppe",
-    roads: [band(MAIN, 520), band(TO_KURGAN, 420), band(TO_LOOKOUT, 420), band(TO_CAMP, 400), band(TO_HAY, 380)],
+    roads: [band(MAIN, 520), band(TO_KURGAN, 420), band(TO_LOOKOUT, 420), band(TO_CAMP, 400), band(TO_HAY, 380), band(TO_SEA_CLIFFS, 440)],
     plazas: [],
     water: [pond],
     road: [0.9, 0.82, 0.7],
@@ -135,6 +142,11 @@ export function build(quality: { flowers: number }): Town {
   put("steppe:signpost", [800, 4700], -90, 60);
   put("trunrada:cairn", [-500, 4950], 0, 150);
   taken.push([-300, -5150, 500], [250, 5150, 500]);
+  // ---- v0.4: the way south to the inner sea cliffs, where their own way out is ----
+  f.exit("inner_sea_cliffs", [-5150, 0], [-4450, -20]);
+  put("steppe:signpost", [-4500, 520], 180, 60);
+  put("trunrada:cairn", [-4900, -650], 0, 150);
+  taken.push([-5150, 0, 500]);
 
   // ---- mesa A: the kurgan and its idols ----
   put("steppe:kurgan", [3150, 2900], 0, 700);
@@ -249,7 +261,7 @@ export function build(quality: { flowers: number }): Town {
   f.woods({ x0: -AREA, x1: AREA, y0: R - 200, y1: AREA }, ["Pine", "Pine", "PineSmall", "Birch"], (x, y) => rim(x, y) || ground.kind(x, y) !== 0 || ground.kind(x + 250, y) !== 0 || ground.kind(x - 250, y) !== 0, { count: 170, spacing: 420 });
   f.woods({ x0: -AREA, x1: AREA, y0: -AREA, y1: -R + 200 }, ["Birch", "Birch", "PineSmall", "Pine", "AutumnTree"], (x, y) => rim(x, y) || ground.kind(x, y) !== 0 || ground.kind(x + 250, y) !== 0 || ground.kind(x - 250, y) !== 0, { count: 150, spacing: 440 });
   f.woods({ x0: R + 200, x1: AREA, y0: -AREA, y1: AREA }, ["PineSmall", "Birch"], rim, { count: 40, spacing: 700 });
-  f.woods({ x0: -AREA, x1: -R - 200, y0: -AREA, y1: AREA }, ["PineSmall", "Birch", "AutumnTree"], rim, { count: 40, spacing: 700 });
+  f.woods({ x0: -AREA, x1: -R - 200, y0: -AREA, y1: AREA }, ["PineSmall", "Birch", "AutumnTree"], (x, y) => rim(x, y) || ground.kind(x, y) !== 0 || ground.kind(x, y + 300) !== 0 || ground.kind(x, y - 300) !== 0, { count: 40, spacing: 700 });
   for (let i = 0; i < 260; i++) {
     const x = (f.rnd() * 2 - 1) * AREA, y = (f.rnd() * 2 - 1) * AREA;
     if (rim(x, y) || ground.kind(x, y) !== 0 || !f.level(x, y, 60)) continue;
@@ -303,6 +315,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -1900, y: -550, text: "แอ่งกระดูก", kind: "small" },
       { x: -300, y: -4900, text: "ทางไปทรุนราดา", kind: "gate" },
       { x: 250, y: 4900, text: "ทางไปป่าสนริมแม่น้ำ", kind: "gate" },
+      { x: -4900, y: 0, text: "ทางไปทุ่งผาริมทะเลใน", kind: "gate" },
     ],
   });
 }
