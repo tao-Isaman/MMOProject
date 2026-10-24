@@ -3,11 +3,12 @@
 // for each piece made (any tier up to the player's level, with no name on it). Whoever knows a
 // craft (an inventor's branch, or the craft's book) opens it anywhere with the craft's skills
 // (progression.ts craftMastery), free of fees: making what the craft makes, at the tiers its level
-// opens, with the maker's name and a chance of +1, and refining what it makes.
+// opens, with the maker's name and a chance of +1, and refining what it makes. Whoever knows
+// brewing opens its tab the same way: the strong potions from materials.
 
-import { ITEMS, WEAPON_TYPES, GEAR_TIERS, TIER_NAMES, tierId, joinId, splitId, stoneFor, refineStats, REFINE_MAX, statText, EQUIP_SLOTS } from "./items";
+import { ITEMS, WEAPON_TYPES, GEAR_TIERS, TIER_NAMES, tierId, joinId, splitId, stoneFor, refineStats, REFINE_MAX, statText, EQUIP_SLOTS, stackLimit } from "./items";
 import type { EquipSlot, WeaponId } from "./items";
-import { CRAFT_TIER_AT, CRAFT_BONUS, CRAFT_REFINE, MASTERIES } from "./progression";
+import { CRAFT_TIER_AT, CRAFT_BONUS, CRAFT_REFINE, MASTERIES, BREW_AT, BREW_BONUS } from "./progression";
 import type { Progress } from "./progression";
 import { luckFactor } from "./stats";
 import { el, makeWindow, itemTip } from "./ui";
@@ -67,8 +68,20 @@ export function craftTiers(level: number): number[] {
 // A maker's name as it goes in an item id (no ~ or ^, which mark the id's parts).
 export const makerName = (name: string) => name.replace(/[~^]/g, "").trim() || "ไร้นาม";
 
+// ---- brewing ----
+// What each strong potion is brewed from: jelly from Eden's slimes (the potion makers' base, as
+// Lilia says), gem shards and monster cores, and for the white the slimes' rare leaf. Even at what
+// the shops pay for them they cost a small part of the potion's price.
+export const BREWS: Record<string, [string, number][]> = {
+  potion_orange: [["jelly", 3], ["gem_shard", 1]],
+  potion_yellow: [["jelly", 4], ["gem_shard", 2], ["monster_core", 1]],
+  potion_white: [["jelly", 5], ["gem_shard", 3], ["monster_core", 2], ["sprout", 1]],
+};
+const BREW_BATCH = 10; // the second button brews this many at once (or as many as there is for)
+
 // ---- the window ----
 type Where = EquipSlot | number; // an equipped slot, or a bag slot
+type Tab = "refine" | "craft" | "brew";
 
 export class WorkshopUI {
   inv: Inventory;
@@ -78,7 +91,7 @@ export class WorkshopUI {
   maker: string;
   win: HTMLElement;
   title: HTMLElement;
-  tab: "refine" | "craft" = "refine";
+  tab: Tab = "refine";
   smith: string | null = null; // at a smith's (fees), else opened by a craft's skill
   only: Craft | null = null;   // the craft whose skill opened it
   tier = 30;
@@ -131,16 +144,19 @@ export class WorkshopUI {
     if (show) this.render();
   }
 
-  // Open at a smith's (smith: its name), or from a craft's skill (craft) on one tab.
-  show(o: { smith?: string; craft?: Craft; tab: "refine" | "craft" }): void {
+  // Open at a smith's (smith: its name), or from a craft's skill (craft) on one tab; brewing's
+  // skill opens the brewing tab.
+  show(o: { smith?: string; craft?: Craft | "brewing"; tab: "refine" | "craft" }): void {
     this.smith = o.smith ?? null;
-    this.only = o.smith ? null : o.craft ?? null;
-    this.tab = o.tab;
-    this.title.textContent = this.smith ? `โรงช่าง · ${this.smith}` : this.tab === "craft" ? `${MASTERIES[this.only!].name} (สกิล)` : "ตีบวก (สกิล)";
+    const brew = !o.smith && o.craft === "brewing";
+    this.only = o.smith || brew ? null : (o.craft as Craft | undefined) ?? null;
+    this.tab = brew ? "brew" : o.tab;
+    this.title.textContent = this.smith ? `โรงช่าง · ${this.smith}` : brew ? "ปรุงยา (สกิล)" : this.tab === "craft" ? `${MASTERIES[this.only!].name} (สกิล)` : "ตีบวก (สกิล)";
     this.tabs.classList.toggle("hidden", !this.smith);
-    this.status.textContent = this.tab === "refine"
-      ? `ตีบวกด้วยหินนภา (อาวุธ แหวน) หรือหินดารา (ชุด หมวก รองเท้า จี้ มือรอง) ถึง +4 สำเร็จเสมอ พลาดแล้วเสียหิน${this.smith ? "กับค่าจ้าง" : ""} ของยังเหมือนเดิม`
-      : this.smith ? "ช่างสร้างอุปกรณ์ตามเลเวลให้จากวัตถุดิบ (ไม่เกินเลเวลของเจ้า) คิดค่าจ้างเป็นทอง" : "สร้างอุปกรณ์จากวัตถุดิบ ไม่เสียค่าจ้าง ของที่สร้างมีชื่อเจ้า";
+    this.status.textContent = brew ? "ปรุงยาจากวัตถุดิบ ไม่เสียค่าจ้าง ยิ่งความเชี่ยวชาญสูง ยิ่งมีโอกาสได้ยาเพิ่ม"
+      : this.tab === "refine"
+        ? `ตีบวกด้วยหินนภา (อาวุธ แหวน) หรือหินดารา (ชุด หมวก รองเท้า จี้ มือรอง) ถึง +4 สำเร็จเสมอ พลาดแล้วเสียหิน${this.smith ? "กับค่าจ้าง" : ""} ของยังเหมือนเดิม`
+        : this.smith ? "ช่างสร้างอุปกรณ์ตามเลเวลให้จากวัตถุดิบ (ไม่เกินเลเวลของเจ้า) คิดค่าจ้างเป็นทอง" : "สร้างอุปกรณ์จากวัตถุดิบ ไม่เสียค่าจ้าง ของที่สร้างมีชื่อเจ้า";
     this.toggle(true);
   }
 
@@ -185,6 +201,7 @@ export class WorkshopUI {
     this.gold.innerHTML = `<img src="assets/skills/gold_coin.png" alt="">${this.inv.gold.toLocaleString()} ทอง`;
     this.list.replaceChildren();
     if (this.tab === "refine") this.renderRefine();
+    else if (this.tab === "brew") this.renderBrew();
     else this.renderCraft();
   }
 
@@ -328,5 +345,56 @@ export class WorkshopUI {
     this.inv.add(id, 1, { silent: true });
     this.inv.changed();
     this.say(fine ? `ฝีมือเยี่ยม! สร้างได้ ${ITEMS[id].name}` : `สร้าง ${ITEMS[id].name} สำเร็จ`, true);
+  }
+
+  // ---- brewing ----
+  renderBrew(): void {
+    const level = this.progress.mastery.brewing ?? 0;
+    el("h4", "ws-craft", this.list).textContent = `ปรุงยา (ระดับ ${level}) · ได้ยาเพิ่มอีกขวด ${pct(this.extraChance())}`;
+    for (const [id, mats] of Object.entries(BREWS)) {
+      const row = this.row(id, `brew:${id}`), at = BREW_AT[id];
+      const info = el("div", "shop-info", row);
+      el("strong", "", info).textContent = `${ITEMS[id].name}${this.inv.count(id) ? ` · มีอยู่ ${this.inv.count(id)}` : ""}`;
+      const sub = el("span", "sk-sub", info);
+      if (level < at) {
+        sub.textContent = `ต้องความเชี่ยวชาญปรุงยาระดับ ${at}`;
+        this.detail(row, id);
+        continue;
+      }
+      sub.innerHTML = mats.map(([m, n]) => `<span class="${this.inv.count(m) >= n ? "" : "ws-short"}">${ITEMS[m].name} ${this.inv.count(m)}/${n}</span>`).join(" · ");
+      const can = this.brewable(id);
+      this.button(row, "ปรุง", can >= 1, () => this.brew(id, 1));
+      this.button(row, `×${Math.max(2, Math.min(BREW_BATCH, can))}`, can >= 2, () => this.brew(id, Math.min(BREW_BATCH, can)));
+      this.detail(row, id);
+    }
+  }
+
+  // The chance a brew gives one potion more (luck helps, as with a fine piece).
+  extraChance(): number {
+    return Math.min(1, (this.progress.mastery.brewing ?? 0) * BREW_BONUS * luckFactor(this.stats()));
+  }
+
+  // How many of a potion the bag has the materials for.
+  brewable(id: string): number {
+    return Math.min(...BREWS[id].map(([m, n]) => Math.floor(this.inv.count(m) / n)));
+  }
+
+  // Room in the bag for more of an item: its stacks' and the free slots'.
+  room(id: string): number {
+    const max = stackLimit(id);
+    return this.inv.slots.reduce((n, s) => n + (!s ? max : s.id === id ? max - s.count : 0), 0);
+  }
+
+  // Brew `times` potions, each with its chance of one more.
+  brew(id: string, times: number): void {
+    if ((this.progress.mastery.brewing ?? 0) < BREW_AT[id] || this.brewable(id) < times) return this.say("วัตถุดิบไม่พอ");
+    let got = 0;
+    for (let i = 0; i < times; i++) got += Math.random() < this.extraChance() ? 2 : 1;
+    if (this.room(id) < got) return this.say("กระเป๋าเต็ม");
+    for (const [m, n] of BREWS[id]) this.inv.take(m, n * times);
+    this.inv.add(id, got, { silent: true });
+    this.inv.changed();
+    const more = got - times;
+    this.say(`ปรุง${ITEMS[id].name}ได้ ${got} ขวด${more ? ` (ฝีมือดี ได้เพิ่ม ${more} ขวด)` : ""}`, true);
   }
 }

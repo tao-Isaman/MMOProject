@@ -21,12 +21,13 @@ export interface WeaponType {
   crit?: number;
   pierce?: boolean;
   hits?: number;
-  projectile?: { kind: "bolt" | "arrow"; speed: number; range: number; radius: number };
+  projectile?: { kind: "bolt" | "arrow" | "bullet"; speed: number; range: number; radius: number };
   twoHanded?: boolean; // takes the off hand too
   note?: string;
 }
 
-export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow" | "knuckle" | "claw";
+export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow" | "knuckle" | "claw"
+  | "pistol" | "rifle";
 
 // A one-handed weapon in the off hand adds a second hit for this much of its damage to whatever
 // the main hand hit, and every attack takes this much longer.
@@ -90,6 +91,19 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
   claw: {
     name: "กรงเล็บ", motion: "thrust", hit: "arc", reach: 100, arc: 80, interval: 0.42, damage: [12, 16], crit: 0.08,
     note: "ข่วนเร็ว ระยะสั้น อาวุธฟัน",
+  },
+  // v0.5 (docs/v05_jobs.md): guns, fired with the arm held out (the empty-handed thrust). A
+  // pistol is one-handed (one in each hand fires both); a rifle takes both hands and outranges
+  // the bow. They need no shot in the bag.
+  pistol: {
+    name: "ปืนสั้น", motion: "thrust", reach: 0, interval: 0.6, damage: [12, 16],
+    projectile: { kind: "bullet", speed: 1900, range: 560, radius: 20 },
+    note: "ยิงเร็ว ระยะกลาง ถือคู่ได้",
+  },
+  rifle: {
+    name: "ปืนยาว", motion: "thrust", reach: 0, interval: 1.2, damage: [28, 36], twoHanded: true,
+    projectile: { kind: "bullet", speed: 2400, range: 880, radius: 22 },
+    note: "ยิงช้าแต่แรง ไกลที่สุดในเกม",
   },
 };
 
@@ -262,6 +276,11 @@ const BASE: Record<string, Item> = {
   potion_red_big: potion("ยาแดงเข้มข้น", { hp: 150 }, "#d8343a", 160, "ฟื้น HP 150"),
   potion_blue: potion("ยาฟ้า", { mp: 18 }, "#6ab4ff", 60, "ฟื้น MP 18"),
   potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 60 }, "#2f6fd0", 180, "ฟื้น MP 60"),
+  // the strong draughts, orange to yellow to white: dear in the high towns' shops (shop.ts
+  // TOWN_STOCK), brewed for far less by who knows how (workshop.ts BREWS)
+  potion_orange: potion("ยาส้ม", { hp: 300 }, "#ff9a3c", 500, "ฟื้น HP 300"),
+  potion_yellow: potion("ยาเหลือง", { hp: 550 }, "#ffd23c", 1100, "ฟื้น HP 550"),
+  potion_white: potion("ยาขาว", { hp: 1000 }, "#fbf6e6", 2400, "ฟื้น HP 1000"),
   // (the books, one per skill tree, mastery and element, are added by src/progression.ts)
   style_twintail: style("twintail", "ทวินเทลยาว", 1500),
   style_hime: style("hime", "ยาวหน้าม้าตรง", 1500),
@@ -293,6 +312,10 @@ const BASE: Record<string, Item> = {
   dark_shard: quest("เศษผลึกมืด", "star", "#7a52b8", "เศษผลึกที่เต้นตุบเหมือนหัวใจ จากอสูรผลึกมืด"),
   old_bandage: quest("ผ้าพันศพเก่า", "wave", "#d8c9a0", "ผ้าพันแผลเก่าแก่ของมัมมี่ทาส"),
   fox_tail: quest("หางจิ้งจอกเก้าหาง", "flame", "#ffb060", "หางที่เรืองแสงอุ่น ๆ ของจิ้งจอกเก้าหาง"),
+  // the merchant's test (quests.ts job_merchant)
+  cloud_wool: quest("ขนแกะเมฆ", "cloud", "#f2f6fa", "ขนนุ่มฟูของแกะขนเมฆที่ทุ่งหญ้าโนอา นายห้างซาอีดรับซื้อไปทอผ้า"),
+  wool_bale: quest("ห่อผ้าขนแกะ", "bag", "#e8dcc0", "ผ้าขนแกะเมฆม้วนใหญ่จากโนอา ส่งให้มาริน่าที่ร้านเครื่องมือเวนิชเซีย"),
+  trade_order: quest("ใบสั่งซื้อ", "letter", "#e8d7a8", "ใบสั่งซื้อผ้ารอบหน้าจากมาริน่า ส่งคืนนายห้างซาอีดที่โนอา"),
 };
 
 // ---- materials and refining stones ----

@@ -1,6 +1,6 @@
 // The monsters: they wander round their spot, shake when hit without stopping (a skill made to
-// push knocks them back), chase and
-// strike back once angered (some attack on sight), fall when defeated, drop loot and come back
+// push knocks them back), chase and strike back once angered (some attack on sight, and those
+// chase the player as long as they can see her), fall when defeated, drop loot and come back
 // after a while. Skills can stun, freeze, slow and burn them.
 //
 // The first field keeps its jelly slimes (VARIANTS); every other field has its own monsters
@@ -137,7 +137,16 @@ for (const v of VARIANTS) {
 }
 const BITE_REACH = 95;   // cm between centres
 const BITE_TIME = 1.6;   // s between bites
-const CHASE_LEASH = 900; // gives up past this far from home
+const CHASE_LEASH = 900; // gives up past this far from home (one that doesn't attack first)
+// v0.5 (docs/v05_jobs.md 2): one that attacks first notices the player SEE_MORE farther than its
+// aggro radius, and once after her doesn't let go while she is within SIGHT of it, however far
+// from home. It chases CHASE_PACE faster than it walks (the fastest kind 255 cm/s, still slower
+// than her 380): she can drag a train of them. Losing her, it walks home healing HOME_HEAL of its
+// HP a second.
+const SIGHT = 1500;
+const SEE_MORE = 1.3;
+const CHASE_PACE = 1.5;
+const HOME_HEAL = 0.08;
 const ANGER = 12;        // s it stays angry after being hit
 const SHOWN = 8;         // s its name and HP stay under it after the player last hurt it
 const RARE_SPOTS = 2;
@@ -381,6 +390,7 @@ export class Monster {
   packs = false;
   kin: Monster[] | null = null; // the others on its field (its pack comes when it's hit)
   temp = false;  // called up by a boss: doesn't come back
+  homing = false; // lost the player far from home: walking back there
   rush = 0;      // s left charging
   chargeCd = 0;
   slamCd = 0;
@@ -443,6 +453,11 @@ export class Monster {
     return this.entry?.kind === "boss";
   }
 
+  // It attacks first (and chases as long as it sees the player).
+  get fierce(): boolean {
+    return this.variant.aggro > 0;
+  }
+
   // Its attacks are spells (a caster, or a shot of fire, frost, water, snow, a curse, foxfire):
   // smoke can dodge them.
   get magical(): boolean {
@@ -495,7 +510,7 @@ export class Monster {
     this.respawn = 0;
     this.spawnFade = 0.6;
     this.rush = this.chargeCd = this.slamCd = this.healCd = this.fleeT = 0;
-    this.fled = this.burst = false;
+    this.fled = this.burst = this.homing = false;
     this.called = 0;
     this.boost = 1;
   }
@@ -646,8 +661,12 @@ export class Monster {
     const unseen = !foe && (ctx.unseen?.() ?? false);
     // a mana burn: no spells, no shots, no healing or calling for help for a moment
     const mute = this.silence > 0;
-    if (alive && !unseen && this.variant.aggro && toPlayer < this.variant.aggro) this.angry = Math.max(this.angry, 2);
-    if (!alive || unseen || fromHome > CHASE_LEASH + this.radius * 2) this.angry = this.rush = 0;
+    // one that attacks first comes for her within its sight and keeps on while she stays within
+    // SIGHT; the rest give up past their leash
+    const fierce = this.fierce;
+    if (alive && !unseen && fierce && toPlayer < (this.angry > 0 ? SIGHT : this.variant.aggro * SEE_MORE)) this.angry = Math.max(this.angry, 2);
+    if (!alive || unseen || (fierce ? toPlayer > SIGHT : fromHome > CHASE_LEASH + this.radius * 2)) this.angry = this.rush = 0;
+    if (fierce && this.angry > 0) this.rouse(pl);
     // hurt: heal up, call for help, run off
     if (this.heals && !mute && this.healCd <= 0 && this.hp < this.maxHp * 0.45) {
       const n = Math.round(this.maxHp * 0.3);
@@ -671,6 +690,7 @@ export class Monster {
       this.rush = 0;
       this.go();
     } else if (free && this.angry > 0) {
+      this.homing = false;
       const reach = this.reach;
       if (this.rush > 0) {
         // charging: straight at the player, the blow lands harder
@@ -707,10 +727,24 @@ export class Monster {
         this.state = "idle";
         this.wait = 0.3;
       }
+    } else if (free && fierce && !this.homing && fromHome > LEASH + this.radius * 2) {
+      // lost her far from home: back there, healing on the way (step)
+      this.homing = true;
+      this.goal = this.home;
+      this.go();
     }
     if (this.state === "bite") this.swing(dt, ctx, toPlayer);
     this.slide(dt);
     this.step(dt);
+  }
+
+  // Its kind near it that sees it after the player (`pl`), and has her in SIGHT too, comes too
+  // (each then rouses its own).
+  private rouse(pl: Vec2): void {
+    for (const o of this.kin ?? []) {
+      if (o.angry > 0 || !o.alive || o.variant.id !== this.variant.id) continue;
+      if (Math.hypot(o.x - this.x, o.y - this.y) < o.variant.aggro * SEE_MORE && Math.hypot(o.x - pl.x, o.y - pl.y) < SIGHT) o.angry = 2;
+    }
   }
 
   private go(): void {
@@ -813,22 +847,27 @@ export class Monster {
       case "hop": {
         const goal = this.goal ?? this.home;
         const dx = goal.x - this.x, dy = goal.y - this.y, d = Math.hypot(dx, dy);
-        if ((d < 12 || this.t > 6) && this.angry <= 0 && this.fleeT <= 0) {
+        // (a walk gives up after 6 s, the walk home not till it gets there)
+        if ((d < 12 || (this.t > 6 && !this.homing)) && this.angry <= 0 && this.fleeT <= 0) {
           this.state = "idle";
           this.wait = rand(1, 3.5);
+          this.homing = false;
           break;
         }
         if (d < 12) break;
+        if (this.homing) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * HOME_HEAL * dt);
         this.face(dx, dy);
         const slowed = this.slow > 0 ? 1 - this.slowPct : 1;
+        // chasing: a little faster, one that attacks first faster still
+        const chase = this.angry <= 0 ? 1 : this.fierce ? CHASE_PACE : L.hop ? 1.25 : 1.3;
         let v: number;
         if (L.hop) {
           // only move while airborne: the middle of each hop cycle
           const phase = ((this.t * L.fps) % L.move.frames) / L.move.frames;
           if (phase <= 0.25 || phase >= 0.75) break;
-          v = HOP_SPEED * 2 * slowed * (this.angry > 0 ? 1.25 : 1);
+          v = HOP_SPEED * 2 * slowed * chase;
         } else {
-          v = this.speed * slowed * (this.rush > 0 ? 2.6 : this.fleeT > 0 ? 1.2 : this.angry > 0 ? 1.3 : 1);
+          v = this.speed * slowed * (this.rush > 0 ? 2.6 : this.fleeT > 0 ? 1.2 : chase);
         }
         const was = { x: this.x, y: this.y };
         if (!this.moveBy((dx / d) * v * dt, (dy / d) * v * dt)) {
@@ -1160,24 +1199,22 @@ export function spawnMonsters(looks: MonsterLooks, where: Spawns = {}): Monster[
       make(at(d), home);
       if (behaviour(d, "pack") !== null) make(at(d), { x: home.x + 90, y: home.y - 80 });
     }
-    for (const m of list) m.kin = list;
-    return list;
-  }
-  const pick = () => pickBy(VARIANTS, (v) => v.weight);
-  const lv = where.levels;
-  if (!lv) {
+  } else {
+    const pick = () => pickBy(VARIANTS, (v) => v.weight);
+    const lv = where.levels, ranked = VARIANTS.length - 1;
     for (const home of where.spots ?? SPAWNS) {
-      make(pick(), home);
-      make(VARIANTS[0], { x: home.x + 80, y: home.y - 90 });
+      if (!lv) {
+        make(pick(), home);
+        make(VARIANTS[0], { x: home.x + 80, y: home.y - 90 });
+        continue;
+      }
+      const v = pick(), at = VARIANTS.indexOf(v) / ranked;
+      const level = Math.round(lv[0] + (lv[1] - lv[0]) * Math.min(1, Math.max(0, at * 0.75 + rand(0, 0.25))));
+      make(atLevel(v, level), home);
     }
-    return list;
   }
-  const ranked = VARIANTS.length - 1;
-  for (const home of where.spots ?? SPAWNS) {
-    const v = pick(), at = VARIANTS.indexOf(v) / ranked;
-    const level = Math.round(lv[0] + (lv[1] - lv[0]) * Math.min(1, Math.max(0, at * 0.75 + rand(0, 0.25))));
-    make(atLevel(v, level), home);
-  }
+  // the others on the field: a pack comes when one is hit, its kind when one goes after the player
+  for (const m of list) m.kin = list;
   return list;
 }
 

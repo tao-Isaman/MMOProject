@@ -9,7 +9,7 @@
 // stats.js turns this into numbers, skills.js runs the actives.
 
 import { saveKey } from "./save";
-import { ITEMS } from "./items";
+import { ITEMS, offhandKind } from "./items";
 import type { WeaponId } from "./items";
 import { pct, lin } from "./trees/util";
 import { RANGER_TREES } from "./trees/ranger";
@@ -19,6 +19,7 @@ import { BATTLEMAGE_TREES } from "./trees/battlemage";
 import { BOOK_TREES } from "./trees/books";
 import { V02_JOB_TREES } from "./trees/v02jobs";
 import { V03_JOB_TREES } from "./trees/v03";
+import { V05_TREES } from "./trees/v05";
 import { TERRAIN_KINDS } from "./terrain";
 import type { TerrainKind } from "./terrain";
 
@@ -53,16 +54,28 @@ export const RACE_ICONS: Record<Race, [string, string]> = {
 export interface Need {
   weapons?: WeaponId[];
   dual?: true | WeaponId[];
-  shield?: boolean; // a shield (buckler, kite shield) in the off hand
+  shield?: boolean;   // a shield (buckler, kite shield) in the off hand
+  offEmpty?: boolean; // nothing at all in the off hand: no weapon, shield, flask or book (the wuxia's lone sword)
+  // only in this shape (the druid's, SkillDef type "form"): an active can't be used out of it, a
+  // passive counts only while she is in it. (In any form an active that needs a weapon, shield or
+  // two weapons can't be used: skills.ts wields.)
+  form?: FormId;
 }
 
 export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon" | "decoy" | "workshop"
-  | "summon" | "mimic" | "smoke" | "make";
+  | "summon" | "mimic" | "smoke" | "make"
+  | "orb" | "invoke" | "form" | "stall";
 
 // The allies a summon calls (src/allies.ts): wolf, clone and golem fight, the statue blesses
 // whoever stands by it, the wall stands in the monsters' way; the decoy is the jester's copy.
-export const ALLY_KINDS = ["wolf", "clone", "statue", "wall", "golem", "decoy"] as const;
+// v0.5: the spirit floats after the player and shoots at her target; the familiar follows her,
+// heals her and gives its buff while she is near it.
+export const ALLY_KINDS = ["wolf", "clone", "statue", "wall", "golem", "decoy", "spirit", "familiar"] as const;
 export type AllyKind = (typeof ALLY_KINDS)[number];
+// The druid's shapes (SkillDef type "form").
+export const FORM_IDS = ["bear", "bird", "deer"] as const;
+export type FormId = (typeof FORM_IDS)[number];
+export const FORM_NAMES: Record<FormId, string> = { bear: "ร่างหมี", bird: "ร่างนก", deer: "ร่างกวาง" };
 export { TERRAIN_KINDS };
 export type { TerrainKind };
 
@@ -83,7 +96,8 @@ export const AUTOCAST = "autocast_";
 //           the smiths' fees.
 // The third jobs' (src/allies.ts, skills.ts):
 //   summon  calls an ally of kind `ally` (ALLY_KINDS) for `duration` s (default 30), at most
-//           `count` of that kind at a time (default 1; one more sends the oldest away). `base`: its
+//           `count` of that creature (its kind and `look`) at a time (default 1; one more sends
+//           the oldest away). `base`: its
 //           HP as a share of the player's max HP; `mult` (with `stat`): each of its blows, as a
 //           skill hit of the player's (a clone: of the player's normal attack), one every `every`
 //           s; `range`: placed on the aimed spot up to that far (else in front of the player);
@@ -91,7 +105,12 @@ export const AUTOCAST = "autocast_";
 //           `radius` is its size (default 70). wolf: follows, bites what the player attacks or
 //           what attacks the player; clone: the player's look, fights the player's target; golem:
 //           walks to the nearest monster and draws the monsters to it; wall: monsters can't
-//           walk through it and hit it when it is in their way.
+//           walk through it and hit it when it is in their way. v0.5: spirit: floats by her
+//           shoulder (over whatever is in the way) and shoots at her target, or at what goes for
+//           her, from up to 520 cm: each shot `mult` (`stat`, `element`), one every `every` s
+//           (default 1.2); familiar: follows her; while she is within its `radius` (default 300)
+//           she has its `buff`, and every `every` s (default 3) it heals her `heal` of her max HP
+//           (with her healPct). Her allyPct stat: every ally's HP and blows that much more.
 //   mimic   copies the locked monster's attack (its shot and element, or its bite) for `uses`
 //           uses (default 5) or `duration` s (default 20): the same slot then fires the copy,
 //           `mult` of the player's attack (magic attack for a spell), no MP, `every` s apart
@@ -101,6 +120,8 @@ export const AUTOCAST = "autocast_";
 //           `buff` on top); a blow from it shows her for a moment, then the smoke hides her again.
 //   make    turns materials into an item: `make.from` taken from the bag, `make.count(rank)` of
 //           `make.item` given (poison vials, src/poisons.ts).
+// The merchant's (src/stall.ts):
+//   stall   opens the stall's window, in a town only (JobDef.skill, not in a tree).
 // Riders any skill can carry: `combo` (stronger right after another skill), `manaBurn` (more on
 // casters, `silence` s of no casting or shooting), `hits` on nova, beam and dash too (bolt, cone
 // and blast had it), `terrain` on a buff (stats by the kind of map, src/terrain.ts).
@@ -138,6 +159,7 @@ export interface SkillDef {
   count?: number;
   spread?: number;
   arrow?: boolean;
+  bullet?: boolean;          // bolt, fan: its shots fly as a gun's bullets
   distance?: number;
   ticks?: number;
   poison?: ByRank<number>;   // poison for this much of the hit's damage over 4 s
@@ -172,6 +194,52 @@ export interface SkillDef {
   // a coin is flipped on every hit (flipCoin; luck helps it come up heads): heads, the hit does
   // this much more (0.5: +50%); tails, as much less
   coin?: ByRank<number>;
+  // ---- the merchant's ----
+  gold?: ByRank<number>;     // each use costs this much gold times the player's level (none: can't)
+  bag?: ByRank<number>;      // up to this much more damage, by how full the bag is (all of it full)
+  // ---- the fourth jobs' (docs/v05_jobs.md; skills.ts, hero.ts, combat.ts, allies.ts) ----
+  // orb     adds an orb of element `orb` to the three the player holds (a fourth sends the oldest
+  //         away); each orb held gives `buff` at this skill's rank for as long as it is held (two
+  //         of one element give it twice). Orbs stay from map to map and go when she falls; the
+  //         HUD shows them beside the skill bar. A stance, not a spell: keep its `cd` short
+  //         (0.3-1 s) and its `mp` low; the element effects of a cast (earth's shield...) don't
+  //         follow it.
+  orb?: ElementId;
+  // invoke  casts the spell `invoke` holds for the three orbs held. The key: their elements
+  //         sorted by name and joined by "+" ("fire+fire+ice", "fire+ice+lightning"). The spell
+  //         goes at this skill's rank (its `mult` and the rest read that rank) with its own type,
+  //         MP (grown by this skill's ranks as mpCost grows any skill's), cooldown and cast time;
+  //         each spell keeps its own cooldown, so other orbs can cast another at once. A spell is
+  //         a damaging type (bolt, fan, blast, nova, storm, cone, beam, dash, flower, trap,
+  //         falcon) or heal, shield, buff (an invoked buff is named by the spell). The invoke's own
+  //         mp, cd and motion aren't used (write 0, 0, "cast"). Fewer than three orbs, or none in
+  //         the table for them: it can't be used (the bar says why). Over its slot the bar shows
+  //         the spell it would cast now.
+  invoke?: Record<string, { name: string; skill: SkillDef }>;
+  // form    turns the player into `form` for `duration` s (default 60, longer with buffTime);
+  //         used again she is herself again (free, whatever its cooldown), another form switches.
+  //         She is drawn as the monster `look` (a bestiary id with a sheet: pine_bear,
+  //         steppe_eagle, crimson_stag...) as tall as it stands within 130-190 cm, floating if it
+  //         flies. She has `buff` while in it, and her normal attack is `formAttack`: kind
+  //         "melee", a blow at the one in front within `reach` cm (default 130), or "ranged", a
+  //         shot in the skill's colour that homes in from up to `range` (default 560); `mult` of
+  //         her attack (`stat` "matk": magic attack; no weapon power) in `element`, healing her
+  //         `heal` of the damage it does, one blow every `every` s (default 1, quicker with attack
+  //         speed). In a form, skills with need.form work only in it; skills that need a weapon
+  //         or shield can't be used; the rest (heals, buffs, spells) can. Falling or leaving the
+  //         map ends it.
+  form?: FormId;
+  formAttack?: { kind: "melee" | "ranged"; mult: ByRank<number>; stat?: "atk" | "matk"; element?: ElementId; heal?: ByRank<number>; reach?: number; range?: number; every?: number };
+  // summon (or form): drawn as this instead of its kind's own look: a bestiary monster id with a
+  // sheet (public/assets/monsters/index.json: "ghost_rancher", "shadow_imp", "skeleton_soldier"
+  // ...) or "slime:<hue>", a slime of that hue (0 red, 30 orange, 60 yellow, 150 the field
+  // slimes' green, 220 blue, 275 violet, 335 pink). A summon's allies of one kind and one look
+  // are one creature: `count` counts them together, so a ghost and a demon (both spirits) don't
+  // send each other away.
+  look?: string;
+  // on a heal (or a buff's heal): the heal comes a part a second over `ticks` s (default 5)
+  // instead of at once, shown as a buff while it lasts (what is left is lost if she falls)
+  hot?: boolean;
 }
 
 export interface TreeNode {
@@ -194,6 +262,7 @@ export interface Tree {
   cls: ClassId | null;
   job?: JobId;      // a second job's branch: learned on taking the job, no book
   job3?: Job3Id;    // a third job's branch, the same way
+  job4?: Job4Id;    // a fourth job's branch, the same way
   stub?: boolean;   // not written yet: its job isn't offered (job3Open), tree_check lets it be
   opens?: string;   // a mastery the branch teaches on taking it (an inventor's craft)
   book?: string;
@@ -225,6 +294,7 @@ export interface Mastery {
   perDesc: string;
   rewards: MasteryReward[];
   book?: string;
+  bookName?: string; // its book's own name (else "ตำราความเชี่ยวชาญ: <name>")
 }
 
 // A milestone on an element's line: stats it adds, or an effect skills.ts checks by level.
@@ -249,29 +319,46 @@ export interface ElementDef {
 }
 
 export type ClassId = "mage" | "warrior" | "archer" | "priest";
-export type JobId = "ranger" | "swordsman" | "wizard" | "bishop" | "battlemage" | "warlord" | "thief" | "jester" | "mercenary" | "inventor";
+export type JobId = "ranger" | "swordsman" | "wizard" | "bishop" | "battlemage" | "warlord" | "thief" | "jester" | "mercenary" | "inventor" | "merchant";
 
-// Whether the hands hold what `need` asks for (main: the main-hand weapon type, off: the off
-// hand's, null when empty or not a weapon).
-export function needMet(need: Need | undefined, main: string | null, off: string | null): boolean {
+// What the off hand holds as needMet reads it: a weapon type, "shield", "gear" (a flask, a book)
+// or null when it is empty.
+export function offKind(id: string | null | undefined): string | null {
+  return id ? offhandKind(id) ?? "gear" : null;
+}
+
+// Whether the hands hold what `need` asks for, and she is in the shape it asks for (main: the
+// main-hand weapon type, off: offKind of the off hand, form: the shape she is in, null: none).
+export function needMet(need: Need | undefined, main: string | null, off: string | null, form: FormId | null = null): boolean {
   if (!need) return true;
   if (need.weapons && !need.weapons.includes(main as WeaponId)) return false;
   if (need.dual) {
-    const ok = (w: string | null) => !!w && w !== "shield" && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
+    const ok = (w: string | null) => !!w && w !== "shield" && w !== "gear" && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
     if (!ok(main) || !ok(off)) return false;
   }
   if (need.shield && off !== "shield") return false;
+  if (need.offEmpty && off !== null) return false;
+  if (need.form && need.form !== form) return false;
   return true;
 }
 
-// "ดาบมือเดียว หรือ ดาบสองมือ", "ดาบมือเดียวทั้งสองมือ", for the skill window and the bar.
+// Whether a need asks for something in hand (a skill like that can't be used in a form).
+export function needsWeapon(need: Need | undefined): boolean {
+  return !!(need?.weapons || need?.dual || need?.shield);
+}
+
+// "ถือดาบมือเดียว หรือ ดาบสองมือ", "ถือดาบมือเดียว และ มือรองว่าง", "อยู่ในร่างหมี", for the skill
+// window ("ใช้ได้เมื่อ…") and the bar ("ต้อง…").
 export function needText(need: Need | undefined, weaponName: (w: WeaponId) => string): string {
   if (!need) return "";
-  const parts: string[] = [];
-  if (need.weapons) parts.push(need.weapons.map(weaponName).join(" หรือ "));
-  if (need.dual === true) parts.push("อาวุธมือเดียวทั้งสองมือ");
-  else if (need.dual) parts.push(`${need.dual.map(weaponName).join(" หรือ ")} ทั้งสองมือ`);
-  if (need.shield) parts.push("โล่ในมือรอง");
+  const held: string[] = [];
+  if (need.weapons) held.push(need.weapons.map(weaponName).join(" หรือ "));
+  if (need.dual === true) held.push("อาวุธมือเดียวทั้งสองมือ");
+  else if (need.dual) held.push(`${need.dual.map(weaponName).join(" หรือ ")} ทั้งสองมือ`);
+  if (need.shield) held.push("โล่ในมือรอง");
+  const parts = held.length ? [`ถือ${held.join(" และ ")}`] : [];
+  if (need.offEmpty) parts.push("มือรองว่าง");
+  if (need.form) parts.push(`อยู่ใน${FORM_NAMES[need.form]}`);
   return parts.join(" และ ");
 }
 
@@ -292,7 +379,7 @@ export interface Active {
   max: number;
   skill: SkillDef;
   desc: string | ByRank<string>;
-  source: { tree?: string; mastery?: string; at?: number };
+  source: { tree?: string; mastery?: string; at?: number; job?: JobId };
   need?: Need;
 }
 
@@ -308,8 +395,16 @@ export const STAT_NAMES: Record<string, string> = {
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
   luck: "โชคดี", magicDodge: "หลบเวท", statusRes: "ต้านสถานะ", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
+  // v0.5: attack from max HP (hpToAtk: that share of max HP, added after atkPct; the profile
+  // window shows what it adds), a blow back (counter: the chance, at most 60%, that a monster's
+  // blow landing on her from within about 2 m is struck straight back for 150% of attack and the
+  // weapon's power, a physical hit, "สวนกลับ"), allies' HP and blows that much more (allyPct)
+  hpToAtk: "HP เป็นพลังโจมตี", counter: "โอกาสสวนกลับ", allyPct: "พลังผู้ช่วย",
+  // the merchant's stall (stall.ts): goods on it, how often customers come, dearer sales
+  stallSlots: "ช่องวางของในร้าน", stallRate: "ลูกค้ามาถี่ขึ้น", stallMarkup: "ขายแพงกว่าราคากลางได้",
 };
-export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush"]);
+export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush",
+  "hpToAtk", "counter", "allyPct", "stallRate", "stallMarkup"]);
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   mage: {
@@ -362,6 +457,7 @@ export interface JobDef {
   note: string;
   bonus: StatBag;
   growth: StatBag;
+  skill?: string;   // an active the job itself teaches, whatever the branch (the merchant's stall)
 }
 
 export const JOBS: Record<JobId, JobDef> = {
@@ -416,7 +512,18 @@ export const JOBS: Record<JobId, JobDef> = {
     note: "ช่างผู้สร้างอุปกรณ์ได้เอง แต่ละสายได้ความเชี่ยวชาญการสร้างของตัวเองทันที (อาวุธ ชุด หรือประดับ) พร้อมสกิลต่อสู้และบัฟ",
     bonus: { atk: 7, matk: 7, def: 4.2, maxHp: 70 }, growth: { atk: 0.36, matk: 0.36, def: 0.18, maxHp: 3 },
   },
+  // v0.5: open to every class; whatever the branch, the job sets up a stall in town
+  merchant: {
+    name: "พ่อค้า", from: null, branches: ["merchant_trade", "merchant_cart"],
+    note: "พ่อค้าผู้เดินทางไปทั่ว ตั้งร้านขายของในเมืองได้ ค้าขายเก่งจนเงินทองไหลมาเทมา หรือเข็นเกวียนสินค้าลุยศัตรูและทุ่มทุนโจมตี",
+    bonus: { atk: 7, maxHp: 84, def: 4.2, luck: 3 }, growth: { atk: 0.4, maxHp: 3.6, def: 0.2 }, skill: "merchant_stall",
+  },
 };
+
+// A second job that can be taken: every branch written (none a stub).
+export function jobOpen(id: JobId): boolean {
+  return JOBS[id].branches.every((b) => TREES[b] && !TREES[b].stub);
+}
 
 // ---- third jobs ----
 // At level 60 (THIRD_JOB_LEVEL) a character with a second job can take a third, from its master
@@ -513,23 +620,144 @@ export function job3Stats(p: { job3: Job3Id | null; level: number }): StatBag {
   return out;
 }
 
-// What to call a character: its third job, else its second, else its class.
-export function jobName(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): string {
-  return p.job3 ? JOBS3[p.job3].name : p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
+// ---- fourth jobs (docs/v05_jobs.md) ----
+// At level 90 (FOURTH_JOB_LEVEL) a character with a third job can take a fourth, from its master
+// by a longer quest, the same way as the third: a branch picked at the hand-in, learned on the
+// spot with JOB_POINTS points. `from`: the third jobs that may take it (null: any). Its bonus
+// and growth are a little over a third job's; its branches have TREE_SKILLS[4] skills.
+export const FOURTH_JOB_LEVEL = 90;
+export type Job4Id = "high_knight" | "sniper" | "warlock" | "druid" | "slayer" | "royal_guard" | "alchemist" | "wuxia" | "viking" | "samurai" | "shaman";
+
+export interface Job4Def {
+  name: string;
+  from: Job3Id[] | null;
+  branches: string[];
+  note: string;
+  bonus: StatBag;
+  growth: StatBag;
+  glyph: string;  // its emblem until it has a picture (icons.ts glyph)
+  color: string;
+}
+
+export const JOBS4: Record<Job4Id, Job4Def> = {
+  high_knight: {
+    name: "อัศวินชั้นสูง", from: ["knight", "sculptor", "shinobi", "monk"], branches: ["high_knight_lance", "high_knight_arms"],
+    note: "ยอดอัศวินแห่งราชสำนัก หอกที่บุทะลวงทั้งใกล้และไกลจนถึงขว้างหอก หรือเทพศาสตราผู้ใช้อาวุธได้ทุกชนิดทั้งรุกและรับ",
+    bonus: { atk: 14, maxHp: 170, def: 8 }, growth: { atk: 0.74, maxHp: 6, def: 0.3 }, glyph: "shield", color: "#d8e4ff",
+  },
+  sniper: {
+    name: "สไนเปอร์", from: ["hunter", "assassin", "shinobi"], branches: ["sniper_gun", "sniper_bow"],
+    note: "มือปืนและพลธนูที่แม่นที่สุด ปืนที่ยิงเร็ว หลายนัด และกวาดเป็นวง หรือธนูที่ยิงเป้าเดียวแรงจนทะลุเกราะ",
+    bonus: { atk: 12, hit: 14, crit: 0.015, flee: 8 }, growth: { atk: 0.62, hit: 0.46, flee: 0.34, maxHp: 3 }, glyph: "target", color: "#c8d8a0",
+  },
+  warlock: {
+    name: "พ่อมด", from: ["archmage", "high_bishop", "spellblade", "historian"], branches: ["warlock_invoker", "warlock_curse"],
+    note: "ผู้ควบคุมพลังเวทสูงสุด อัญเชิญลูกแก้วธาตุสามลูกแล้วผสานเป็นเวทได้สิบแบบ หรือสาปศัตรูด้วยความมืด พิษ และลาวาจนเปื่อยยุ่ย",
+    bonus: { matk: 18, maxMp: 80, mdef: 6 }, growth: { matk: 0.88, maxMp: 3, mdef: 0.24 }, glyph: "swirl", color: "#b49cff",
+  },
+  druid: {
+    name: "ดรูอิด", from: ["archmage", "high_bishop", "monk", "magician"], branches: ["druid_nature", "druid_wild"],
+    note: "ผู้พิทักษ์ป่าโบราณ ใช้พลังพืชและหินพร้อมฟื้นฟูต่อเนื่อง หรือแปลงร่างเป็นหมี นก และกวางตามที่ศึกต้องการ",
+    bonus: { atk: 8, matk: 12, maxHp: 120, hpRegen: 2 }, growth: { atk: 0.4, matk: 0.6, maxHp: 4.6 }, glyph: "leaf", color: "#9ad08a",
+  },
+  slayer: {
+    name: "มือสังหาร", from: ["assassin", "shinobi"], branches: ["slayer_dagger", "slayer_claw"],
+    note: "เงาแห่งความตายที่ไม่มีใครรอด มีดที่แทงต่อเนื่องเป็นกระบวนท่า หรือกรงเล็บที่คริติคอลจนขาดใจ",
+    bonus: { atk: 12, flee: 14, aspd: 0.07, crit: 0.015 }, growth: { atk: 0.62, flee: 0.52, maxHp: 3 }, glyph: "skull", color: "#a88cd8",
+  },
+  royal_guard: {
+    name: "ราชองครักษ์", from: ["knight", "spellblade"], branches: ["royal_guard_shield", "royal_guard_hunt", "royal_guard_strike"],
+    note: "องครักษ์เสื้อแพรแห่งราชสำนัก คุ้มกันด้วยโล่และระเบิดพลังใส่คู่ต่อสู้ ไล่ล่า จับกุม และปลดเกราะปลดอาวุธ หรือจู่โจมจากไกลด้วยปืนและธนู",
+    bonus: { atk: 13, maxHp: 150, def: 7, hit: 6 }, growth: { atk: 0.7, maxHp: 5.6, def: 0.28 }, glyph: "person", color: "#e8c070",
+  },
+  alchemist: {
+    name: "นักเล่นแร่แปรธาตุ", from: null, branches: ["alchemist_homunculus", "alchemist_bomb", "alchemist_synth"],
+    note: "ผู้แปรสภาพสสาร สร้างโฮมุนครุสหลายแบบมาช่วยสู้ ปาระเบิดโลหะ หิน และโคลน หรือสังเคราะห์ธาตุเสริมพลังให้ทั้งทีม",
+    bonus: { atk: 9, matk: 9, maxHp: 110, def: 5 }, growth: { atk: 0.46, matk: 0.46, maxHp: 4.2, def: 0.22 }, glyph: "drop", color: "#8ad8c8",
+  },
+  wuxia: {
+    name: "จอมยุทธ์", from: null, branches: ["wuxia_sword", "wuxia_fist"],
+    note: "ยอดฝีมือแห่งยุทธภพ กระบี่พเนจรที่ถือกระบี่เล่มเดียวแข็งแกร่งรอบด้าน หรือหมัดเปล่าที่เร็ว เคลื่อนไหวว่องไว และสวนกลับ",
+    bonus: { atk: 11, flee: 10, maxHp: 110, aspd: 0.05 }, growth: { atk: 0.58, flee: 0.4, maxHp: 4.2 }, glyph: "sword", color: "#f0b080",
+  },
+  viking: {
+    name: "นักรบไวกิ้ง", from: null, branches: ["viking_axe", "viking_mace"],
+    note: "นักรบแห่งทะเลเหนือ ขวานที่คริติคอลหนักไม่สนเกราะและเปลี่ยนเลือดเป็นพลัง หรือกระบองที่ทุบให้มึนพร้อม HP และป้องกันสูง",
+    bonus: { atk: 13, maxHp: 200, hpRegen: 2 }, growth: { atk: 0.68, maxHp: 7.2, def: 0.2 }, glyph: "rage", color: "#c8b8a0",
+  },
+  samurai: {
+    name: "ซามูไร", from: null, branches: ["samurai_blade", "samurai_vanguard", "samurai_ranged"],
+    note: "นักรบผู้ถือคติบูชิโด ดาบสองมือที่ฟันเร็วและฟื้นตัวไว แนวหน้าที่ยืนหยัดไม่ถอย หรือนักสู้ยืดหยุ่นที่ใช้ธนูและปืนรักษาระยะ",
+    bonus: { atk: 12, maxHp: 140, hit: 8, crit: 0.01 }, growth: { atk: 0.64, maxHp: 5.2, hit: 0.3 }, glyph: "sword", color: "#e89a9a",
+  },
+  shaman: {
+    name: "หมอผี", from: null, branches: ["shaman_consecrate", "shaman_summon"],
+    note: "ผู้รู้แห่งโลกวิญญาณ ปลุกเสกตัวเองเข้าตะลุมบอนกับอันเดด ปีศาจ และผี หรืออัญเชิญผีและปีศาจมาช่วยสู้ด้วยเวทควันและเงา",
+    bonus: { atk: 9, matk: 11, maxHp: 100, mdef: 6 }, growth: { atk: 0.46, matk: 0.56, maxHp: 3.8, mdef: 0.2 }, glyph: "cloud", color: "#c0a0d8",
+  },
+};
+
+// A fourth job that can be taken: every branch written (none a stub).
+export function job4Open(id: Job4Id): boolean {
+  return JOBS4[id].branches.every((b) => TREES[b] && !TREES[b].stub);
+}
+
+// The fourth job's bonus and its growth since FOURTH_JOB_LEVEL (hero.ts adds them with the buffs).
+export function job4Stats(p: { job4: Job4Id | null; level: number }): StatBag {
+  const j = p.job4 ? JOBS4[p.job4] : null;
+  if (!j) return {};
+  const out: StatBag = { ...j.bonus };
+  const k = Math.max(0, p.level - FOURTH_JOB_LEVEL);
+  for (const [key, v = 0] of Object.entries(j.growth)) out[key] = (out[key] ?? 0) + v * k;
+  return out;
+}
+
+// The jobs a character holds, for what it is called and shown as.
+export interface JobLine {
+  cls: ClassId | null;
+  job: JobId | null;
+  job3?: Job3Id | null;
+  job4?: Job4Id | null;
+}
+
+// What to call a character: its latest job (the fourth, the third, the second), else its class.
+export function jobName(p: JobLine): string {
+  return p.job4 ? JOBS4[p.job4].name : p.job3 ? JOBS3[p.job3].name : p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
 }
 
 // The emblem shown with that name: assets/skills/job_<id>.png for a job drawn already (JOB_ART),
-// else class_<id>.png (null: no class). A third job not drawn yet has no picture: null, and
-// jobGlyph gives the glyph to draw instead.
-const JOB_ART = new Set<JobId | Job3Id>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord", "thief", "jester", "mercenary", "inventor",
+// else class_<id>.png (null: no class). A third or fourth job not drawn yet has no picture: null,
+// and jobGlyph gives the glyph to draw instead.
+const JOB_ART = new Set<JobId | Job3Id | Job4Id>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord", "thief", "jester", "mercenary", "inventor",
   "knight", "hunter", "archmage", "assassin", "high_bishop", "monk", "spellblade", "sculptor", "magician", "historian", "shinobi"]);
-export function jobIcon(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): string | null {
-  if (p.job3) return JOB_ART.has(p.job3) ? `assets/skills/job_${p.job3}.png` : null;
+export function jobIcon(p: JobLine): string | null {
+  const top = p.job4 ?? p.job3;
+  if (top) return JOB_ART.has(top) ? `assets/skills/job_${top}.png` : null;
   if (p.job && JOB_ART.has(p.job)) return `assets/skills/job_${p.job}.png`;
   return p.cls ? `assets/skills/class_${p.cls}.png` : null;
 }
-export function jobGlyph(p: { job3?: Job3Id | null }): [string, string] | null {
-  return p.job3 && !JOB_ART.has(p.job3) ? [JOBS3[p.job3].glyph, JOBS3[p.job3].color] : null;
+export function jobGlyph(p: Pick<JobLine, "job3" | "job4">): [string, string] | null {
+  const j = p.job4 ? JOBS4[p.job4] : p.job3 ? JOBS3[p.job3] : null;
+  return j && !JOB_ART.has((p.job4 ?? p.job3)!) ? [j.glyph, j.color] : null;
+}
+
+// ---- the level-99 limit (docs/v05_jobs.md) ----
+// At LIMIT_LEVEL experience stops, the bar full, until the king's quest breaks the limit
+// (src/quests_limit.ts): the character is LIMIT_LEVEL + 1 at once. Past it levels give more
+// points: LIMIT_POINTS on the first, LIMIT_STEP_POINTS on every LIMIT_STEP-th after (105, 110 ...
+// 200), on top of the one every level gives. They follow from the level, never stored, so a
+// character already past it has all of them.
+export const LIMIT_LEVEL = 99;
+const LIMIT_POINTS = 10, LIMIT_STEP = 5, LIMIT_STEP_POINTS = 2;
+
+// The points past the limit up to a level: 10 at 100, 12 at 105 ... 50 at 200.
+function limitPoints(level: number): number {
+  return level > LIMIT_LEVEL ? LIMIT_POINTS + LIMIT_STEP_POINTS * Math.floor((level - LIMIT_LEVEL - 1) / LIMIT_STEP) : 0;
+}
+
+// The skill points reaching a level gives: 1, 11 at 100, 3 at 105, 110 ...
+export function levelPoints(level: number): number {
+  return 1 + limitPoints(level) - limitPoints(level - 1);
 }
 
 // The four elements a new character picks one of (the rest are found in the game).
@@ -872,6 +1100,11 @@ function craftMastery(id: string, name: string, glyph: string, what: string, mak
   };
 }
 
+// Brewing (workshop.ts BREWS): the strong potions from materials, anywhere and without a fee,
+// each from the level BREW_AT gives it; every level adds BREW_BONUS of a chance of one potion more.
+export const BREW_BONUS = 0.02;
+export const BREW_AT: Record<string, number> = { potion_orange: 1, potion_yellow: 10, potion_white: 20 };
+
 export const MASTERIES: Record<string, Mastery> = {
   // all round: damage, aim and a little of everything
   sword: weaponMastery("ดาบ", ["sword_1h", "sword_2h"], "sword", {
@@ -971,6 +1204,20 @@ export const MASTERIES: Record<string, Mastery> = {
     p50: { name: "ศรพันดอก", stats: { multiShot: 0.1, crit: 0.02 }, desc: "โอกาสยิงซ้อน +10% โอกาสคริติคอล +2% เมื่อถือธนู" },
     p60: { name: "เทพธนู", stats: { atkPct: 0.15, critDmg: 0.3, reach: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ระยะยิง +10% เมื่อถือธนู" },
   }),
+  // v0.5: pistols and rifles, quick shots that go through armour and long ones
+  gun: weaponMastery("ปืน", ["pistol", "rifle"], "target", {
+    per: { atk: 2.2, hit: 2, crit: 0.0012 }, perDesc: "พลังโจมตี +2.2 ความแม่นยำ +2 โอกาสคริติคอล +0.12%",
+    p5: { name: "ศูนย์เล็งนิ่ง", stats: { reach: 0.15 }, desc: "ระยะยิง +15% เมื่อถือปืน" },
+    p10: { name: "บรรจุเร็ว", stats: { aspd: 0.08 }, desc: "ความเร็วโจมตี +8% เมื่อถือปืน" },
+    s15: { id: "gun_buckshot", name: "ยิงลูกปราย", glyph: "fan",
+      skill: { type: "fan", stat: "atk", mult: () => 1.3, count: 5, spread: 36, mp: 14, cd: 6, motion: "thrust", speed: 1900, range: 560, radius: 20, bullet: true, color: "#ffe0a0" },
+      desc: "ยิงกระสุน 5 นัดเป็นรูปพัด นัดละ 130% ของพลังโจมตี" },
+    p20: { name: "กระสุนเจาะเกราะ", stats: { pierce: 0.1 }, desc: "ทะลุเกราะ +10% เมื่อถือปืน" },
+    p30: { name: "มือปืน", stats: { atkPct: 0.12, critDmg: 0.3 }, desc: "พลังโจมตี +12% แรงคริติคอล +30% เมื่อถือปืน" },
+    p40: { name: "ลั่นไกไว", stats: { aspd: 0.06, hit: 20 }, desc: "ความเร็วโจมตี +6% ความแม่นยำ +20 เมื่อถือปืน" },
+    p50: { name: "นัดเดียวจอด", stats: { pierce: 0.08, crit: 0.02 }, desc: "ทะลุเกราะ +8% โอกาสคริติคอล +2% เมื่อถือปืน" },
+    p60: { name: "เทพปืน", stats: { atkPct: 0.15, critDmg: 0.3, reach: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ระยะยิง +10% เมื่อถือปืน" },
+  }),
   // the fist fighter's: quick blunt blows that daze and go through armour, a sturdy body
   knuckle: weaponMastery("สนับมือ", ["knuckle"], "slam", {
     per: { atk: 1.6, aspd: 0.01, def: 0.6 }, perDesc: "พลังโจมตี +1.6 ความเร็วโจมตี +1% ป้องกัน +0.6",
@@ -1008,6 +1255,18 @@ export const MASTERIES: Record<string, Mastery> = {
       { at: 10, kind: "passive", name: "ตาไว", glyph: "eye", stats: { xpPct: 0.1 }, desc: "ค่าประสบการณ์ +10%" },
       { at: 15, kind: "passive", name: "รู้แหล่ง", glyph: "leaf", stats: { drop: 0.1 }, desc: "โอกาสได้ของดรอป +10%" },
       { at: 20, kind: "passive", name: "นักเดินทาง", glyph: "dash", stats: { move: 0.05 }, desc: "ความเร็วเดิน +5%" },
+    ],
+  },
+  // brewing, opened by its book (the potion brewer's)
+  brewing: {
+    name: "ปรุงยา", kind: "life", book: "book_brewing", bookName: "ตำรานักปรุงยา", glyph: "drop", max: 30,
+    per: {}, perDesc: `ปรุงได้ยาเพิ่มอีกขวด ${pct(BREW_BONUS)} ต่อระดับ`,
+    rewards: [
+      { at: 1, kind: "active", id: "brewing_make", name: "ปรุงยา", glyph: "drop",
+        skill: { type: "workshop", mp: 0, cd: 2, motion: "cast", bench: { tab: "craft", craft: "brewing" }, color: "#ffb870" },
+        desc: "ตั้งเตาปรุงยาได้ทุกที่ ปรุงยาส้ม (ฟื้น HP 300) จากเยลลี่และเศษอัญมณี ไม่เสียค่าจ้าง ถูกกว่าซื้อจากร้านมาก" },
+      { at: BREW_AT.potion_yellow, kind: "passive", name: "สูตรยาเหลือง", glyph: "drop", desc: "ปรุงยาเหลือง (ฟื้น HP 550) ได้" },
+      { at: BREW_AT.potion_white, kind: "passive", name: "สูตรยาขาว", glyph: "drop", desc: "ปรุงยาขาว (ฟื้น HP 1000) ได้" },
     ],
   },
   // the crafts, opened by an inventor's branch or a book
@@ -1280,7 +1539,7 @@ export const ELEMENT_STAT_NAMES: Record<string, string> = Object.fromEntries(
 );
 
 // The second and third jobs' branches and the later books (src/trees/).
-for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, V02_JOB_TREES, V03_JOB_TREES, BOOK_TREES]) {
+for (const more of [RANGER_TREES, BLADE_TREES, CASTER_TREES, BATTLEMAGE_TREES, V02_JOB_TREES, V03_JOB_TREES, BOOK_TREES, V05_TREES]) {
   for (const [id, t] of Object.entries(more)) {
     if (TREES[id]) throw new Error(`tree ${id} twice`);
     TREES[id] = t;
@@ -1327,8 +1586,8 @@ function addBook(kind: BookKind, id: string, own: string | undefined, name: stri
     note: note ?? `อ่านเพื่อเรียน${name.startsWith("ตำรา") ? name : BOOK_WORD[kind] + name} (${who})`,
   };
 }
-for (const [id, t] of Object.entries(TREES)) if (!t.job && !t.job3) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
-for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.name, m.glyph, "#e8c98a", null);
+for (const [id, t] of Object.entries(TREES)) if (!t.job && !t.job3 && !t.job4) addBook("tree", id, t.book, t.name, t.glyph, t.color, t.cls);
+for (const [id, m] of Object.entries(MASTERIES)) addBook("mastery", id, m.book, m.bookName ?? m.name, m.glyph, "#e8c98a", null);
 for (const [id, e] of Object.entries(ELEMENTS)) addBook("element", id, e.book, e.name, e.glyph, e.color, null);
 for (const [id, m] of Object.entries(MASTERIES)) {
   if (m.max2) addBook("mastery2", id, undefined, `${m.name} ขั้นสอง`, m.glyph, "#ffd36b", null,
@@ -1359,14 +1618,23 @@ for (const [mid, m] of Object.entries(MASTERIES)) {
   }
 }
 
+// The jobs' own actives (JobDef.skill), known whatever the branch: the merchant's stall, opened
+// in town (stall.ts).
+ACTIVES.merchant_stall = {
+  id: "merchant_stall", name: "เปิดร้าน", glyph: "coin", color: "#e8c36a", max: 1, source: { job: "merchant" },
+  skill: { type: "stall", mp: 0, cd: 3, motion: "cast", color: "#e8c36a" },
+  desc: "ตั้งร้านขายของในเมือง: วางของจากกระเป๋า ตั้งราคาและชื่อร้านเอง ชาวเมืองจะแวะมาซื้อ ขึ้นป้ายชื่อร้านเหนือหัว เดินเมื่อไรร้านปิดและของที่เหลือกลับเข้ากระเป๋า",
+};
+
 // What a skill costs in MP at a rank: the cost it is written with is rank 1's, and each rank
 // after costs more, up to MP_GROWTH more at its top rank (a one-rank skill stays as written).
+// mp: another cost to grow by the skill's ranks (an invoked spell's own, skills.ts).
 export const MP_GROWTH = 0.8;
-export function mpCost(id: string, rank: number): number {
+export function mpCost(id: string, rank: number, mp = ACTIVES[id]?.skill.mp ?? 0): number {
   const a = ACTIVES[id];
   if (!a) return 0;
   const r = Math.min(Math.max(1, rank), a.max);
-  return a.max > 1 ? Math.round(a.skill.mp * (1 + (MP_GROWTH * (r - 1)) / (a.max - 1))) : a.skill.mp;
+  return a.max > 1 ? Math.round(mp * (1 + (MP_GROWTH * (r - 1)) / (a.max - 1))) : mp;
 }
 
 
@@ -1385,6 +1653,9 @@ interface SaveData {
   branch?: string | null;
   job3?: Job3Id | null;
   branch3?: string | null;
+  job4?: Job4Id | null;
+  branch4?: string | null;
+  limit?: boolean;
   treesV?: number;
   learnV?: number;
 }
@@ -1411,6 +1682,9 @@ export class Progress {
   branch: string | null = null;
   job3: Job3Id | null = null;            // the third job, and its branch
   branch3: string | null = null;
+  job4: Job4Id | null = null;            // the fourth job, and its branch
+  branch4: string | null = null;
+  limit = false;                         // the level-99 limit broken (LIMIT_LEVEL)
 
   constructor() {
     if (!this.load()) this.reset(null);
@@ -1432,6 +1706,9 @@ export class Progress {
     this.branch = null;
     this.job3 = null;
     this.branch3 = null;
+    this.job4 = null;
+    this.branch4 = null;
+    this.limit = false;
     this.changed();
   }
 
@@ -1439,6 +1716,7 @@ export class Progress {
   jobBlock(id: JobId): string | null {
     const j = JOBS[id];
     if (this.job) return `เปลี่ยนเป็น${JOBS[this.job].name}ไปแล้ว`;
+    if (!jobOpen(id)) return `${j.name}ยังไม่เปิดให้เปลี่ยน รออีกไม่นาน`;
     if (j.from && !j.from.includes(this.cls as ClassId)) return `ต้องเป็น${j.from.map((c) => CLASSES[c].name).join(" หรือ ")}`;
     if (this.level < JOB_LEVEL) return `ต้องเลเวล ${JOB_LEVEL} ขึ้นไป`;
     return null;
@@ -1454,6 +1732,9 @@ export class Progress {
     const craft = TREES[branch].opens;
     if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
     this.bonus += JOB_POINTS;
+    // the job's own skill (the merchant's stall) goes on the bar
+    const own = JOBS[id].skill;
+    if (own) this.autoSlot(own);
     this.changed();
     return true;
   }
@@ -1475,6 +1756,33 @@ export class Progress {
     if (this.job3Block(id) || !JOBS3[id].branches.includes(branch) || !TREES[branch]) return false;
     this.job3 = id;
     this.branch3 = branch;
+    this.learnBranch(branch);
+    return true;
+  }
+
+  // Why it can't take a fourth job yet, or null.
+  job4Block(id: Job4Id): string | null {
+    const j = JOBS4[id];
+    if (this.job4) return `เปลี่ยนเป็น${JOBS4[this.job4].name}ไปแล้ว`;
+    if (!job4Open(id)) return `${j.name}ยังไม่เปิดให้เปลี่ยน รออีกไม่นาน`;
+    if (!this.job3) return "ต้องเปลี่ยนอาชีพที่ 3 ก่อน";
+    if (j.from && !j.from.includes(this.job3)) return `ต้องเป็น${j.from.map((c) => JOBS3[c].name).join(" หรือ ")}`;
+    if (this.level < FOURTH_JOB_LEVEL) return `ต้องเลเวล ${FOURTH_JOB_LEVEL} ขึ้นไป`;
+    return null;
+  }
+
+  // Take a fourth job with one of its branches, as a third. False when it can't.
+  takeJob4(id: Job4Id, branch: string): boolean {
+    if (this.job4Block(id) || !JOBS4[id].branches.includes(branch) || !TREES[branch]) return false;
+    this.job4 = id;
+    this.branch4 = branch;
+    this.learnBranch(branch);
+    return true;
+  }
+
+  // A third or fourth job's branch on taking the job: its tree, the craft it opens, JOB_POINTS
+  // points and its first skill on the bar if there's room.
+  private learnBranch(branch: string): void {
     if (!this.unlocked.trees.includes(branch)) this.unlocked.trees.push(branch);
     const craft = TREES[branch].opens;
     if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
@@ -1482,7 +1790,6 @@ export class Progress {
     const first = firstActive(branch);
     if (first) this.autoSlot(first);
     this.changed();
-    return true;
   }
 
   // What a new character knows: one of its class's trees, one element and one weapon mastery;
@@ -1512,7 +1819,7 @@ export class Progress {
     Object.assign(d, structuredClone({
       cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
       elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus,
-      job: this.job, branch: this.branch, job3: this.job3, branch3: this.branch3,
+      job: this.job, branch: this.branch, job3: this.job3, branch3: this.branch3, job4: this.job4, branch4: this.branch4, limit: this.limit,
     }));
     d.listeners = new Set();
     d.save = () => {};
@@ -1525,7 +1832,12 @@ export class Progress {
   }
 
   get points() {
-    return this.level + this.bonus;
+    return this.level + this.bonus + limitPoints(this.level);
+  }
+
+  // Held at LIMIT_LEVEL until the limit is broken: no more experience.
+  get capped(): boolean {
+    return this.level >= LIMIT_LEVEL && !this.limit;
   }
 
   get spent() {
@@ -1538,22 +1850,33 @@ export class Progress {
   }
 
   get xpNeed() {
-    return this.level >= MAX_LEVEL ? Infinity : xpToNext(this.level);
+    return this.level >= MAX_LEVEL || this.capped ? Infinity : xpToNext(this.level);
   }
 
-  // Add experience; returns how many levels were gained.
+  // Add experience; returns how many levels were gained. None comes at the top or the limit.
   addXp(amount: number): number {
-    if (this.level >= MAX_LEVEL) return 0;
+    if (this.level >= MAX_LEVEL || this.capped) return 0;
     this.xp += amount;
     let gained = 0;
-    while (this.level < MAX_LEVEL && this.xp >= xpToNext(this.level)) {
+    while (this.level < MAX_LEVEL && !this.capped && this.xp >= xpToNext(this.level)) {
       this.xp -= xpToNext(this.level);
       this.level++;
       gained++;
     }
-    if (this.level >= MAX_LEVEL) this.xp = 0;
+    if (this.level >= MAX_LEVEL || this.capped) this.xp = 0;
     this.changed();
     return gained;
+  }
+
+  // The king's quest done: past the limit, at LIMIT_LEVEL + 1 at once, experience from 0. False
+  // when it isn't held there.
+  breakLimit(): boolean {
+    if (!this.capped) return false;
+    this.limit = true;
+    this.level = LIMIT_LEVEL + 1;
+    this.xp = 0;
+    this.changed();
+    return true;
   }
 
   // What it has learned (the windows show nothing else).
@@ -1681,6 +2004,7 @@ export class Progress {
     const a = ACTIVES[id];
     if (!a) return 0;
     if (a.source.tree) return this.trees().includes(a.source.tree) ? this.ranks[id] ?? 0 : 0;
+    if (a.source.job) return this.job === a.source.job ? 1 : 0;
     return (this.mastery[a.source.mastery!] ?? 0) >= a.source.at! ? 1 : 0;
   }
 
@@ -1689,7 +2013,7 @@ export class Progress {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
         elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus, job: this.job, branch: this.branch,
-        job3: this.job3, branch3: this.branch3, treesV: TREES_VERSION, learnV: LEARN_VERSION,
+        job3: this.job3, branch3: this.branch3, job4: this.job4, branch4: this.branch4, limit: this.limit, treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
       // not persisted
@@ -1714,6 +2038,11 @@ export class Progress {
     // (a save from before the third jobs has none)
     this.job3 = this.job && d.job3 && JOBS3[d.job3] ? d.job3 : null;
     this.branch3 = this.job3 && d.branch3 && JOBS3[this.job3].branches.includes(d.branch3) ? d.branch3 : null;
+    // (nor a fourth, nor the limit: one already past it has broken it)
+    this.job4 = this.job3 && d.job4 && JOBS4[d.job4] ? d.job4 : null;
+    this.branch4 = this.job4 && d.branch4 && JOBS4[this.job4].branches.includes(d.branch4) ? d.branch4 : null;
+    this.limit = !!d.limit || this.level > LIMIT_LEVEL;
+    if (this.capped) this.xp = 0;
     const known = (o: Record<string, number> | undefined, ok: (k: string) => boolean) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
     const nodes = new Set(Object.values(TREES).flatMap((t) => t.nodes.map((n) => n.id)));
     this.ranks = known(d.ranks, (k) => nodes.has(k));

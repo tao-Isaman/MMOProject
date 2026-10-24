@@ -1,18 +1,23 @@
-// Hits: normal attacks per weapon type, projectiles (arrows, staff bolts and skill shots),
-// burning, and the floating numbers. Damage numbers come from stats.js.
+// Hits: normal attacks per weapon type (and a druid's in a form), projectiles (arrows, staff
+// bolts and skill shots), the counter, burning, and the floating numbers. Damage numbers come
+// from stats.js.
 
-import { mapX, mapY, S2, toView } from "./projection";
+import { fromView, mapX, mapY, S2, toView } from "./projection";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
 import type { Particles } from "./particles";
-import { basicDamage, isMagic, poisonScale, lucky } from "./stats";
+import { basicDamage, isMagic, poisonScale, lucky, skillDamage } from "./stats";
 import type { Hit, Stats } from "./stats";
 import type { Hero } from "./hero";
 import type { Monster } from "./monsters";
 import type { Target } from "./player";
-import type { ElementId } from "./progression";
+import type { ElementId, SkillDef } from "./progression";
 import type { Img, Textures, Vec2, View } from "./types";
+
+// Where a gun's muzzle is when she fires: this far ahead of her (cm) and this high, and this far
+// to the side when she aims up or down the screen.
+const MUZZLE = { out: 62, z: 95, side: 44 };
 
 export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
 
@@ -29,6 +34,21 @@ export function weaponStats(weaponId: string | null, stats: Stats | null = null)
     projectile: w.projectile && { ...w.projectile, range: w.projectile.range * reach },
   };
 }
+
+// A form's normal attack (SkillDef.formAttack) as a weapon to swing: a blow `reach` in front, or
+// a shot as far as `range`, one every `every` s, with the wielder's attack speed and reach.
+export type FormAttack = NonNullable<SkillDef["formAttack"]>;
+export function formWeapon(fa: FormAttack, stats: Stats): WeaponType {
+  const reach = 1 + stats.reach;
+  return {
+    name: "ร่างแปลง", motion: "swing", hit: "arc", arc: 100, reach: (fa.reach ?? 130) * reach, damage: [0, 0],
+    interval: (fa.every ?? 1) / (1 + stats.aspd),
+    projectile: fa.kind === "ranged" ? { kind: "bolt", speed: 950, range: (fa.range ?? 560) * reach, radius: 26 } : undefined,
+  };
+}
+
+// The counter: 150% of attack (and the weapon in hand), a physical skill hit.
+const COUNTER: SkillDef = { type: "cone", stat: "atk", mult: () => 1.5, mp: 0, cd: 0, motion: "swing", color: "#ffd27a" };
 
 // How close the player walks before attacking a target with this weapon.
 export function attackRange(w: WeaponType): number {
@@ -150,7 +170,7 @@ export function shapeTargets(origin: Vec2, dir: Vec2, shape: Shape, monsters: Mo
 }
 
 export interface ShotSpec {
-  kind: "bolt" | "arrow" | "wave" | "skill";
+  kind: "bolt" | "arrow" | "bullet" | "wave" | "skill";
   speed: number;
   range: number;
   radius: number;
@@ -200,7 +220,7 @@ export class Combat {
   onBasicHit?: (m: Monster) => void;                            // a main-hand normal hit landed (autocast)
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
-  offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2 }[] = []; // off-hand follow-ups
+  offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2; from: Vec2 }[] = []; // off-hand follow-ups (from: who strikes)
   burnClock = 0;
 
   // hero: stats for damage; onKill(monster)
@@ -238,7 +258,7 @@ export class Combat {
     const w = weaponStats(weaponId, this.hero.stats);
     const off = offhand ? weaponStats(offhand, this.hero.stats) : null;
     const follow = (m: Monster, d: Vec2) => {
-      if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d });
+      if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player });
     };
     const dir = player.aimDir();
     const origin = { x: player.x, y: player.y };
@@ -276,14 +296,91 @@ export class Combat {
     if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir: at, w, m: near ? target : null });
   }
 
+  // A normal attack in a form (the druid's): a blow at the one in front within reach, or a shot in
+  // the form's colour that homes in on it; `mult` of attack (or magic attack) in its element,
+  // `heal` of the damage done back as HP. Like a weapon's blow, it may set an autocast going.
+  formStrike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, fa: FormAttack, rank: number, w: WeaponType, color: string): void {
+    const blow: SkillDef = { type: "cone", stat: fa.stat ?? "atk", element: fa.element, mult: fa.mult, mp: 0, cd: 0, motion: "swing", color };
+    const origin = { x: player.x, y: player.y };
+    const land = (m: Monster, d: Vec2) => {
+      const r = skillDamage(this.hero.stats, this.hero.progress.elements, blow, rank, m);
+      this.apply(m, r, d);
+      if (r.miss) return;
+      if (fa.element) this.onElement?.(m, fa.element, r.dmg);
+      const got = fa.heal && this.hero.alive ? this.hero.heal(r.dmg * fa.heal(rank)) : 0;
+      if (got >= 1) this.floaters.add(player.x, player.y, 130, `+${Math.round(got)}`, "heal");
+      this.onBasicHit?.(m);
+    };
+    const dir = player.aimDir();
+    if (w.projectile) {
+      const p = w.projectile, target = this.lockOn(player, dir, p.range);
+      const aim = target ? this.toward(origin, target) : dir;
+      this.shoot(origin, aim, { kind: "skill", speed: p.speed, range: p.range, radius: p.radius, color, target, onHit: land });
+      return;
+    }
+    const target = this.lockOn(player, dir, w.reach + 40);
+    const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
+    const at = near ? this.toward(origin, target) : dir;
+    if (near) land(target, at);
+    this.slashFx(origin, at, w);
+  }
+
+  // The counter stat: a monster whose blow just landed on the player (from close by) is struck
+  // straight back, "สวนกลับ" over her. w: the weapon in hand (its power), null without one.
+  counter(m: Monster, from: Vec2, w: WeaponType | null): void {
+    const dir = this.toward(from, m);
+    this.floaters.add(from.x, from.y, 165, "สวนกลับ", "level");
+    this.apply(m, skillDamage(this.hero.stats, this.hero.progress.elements, COUNTER, 1, m, w), dir);
+    this.slashFx(from, dir, w ?? UNARMED);
+  }
+
+  private toward(a: Vec2, b: Vec2): Vec2 {
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+    return { x: dx / d, y: dy / d };
+  }
+
   // Launch a projectile from `origin` along unit `aim`: { kind, speed, range, radius, pierce,
-  // color, onHit(monster, dir) }.
+  // color, onHit(monster, dir) }. A bullet leaves from the muzzle of the gun held out at
+  // shoulder height, in a flash.
   shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
+    const gun = p.kind === "bullet", z = gun ? MUZZLE.z : 60;
+    const v = toView(aim.x, aim.y), len = Math.hypot(v.left, v.fwd) || 1;
+    // aimed off to a far corner, the gun is held out at arm's length in the hand that points it
+    // (not between her hands), so its muzzle is farther out
+    const out = gun ? MUZZLE.out * (1 + 1.4 * (Math.max(0, v.fwd) / len) * (Math.abs(v.left) / len)) : 40;
+    let x = origin.x + aim.x * out, y = origin.y + aim.y * out;
+    // a gun aimed straight up or down the screen is held out at the side (weapons.ts aimAngle)
+    if (gun && Math.abs(v.left) < 0.3 * Math.hypot(v.left, v.fwd * S2)) {
+      const right = fromView(0, -MUZZLE.side);
+      x += right.x;
+      y += right.y;
+    }
     this.projectiles.push({
-      x: origin.x + aim.x * 40, y: origin.y + aim.y * 40, z: 60,
-      vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
+      x, y, z, vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
       color: p.color, pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
     });
+    if (gun) this.muzzleFlash(x, y, z, aim);
+  }
+
+  // A gun going off: a hot flash at the muzzle and a few sparks thrown forward.
+  muzzleFlash(x: number, y: number, z: number, aim: Vec2): void {
+    this.fx.add({ x, y, z, layer: AIR_GLOW, tex: this.tex.glowFor("#ffcf6a"), life: 0.12, size: [[0, 56], [1, 18]], alpha: [[0, 1], [1, 0]] });
+    this.fx.add({ x, y, z, layer: AIR_GLOW, tex: this.tex.flash, life: 0.08, size: [[0, 26], [1, 8]], alpha: [[0, 1], [1, 0]] });
+    for (let i = 0; i < 3; i++) {
+      const v = rand(260, 520), a = Math.atan2(aim.y, aim.x) + rand(-0.5, 0.5);
+      this.fx.add({ x, y, z, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: rand(-40, 60), layer: AIR_GLOW, tex: this.tex.ember,
+        life: rand(0.1, 0.18), size: [[0, 9], [1, 2]], alpha: [[0, 1], [1, 0]] });
+    }
+  }
+
+  // Where a bullet stops: a small hot spark and a spray of embers.
+  sparks(x: number, y: number, z: number): void {
+    this.fx.add({ x, y, z, layer: AIR_GLOW, tex: this.tex.glowFor("#ffd88a"), life: 0.14, size: [[0, 30], [1, 10]], alpha: [[0, 0.9], [1, 0]] });
+    for (let i = 0; i < 4; i++) {
+      const a = rand(0, Math.PI * 2), v = rand(120, 300);
+      this.fx.add({ x, y, z, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: rand(40, 200), layer: AIR_GLOW, tex: this.tex.ember,
+        life: rand(0.15, 0.3), size: [[0, 8], [1, 2]], alpha: [[0, 1], [1, 0]] });
+    }
   }
 
   // A normal attack lands on a monster (scale < 1 for the off hand). An enchanted weapon hits in
@@ -364,7 +461,15 @@ export class Combat {
       const h = this.offhits[i];
       if ((h.t -= dt) > 0) continue;
       this.offhits.splice(i, 1);
-      if (h.m.alive) this.damage(h.m, h.w, h.dir, OFFHAND_DAMAGE);
+      if (!h.m.alive) continue;
+      const shot = h.w.projectile?.kind === "bullet" ? h.w.projectile : null;
+      if (!shot) {
+        this.damage(h.m, h.w, h.dir, OFFHAND_DAMAGE);
+        continue;
+      }
+      // a pistol in the off hand fires its own bullet at it
+      const d = Math.hypot(h.m.x - h.from.x, h.m.y - h.from.y) || 1;
+      this.shoot(h.from, { x: (h.m.x - h.from.x) / d, y: (h.m.y - h.from.y) / d }, { ...shot, target: h.m, onHit: (m, dir) => this.damage(m, h.w, dir, OFFHAND_DAMAGE) });
     }
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
@@ -388,8 +493,8 @@ export class Combat {
       p.y += p.vy * dt;
       p.left -= step;
       p.age += dt;
-      if (p.kind !== "arrow") {
-        this.fx.add({ x: p.x, y: p.y, z: p.z, layer: AIR_GLOW, tex: p.kind === "bolt" ? this.tex.mint : this.tex.sparkle, life: 0.25,
+      if (p.kind !== "arrow" && p.kind !== "bullet") {
+        this.fx.add({ x: p.x, y: p.y, z: p.z, layer: AIR_GLOW, tex: p.color ? this.tex.glowFor(p.color) : p.kind === "bolt" ? this.tex.mint : this.tex.sparkle, life: 0.25,
           size: [[0, p.kind === "wave" ? 40 : 26], [1, 6]], alpha: [[0, 0.6], [1, 0]] });
       }
       let gone = p.left <= 0;
@@ -403,7 +508,9 @@ export class Combat {
         }
       }
       if (gone) {
-        if (p.kind !== "arrow") {
+        // a bullet strikes sparks off what it hits; magic bursts
+        if (p.kind === "bullet") this.sparks(p.x, p.y, p.z);
+        else if (p.kind !== "arrow") {
           this.fx.add({ x: p.x, y: p.y, z: p.z, layer: AIR_GLOW, tex: this.tex.flash, life: 0.3,
             size: [[0, 30], [1, 90]], alpha: [[0, 0.9], [1, 0]] });
           this.fx.add({ x: p.x, y: p.y, z: 0, layer: GROUND_GLOW, tex: this.tex.mint, life: 0.4,
@@ -450,12 +557,37 @@ export class Combat {
         ctx.setTransform(Math.cos(ang), Math.sin(ang), -Math.sin(ang), Math.cos(ang), px, py);
         ctx.drawImage(arrowImg, -len / 2, -len * (arrowImg.height / arrowImg.width) / 2, len, len * (arrowImg.height / arrowImg.width));
         ctx.setTransform(1, 0, 0, 1, 0, 0);
+      } else if (p.kind === "bullet") {
+        this.tracer(ctx, px, py, ang, k, Math.min(1, p.age / 0.03));
       } else {
         const r = (p.kind === "wave" ? 26 : 16) * k;
         ctx.globalCompositeOperation = "lighter";
-        ctx.drawImage(this.tex.flash, px - r, py - r, r * 2, r * 2);
+        ctx.drawImage(p.color ? this.tex.glowFor(p.color) : this.tex.flash, px - r, py - r, r * 2, r * 2);
         ctx.globalCompositeOperation = "source-over";
       }
     }
+  }
+
+  // A bullet in flight: a short streak, red-gold at its tail and white-hot at its head (grown
+  // to full length over its first moment, so it starts at the muzzle).
+  tracer(ctx: CanvasRenderingContext2D, x: number, y: number, ang: number, k: number, grown: number): void {
+    const len = 34 * k * grown, w = 3.2 * k;
+    ctx.setTransform(Math.cos(ang), Math.sin(ang), -Math.sin(ang), Math.cos(ang), x, y);
+    ctx.globalCompositeOperation = "lighter";
+    const g = ctx.createLinearGradient(-len, 0, 0, 0);
+    g.addColorStop(0, "rgba(255, 120, 40, 0)");
+    g.addColorStop(0.6, "rgba(255, 196, 90, 0.75)");
+    g.addColorStop(1, "rgba(255, 250, 225, 1)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-len, 0);
+    ctx.lineTo(-w, -w / 2);
+    ctx.arc(0, 0, w / 2, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(-w, w / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.drawImage(this.tex.flash, -5 * k, -5 * k, 10 * k, 10 * k);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 }

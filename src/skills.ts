@@ -34,6 +34,15 @@
 // (around the caster) · cone (in front) · beam (a line) · dash (no `mult`: a teleport) · heal ·
 // shield · buff · flower. bolt, cone, blast, nova, beam and dash land `hits` times.
 //
+// The fourth jobs' (progression.ts SkillDef):
+//   orb     an element orb into the three she holds (hero.ts: each gives its skill's buff)
+//   invoke  casts the spell its table holds for the orbs held (spellFor): its own type, MP,
+//           cooldown and cast time at the invoke skill's rank; each spell keeps its own cooldown
+//   form    into a shape (hero.ts takeForm) or, used again, back; in it her normal attack is the
+//           form's (combat.ts formStrike, main.ts) and skills that need a weapon can't be used
+//           (wields)
+//   hot     on a heal (or a buff's heal): the heal comes a part a second over `ticks` s
+//
 // The third jobs' (progression.ts SkillDef, where every field is told):
 //   summon  an ally (src/allies.ts) on the aimed spot or in front; decoy is one too
 //   mimic   copies the locked monster's attack; the same slot then fires the copy (Copy below)
@@ -53,7 +62,7 @@
 // is aimed at feel it coming and turn on the caster, so the heavy spells cost a risk as well; a
 // spell aimed at a monster (or at a spot with monsters in it) follows that one when it moves.
 
-import { ACTIVES, AUTOCAST, MASTERIES, mpCost, needMet, needText } from "./progression";
+import { ACTIVES, AUTOCAST, ELEMENTS, MASTERIES, mpCost, needMet, needsWeapon, needText, offKind } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
 import type { Allies } from "./allies";
 import { mitigate, poisonScale, skillDamage, lucky, rollDie, flipCoin } from "./stats";
@@ -66,7 +75,7 @@ import type { Spell } from "./spell";
 import { CastCircle } from "./castfx";
 import type { CastTarget } from "./castfx";
 import { lookFor } from "./circles";
-import { WEAPON_TYPES, offhandKind } from "./items";
+import { WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
 import type { Hero } from "./hero";
 import type { Player, AttackWeapon } from "./player";
@@ -89,6 +98,10 @@ interface SkillDeps {
   workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void; // a craft's skill opens it
   // a make skill: why the bag can't (dry), or takes the materials and gives the item (its words)
   make?: (make: NonNullable<SkillDef["make"]>, rank: number, dry: boolean) => string | null;
+  // the merchant's: the purse gold riders pay from and how full the bag is (0 to 1); the stall
+  // skill (why it can't open here when dry, else it opens)
+  purse?: { gold(): number; pay(n: number): void; fill(): number };
+  stall?: (dry: boolean) => string | null;
 }
 
 // The unit vector from a to b (null when they stand on each other).
@@ -99,6 +112,13 @@ function toward(a: Vec2, b: Vec2): Vec2 | null {
 
 // A rank-scaled number of a skill (missing ones count as 0).
 const at = (f: ((r: number) => number) | undefined, rank: number) => f?.(rank) ?? 0;
+
+// What a cast goes by: a skill's own id, or an invoked spell's "<invoke id>:<orbs>" (its cooldown
+// and its buff are its own; its rank is the invoke skill's). The skill it is, and the spell.
+function castOf(key: string): { id: string; spell?: { name: string; skill: SkillDef } } {
+  const [id, orbs] = key.split(":");
+  return { id, spell: orbs ? ACTIVES[id]?.skill.invoke?.[orbs] : undefined };
+}
 
 const LEAD = 0.22; // s from the start of the animation to the hit
 const RELEASE = 0.45; // s the caster's hands come down after a cast
@@ -215,6 +235,8 @@ export class Skills {
   allies?: Allies;
   workshop?: (bench: { tab: "craft" | "refine"; craft: string }) => void;
   make?: SkillDeps["make"];
+  purse?: SkillDeps["purse"];
+  stall?: SkillDeps["stall"];
   timers: { t: number; fn: () => void }[] = [];
   pending: Casting | null = null;
   traps: Trap[] = [];
@@ -241,20 +263,45 @@ export class Skills {
     this.allies = deps.allies;
     this.workshop = deps.workshop;
     this.make = deps.make;
+    this.purse = deps.purse;
+    this.stall = deps.stall;
   }
 
   get el(): Record<string, number> {
     return this.progress.elements;
   }
 
-  // The weapon type in the off hand (null: empty, or not a weapon).
+  // What the off hand holds (offKind: a weapon type, "shield", "gear", null when empty).
   offWeapon(): string | null {
-    return offhandKind(this.hero.offhand());
+    return offKind(this.hero.offhand());
   }
 
-  // Whether the hands hold what a skill needs.
+  // Whether the hands hold what a skill needs and she is in the shape it needs; in a form no
+  // skill that needs a weapon (or a shield) can be used.
   wields(id: string): boolean {
-    return needMet(ACTIVES[id]?.need, this.weapon(), this.offWeapon());
+    const need = ACTIVES[id]?.need, form = this.hero.form?.form ?? null;
+    return needMet(need, this.weapon(), this.offWeapon(), form) && !(form && needsWeapon(need));
+  }
+
+  // What a slot casts now: its own skill, or an invoke's spell for the orbs held (null: fewer
+  // than three, or none in its table for them). key: what its cooldown goes by (castOf).
+  spellFor(id: string): { key: string; name: string; s: SkillDef } | null {
+    const a = ACTIVES[id];
+    if (a.skill.type !== "invoke") return { key: id, name: a.name, s: a.skill };
+    const orbs = this.hero.orbKey, spell = orbs ? a.skill.invoke?.[orbs] : undefined;
+    return spell ? { key: `${id}:${orbs}`, name: spell.name, s: spell.skill } : null;
+  }
+
+  // What a cast costs at a rank (an invoked spell: its own MP, grown with the invoke's ranks).
+  mpOf(key: string, rank: number): number {
+    const c = castOf(key);
+    return mpCost(c.id, rank, c.spell?.skill.mp);
+  }
+
+  // The skill (or invoked spell) a cast key names.
+  nameOf(key: string): string {
+    const c = castOf(key);
+    return c.spell?.name ?? ACTIVES[c.id]?.name ?? "";
   }
 
   // Why a skill can't go off now, or null.
@@ -263,14 +310,24 @@ export class Skills {
     if (!a) return "ช่องว่าง";
     if (!this.progress.skillRank(id)) return "ยังไม่ได้เรียนสกิลนี้";
     if (!this.hero.alive) return "ล้มอยู่";
-    if (!this.wields(id)) return `ต้องถือ${needText(a.need, (w) => WEAPON_TYPES[w].name)}`;
     if (this.pending || this.player.casting || this.player.dashing) return "กำลังใช้สกิลอื่น";
-    if (this.hero.cooldowns.has(id)) return "ยังติดคูลดาวน์";
+    if (a.skill.type === "form" && this.hero.form?.id === id) return null; // back to herself, whatever the cooldown
+    if (!this.wields(id)) return this.hero.form && needsWeapon(a.need) ? "ใช้ไม่ได้ระหว่างแปลงร่าง" : `ต้อง${needText(a.need, (w) => WEAPON_TYPES[w].name)}`;
+    const sp = this.spellFor(id);
+    if (!sp) return this.hero.orbKey ? "ลูกแก้วชุดนี้ไม่มีเวท" : "ต้องมีลูกแก้วธาตุครบ 3 ลูก";
+    if (this.hero.cooldowns.has(sp.key)) return "ยังติดคูลดาวน์";
     if (this.packless(a.skill)) return "ไม่มีหมาป่าอยู่ด้วย";
     if (this.copy?.id === id) return null; // the copy costs no MP
-    if (this.hero.mp < mpCost(id, this.progress.skillRank(id))) return "MP ไม่พอ";
+    if (this.hero.mp < this.mpOf(sp.key, this.progress.skillRank(id))) return "MP ไม่พอ";
     if (a.skill.type === "make" && a.skill.make && this.make) return this.make(a.skill.make, this.progress.skillRank(id), true);
+    if (a.skill.gold && (this.purse?.gold() ?? 0) < this.goldCost(a.skill, this.progress.skillRank(id))) return "ทองไม่พอ";
+    if (a.skill.type === "stall" && this.stall) return this.stall(true);
     return null;
+  }
+
+  // The gold a merchant's skill costs at a rank (more as she grows).
+  goldCost(s: SkillDef, rank: number): number {
+    return Math.round(at(s.gold, rank) * this.progress.level);
   }
 
   // The monster a single-target skill locks on to: the player's target, else the one nearest
@@ -299,12 +356,17 @@ export class Skills {
   }
 
   // Try a skill toward a world point. Returns null when it goes off (or its cast starts), or why
-  // not.
-  use(id: string, aim: Vec2 | null): string | null {
-    const no = this.why(id);
+  // not. (An invoke casts its spell: from here on `id` is the spell's key, spellFor.)
+  use(slot: string, aim: Vec2 | null): string | null {
+    const no = this.why(slot);
     if (no) return no;
-    if (this.copy?.id === id) return this.fireCopy(aim);
-    const a = ACTIVES[id], rank = this.progress.skillRank(id), s = a.skill;
+    if (this.copy?.id === slot) return this.fireCopy(aim);
+    // a form she is in: herself again, free (main.ts shows her change back)
+    if (ACTIVES[slot].skill.type === "form" && this.hero.form?.id === slot) {
+      this.hero.endForm();
+      return null;
+    }
+    const rank = this.progress.skillRank(slot), { key: id, s } = this.spellFor(slot)!;
     // a single-target skill needs one in reach (before any MP goes)
     let dir0 = this.player.facing();
     if (aim) {
@@ -330,7 +392,7 @@ export class Skills {
       this.notice(s, dir, aim, lock);
       return null;
     }
-    if (!this.hero.spend(mpCost(id, rank))) return "MP ไม่พอ";
+    if (!this.hero.spend(this.mpOf(id, rank))) return "MP ไม่พอ";
     this.goOff(id, s, rank, dir, aim, lock);
     return null;
   }
@@ -342,6 +404,11 @@ export class Skills {
     const cd = (s.type === "mimic" ? s.every ?? 0.8 : s.cd) * (1 - this.hero.stats.cdr);
     this.hero.cooldowns.set(id, cd);
     this.hero.cdTotal.set(id, cd);
+    if (s.gold) {
+      const cost = this.goldCost(s, rank);
+      this.purse?.pay(cost);
+      this.floaters.add(this.player.x, this.player.y, 175, `-${cost.toLocaleString()} ทอง`, "info");
+    }
     // a combo: right after one of the skills it follows, it hits harder
     const more = this.comboMore(s, rank);
     if (more) {
@@ -349,7 +416,7 @@ export class Skills {
       s = { ...s, mult: base && ((r: number) => base(r) * (1 + more)) };
       this.floaters.add(this.player.x, this.player.y, 190, `คอมโบ! +${Math.round(more * 100)}%`, "level");
     }
-    this.casts.push({ id, t: this.clock });
+    this.casts.push({ id: castOf(id).id, t: this.clock });
     if (this.casts.length > 8) this.casts.shift();
     if ((this.el.wind ?? 0) >= 35 && lucky(0.15, this.hero.stats)) {
       this.hero.cooldowns.delete(id);
@@ -361,7 +428,9 @@ export class Skills {
     if (s.type === "flower") p.startCast(s.cast ?? CAST_TIME, HOVER_END);
     else if (!cast) p.startMotion(s.motion, dir, this.weaponStats());
     this.effect(id, s, rank, dir, aim, lock);
-    if (s.type !== "workshop") this.afterCast();
+    // (an orb is a stance, not a spell, and a stall is trade: the element effects of a cast
+    // don't follow them)
+    if (s.type !== "workshop" && s.type !== "orb" && s.type !== "stall") this.afterCast();
   }
 
   // The monster an area spell being cast follows: the target, else the one nearest the aimed
@@ -440,7 +509,7 @@ export class Skills {
     c.circle.release();
     const p = this.player, m = c.mark?.alive && this.monsters.includes(c.mark) ? c.mark : null;
     if (c.locked && !m) return void this.floaters.add(p.x, p.y, 150, "เป้าหมายหายไป", "info");
-    if (!this.hero.spend(mpCost(c.id, c.rank))) return void this.floaters.add(p.x, p.y, 150, "MP ไม่พอ", "info");
+    if (!this.hero.spend(this.mpOf(c.id, c.rank))) return void this.floaters.add(p.x, p.y, 150, "MP ไม่พอ", "info");
     let { dir, aim } = c;
     if (m) {
       dir = toward(p, m) ?? dir;
@@ -507,6 +576,7 @@ export class Skills {
     if (chained) r.dmg = Math.max(1, Math.round(r.dmg * ((this.el.lightning ?? 0) >= 50 ? 0.6 : 0.3)));
     let more = 1 + (s.vs?.[m.race] ?? 0);
     if (s.masteryScale) more *= 1 + s.masteryScale * this.masteryLevel();
+    if (s.bag) more *= 1 + s.bag(rank) * (this.purse?.fill() ?? 0); // a cart loaded full hits hardest
     if (s.detonate) {
       // the poison it carries goes off at once
       const left = m.burns.filter((b) => b.poison).reduce((a, b) => a + b.dps * b.t, 0);
@@ -617,6 +687,24 @@ export class Skills {
     return raw * (1 + 0.02 * (this.el.water ?? 0)) * (1 + this.hero.stats.healPct);
   }
 
+  // A heal of `amount`: at once, or with `hot` a part a second over `ticks` s (default 5), shown
+  // as a buff while it lasts, named apart from a buff the same skill gives (a heal still coming
+  // when she falls is lost).
+  restore(id: string, s: SkillDef, amount: number): void {
+    const p = this.player;
+    const give = (n: number) => {
+      const got = this.hero.alive ? this.hero.heal(n) : 0;
+      if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
+    };
+    if (!s.hot) return give(amount);
+    const ticks = s.ticks ?? 5;
+    this.hero.addBuff(`hot_${id}`, `${this.nameOf(id)} · ฟื้นฟู`, {}, ticks);
+    for (let i = 1; i <= ticks; i++) this.later(i, () => {
+      give(amount / ticks);
+      if (this.hero.alive) this.sparkleUp(p.x, p.y, this.tex.mint, 6);
+    });
+  }
+
   effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null, lock: Monster | null = null): void {
     const p = this.player, origin = { x: p.x, y: p.y };
     const hitAll = (list: Monster[], knock?: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
@@ -625,7 +713,7 @@ export class Skills {
         // `hits` shots one after another (a volley of arrows)
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
-            kind: s.arrow ? "arrow" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
+            kind: s.arrow ? "arrow" : s.bullet ? "bullet" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
             target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock),
           }));
         }
@@ -636,7 +724,7 @@ export class Skills {
           for (let i = 0; i < count; i++) {
             const a = base + (i / (count - 1) - 0.5) * spread;
             this.combat.shoot({ x: p.x, y: p.y }, { x: Math.cos(a), y: Math.sin(a) }, {
-              kind: s.arrow ? "arrow" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
+              kind: s.arrow ? "arrow" : s.bullet ? "bullet" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
               onHit: (m, d) => this.hit(m, s, rank, d),
             });
           }
@@ -723,8 +811,7 @@ export class Skills {
       }
       case "heal":
         this.later(LEAD, () => {
-          const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank) + this.power(s) * at(s.mult, rank)));
-          this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
+          this.restore(id, s, this.healAmount(this.hero.stats.maxHp * at(s.heal, rank) + this.power(s) * at(s.mult, rank)));
           this.sparkleUp(p.x, p.y, this.tex.mint, 26);
         });
         break;
@@ -745,12 +832,9 @@ export class Skills {
             for (const [key, v = 0] of Object.entries(s.roll(rank))) stats[key] = (stats[key] ?? 0) + v * k;
             this.floaters.add(p.x, p.y, 190, `เต๋า ${die}${k > 0 ? " โชคดี!" : k < 0 ? " ซวยแล้ว" : ""}`, k > 0 ? "level" : "info");
           }
-          this.hero.addBuff(id, ACTIVES[id].name, stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant, s.terrain?.(rank));
-          if (s.heal) {
-            const got = this.hero.heal(this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
-            if (got >= 1) this.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
-          }
-          this.floaters.add(p.x, p.y, 150, ACTIVES[id].name, "level");
+          this.hero.addBuff(id, this.nameOf(id), stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant, s.terrain?.(rank));
+          if (s.heal) this.restore(id, s, this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
+          this.floaters.add(p.x, p.y, 150, this.nameOf(id), "level");
           this.ring(p.x, p.y, s.color, 180, 0.5);
           this.sparkleUp(p.x, p.y, this.tex.flash, 16);
         });
@@ -768,6 +852,21 @@ export class Skills {
       }
       case "workshop":
         if (s.bench) this.workshop?.(s.bench);
+        break;
+      case "orb":
+        if (!s.orb) break;
+        this.hero.addOrb(id, s.orb);
+        this.ring(p.x, p.y, ELEMENTS[s.orb].color, 130, 0.4);
+        this.sparkleUp(p.x, p.y, this.tex.glowFor(ELEMENTS[s.orb].color), 12);
+        break;
+      case "form":
+        if (!s.form) break;
+        this.hero.takeForm(id, ACTIVES[id].name, s.form, s.buff?.(rank) ?? {}, (s.duration ?? 60) * (1 + this.hero.stats.buffTime));
+        this.floaters.add(p.x, p.y, 170, ACTIVES[id].name, "level");
+        this.burst(p.x, p.y, s.color, 90);
+        break;
+      case "stall":
+        this.stall?.(false);
         break;
       case "decoy":
       case "summon": {
@@ -936,11 +1035,12 @@ export class Skills {
     }
   }
 
-  // A map change: what was laid on the old map stays there.
+  // A map change: what was laid on the old map stays there, and she arrives as herself.
   leaveMap(): void {
     this.clouds = [];
     this.traps = [];
     this.smokeHid = false;
+    this.hero.endForm();
   }
 
   // The level of the mastery of the weapon in the main hand (0 without one).

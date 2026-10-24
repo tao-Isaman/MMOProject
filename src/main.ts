@@ -11,7 +11,7 @@ import type { OffhandArt, Gender } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
 import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
-import { Combat, Floaters, weaponStats, attackRange } from "./combat";
+import { Combat, Floaters, weaponStats, attackRange, formWeapon } from "./combat";
 import { gearTierAt, TIER_DROP, tierPool } from "./drops";
 import { WorkshopUI } from "./workshop";
 import { CodexUI } from "./codex";
@@ -26,10 +26,10 @@ import { dressed } from "./outfits";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, JOBS, JOBS3, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
+import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, levelPoints } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
-import { Allies, Ally } from "./allies";
+import { Allies, Ally, lookSheet } from "./allies";
 import { jobMasters } from "./jobmasters";
 import { COATINGS } from "./poisons";
 import { terrainOf } from "./terrain";
@@ -43,10 +43,11 @@ import { Bot } from "./bot";
 import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./save";
 import { ShopUI } from "./shop";
+import { Stall, StallUI, Townsfolk } from "./stall";
 import { Npc, TALK_RANGE } from "./npcs";
-import { loadMap, MAP_NAMES } from "./maps";
+import { loadMap, MAP_NAMES, TOWNS } from "./maps";
 import { MapUI, mapArea, travelFee } from "./mapui";
-import type { GameMap, MapId } from "./maps";
+import type { GameMap, MapId, TownId } from "./maps";
 import { findPath, blocked, SOLIDS } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
@@ -586,6 +587,18 @@ async function boot(): Promise<void> {
       skills.ring(player.x, player.y, "#ffe27a", 320, 1);
       return true;
     },
+    job4Block: (job) => progress.job4Block(job),
+    takeJob4(job, branch) {
+      if (!progress.takeJob4(job, branch)) return false;
+      floaters.add(player.x, player.y, 200, `เปลี่ยนอาชีพเป็น${JOBS4[job].name}!`, "level");
+      floaters.add(player.x, player.y, 185, `${TREES[branch].name} · แต้มสกิล +${JOB_POINTS}`, "level");
+      hero.recompute();
+      void applyLook();
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 100);
+      skills.ring(player.x, player.y, "#ffe27a", 380, 1.1);
+      return true;
+    },
+    pastLimit: () => progress.limit,
     reward(r, q) {
       floaters.add(player.x, player.y, 175, `สำเร็จเควส: ${q.name}`, "level");
       if (r.gold) {
@@ -603,9 +616,12 @@ async function boot(): Promise<void> {
       }
       if (r.xp) {
         floaters.add(player.x, player.y, 112, `+${r.xp.toLocaleString()} EXP`, "info");
-        if (progress.addXp(r.xp) > 0) levelUp();
+        const gained = progress.addXp(r.xp);
+        if (gained > 0) levelUp(gained);
         else progress.changed();
       } else if (r.points) progress.changed();
+      // the king's quest: past the limit, at level 100 at once (said over the quest's line)
+      if (r.limit && progress.breakLimit()) levelUp(1, "ทลายขีดจำกัด!", 260);
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 30);
       noteClock = 1.6; // the reward's lines first
     },
@@ -652,9 +668,16 @@ async function boot(): Promise<void> {
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
       bot.noteKill(xp, gold);
       inv.changed();
-      if (progress.addXp(xp) > 0) levelUp();
+      const gained = progress.addXp(xp);
+      if (gained > 0) levelUp(gained);
     },
   });
+  // the merchant's stall (src/stall.ts): townsfolk buy from it while she stands in town
+  const stall = new Stall({
+    inv, floaters, at: () => player, stats: () => hero.stats, drop: (id, n) => { for (let i = 0; i < n; i++) ground.drop(id, player); },
+    why: () => (!hero.alive ? "ล้มอยู่" : TOWNS.includes(current.id as TownId) ? null : "เปิดร้านได้ในเมืองเท่านั้น"),
+  }, new Townsfolk());
+  const stallUI = new StallUI(stall, inv, iconFor, entry?.name ?? "");
   // the player's allies: summons and the decoy (src/allies.ts)
   const allies = new Allies({ hero, player, monsters, combat, fx, tex, floaters, weapon: () => weaponStats(inv.equipped.weapon, hero.stats) });
   const skills = new Skills({
@@ -676,7 +699,21 @@ async function boot(): Promise<void> {
       floaters.add(m.x, m.y, m.height + 70, `ขโมย ${ITEMS[got].name}`, "level");
     },
     // a craft's skill: the workshop on the spot, free of fees
-    workshop: (b) => workshopUI.show({ craft: b.craft as Craft, tab: b.tab }),
+    workshop: (b) => workshopUI.show({ craft: b.craft as Craft | "brewing", tab: b.tab }),
+    // the merchant's: gold her skills pay, how full her bag is, her stall's window
+    purse: {
+      gold: () => inv.gold,
+      pay: (n) => {
+        inv.gold = Math.max(0, inv.gold - n);
+        inv.changed();
+      },
+      fill: () => inv.slots.filter((x) => x).length / inv.slots.length,
+    },
+    stall(dry) {
+      if (dry) return stall.open ? null : stall.deps.why();
+      stallUI.toggle(true);
+      return null;
+    },
     // a make skill (poison vials): the materials out of the bag, what it makes in
     make(mk, rank, dry) {
       const short = mk.from.filter(([id, n]) => inv.count(id) < n);
@@ -694,10 +731,23 @@ async function boot(): Promise<void> {
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
   combat.onBasicHit = (m) => skills.autocast(m);
+  // In a form (a druid's) she is the form skill's look and her normal attack is its formAttack:
+  // the form she is in, and what she swings.
+  const formSkill = () => (hero.form ? ACTIVES[hero.form.id]?.skill : undefined);
+  const swingWeapon = () => {
+    const fa = formSkill()?.formAttack;
+    return fa ? formWeapon(fa, hero.stats) : weaponStats(inv.equipped.weapon, hero.stats);
+  };
+  let formWas: string | null = null;
 
-  function levelUp() {
+  // `gained` levels up to the one now, said `z` over the player: the points they gave show under
+  // it when past the limit they gave more than one a level (11 at 100, 3 at 105, 110 ...)
+  function levelUp(gained: number, title = "LEVEL UP!", z = 150) {
     hero.refill();
-    floaters.add(player.x, player.y, 150, `LEVEL UP! Lv ${progress.level}`, "level");
+    floaters.add(player.x, player.y, z, `${title} Lv ${progress.level}`, "level");
+    let points = 0;
+    for (let lv = progress.level - gained + 1; lv <= progress.level; lv++) points += levelPoints(lv);
+    if (points > gained) floaters.add(player.x, player.y, z - 45, `แต้มสกิล +${points}`, "level");
     skills.ring(player.x, player.y, "#ffe27a", 260, 0.8);
     skills.sparkleUp(player.x, player.y, tex.flash, 40);
   }
@@ -734,7 +784,7 @@ async function boot(): Promise<void> {
   // ---- auto-hunt bot ----
   const bot = new Bot({
     player, hero, progress, skills, monsters, inv,
-    weapon: () => weaponStats(inv.equipped.weapon, hero.stats),
+    weapon: swingWeapon,
     weaponId: () => inv.equipped.weapon,
     onSkill(id) {
       const i = progress.hotbar.indexOf(id);
@@ -935,7 +985,7 @@ async function boot(): Promise<void> {
     walkTo = null;
     const shop = (tab: "buy" | "sell") => () => {
       shopKeeper = npc;
-      shopUI.keeper(npc.name, npc.spec.title);
+      shopUI.keeper(npc.name, npc.spec.title, current.id);
       shopUI.show(tab);
     };
     const heal = (): string => {
@@ -1041,6 +1091,7 @@ async function boot(): Promise<void> {
     player.attack = null;
     walkTo = null;
     shopUI.toggle(false);
+    stall.close();
     if (bot.on) bot.anchor = { x: player.x, y: player.y };
     cam.x = mapX(player.x, player.y);
     cam.y = mapY(player.x, player.y) - 50;
@@ -1143,12 +1194,14 @@ async function boot(): Promise<void> {
 
   // An area skill placed on the ground is aimed first: a disc under the mouse (no farther than
   // the skill reaches); a click or its key again casts it there, a right click or Escape lets
-  // it go. Single-target skills lock on to the target (src/skills.ts).
+  // it go. Single-target skills lock on to the target (src/skills.ts). An invoke is aimed as the
+  // spell it would cast now.
+  const castSkill = (id: string) => skills.spellFor(id)?.s ?? ACTIVES[id].skill;
   let aiming: { slot: number; id: string } | null = null;
   function aimSpot(id: string): { x: number; y: number } | null {
     const at = aimPoint();
     if (!at) return null;
-    const range = ACTIVES[id].skill.range ?? 500, dx = at.x - player.x, dy = at.y - player.y, d = Math.hypot(dx, dy);
+    const range = castSkill(id).range ?? 500, dx = at.x - player.x, dy = at.y - player.y, d = Math.hypot(dx, dy);
     return d <= range ? at : { x: player.x + (dx / d) * range, y: player.y + (dy / d) * range };
   }
   function stopAiming(): void {
@@ -1166,7 +1219,7 @@ async function boot(): Promise<void> {
   function useSlot(i: number): void {
     const id = progress.hotbar[i];
     const a = id ? ACTIVES[id] : null;
-    if (a && groundTarget(a.skill) && pointer && !isTouch()) {
+    if (a && groundTarget(castSkill(id!)) && pointer && !isTouch()) {
       if (aiming?.id === id) return castAim();
       const no = skills.why(id!);
       if (no) return report(i, id, no);
@@ -1183,7 +1236,7 @@ async function boot(): Promise<void> {
   // swing that way); without a pointer (touch), the nearest one in reach.
   function quickAttack() {
     if (!hero.alive) return;
-    const w = weaponStats(inv.equipped.weapon, hero.stats);
+    const w = swingWeapon();
     if (pointer && view) {
       const p = toMap(pointer), at = groundAt(p.x, p.y);
       let near: Monster | null = null, best = 260;
@@ -1213,7 +1266,7 @@ async function boot(): Promise<void> {
     if (player.target?.alive) return;
     const m = nearestMonster(700);
     if (m) player.target = m;
-    else player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), null);
+    else player.startAttack(swingWeapon(), null);
   }
 
   // ---- input ----
@@ -1253,6 +1306,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
       else if (workshopUI.open) workshopUI.toggle(false);
+      else if (stallUI.open) stallUI.toggle(false);
       else if (talkDialog.open) talkDialog.close();
       else {
         const n = nearestNpc(TALK_RANGE * 1.6);
@@ -1268,6 +1322,7 @@ async function boot(): Promise<void> {
       botUI.toggle(false);
       shopUI.toggle(false);
       workshopUI.toggle(false);
+      stallUI.toggle(false);
       codexUI.toggle(false);
       mapUI.toggle(false);
       questLog.toggle(false);
@@ -1324,7 +1379,7 @@ async function boot(): Promise<void> {
     }
     player.target = null;
     if (walk) return walkToward(groundAt(mx, my));
-    player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundAt(mx, my));
+    player.startAttack(swingWeapon(), groundAt(mx, my));
     return false;
   }
   // Walking over loot picks it up (what doesn't fit stays where it lies).
@@ -1517,6 +1572,11 @@ async function boot(): Promise<void> {
         burning.t = 0;
         return;
       }
+      // the counter: a blow from close by may be struck straight back
+      if (hero.stats.counter > 0 && Math.hypot(m.x - player.x, m.y - player.y) - m.radius < 220 && lucky(hero.stats.counter, hero.stats)) {
+        combat.counter(m, player, swingWeapon());
+        if (!player.busy) player.startMotion("swing", { x: m.x - player.x, y: m.y - player.y }, skills.weaponStats(), 0.3);
+      }
       // metal: part of the bite goes back at the biter
       if (hero.stats.reflect > 0) {
         const back = Math.round(bite.dmg * hero.stats.reflect);
@@ -1641,13 +1701,32 @@ async function boot(): Promise<void> {
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
-    const w = weaponStats(inv.equipped.weapon, hero.stats);
-    const offW = offhandWeapon(inv.equipped.offhand);
+    // in a form: drawn as its look, swinging its blow (the hands rest); in one or out of one (its
+    // time up, used again, falling, a new map), the bar greys what she can't use
+    const shape = formSkill();
+    player.shape = shape?.look ? lookSheet(shape.look) : null;
+    player.orbs = hero.orbs.map((o) => tex.glowFor(ELEMENTS[o.el].color));
+    if ((hero.form?.id ?? null) !== formWas) {
+      if (formWas && !hero.form && hero.alive) {
+        floaters.add(player.x, player.y, 170, "คืนร่าง", "info");
+        skills.burst(player.x, player.y, "#e8f0d8", 70);
+      }
+      formWas = hero.form?.id ?? null;
+      refreshBar();
+    }
+    const w = swingWeapon();
+    const offW = shape ? null : offhandWeapon(inv.equipped.offhand);
     if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
     // walking (the keys, a click on the ground) lets a cast go; the bot waits for it
     if (skills.pending && (fwd || left || walkTo) && (move.x || move.y)) skills.interrupt();
+    // a merchant keeps to her stall: a step closes it
+    if (stall.open && (move.x || move.y)) stall.close("ปิดร้านแล้ว ของที่เหลือกลับเข้ากระเป๋า");
+    stall.update(dt);
     const was = { x: player.x, y: player.y };
-    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon, offW);
+    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) {
+      if (shape?.formAttack) combat.formStrike(player, shape.formAttack, progress.skillRank(hero.form!.id), w, shape.color);
+      else combat.strike(player, inv.equipped.weapon, offW);
+    }
     // a walk that stops getting anywhere (held up by a fight, or by someone in the way) ends
     if (walkTo && !fwd && !left) {
       walkTo.stuck = Math.hypot(player.x - was.x, player.y - was.y) < 0.5 ? walkTo.stuck + dt : 0;
@@ -1692,7 +1771,15 @@ async function boot(): Promise<void> {
     }
     fx.update(dt);
     motes.update(dt, { x: player.x, y: player.y });
-    progress.hotbar.forEach((id, i) => hud.setCooldown(i, id ? hero.cooldowns.get(id) ?? 0 : 0, id ? hero.cdTotal.get(id) ?? 1 : 1));
+    // (an invoke: the cooldown and the name of the spell it would cast now; the orbs beside the bar)
+    progress.hotbar.forEach((id, i) => {
+      const a = id ? ACTIVES[id] : null, sp = a ? skills.spellFor(id!) : null, key = sp?.key ?? id;
+      hud.setCooldown(i, key ? hero.cooldowns.get(key) ?? 0 : 0, key ? hero.cdTotal.get(key) ?? 1 : 1);
+      if (a?.skill.type === "invoke") hud.setNote(i, sp?.name ?? (hero.orbKey ? "ไม่มีเวท" : ""), sp?.s.color ?? "#b8b8b8");
+      else hud.setNote(i, "");
+    });
+    hud.setOrbs(hero.orbs.map((o) => ({ name: ELEMENTS[o.el].name, color: ELEMENTS[o.el].color })),
+      hero.orbs.length > 0 || progress.hotbar.some((id) => id && ACTIVES[id]?.skill.type === "orb"));
     vitals.update();
     uiClock += dt;
     if (uiClock > 0.25) {
@@ -1727,7 +1814,7 @@ async function boot(): Promise<void> {
     // (or, walking to a spot picked on the map, under that spot)
     // the disc of an area skill being aimed
     if (aiming) {
-      const sk = ACTIVES[aiming.id].skill, spot = aimSpot(aiming.id);
+      const sk = castSkill(aiming.id), spot = aimSpot(aiming.id);
       w3d.setAim(spot, sk.radius ?? 150, sk.color ?? "#ffd27a");
     }
     w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target
@@ -1795,6 +1882,7 @@ async function boot(): Promise<void> {
     // in front of them would hide what hangs below the feet)
     for (const m of monsters)
       if (m.state !== "gone" && onScreen(m.x, m.y, 200)) m.drawPlate(ctx, mapX(m.x, m.y) * k + vw.ox, mapY(m.x, m.y) * k + vw.oy, k);
+    stall.drawSign(ctx, vw);
     floaters.draw(ctx, vw);
 
     mapUI.frame(dt, { player, facing: player.facing(), yaw, npcs, monsters, route: walkTo?.path.length ? [player, ...walkTo.path] : null });
@@ -1804,7 +1892,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, allies, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
+    progress, hero, skills, allies, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground, stall, stallUI, workshopUI,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand
