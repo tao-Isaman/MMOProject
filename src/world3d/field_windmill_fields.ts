@@ -1,18 +1,19 @@
 // ทุ่งกังหันลม (the windmill fields), monsters Lv 20-28: wheat country south of the first meadow,
 // between Eden's savanna and the lavender hills, where the village grinds its corn in the wind.
-// The farm track from the savanna comes in at the north end of the east side (where the savanna's
-// track west leaves it), runs south-west past the foot of the windmill down to the village at the
-// crossroads in the middle and on north-west to the lavender hills at the middle of the west side.
-// The windmill down rises north-east of the village: a ramp up its south-west side, another up
-// its higher step, where the great windmill turns its sails over the whole field, the miller's
+// The farm track from the savanna comes in north of the middle of the east side (where the
+// savanna's track west leaves it), runs south-west past the foot of the windmill down to the
+// village at the crossroads in the middle and on west to the lavender hills at the middle of the
+// west side. The windmill down rises north-east of the village: a ramp up its south side, another
+// up its higher step, where the great windmill turns its sails over the whole field, the miller's
 // sacks round its door. Round the crossroads: the stone granary, the well, a farmhouse and its
-// hen house, haystacks; up the lane north-west the sheep's round stone fold by the woods. Wheat stands in blocks on every side, and some of
-// it is cut, stooked on the stubble. To the south-west a ridge carries two wooden post mills, a
-// ramp up its north side; a third stands out in the wheat south-east of the village, at the end of
-// a lane from the granary. The stream that turned the old water mill has dried: its bed winds across
-// the south, cracked mud in the hollows, the mill standing idle beside it at the end of a lane, and
-// the land dries towards the south edge into the dry plains' grass. East and south-east the
-// savanna's golden grass comes in, north the first meadow's woods.
+// hen house, haystacks; up the lane north-west, the sheep's round stone fold by the woods. Wheat
+// stands in blocks of fields on every side, some of it cut and stooked on the stubble. To the
+// south-west a ridge carries two wooden post mills, a ramp up its north side; a third stands out
+// in the wheat south-east of the village, at the end of a lane from the granary. The stream that
+// turned the old water mill has dried: its bed winds across the south, cracked mud in the
+// hollows, the mill standing idle beside it at the end of a lane, and the land dries towards the
+// south edge into the dry plains' grass. East and south-east the savanna's golden grass comes in,
+// north the first meadow's woods, west the lavender's rows.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: east -> south_savanna (n 0.62), west -> lavender_hills (n 0.50)
@@ -239,7 +240,8 @@ export function build(quality: { flowers: number }): Town {
   prop("plains:hay_bales", [-2550, -1000], 70, 240);
   prop("trunrada:cart", [-600, -1700], 120, 230);
   prop("heartland:flower_cart", [500, 1700], 200, 230);
-  for (const at of [[-1300, -1900], [-1500, -1950]] as XY[]) prop("common:crate", at, rnd() * 90, 60);
+  // sacks of grain in crates at the granary door
+  for (const at of [[-1300, -1700], [-1480, -1760]] as XY[]) prop("common:crate", at, rnd() * 90, 260);
   prop("eden:park_bench", [-300, -450], 90, 100);
   tree("RoundTree", [-900, -400], 1, 40);
   tree("Cherry", [700, -300], 0.9, 36);

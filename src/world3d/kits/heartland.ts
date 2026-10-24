@@ -96,10 +96,10 @@ const MATS: Record<string, Recipe> = {
   Heartland_LavenderDark: { map: "felt", tint: "#634890", rough: 0.9, bump: 1.2 },
   Heartland_LavStem: { map: "felt", tint: "#8a9476", rough: 0.9 },
   // (a bush in flower: the silver-green leaves under a haze of purple spikes)
-  Heartland_LavCore: { map: "foliage", tint: "#8a78b4", rough: 1, bump: 1.5 },
-  Heartland_LavDark: { card: "tuft", tint: "#8070a8", rough: 0.9 },
-  Heartland_LavMid: { card: "tuft", tint: "#a592d4", rough: 0.85 },
-  Heartland_LavLight: { card: "tuft", tint: "#c8b8f0", rough: 0.8 },
+  Heartland_LavCore: { map: "foliage", tint: "#9582c4", rough: 1, bump: 1.5 },
+  Heartland_LavDark: { card: "tuft", tint: "#8c7cc0", rough: 0.9 },
+  Heartland_LavMid: { card: "tuft", tint: "#ae9ae4", rough: 0.85 },
+  Heartland_LavLight: { card: "tuft", tint: "#d0c0f8", rough: 0.8 },
   Heartland_LavLeaf: { card: "tuft", tint: "#8f9a7e", rough: 0.85 },
   // the flower beds' leaves, and the meadow's tufts
   Heartland_BedCore: { map: "foliage", tint: "#4c7a33", rough: 1, bump: 1.5 },
@@ -464,10 +464,10 @@ function sunflower(foot: V3, h: number, r: number, yaw: number, rnd: () => numbe
   const out: Geo[] = [];
   const lean: V3 = [(rnd() - 0.5) * 18 - 8, (rnd() - 0.5) * 18, 0];
   const top: V3 = [foot[0] + lean[0], foot[1] + lean[1], h];
-  out.push(cylinderBetween(foot, [top[0], top[1], h - r * 0.4], 2.6, 5, "Heartland_Stem", 1.8));
+  out.push(cylinderBetween(foot, [top[0], top[1], h - r * 0.4], 2.6, 4, "Heartland_Stem", 1.8));
   // leaves: broad, drooping, in turn up the stem
-  for (let k = 0; k < 4; k++) {
-    const t = 0.25 + k * 0.17, a = (yaw + k * 137) * D, L = 34 - k * 5, W = 17 - k * 2;
+  for (let k = 0; k < 3; k++) {
+    const t = 0.25 + k * 0.2, a = (yaw + k * 137) * D, L = 34 - k * 5, W = 17 - k * 2;
     const b: V3 = [foot[0] + lean[0] * t, foot[1] + lean[1] * t, h * t];
     const tip: V3 = [b[0] + Math.cos(a) * L, b[1] + Math.sin(a) * L, b[2] - 8];
     const mid: V3 = [b[0] + Math.cos(a) * L * 0.5, b[1] + Math.sin(a) * L * 0.5, b[2] + 4];
@@ -476,9 +476,8 @@ function sunflower(foot: V3, h: number, r: number, yaw: number, rnd: () => numbe
   }
   // the head, built facing +Z then turned to face its way
   const head: Geo[] = [
-    cylinderAt({ rBot: r * 0.6, rTop: r * 0.5, height: 6, segments: 10, bottom: [0, 0, -1] }, "Heartland_SunDisc"),
-    cylinderAt({ rBot: r * 0.5, rTop: r * 0.12, height: 3, segments: 10, bottom: [0, 0, 5] }, "Heartland_SunDisc"),
-    cylinderAt({ rBot: r * 0.3, rTop: r * 0.6, height: 8, segments: 8, bottom: [0, 0, -9] }, "Heartland_Stem"),
+    cylinderAt({ rBot: r * 0.6, rTop: r * 0.42, height: 7, segments: 8, bottom: [0, 0, -1] }, "Heartland_SunDisc"),
+    cylinderAt({ rBot: r * 0.3, rTop: r * 0.6, height: 8, segments: 6, bottom: [0, 0, -9] }, "Heartland_Stem"),
   ];
   const ring = (n: number, r0: number, r1: number, z: number, off: number, mat: string) => {
     for (let i = 0; i < n; i++) {
@@ -486,8 +485,8 @@ function sunflower(foot: V3, h: number, r: number, yaw: number, rnd: () => numbe
       head.push(tri([Math.cos(a0) * r0, Math.sin(a0) * r0, z], [Math.cos(a1) * r1, Math.sin(a1) * r1, z + 3], [Math.cos(a2) * r0, Math.sin(a2) * r0, z], mat));
     }
   };
-  ring(12, r * 0.5, r * 1.08, 1.5, 0, "Heartland_SunPetal");
-  ring(12, r * 0.5, r * 0.94, 0.5, 0.5, "Heartland_SunPetalDeep");
+  ring(11, r * 0.5, r * 1.08, 1.5, 0, "Heartland_SunPetal");
+  ring(11, r * 0.5, r * 0.94, 0.5, 0.5, "Heartland_SunPetalDeep");
   // (lifted to the sky more than turned to the front: from above, a field of them reads yellow)
   const tilt = -(18 + rnd() * 22);
   out.push(translate(rotateZ(rotateY(merge(...head), tilt), (rnd() - 0.5) * 40), top));
@@ -497,7 +496,7 @@ function sunflower(foot: V3, h: number, r: number, yaw: number, rnd: () => numbe
 // their great heads all turned the same way (up, and to the front, -X).
 function sunflowerRow(): Geo {
   const rnd = seeded(101), out: Geo[] = [];
-  for (let y = -380, k = 0; y <= 380; y += 26, k++) {
+  for (let y = -380, k = 0; y <= 380; y += 29, k++) {
     const x = (k % 2 ? 18 : -18) + (rnd() - 0.5) * 10;
     out.push(sunflower([x, y + (rnd() - 0.5) * 8, 0], 165 + rnd() * 70, 22 + rnd() * 7, rnd() * 360, rnd));
   }
@@ -511,7 +510,7 @@ function bed(seed: number, cells: number[], n: number, size: number, h: number):
   // the furrows between the rows
   for (const x of [-42, 42]) out.push(boxBounds([x - 6, -396, 5], [x + 6, 396, 7], "Heartland_SoilDry", 2));
   for (const x of [-84, 0, 84])
-    out.push(shrub({ seed: seed + x + 100, leaf: 17, look: BED, core: 0.92, coreDetail: 0, ragged: 0.6, density: 0.3, lobes: rowLobes(780, 95, x, h * 0.5, [40, 58, h * 0.5], rnd), flowers: { cells, n, size, up: 1.4 } }));
+    out.push(shrub({ seed: seed + x + 100, leaf: 19, look: BED, core: 0.92, coreDetail: 0, ragged: 0.6, density: 0.26, lobes: rowLobes(780, 95, x, h * 0.5, [40, 58, h * 0.5], rnd), flowers: { cells, n, size, up: 1.4 } }));
   return merge(...out);
 }
 // แปลงป๊อปปี้: a bed of red poppies.
@@ -525,9 +524,9 @@ function lavenderRow(): Geo {
   const lobes: Lobe[] = [];
   // (cushion run into cushion, as the rows grow when they are old)
   for (let y = -370; y <= 370; y += 67) lobes.push([(rnd() - 0.5) * 8, y + (rnd() - 0.5) * 6, 36, 54 + rnd() * 6, 50 + rnd() * 4, 36 + rnd() * 6]);
-  out.push(shrub({ seed: 133, leaf: 16, look: LAV, core: 0.92, coreDetail: 0, ragged: 0.35, density: 0.4, lobes, flowers: { cells: [F.lavender, F.wisteria, F.wisteria], n: 340, size: 24, up: 0.95 } }));
+  out.push(shrub({ seed: 133, leaf: 20, look: LAV, core: 0.92, coreDetail: 0, ragged: 0.35, density: 0.36, sun: 0.2, lobes, flowers: { cells: [F.lavender, F.hydrangea, F.wisteria], n: 250, size: 24, up: 0.95 } }));
   // silver-green leaves showing at the cushions' feet
-  out.push(shrub({ seed: 137, leaf: 14, look: { core: "Heartland_LavCore", dark: "Heartland_LavLeaf", mid: "Heartland_LavLeaf", light: "Heartland_LavLeaf" }, core: 0, ragged: 0.8, density: 0.25, lobes: lobes.map(([x, y, , rx, ry]) => [x, y, 10, rx * 1.08, ry, 12] as Lobe) }));
+  out.push(shrub({ seed: 137, leaf: 14, look: { core: "Heartland_LavCore", dark: "Heartland_LavLeaf", mid: "Heartland_LavLeaf", light: "Heartland_LavLeaf" }, core: 0, ragged: 0.8, density: 0.16, lobes: lobes.map(([x, y, , rx, ry]) => [x, y, 10, rx * 1.08, ry, 12] as Lobe) }));
   return merge(...out);
 }
 

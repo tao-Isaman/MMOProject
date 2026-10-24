@@ -368,7 +368,7 @@ export function build(quality: { flowers: number }): Town {
   const rim = (x: number, y: number) =>
     (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || wet(x, y, 150) || toLine(x, y, [aqAt(AQ_BAY(-5)), aqAt(AQ_BAY(9))]) < 450 ||
     rimFields.some(([px, py]) => Math.abs(px - x) < 450 && Math.abs(py - y) < 560);
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => rim(x, y) || (x < 5600 && rnd() < (y > 5600 ? 0.75 : 0.45)), { count: 520, tries: 8000, spacing: 420 });
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => rim(x, y) || (x < 5600 && rnd() < (y > 5600 ? 0.75 : 0.45)), { count: 430, tries: 8000, spacing: 420 });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["cypress", "cypress", "wildflowers", "vineyard_row"], (x, y) => rim(x, y) || x > 5600, { count: 70, tries: 2000, spacing: 600, kit: "westfarm" });
 
   // ---- monsters: the lavender, the hill, the terraces, the meadows ----

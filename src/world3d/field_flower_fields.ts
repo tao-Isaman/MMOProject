@@ -392,7 +392,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- past the edge: oaks to the south and east, the snowy pines and birches to the north,
   // the downs and their walls to the west ----
   const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || wet(x, y, 150);
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak", "Birch"], (x, y) => rim(x, y) || x > 5600 || (y > 5600 && x > 400), { count: 420, tries: 7000, spacing: 470 });
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak", "Birch"], (x, y) => rim(x, y) || x > 5600 || (y > 5600 && x > 400), { count: 370, tries: 7000, spacing: 470 });
   f.woods({ x0: 5600, x1: A, y0: -A, y1: A }, ["Pine", "Birch", "SnowPineSmall", "Pine", "PineSmall", "SnowPine"], rim, { count: 110, tries: 2500, spacing: 520 });
   f.woods({ x0: 5600, x1: A, y0: -A, y1: A }, ["snow_patch", "snow_drift", "frost_shrub"], rim, { count: 40, tries: 1200, spacing: 650, kit: "snowland" });
   f.woods({ x0: -A, x1: A, y0: 5600, y1: A }, ["sheep_flock", "wildflowers", "wildflowers"], rim, { count: 26, tries: 1200, spacing: 800, kit: "westfarm" });
