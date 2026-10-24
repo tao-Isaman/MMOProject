@@ -11,9 +11,10 @@ import { VARIANTS } from "./monsters";
 import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
 import type { MapId, TownId } from "./maps";
-import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, THIRD_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open, BREW_AT } from "./progression";
-import type { ElementId, Job3Id, JobId } from "./progression";
+import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, JOBS4, THIRD_JOB_LEVEL, FOURTH_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open, job4Open, BREW_AT } from "./progression";
+import type { ElementId, Job3Id, Job4Id, JobId } from "./progression";
 import { QUESTS } from "./quests";
+import type { QuestDef } from "./quests";
 import { STOCK, TOWN_STOCK } from "./shop";
 import { BREWS } from "./workshop";
 import { el, makeWindow, itemTip } from "./ui";
@@ -252,15 +253,23 @@ export class CodexUI {
     }
     el("h4", "ws-craft", this.list).textContent = `อาชีพที่ 3 (เลเวล ${THIRD_JOB_LEVEL} ขึ้นไป ต้องมีอาชีพที่ 2 แล้ว)`;
     for (const [id, j] of Object.entries(JOBS3) as [Job3Id, (typeof JOBS3)[Job3Id]][]) {
-      const q = QUESTS.find((x) => x.job3 === id);
-      const where = q ? `${q.giver.name} · ${MAP_NAMES[q.giver.map as MapId]}` : "-";
-      const open = job3Open(id);
-      const body = this.row(`j3:${id}`, null, j.name, `${where} · ${j.from ? `ต้องเป็น${j.from.map((c) => JOBS[c].name).join(" หรือ ")}` : "อาชีพที่ 2 ไหนก็ได้"}${open ? "" : " · ยังไม่เปิด"}`);
-      if (!body) continue;
-      body.innerHTML = `${j.note}<br><b>เจ้าอาชีพ:</b> ${where}${open ? "" : "<br><b>ยังไม่เปิดให้เปลี่ยน</b> สกิลของอาชีพนี้กำลังเขียนอยู่"}`
-        + (q ? `<br><b>เควส ${q.name}:</b><br>${q.steps.map((s, i) => `${i + 1}. ${s.task}`).join("<br>")}` : "")
-        + `<br><b>สาย:</b><br>${j.branches.map((b) => `· ${TREES[b].name}: ${TREES[b].note}`).join("<br>")}`;
+      this.laterJob(`j3:${id}`, j, QUESTS.find((x) => x.job3 === id), j.from ? `ต้องเป็น${j.from.map((c) => JOBS[c].name).join(" หรือ ")}` : "อาชีพที่ 2 ไหนก็ได้", job3Open(id));
     }
+    el("h4", "ws-craft", this.list).textContent = `อาชีพที่ 4 (เลเวล ${FOURTH_JOB_LEVEL} ขึ้นไป ต้องมีอาชีพที่ 3 แล้ว)`;
+    for (const [id, j] of Object.entries(JOBS4) as [Job4Id, (typeof JOBS4)[Job4Id]][]) {
+      this.laterJob(`j4:${id}`, j, QUESTS.find((x) => x.job4 === id), j.from ? `ต้องเป็น${j.from.map((c) => JOBS3[c].name).join(" หรือ ")}` : "อาชีพที่ 3 ไหนก็ได้", job4Open(id));
+    }
+  }
+
+  // A third or fourth job: its master, what it takes (`from`), whether it is open yet (its
+  // branches all written), its quest's steps and its branches.
+  laterJob(key: string, j: { name: string; note: string; branches: string[] }, q: QuestDef | undefined, from: string, open: boolean): void {
+    const where = q ? `${q.giver.name} · ${MAP_NAMES[q.giver.map as MapId]}` : "-";
+    const body = this.row(key, null, j.name, `${where} · ${from}${open ? "" : " · ยังไม่เปิด"}`);
+    if (!body) return;
+    body.innerHTML = `${j.note}<br><b>เจ้าอาชีพ:</b> ${where}${open ? "" : "<br><b>ยังไม่เปิดให้เปลี่ยน</b> สกิลของอาชีพนี้กำลังเขียนอยู่"}`
+      + (q ? `<br><b>เควส ${q.name}:</b><br>${q.steps.map((s, i) => `${i + 1}. ${s.task}`).join("<br>")}` : "")
+      + `<br><b>สาย:</b><br>${j.branches.map((b) => `· ${TREES[b].name}: ${TREES[b].note}`).join("<br>")}`;
   }
 
   // ---- lore, towns ----

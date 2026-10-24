@@ -7,8 +7,9 @@
 import { el } from "./ui";
 import { GENDERS, HAIR_COLORS, EYE_COLORS, swatchColor } from "./ui";
 import type { Look, ColorChoice } from "./ui";
-import { CLASSES, JOBS, JOBS3, Progress, jobName, jobIcon } from "./progression";
-import type { JobId, Job3Id } from "./progression";
+import { CLASSES, JOBS, JOBS3, JOBS4, Progress, jobName, jobIcon, jobGlyph } from "./progression";
+import type { JobId, Job3Id, Job4Id } from "./progression";
+import { icon } from "./icons";
 import { SHAPES, FALLBACK_SHAPE } from "./items";
 import type { Gender } from "./items";
 import { starterForm, defaultStart, startGear } from "./starter";
@@ -96,14 +97,15 @@ export class Title {
       cv.width = cv.height = 192;
       const look = readJson<Look>(saveKey("look.v1", c.id)) ?? { gender: "female", hair: "bob", hairColor: "silver", eyes: "teal" };
       const eq = { ...NO_GEAR, ...readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped };
-      const saved = readJson<{ job?: JobId | null; job3?: Job3Id | null }>(saveKey("character.v1", c.id));
-      const job = saved?.job ?? null, job3 = saved?.job3 ?? null;
-      const who = { cls: CLASSES[c.cls] ? c.cls : null, job: job && JOBS[job] ? job : null, job3: job3 && JOBS3[job3] ? job3 : null };
+      const saved = readJson<{ job?: JobId | null; job3?: Job3Id | null; job4?: Job4Id | null }>(saveKey("character.v1", c.id));
+      const job = saved?.job ?? null, job3 = saved?.job3 ?? null, job4 = saved?.job4 ?? null;
+      const who = { cls: CLASSES[c.cls] ? c.cls : null, job: job && JOBS[job] ? job : null, job3: job3 && JOBS3[job3] ? job3 : null, job4: job4 && JOBS4[job4] ? job4 : null };
       this.portrait(cv, look, dressed(eq, look.gender as Gender, who)); // in its job's outfit
       el("strong", "", card).textContent = c.name;
       const line = el("span", "", card);
       line.textContent = `${who.cls ? jobName(who) : "-"} · Lv ${c.level}`;
-      const pic = jobIcon(who);
+      // (a job not drawn yet: its glyph)
+      const g = jobGlyph(who), pic = g ? icon(g[0], g[1]).toDataURL() : jobIcon(who);
       if (pic) line.prepend(Object.assign(el("img", "role-ic"), { src: pic, alt: "" }));
       card.addEventListener("click", () => {
         // a second tap soon after the first starts (phones don't always send dblclick)

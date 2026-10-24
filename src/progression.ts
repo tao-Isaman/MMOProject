@@ -712,23 +712,52 @@ export function job4Stats(p: { job4: Job4Id | null; level: number }): StatBag {
   return out;
 }
 
-// What to call a character: its third job, else its second, else its class.
-export function jobName(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): string {
-  return p.job3 ? JOBS3[p.job3].name : p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
+// The jobs a character holds, for what it is called and shown as.
+export interface JobLine {
+  cls: ClassId | null;
+  job: JobId | null;
+  job3?: Job3Id | null;
+  job4?: Job4Id | null;
+}
+
+// What to call a character: its latest job (the fourth, the third, the second), else its class.
+export function jobName(p: JobLine): string {
+  return p.job4 ? JOBS4[p.job4].name : p.job3 ? JOBS3[p.job3].name : p.job ? JOBS[p.job].name : p.cls ? CLASSES[p.cls].name : "-";
 }
 
 // The emblem shown with that name: assets/skills/job_<id>.png for a job drawn already (JOB_ART),
-// else class_<id>.png (null: no class). A third job not drawn yet has no picture: null, and
-// jobGlyph gives the glyph to draw instead.
-const JOB_ART = new Set<JobId | Job3Id>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord", "thief", "jester", "mercenary", "inventor",
+// else class_<id>.png (null: no class). A third or fourth job not drawn yet has no picture: null,
+// and jobGlyph gives the glyph to draw instead.
+const JOB_ART = new Set<JobId | Job3Id | Job4Id>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord", "thief", "jester", "mercenary", "inventor",
   "knight", "hunter", "archmage", "assassin", "high_bishop", "monk", "spellblade", "sculptor", "magician", "historian", "shinobi"]);
-export function jobIcon(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): string | null {
-  if (p.job3) return JOB_ART.has(p.job3) ? `assets/skills/job_${p.job3}.png` : null;
+export function jobIcon(p: JobLine): string | null {
+  const top = p.job4 ?? p.job3;
+  if (top) return JOB_ART.has(top) ? `assets/skills/job_${top}.png` : null;
   if (p.job && JOB_ART.has(p.job)) return `assets/skills/job_${p.job}.png`;
   return p.cls ? `assets/skills/class_${p.cls}.png` : null;
 }
-export function jobGlyph(p: { job3?: Job3Id | null }): [string, string] | null {
-  return p.job3 && !JOB_ART.has(p.job3) ? [JOBS3[p.job3].glyph, JOBS3[p.job3].color] : null;
+export function jobGlyph(p: Pick<JobLine, "job3" | "job4">): [string, string] | null {
+  const j = p.job4 ? JOBS4[p.job4] : p.job3 ? JOBS3[p.job3] : null;
+  return j && !JOB_ART.has((p.job4 ?? p.job3)!) ? [j.glyph, j.color] : null;
+}
+
+// ---- the level-99 limit (docs/v05_jobs.md) ----
+// At LIMIT_LEVEL experience stops, the bar full, until the king's quest breaks the limit
+// (src/quests_limit.ts): the character is LIMIT_LEVEL + 1 at once. Past it levels give more
+// points: LIMIT_POINTS on the first, LIMIT_STEP_POINTS on every LIMIT_STEP-th after (105, 110 ...
+// 200), on top of the one every level gives. They follow from the level, never stored, so a
+// character already past it has all of them.
+export const LIMIT_LEVEL = 99;
+const LIMIT_POINTS = 10, LIMIT_STEP = 5, LIMIT_STEP_POINTS = 2;
+
+// The points past the limit up to a level: 10 at 100, 12 at 105 ... 50 at 200.
+function limitPoints(level: number): number {
+  return level > LIMIT_LEVEL ? LIMIT_POINTS + LIMIT_STEP_POINTS * Math.floor((level - LIMIT_LEVEL - 1) / LIMIT_STEP) : 0;
+}
+
+// The skill points reaching a level gives: 1, 11 at 100, 3 at 105, 110 ...
+export function levelPoints(level: number): number {
+  return 1 + limitPoints(level) - limitPoints(level - 1);
 }
 
 // The four elements a new character picks one of (the rest are found in the game).
@@ -1624,6 +1653,9 @@ interface SaveData {
   branch?: string | null;
   job3?: Job3Id | null;
   branch3?: string | null;
+  job4?: Job4Id | null;
+  branch4?: string | null;
+  limit?: boolean;
   treesV?: number;
   learnV?: number;
 }
@@ -1650,6 +1682,9 @@ export class Progress {
   branch: string | null = null;
   job3: Job3Id | null = null;            // the third job, and its branch
   branch3: string | null = null;
+  job4: Job4Id | null = null;            // the fourth job, and its branch
+  branch4: string | null = null;
+  limit = false;                         // the level-99 limit broken (LIMIT_LEVEL)
 
   constructor() {
     if (!this.load()) this.reset(null);
@@ -1671,6 +1706,9 @@ export class Progress {
     this.branch = null;
     this.job3 = null;
     this.branch3 = null;
+    this.job4 = null;
+    this.branch4 = null;
+    this.limit = false;
     this.changed();
   }
 
@@ -1718,6 +1756,33 @@ export class Progress {
     if (this.job3Block(id) || !JOBS3[id].branches.includes(branch) || !TREES[branch]) return false;
     this.job3 = id;
     this.branch3 = branch;
+    this.learnBranch(branch);
+    return true;
+  }
+
+  // Why it can't take a fourth job yet, or null.
+  job4Block(id: Job4Id): string | null {
+    const j = JOBS4[id];
+    if (this.job4) return `เปลี่ยนเป็น${JOBS4[this.job4].name}ไปแล้ว`;
+    if (!job4Open(id)) return `${j.name}ยังไม่เปิดให้เปลี่ยน รออีกไม่นาน`;
+    if (!this.job3) return "ต้องเปลี่ยนอาชีพที่ 3 ก่อน";
+    if (j.from && !j.from.includes(this.job3)) return `ต้องเป็น${j.from.map((c) => JOBS3[c].name).join(" หรือ ")}`;
+    if (this.level < FOURTH_JOB_LEVEL) return `ต้องเลเวล ${FOURTH_JOB_LEVEL} ขึ้นไป`;
+    return null;
+  }
+
+  // Take a fourth job with one of its branches, as a third. False when it can't.
+  takeJob4(id: Job4Id, branch: string): boolean {
+    if (this.job4Block(id) || !JOBS4[id].branches.includes(branch) || !TREES[branch]) return false;
+    this.job4 = id;
+    this.branch4 = branch;
+    this.learnBranch(branch);
+    return true;
+  }
+
+  // A third or fourth job's branch on taking the job: its tree, the craft it opens, JOB_POINTS
+  // points and its first skill on the bar if there's room.
+  private learnBranch(branch: string): void {
     if (!this.unlocked.trees.includes(branch)) this.unlocked.trees.push(branch);
     const craft = TREES[branch].opens;
     if (craft && !this.unlocked.masteries.includes(craft)) this.unlocked.masteries.push(craft);
@@ -1725,7 +1790,6 @@ export class Progress {
     const first = firstActive(branch);
     if (first) this.autoSlot(first);
     this.changed();
-    return true;
   }
 
   // What a new character knows: one of its class's trees, one element and one weapon mastery;
@@ -1755,7 +1819,7 @@ export class Progress {
     Object.assign(d, structuredClone({
       cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
       elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus,
-      job: this.job, branch: this.branch, job3: this.job3, branch3: this.branch3,
+      job: this.job, branch: this.branch, job3: this.job3, branch3: this.branch3, job4: this.job4, branch4: this.branch4, limit: this.limit,
     }));
     d.listeners = new Set();
     d.save = () => {};
@@ -1768,7 +1832,12 @@ export class Progress {
   }
 
   get points() {
-    return this.level + this.bonus;
+    return this.level + this.bonus + limitPoints(this.level);
+  }
+
+  // Held at LIMIT_LEVEL until the limit is broken: no more experience.
+  get capped(): boolean {
+    return this.level >= LIMIT_LEVEL && !this.limit;
   }
 
   get spent() {
@@ -1781,22 +1850,33 @@ export class Progress {
   }
 
   get xpNeed() {
-    return this.level >= MAX_LEVEL ? Infinity : xpToNext(this.level);
+    return this.level >= MAX_LEVEL || this.capped ? Infinity : xpToNext(this.level);
   }
 
-  // Add experience; returns how many levels were gained.
+  // Add experience; returns how many levels were gained. None comes at the top or the limit.
   addXp(amount: number): number {
-    if (this.level >= MAX_LEVEL) return 0;
+    if (this.level >= MAX_LEVEL || this.capped) return 0;
     this.xp += amount;
     let gained = 0;
-    while (this.level < MAX_LEVEL && this.xp >= xpToNext(this.level)) {
+    while (this.level < MAX_LEVEL && !this.capped && this.xp >= xpToNext(this.level)) {
       this.xp -= xpToNext(this.level);
       this.level++;
       gained++;
     }
-    if (this.level >= MAX_LEVEL) this.xp = 0;
+    if (this.level >= MAX_LEVEL || this.capped) this.xp = 0;
     this.changed();
     return gained;
+  }
+
+  // The king's quest done: past the limit, at LIMIT_LEVEL + 1 at once, experience from 0. False
+  // when it isn't held there.
+  breakLimit(): boolean {
+    if (!this.capped) return false;
+    this.limit = true;
+    this.level = LIMIT_LEVEL + 1;
+    this.xp = 0;
+    this.changed();
+    return true;
   }
 
   // What it has learned (the windows show nothing else).
@@ -1933,7 +2013,7 @@ export class Progress {
       localStorage.setItem(saveKey("character.v1"), JSON.stringify({
         cls: this.cls, level: this.level, xp: this.xp, ranks: this.ranks, mastery: this.mastery,
         elements: this.elements, unlocked: this.unlocked, extended: this.extended, hotbar: this.hotbar, bonus: this.bonus, job: this.job, branch: this.branch,
-        job3: this.job3, branch3: this.branch3, treesV: TREES_VERSION, learnV: LEARN_VERSION,
+        job3: this.job3, branch3: this.branch3, job4: this.job4, branch4: this.branch4, limit: this.limit, treesV: TREES_VERSION, learnV: LEARN_VERSION,
       }));
     } catch {
       // not persisted
@@ -1958,6 +2038,11 @@ export class Progress {
     // (a save from before the third jobs has none)
     this.job3 = this.job && d.job3 && JOBS3[d.job3] ? d.job3 : null;
     this.branch3 = this.job3 && d.branch3 && JOBS3[this.job3].branches.includes(d.branch3) ? d.branch3 : null;
+    // (nor a fourth, nor the limit: one already past it has broken it)
+    this.job4 = this.job3 && d.job4 && JOBS4[d.job4] ? d.job4 : null;
+    this.branch4 = this.job4 && d.branch4 && JOBS4[this.job4].branches.includes(d.branch4) ? d.branch4 : null;
+    this.limit = !!d.limit || this.level > LIMIT_LEVEL;
+    if (this.capped) this.xp = 0;
     const known = (o: Record<string, number> | undefined, ok: (k: string) => boolean) => Object.fromEntries(Object.entries(o ?? {}).filter(([k, v]) => ok(k) && v > 0));
     const nodes = new Set(Object.values(TREES).flatMap((t) => t.nodes.map((n) => n.id)));
     this.ranks = known(d.ranks, (k) => nodes.has(k));

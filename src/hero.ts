@@ -1,12 +1,12 @@
 // The player's live state in a fight: HP, MP, shield, buffs, skill cooldowns, death. Besides the
-// buffs, three things go into the stats here: the third job's bonus and growth (job3Stats),
-// whatever the kind of map underfoot gives (terrain passives and buffs, src/terrain.ts) and the
-// element orbs she holds (an orb skill's buff for each). The shape she is in (a druid's form) is
-// a buff of her own that marks it; falling takes it and the orbs away.
+// buffs, three things go into the stats here: the third and fourth jobs' bonus and growth
+// (job3Stats, job4Stats), whatever the kind of map underfoot gives (terrain passives and buffs,
+// src/terrain.ts) and the element orbs she holds (an orb skill's buff for each). The shape she is
+// in (a druid's form) is a buff of her own that marks it; falling takes it and the orbs away.
 
 import { computeStats } from "./stats";
 import type { Stats } from "./stats";
-import { ACTIVES, TREES, job3Stats, needMet, offKind } from "./progression";
+import { ACTIVES, TREES, job3Stats, job4Stats, needMet, offKind } from "./progression";
 import type { ElementId, FormId, Progress, StatBag } from "./progression";
 import { ITEMS } from "./items";
 import type { TerrainKind } from "./terrain";
@@ -78,7 +78,7 @@ export class Hero {
   }
 
   recompute(): void {
-    const more = [{ stats: job3Stats(this.progress) }, { stats: this.terrainPassives() }];
+    const more = [{ stats: job3Stats(this.progress) }, { stats: job4Stats(this.progress) }, { stats: this.terrainPassives() }];
     // each orb its skill's buff at that skill's rank (two of one element: twice)
     const orbs = this.orbs.map((o) => ({ stats: ACTIVES[o.id]?.skill.buff?.(this.progress.skillRank(o.id)) ?? {} }));
     this.stats = computeStats(this.progress, this.weapon(), [...this.buffs, ...more, ...orbs], this.offhand(), this.worn(), this.form?.form ?? null);

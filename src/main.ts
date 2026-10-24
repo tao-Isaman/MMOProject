@@ -26,7 +26,7 @@ import { dressed } from "./outfits";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
+import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, levelPoints } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
 import { Allies, Ally, lookSheet } from "./allies";
@@ -587,6 +587,18 @@ async function boot(): Promise<void> {
       skills.ring(player.x, player.y, "#ffe27a", 320, 1);
       return true;
     },
+    job4Block: (job) => progress.job4Block(job),
+    takeJob4(job, branch) {
+      if (!progress.takeJob4(job, branch)) return false;
+      floaters.add(player.x, player.y, 200, `เปลี่ยนอาชีพเป็น${JOBS4[job].name}!`, "level");
+      floaters.add(player.x, player.y, 185, `${TREES[branch].name} · แต้มสกิล +${JOB_POINTS}`, "level");
+      hero.recompute();
+      void applyLook();
+      skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 100);
+      skills.ring(player.x, player.y, "#ffe27a", 380, 1.1);
+      return true;
+    },
+    pastLimit: () => progress.limit,
     reward(r, q) {
       floaters.add(player.x, player.y, 175, `สำเร็จเควส: ${q.name}`, "level");
       if (r.gold) {
@@ -604,9 +616,12 @@ async function boot(): Promise<void> {
       }
       if (r.xp) {
         floaters.add(player.x, player.y, 112, `+${r.xp.toLocaleString()} EXP`, "info");
-        if (progress.addXp(r.xp) > 0) levelUp();
+        const gained = progress.addXp(r.xp);
+        if (gained > 0) levelUp(gained);
         else progress.changed();
       } else if (r.points) progress.changed();
+      // the king's quest: past the limit, at level 100 at once (said over the quest's line)
+      if (r.limit && progress.breakLimit()) levelUp(1, "ทลายขีดจำกัด!", 260);
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 30);
       noteClock = 1.6; // the reward's lines first
     },
@@ -653,7 +668,8 @@ async function boot(): Promise<void> {
       const xp = Math.max(1, Math.round(m.variant.xp * Math.max(0.1, Math.min(1, 1 - (gap - 5) * 0.1)) * (1 + hero.stats.xpPct)));
       bot.noteKill(xp, gold);
       inv.changed();
-      if (progress.addXp(xp) > 0) levelUp();
+      const gained = progress.addXp(xp);
+      if (gained > 0) levelUp(gained);
     },
   });
   // the merchant's stall (src/stall.ts): townsfolk buy from it while she stands in town
@@ -724,9 +740,14 @@ async function boot(): Promise<void> {
   };
   let formWas: string | null = null;
 
-  function levelUp() {
+  // `gained` levels up to the one now, said `z` over the player: the points they gave show under
+  // it when past the limit they gave more than one a level (11 at 100, 3 at 105, 110 ...)
+  function levelUp(gained: number, title = "LEVEL UP!", z = 150) {
     hero.refill();
-    floaters.add(player.x, player.y, 150, `LEVEL UP! Lv ${progress.level}`, "level");
+    floaters.add(player.x, player.y, z, `${title} Lv ${progress.level}`, "level");
+    let points = 0;
+    for (let lv = progress.level - gained + 1; lv <= progress.level; lv++) points += levelPoints(lv);
+    if (points > gained) floaters.add(player.x, player.y, z - 45, `แต้มสกิล +${points}`, "level");
     skills.ring(player.x, player.y, "#ffe27a", 260, 0.8);
     skills.sparkleUp(player.x, player.y, tex.flash, 40);
   }
