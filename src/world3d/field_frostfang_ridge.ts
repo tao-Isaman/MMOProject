@@ -21,7 +21,7 @@
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
-import { useKits } from "./town";
+import { useKits, colourways } from "./town";
 import { KIT as GLACIER } from "./kits/glacier";
 import { KIT as SNOW } from "./kits/snowland";
 import { KIT as NORTHCOLD } from "./kits/northcold";
@@ -32,6 +32,10 @@ import type { NpcSpec } from "../npcs";
 import type { SolidSpec } from "../world";
 
 useKits(GLACIER, SNOW, NORTHCOLD, ICEBERG, WESTMOUNT);
+// the border wall and the rockfall in the watchtower's grey stone, snow where their moss would be
+colourways({
+  ff_snowy: { Westmount_FortMoss: "Snow", Westmount_LichenPale: "Snow", Westmount_FortStone: "Glacier_Tower", Westmount_FortDark: "Glacier_TowerDark", Westmount_Granite: "Glacier_FangPale", Westmount_GraniteDark: "Glacier_Fang" },
+});
 
 const R = 5500; // the walkable box
 const A = 9000; // the ground
@@ -160,9 +164,9 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the watchtower on the crest, the broken border wall either side of it, the ranger's camp
   // in its lee ----
   prop("glacier:border_tower", TOWER, 0, 600, { solid: [{ kind: "tower", x: -20, y: -20, w: 660, d: 660, rot: 0 }, { kind: "rock", x: 320, y: 330, r: 160 }] });
-  prop("westmount:fort_wall", [TOWER[0] + 250, TOWER[1] - 1050], 92, 420, { solid: [{ kind: "wall", x: 0, y: 0, w: 800, d: 200, rot: 0 }] });
-  prop("westmount:fort_wall", [TOWER[0] + 350, TOWER[1] + 1050], 86, 420, { solid: [{ kind: "wall", x: 0, y: 0, w: 800, d: 200, rot: 0 }] });
-  prop("westmount:rockfall", [TOWER[0] + 500, TOWER[1] + 1800], 40, 300, { s: 0.7, ...ring(200) });
+  prop("westmount:fort_wall", [TOWER[0] + 250, TOWER[1] - 1050], 92, 420, { colours: "ff_snowy", solid: [{ kind: "wall", x: 0, y: 0, w: 800, d: 200, rot: 0 }] });
+  prop("westmount:fort_wall", [TOWER[0] + 350, TOWER[1] + 1050], 86, 420, { colours: "ff_snowy", solid: [{ kind: "wall", x: 0, y: 0, w: 800, d: 200, rot: 0 }] });
+  prop("westmount:rockfall", [TOWER[0] + 500, TOWER[1] + 1800], 40, 300, { s: 0.7, colours: "ff_snowy", ...ring(200) });
   prop("snowland:lean_to", [RANGER[0] - 200, RANGER[1] - 450], towards(-1, 0.3), 260);
   prop("snowland:cold_campfire", [RANGER[0] - 450, RANGER[1] + 50], 0, 120, ring(55));
   prop("iceberg:woodpile", [RANGER[0] + 250, RANGER[1] - 700], 90, 120);
@@ -191,7 +195,7 @@ export function build(_quality: { flowers: number }): Town {
   scatter(["glacier:giant_skull", "glacier:giant_bones"], 4, IN, 400, { s: [0.7, 0.9], solid: [{ kind: "bone", x: 0, y: 0, r: 200 }], keep: (x, y) => shoulder(x, y) || crest(x, y) });
   scatter(["glacier:giant_sword"], 4, IN, 200, { s: [0.8, 1.1], solid: [{ kind: "sword", x: 0, y: 0, r: 60 }], keep: (x, y) => shoulder(x, y) || crest(x, y) });
   scatter(["glacier:ice_block"], 6, IN, 160, { s: [0.5, 0.8], ringR: 110, keep: crest });
-  prop("westmount:prayer_cairn", [-2100, 4700], 20, 200, { s: 0.75, ...ring(90) });
+  prop("westmount:prayer_cairn", [-2100, 4700], 20, 200, { s: 0.75, colours: "ff_snowy", ...ring(90) });
   scatter(["glacier:fang_peak"], 6, IN, 260, { s: [0.35, 0.6], ringR: 200, keep: basin });
   scatter(["glacier:fang_peak"], 4, IN, 260, { s: [0.35, 0.55], ringR: 200, keep: (x, y) => shoulder(x, y) || crest(x, y) });
   // the dead men's graves the rangers raised, cairns in a ring
@@ -200,13 +204,13 @@ export function build(_quality: { flowers: number }): Town {
     if (free(at[0], at[1], 60)) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
   }
 
-  // ---- rocks over it all, snow drifts, the wind-bent pines that hold on up here ----
+  // ---- rocks over it all, snow drifts, the few small pines that hold on up here ----
   scatter(["snowland:snow_boulder", "snowland:rock_cluster", "snowland:flat_slabs", "northcold:iced_rocks"], 30, IN, 170, { s: [0.6, 1.05], ringR: 130 });
   scatter(["glacier:ice_block"], 8, IN, 150, { s: [0.45, 0.8], ringR: 110 });
   scatter(["snowland:snow_drift"], 16, IN, 230, { s: [0.7, 1.1], solid: "none" });
   scatter(["snowland:dead_branches", "snowland:dry_grass", "snowland:frost_shrub", "northcold:flattened_grass"], 40, IN, 90, { s: [0.7, 1.1], solid: "none" });
-  scatter(["westmount:wind_pine"], 10, IN, 200, { s: [0.6, 0.9], ringR: 40, keep: (x, y) => !basin(x, y) });
-  scatter(["westmount:wind_pine"], 5, IN, 200, { s: [0.55, 0.8], ringR: 40, keep: basin });
+  scatter(["flora:SnowPineSmall", "flora:SnowPineSmall", "flora:SnowPine"], 12, IN, 200, { s: [0.6, 0.9], ringR: 40, keep: (x, y) => !basin(x, y) });
+  scatter(["flora:SnowPineSmall"], 5, IN, 200, { s: [0.55, 0.8], ringR: 40, keep: basin });
   // fallen rock at the foot of the cliffs
   for (const poly of [U, CR, SW, EW]) {
     for (let i = 0; i < poly.length; i++) {
@@ -234,19 +238,20 @@ export function build(_quality: { flowers: number }): Town {
   for (const [c, r, n] of [[[-3600, 4700], 700, 6], [[-2600, 5000], 500, 3], [[-3300, -3600], 400, 2], [[-200, 4800], 400, 2], [[1500, 4500], 500, 3], [[2600, -3500], 400, 2]] as [XY, number, number][]) grove(c, r, n);
 
   // ---- past the edges: snowy pines on the walls' tops and down the low corner by the north sea
-  // cliffs, wind-bent pines on the crest; nothing on the sea ----
+  // cliffs, small pines on the crest; nothing on the sea ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const onTrack = (x: number, y: number) => [[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
   const seaward = (x: number, y: number) => inPoly(SEA, x - 300, y - 300);
   const onFang = (x: number, y: number) => FANGS.some(([c, r]) => Math.hypot(x - c[0], y - c[1]) < r + 200);
   f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "SnowPineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || seaward(x, y) || onFang(x, y) || f.h(x, y) < 900, { count: 220, spacing: 460, tries: 5000 });
   f.woods(area, ["SnowPine", "SnowPineSmall", "FrostOak"], (x, y) => inside(x, y) || onTrack(x, y) || seaward(x, y) || onFang(x, y) || f.h(x, y) > 120, { count: 70, spacing: 420, tries: 3000 });
-  f.woods(area, ["wind_pine"], (x, y) => inside(x, y) || onTrack(x, y) || seaward(x, y) || onFang(x, y) || f.h(x, y) < 400 || f.h(x, y) > 900, { count: 60, spacing: 600, tries: 3000, kit: "westmount" });
+  f.woods(area, ["SnowPineSmall", "SnowPineSmall", "SnowPine"], (x, y) => inside(x, y) || onTrack(x, y) || seaward(x, y) || onFang(x, y) || f.h(x, y) < 400 || f.h(x, y) > 900, { count: 60, spacing: 600, tries: 3000 });
   f.woods(area, ["snow_boulder", "rock_cluster"], (x, y) => inside(x, y) || onTrack(x, y) || seaward(x, y) || onFang(x, y), { count: 60, spacing: 700, tries: 2000, kit: "snowland" });
 
   // ---- monsters: the ghosts over the battlefield, the titans on the open snow of the shoulder
   // and the crest ----
-  const quiet = (x: number, y: number) => Math.hypot(x - TOWER[0] + 300, y - TOWER[1] + 300) < 1100 || Math.hypot(x - SWORD[0], y - SWORD[1]) < 500;
+  // (and none in the pocket of low ground between the crest and the sea in the north-west corner)
+  const quiet = (x: number, y: number) => Math.hypot(x - TOWER[0] + 300, y - TOWER[1] + 300) < 1100 || Math.hypot(x - SWORD[0], y - SWORD[1]) < 500 || (x > 4400 && y > 3900);
   f.monsterSpots(ground, IN, { step: 720, keepOut: quiet, max: 52 });
 
   // ---- people ----
