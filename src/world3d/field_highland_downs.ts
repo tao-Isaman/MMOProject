@@ -10,9 +10,14 @@
 // grow in the hollows; cairns mark the tracks. High snowy ridges close the north and the west,
 // snowy land running up to them. Towards the south edge the snow thins and the grass under it
 // grows greener, birches and broadleaf trees among the pines, down to the karst country.
+// Two more ways leave the long low down: from the foot of the highest down's ramp a track runs
+// north over it and out through a gap in the north ridge to the valley of the humming stones;
+// from the head of the first ramp another runs west along the down, between the highest down and
+// the down's own west brink, out through a gap in the west ridge to the snow abbey's cliffs.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: east -> highland, south -> karst_peaks
+//   ways out: east -> highland, south -> karst_peaks, north -> humming_stones (through the north
+//   ridge's gap, e 0.47), west -> snow_abbey (through the west ridge's gap, n 0.645)
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
@@ -39,8 +44,12 @@ const A = 9000; // the ground
 const D1: XY[] = [[A, -1300], [A, A], [-300, A], [-200, 6200], [500, 5200], [300, 4300], [900, 3300], [700, 2200], [1500, 1300], [1900, 200], [3200, -600], [5000, -900], [6500, -1400]];
 const D2: XY[] = [[2200, 2000], [3600, 1500], [4800, 2100], [5200, 3400], [4600, 4700], [3200, 5000], [2000, 4300], [1700, 3100]];
 const D3: XY[] = [[-1700, -2300], [-2900, -1700], [-4300, -2200], [-4900, -3400], [-4300, -4700], [-2900, -5000], [-1800, -4300], [-1400, -3200]];
-const MN: XY[] = [[6400, -A], [A, -A], [A, A], [6700, A], [6300, 5000], [6600, 2500], [6200, 0], [6500, -3000]];
-const MW: XY[] = [[-A, 6400], [-3000, 6200], [0, 6600], [3000, 6300], [6000, 6500], [A, 6400], [A, A], [-A, A]];
+// (the north ridge and the west ridge are each in two, a gap left where a way runs out through
+// them: north to the humming stones, west to the snow abbey)
+const MN_E: XY[] = [[6400, -A], [A, -A], [A, -250], [6250, -250], [6300, -1200], [6500, -3000]];
+const MN_W: XY[] = [[A, 900], [A, A], [6700, A], [6300, 5000], [6600, 2500], [6300, 900]];
+const MW_S: XY[] = [[-A, 6400], [-3000, 6200], [0, 6600], [1000, 6550], [1000, A], [-A, A]];
+const MW_N: XY[] = [[2300, A], [2300, 6450], [3000, 6300], [6000, 6500], [A, 6400], [A, A]];
 const S1: XY[] = [[-A, -A], [-7100, -A], [-7400, -3000], [-7000, 0], [-7300, 600], [-A, 600]];
 const S2: XY[] = [[-A, 3200], [-7200, 3200], [-7000, 4800], [-7400, A], [-A, A]];
 
@@ -121,8 +130,10 @@ export function build(quality: { flowers: number }): Town {
       { poly: dz(D1), h: 280, ramps: [RAMP1] },
       { poly: dz(D2), h: 560, ramps: [RAMP2] },
       { poly: dz(D3), h: 320, ramps: [RAMP3] },
-      { poly: dz(MN), h: 1150 },
-      { poly: dz(MW), h: 1000 },
+      { poly: dz(MN_E), h: 1150 },
+      { poly: dz(MN_W), h: 1150 },
+      { poly: dz(MW_S), h: 1000 },
+      { poly: dz(MW_N), h: 1000 },
       { poly: dz(S1), h: 900 },
       { poly: dz(S2), h: 850 },
     ],
@@ -145,8 +156,15 @@ export function build(quality: { flowers: number }): Town {
   const BOTHY: XY = [2550, -2750];
   const FOLD: XY = [3550, -4000];
   const SHEP = smooth([[-280, -3400], [500, -3050], [1500, -2850], [2000, -2850]]);
-  const roads = [band(MAIN_E, 470), band(MAIN_S, 450), band(UP, 420), band(DOWN, 400), band(SHEP, 380)];
-  const tracks = [MAIN_E, MAIN_S, UP, DOWN, SHEP];
+  // ---- the ways north to the humming stones and west to the snow abbey (v0.4): one off the
+  // highest down's ramp foot, out through the north ridge's gap (e 0.47, where the humming stones'
+  // own way south meets the edge), one off the first ramp's head along the low down, out through
+  // the west ridge's gap (n 0.645, where the abbey cliffs' own way east meets the edge) ----
+  const N_EXIT: XY = [5150, 300], W_EXIT: XY = [1600, 5150];
+  const TO_HUMMING = smooth([r2in, [3300, 380], [4300, 320], N_EXIT, [6676, 300], [9400, 300]]);
+  const TO_ABBEY = smooth([r1out, [1300, 2700], [1250, 3600], [1380, 4500], W_EXIT, [1650, 6676], [1700, 9400]]);
+  const roads = [band(MAIN_E, 470), band(MAIN_S, 450), band(UP, 420), band(DOWN, 400), band(SHEP, 380), band(TO_HUMMING, 420), band(TO_ABBEY, 420)];
+  const tracks = [MAIN_E, MAIN_S, UP, DOWN, SHEP, TO_HUMMING, TO_ABBEY];
 
   // ---- the ground: winter grass, and over it a thin snow with the grass showing through in
   // patches (holes in the snow) ----
@@ -175,6 +193,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- ways out ----
   f.exit("highland", E_EXIT, [-620, -4450]);
   f.exit("karst_peaks", S_EXIT, [-4450, 1720]);
+  f.exit("humming_stones", N_EXIT, [4450, 330]);
+  f.exit("snow_abbey", W_EXIT, [1420, 4480]);
 
   // ---- the tarn: dark still water, ice along its edges ----
   const tarnSheet = f.waterSheet({ x0: TARN_C[0] - 1500, x1: TARN_C[0] + 1500, y0: TARN_C[1] - 1300, y1: TARN_C[1] + 1300 }, -14, "Westhills_TarnWater");
@@ -213,6 +233,10 @@ export function build(quality: { flowers: number }): Town {
   prop("snowland:cairn", [-1080, -4900], 0, 70, ring(45));
   prop("snowland:trail_sign", [-4900, 1350], 90, 80, ring(30, "post"));
   prop("snowland:cairn", [-4850, 2250], 0, 70, ring(45));
+  prop("snowland:trail_sign", [4850, -150], 0, 80, ring(30, "post"));
+  prop("snowland:cairn", [4900, 750], 0, 70, ring(45));
+  prop("snowland:trail_sign", [1200, 4900], -90, 80, ring(30, "post"));
+  prop("snowland:cairn", [2000, 4950], 0, 70, ring(45));
   // cairns along the tracks and where they part
   for (const at of [[-200, -3000], [-700, -1500], [-100, -80], [-2200, 1250], [-3900, 1050], [-280, 650], [2100, 1250], [-700, -1250], [1600, -2600]] as XY[]) if (free(at[0], at[1], 70)) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
 
@@ -367,6 +391,8 @@ export function build(quality: { flowers: number }): Town {
     labels: [
       { x: E_EXIT[0], y: E_EXIT[1] + 150, text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },
       { x: S_EXIT[0] + 150, y: S_EXIT[1], text: "ทางไปภูผาหินปูน", kind: "gate" },
+      { x: N_EXIT[0] - 150, y: N_EXIT[1], text: "ทางไปหุบหินร้องเพลง", kind: "gate" },
+      { x: W_EXIT[0], y: W_EXIT[1] - 150, text: "ทางไปผาอารามหิมะ", kind: "gate" },
       { x: circleIn[0] - 200 * cc, y: circleIn[1] - 200 * cs, text: "วงหินบนเนิน" },
       { x: TARN_C[0] - 1300, y: TARN_C[1] - 900, text: "ทะเลสาบน้ำเย็น" },
       { x: BOTHY[0] - 650, y: BOTHY[1], text: "กระท่อมคนเลี้ยงวัว", kind: "small" },
