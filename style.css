@@ -231,10 +231,10 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 .vt-bar.hp i { background: linear-gradient(180deg, #ff8a78, #c73a2c); }
 .vt-bar.hp b { background: rgba(203, 188, 255, 0.55); }
 .vt-bar.mp i { background: linear-gradient(180deg, #8cc8ff, #2f6fd0); }
-.vt-bar.xp { height: 9px; }
+.vt-bar.xp { height: 12px; }
 .vt-bar.xp i { background: linear-gradient(180deg, #ffe58a, #d8a630); }
 .vt-bar span { position: relative; display: block; text-align: center; font-size: 11px; line-height: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 2px #000; }
-.vt-bar.xp span { line-height: 9px; font-size: 9px; }
+.vt-bar.xp span { line-height: 12px; font-size: 9px; } /* tall enough for Thai marks above and below */
 .vt-buffs { display: flex; flex-wrap: wrap; gap: 4px; }
 .vt-buff { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(244, 210, 122, 0.18); color: var(--gold); }
 .vt-buff.ail { background: rgba(255, 107, 94, 0.2); color: #ff9a8e; }

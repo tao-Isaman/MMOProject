@@ -688,7 +688,8 @@ export class Skills {
   }
 
   // A heal of `amount`: at once, or with `hot` a part a second over `ticks` s (default 5), shown
-  // as a buff while it lasts (a heal still coming when she falls is lost).
+  // as a buff while it lasts, named apart from a buff the same skill gives (a heal still coming
+  // when she falls is lost).
   restore(id: string, s: SkillDef, amount: number): void {
     const p = this.player;
     const give = (n: number) => {
@@ -697,7 +698,7 @@ export class Skills {
     };
     if (!s.hot) return give(amount);
     const ticks = s.ticks ?? 5;
-    this.hero.addBuff(`hot_${id}`, this.nameOf(id), {}, ticks);
+    this.hero.addBuff(`hot_${id}`, `${this.nameOf(id)} · ฟื้นฟู`, {}, ticks);
     for (let i = 1; i <= ticks; i++) this.later(i, () => {
       give(amount / ticks);
       if (this.hero.alive) this.sparkleUp(p.x, p.y, this.tex.mint, 6);
