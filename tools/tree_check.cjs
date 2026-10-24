@@ -63,6 +63,7 @@ const statKeys = new Set([
   "atkPct", "matkPct", "defPct", "mdefPct", "maxHpPct", "maxMpPct", "mpRegenPct", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "poisonPct",
   "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "statusRes", "doubleHit", "stealth", "ambush",
   "hpToAtk", "counter", "allyPct",
+  "stallSlots", "stallRate", "stallMarkup",
   ...P.ELEMENT_IDS.flatMap((e) => [`${e}Atk`, `${e}Def`]), ...P.RACES.map((r) => `${r}Dmg`),
 ]);
 // a stat that casts a skill by itself: autocast_<an active skill's id>
@@ -92,7 +93,7 @@ function checkActive(where, s, max) {
   if (s.element && !P.ELEMENT_IDS.includes(s.element)) bad(where, `element ${s.element}`);
   if (s.enchant && !P.ELEMENT_IDS.includes(s.enchant)) bad(where, `enchant ${s.enchant}`);
   for (const r of Object.keys(s.vs || {})) if (!P.RACES.includes(r)) bad(where, `race ${r}`);
-  for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance", "coin"]) {
+  for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance", "coin", "gold", "bag"]) {
     if (s[key] === undefined) continue;
     if (typeof s[key] !== "function") { bad(where, `${key} must be a function of rank`); continue; }
     for (let k = 1; k <= max; k++) if (badNum(s[key](k))) bad(where, `${key}(${k}) = ${s[key](k)}`);

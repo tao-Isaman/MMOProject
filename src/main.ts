@@ -43,10 +43,11 @@ import { Bot } from "./bot";
 import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./save";
 import { ShopUI } from "./shop";
+import { Stall, StallUI, Townsfolk } from "./stall";
 import { Npc, TALK_RANGE } from "./npcs";
-import { loadMap, MAP_NAMES } from "./maps";
+import { loadMap, MAP_NAMES, TOWNS } from "./maps";
 import { MapUI, mapArea, travelFee } from "./mapui";
-import type { GameMap, MapId } from "./maps";
+import type { GameMap, MapId, TownId } from "./maps";
 import { findPath, blocked, SOLIDS } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
@@ -655,6 +656,12 @@ async function boot(): Promise<void> {
       if (progress.addXp(xp) > 0) levelUp();
     },
   });
+  // the merchant's stall (src/stall.ts): townsfolk buy from it while she stands in town
+  const stall = new Stall({
+    inv, floaters, at: () => player, stats: () => hero.stats, drop: (id, n) => { for (let i = 0; i < n; i++) ground.drop(id, player); },
+    why: () => (!hero.alive ? "ล้มอยู่" : TOWNS.includes(current.id as TownId) ? null : "เปิดร้านได้ในเมืองเท่านั้น"),
+  }, new Townsfolk());
+  const stallUI = new StallUI(stall, inv, iconFor, entry?.name ?? "");
   // the player's allies: summons and the decoy (src/allies.ts)
   const allies = new Allies({ hero, player, monsters, combat, fx, tex, floaters, weapon: () => weaponStats(inv.equipped.weapon, hero.stats) });
   const skills = new Skills({
@@ -676,7 +683,21 @@ async function boot(): Promise<void> {
       floaters.add(m.x, m.y, m.height + 70, `ขโมย ${ITEMS[got].name}`, "level");
     },
     // a craft's skill: the workshop on the spot, free of fees
-    workshop: (b) => workshopUI.show({ craft: b.craft as Craft, tab: b.tab }),
+    workshop: (b) => workshopUI.show({ craft: b.craft as Craft | "brewing", tab: b.tab }),
+    // the merchant's: gold her skills pay, how full her bag is, her stall's window
+    purse: {
+      gold: () => inv.gold,
+      pay: (n) => {
+        inv.gold = Math.max(0, inv.gold - n);
+        inv.changed();
+      },
+      fill: () => inv.slots.filter((x) => x).length / inv.slots.length,
+    },
+    stall(dry) {
+      if (dry) return stall.open ? null : stall.deps.why();
+      stallUI.toggle(true);
+      return null;
+    },
     // a make skill (poison vials): the materials out of the bag, what it makes in
     make(mk, rank, dry) {
       const short = mk.from.filter(([id, n]) => inv.count(id) < n);
@@ -943,7 +964,7 @@ async function boot(): Promise<void> {
     walkTo = null;
     const shop = (tab: "buy" | "sell") => () => {
       shopKeeper = npc;
-      shopUI.keeper(npc.name, npc.spec.title);
+      shopUI.keeper(npc.name, npc.spec.title, current.id);
       shopUI.show(tab);
     };
     const heal = (): string => {
@@ -1049,6 +1070,7 @@ async function boot(): Promise<void> {
     player.attack = null;
     walkTo = null;
     shopUI.toggle(false);
+    stall.close();
     if (bot.on) bot.anchor = { x: player.x, y: player.y };
     cam.x = mapX(player.x, player.y);
     cam.y = mapY(player.x, player.y) - 50;
@@ -1263,6 +1285,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
       else if (workshopUI.open) workshopUI.toggle(false);
+      else if (stallUI.open) stallUI.toggle(false);
       else if (talkDialog.open) talkDialog.close();
       else {
         const n = nearestNpc(TALK_RANGE * 1.6);
@@ -1278,6 +1301,7 @@ async function boot(): Promise<void> {
       botUI.toggle(false);
       shopUI.toggle(false);
       workshopUI.toggle(false);
+      stallUI.toggle(false);
       codexUI.toggle(false);
       mapUI.toggle(false);
       questLog.toggle(false);
@@ -1674,6 +1698,9 @@ async function boot(): Promise<void> {
     if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
     // walking (the keys, a click on the ground) lets a cast go; the bot waits for it
     if (skills.pending && (fwd || left || walkTo) && (move.x || move.y)) skills.interrupt();
+    // a merchant keeps to her stall: a step closes it
+    if (stall.open && (move.x || move.y)) stall.close("ปิดร้านแล้ว ของที่เหลือกลับเข้ากระเป๋า");
+    stall.update(dt);
     const was = { x: player.x, y: player.y };
     if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) {
       if (shape?.formAttack) combat.formStrike(player, shape.formAttack, progress.skillRank(hero.form!.id), w, shape.color);
@@ -1834,6 +1861,7 @@ async function boot(): Promise<void> {
     // in front of them would hide what hangs below the feet)
     for (const m of monsters)
       if (m.state !== "gone" && onScreen(m.x, m.y, 200)) m.drawPlate(ctx, mapX(m.x, m.y) * k + vw.ox, mapY(m.x, m.y) * k + vw.oy, k);
+    stall.drawSign(ctx, vw);
     floaters.draw(ctx, vw);
 
     mapUI.frame(dt, { player, facing: player.facing(), yaw, npcs, monsters, route: walkTo?.path.length ? [player, ...walkTo.path] : null });
@@ -1843,7 +1871,7 @@ async function boot(): Promise<void> {
 
   // Exposed for automated checks and console poking.
   (window as unknown as { __game: unknown }).__game = { player, fx, spells, useSlot, inv, monsters, combat, look, looks, applyLook, invUI, quickAttack, directionIndex,
-    progress, hero, skills, allies, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground,
+    progress, hero, skills, allies, statusUI, skillUI, picker, turnCamera, world: w3d, bot, botUI, shopUI, mapUI, drink, enterMap, ground, stall, stallUI, workshopUI,
     get npcs() { return npcs; }, get map() { return current; }, get walk() { return walkTo; },
     zoomOut: (f: number) => (screen.far = 1 / f), nav: { findPath, blocked, solids: SOLIDS },
     draw: { mapX, mapY, viewRow, WEAPON_ART, heightAt }, // for test scripts drawing the player by hand

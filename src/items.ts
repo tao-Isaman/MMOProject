@@ -274,6 +274,11 @@ const BASE: Record<string, Item> = {
   potion_red_big: potion("ยาแดงเข้มข้น", { hp: 150 }, "#d8343a", 160, "ฟื้น HP 150"),
   potion_blue: potion("ยาฟ้า", { mp: 18 }, "#6ab4ff", 60, "ฟื้น MP 18"),
   potion_blue_big: potion("ยาฟ้าเข้มข้น", { mp: 60 }, "#2f6fd0", 180, "ฟื้น MP 60"),
+  // the strong draughts, orange to yellow to white: dear in the high towns' shops (shop.ts
+  // TOWN_STOCK), brewed for far less by who knows how (workshop.ts BREWS)
+  potion_orange: potion("ยาส้ม", { hp: 300 }, "#ff9a3c", 500, "ฟื้น HP 300"),
+  potion_yellow: potion("ยาเหลือง", { hp: 550 }, "#ffd23c", 1100, "ฟื้น HP 550"),
+  potion_white: potion("ยาขาว", { hp: 1000 }, "#fbf6e6", 2400, "ฟื้น HP 1000"),
   // (the books, one per skill tree, mastery and element, are added by src/progression.ts)
   style_twintail: style("twintail", "ทวินเทลยาว", 1500),
   style_hime: style("hime", "ยาวหน้าม้าตรง", 1500),
@@ -305,6 +310,10 @@ const BASE: Record<string, Item> = {
   dark_shard: quest("เศษผลึกมืด", "star", "#7a52b8", "เศษผลึกที่เต้นตุบเหมือนหัวใจ จากอสูรผลึกมืด"),
   old_bandage: quest("ผ้าพันศพเก่า", "wave", "#d8c9a0", "ผ้าพันแผลเก่าแก่ของมัมมี่ทาส"),
   fox_tail: quest("หางจิ้งจอกเก้าหาง", "flame", "#ffb060", "หางที่เรืองแสงอุ่น ๆ ของจิ้งจอกเก้าหาง"),
+  // the merchant's test (quests.ts job_merchant)
+  cloud_wool: quest("ขนแกะเมฆ", "cloud", "#f2f6fa", "ขนนุ่มฟูของแกะขนเมฆที่ทุ่งหญ้าโนอา นายห้างซาอีดรับซื้อไปทอผ้า"),
+  wool_bale: quest("ห่อผ้าขนแกะ", "bag", "#e8dcc0", "ผ้าขนแกะเมฆม้วนใหญ่จากโนอา ส่งให้มาริน่าที่ร้านเครื่องมือเวนิชเซีย"),
+  trade_order: quest("ใบสั่งซื้อ", "letter", "#e8d7a8", "ใบสั่งซื้อผ้ารอบหน้าจากมาริน่า ส่งคืนนายห้างซาอีดที่โนอา"),
 };
 
 // ---- materials and refining stones ----

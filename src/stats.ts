@@ -37,6 +37,9 @@ const ZERO = {
   // monster's blow that lands is struck straight back for 150% of attack (combat.ts counter); how
   // much more HP the player's allies have and how much harder they hit (allies.ts)
   hpToAtk: 0, counter: 0, allyPct: 0,
+  // the merchant's stall (stall.ts): more goods on it, customers this much more often, and this
+  // much over the fair price they will still pay
+  stallSlots: 0, stallRate: 0, stallMarkup: 0,
   // multipliers, applied at the end
   atkPct: 0, matkPct: 0, defPct: 0, mdefPct: 0, maxHpPct: 0, maxMpPct: 0, mpRegenPct: 0,
 };

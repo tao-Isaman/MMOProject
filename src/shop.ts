@@ -5,6 +5,7 @@
 import { ITEMS, itemSlot, sellPrice, stackLimit } from "./items";
 import { el, itemTip, makeWindow } from "./ui";
 import type { Inventory } from "./inventory";
+import type { TownId } from "./maps";
 import type { Img } from "./types";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -18,6 +19,32 @@ export const STOCK = [
   "sword_1h", "sword_2h", "axe", "axe_2h", "mace", "spear_1h", "spear_2h", "dagger", "staff", "bow", "knuckle", "claw",
   "buckler", "kite_shield", "alchemy_flask", "spell_tome", "grimoire",
 ];
+// What some towns' shops sell besides: guns where gunsmiths trade (the merchants' crossroads, the
+// western ports, Osaki's matchlocks) and the strong potions, dear, in the high towns.
+const STRONG_POTIONS = ["potion_orange", "potion_yellow", "potion_white"];
+const GUNS = ["pistol", "rifle"];
+export const TOWN_STOCK: Partial<Record<TownId, string[]>> = {
+  noa: [...STRONG_POTIONS, ...GUNS],
+  venezia: [...STRONG_POTIONS, ...GUNS],
+  suzhou: [...STRONG_POTIONS, ...GUNS],
+  osaki: GUNS,
+  palace: STRONG_POTIONS,
+  highland: STRONG_POTIONS,
+};
+// A town's shop: the basics with its own wares, potions first, then weapons, then off-hand gear.
+const SHELF = ["potion", "weapon", "offhand"];
+export function stockAt(town: string): string[] {
+  const all = [...STOCK, ...(TOWN_STOCK[town as TownId] ?? [])];
+  return all.sort((a, b) => SHELF.indexOf(ITEMS[a].kind) - SHELF.indexOf(ITEMS[b].kind));
+}
+// Everything some shop sells.
+const SOLD = new Set([...STOCK, ...Object.values(TOWN_STOCK).flat()]);
+
+// What a thing is worth to the townsfolk (a merchant's stall, stall.ts): what a shop charges
+// for it, or 2.5 times what a shop pays for it when no shop sells it.
+export function fairPrice(id: string): number {
+  return SOLD.has(id) ? ITEMS[id]?.price ?? 0 : Math.round(sellPrice(id) * 2.5);
+}
 
 // The wandering merchant's book: a share off what the shop charges (at most 50%) and a share more
 // for what it buys (at most double).
@@ -36,7 +63,7 @@ export function buyPrice(id: string, deal: Deal): number {
 // so buying to sell back never pays.
 export function sellFor(id: string, deal: Deal): number {
   const base = sellPrice(id), more = Math.floor(base * (1 + Math.min(1, deal.sell)));
-  return STOCK.includes(id) ? Math.max(base, Math.min(more, buyPrice(id, deal) - 1)) : more;
+  return SOLD.has(id) ? Math.max(base, Math.min(more, buyPrice(id, deal) - 1)) : more;
 }
 
 // ---- shop window ----
@@ -52,6 +79,7 @@ export class ShopUI {
   status: HTMLElement;
   tip: HTMLElement;
   qty = new Map<string, number>();
+  stock = STOCK;             // what this shop sells (its town's, keeper)
   shown = new Set<string>(); // rows opened to show what their item does
   wearable: (id: string) => string | null;
 
@@ -127,10 +155,11 @@ export class ShopUI {
     return !this.win.classList.contains("hidden");
   }
 
-  // Whose shop it is (the window's title).
-  keeper(name: string, title: string): void {
+  // Whose shop it is (the window's title), and the town it stands in (what it sells).
+  keeper(name: string, title: string, town: string): void {
     const h = this.win.querySelector(".window-bar h2");
     if (h) h.textContent = `${title} · ${name}`;
+    this.stock = stockAt(town);
   }
 
   toggle(show = !this.open): void {
@@ -181,7 +210,7 @@ export class ShopUI {
 
   renderBuy(): void {
     const deal = this.deal();
-    for (const id of STOCK) {
+    for (const id of this.stock) {
       const item = ITEMS[id], price = buyPrice(id, deal);
       const row = this.row(id, `buy:${id}`);
       this.iconCell(row, id);
