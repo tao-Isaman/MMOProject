@@ -137,6 +137,7 @@ export class Bot {
   fetching: Vec2 | null = null;      // the thing on the ground being walked to
   skipLoot = new Map<Vec2, number>(); // things it couldn't get to, for a while
   stats = { time: 0, kills: 0, xp: 0, items: 0, gold: 0, potions: 0 };
+  capNoted = false; // told this run that experience stops at the level-99 limit
   listeners = new Set<() => void>();
 
   constructor(deps: BotDeps) {
@@ -197,6 +198,7 @@ export class Bot {
     this.on = true;
     this.anchor = { x: this.d.player.x, y: this.d.player.y };
     this.stats = { time: 0, kills: 0, xp: 0, items: 0, gold: 0, potions: 0 };
+    this.capNoted = false;
     this.reset("seek");
     this.d.say?.("เริ่มบอท");
     this.notify();
@@ -229,11 +231,18 @@ export class Bot {
     this.path = [];
   }
 
+  // A kill it saw. At the level-99 limit the hunt goes on for gold and drops; it says once that
+  // the experience has stopped.
   noteKill(xp: number, gold = 0): void {
     if (!this.on) return;
+    const capped = this.d.progress.capped;
     this.stats.kills++;
-    this.stats.xp += xp;
+    if (!capped) this.stats.xp += xp;
     this.stats.gold += gold;
+    if (capped && !this.capNoted) {
+      this.capNoted = true;
+      this.d.say?.("เลเวล 99 แล้ว EXP ไม่เพิ่ม: ทำภารกิจทลายขีดจำกัดกับพระราชาที่พระราชวังหลวง");
+    }
   }
 
   notePick(): void {

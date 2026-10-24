@@ -1,10 +1,11 @@
 // The player's live state in a fight: HP, MP, shield, buffs, skill cooldowns, death. Besides the
-// buffs, two things go into the stats here: the third job's bonus and growth (job3Stats) and
-// whatever the kind of map underfoot gives (terrain passives and buffs, src/terrain.ts).
+// buffs, two things go into the stats here: the third and fourth jobs' bonus and growth
+// (job3Stats, job4Stats) and whatever the kind of map underfoot gives (terrain passives and
+// buffs, src/terrain.ts).
 
 import { computeStats } from "./stats";
 import type { Stats } from "./stats";
-import { TREES, job3Stats, needMet } from "./progression";
+import { TREES, job3Stats, job4Stats, needMet } from "./progression";
 import type { ElementId, Progress, StatBag } from "./progression";
 import { ITEMS, offhandKind } from "./items";
 import type { TerrainKind } from "./terrain";
@@ -67,7 +68,7 @@ export class Hero {
   }
 
   recompute(): void {
-    const more = [{ stats: job3Stats(this.progress) }, { stats: this.terrainPassives() }];
+    const more = [{ stats: job3Stats(this.progress) }, { stats: job4Stats(this.progress) }, { stats: this.terrainPassives() }];
     this.stats = computeStats(this.progress, this.weapon(), [...this.buffs, ...more], this.offhand(), this.worn());
     this.hp = Math.min(this.hp, this.stats.maxHp);
     this.mp = Math.min(this.mp, this.stats.maxMp);

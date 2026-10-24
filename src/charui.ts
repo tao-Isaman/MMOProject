@@ -6,7 +6,7 @@ import type { Look } from "./ui";
 import { skillIcon, hasArt, icon } from "./icons";
 import {
   TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
-  JOBS, AUTOCAST, jobGlyph,
+  JOBS, JOBS3, AUTOCAST, jobGlyph,
 } from "./progression";
 import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText, offhandKind } from "./items";
 import type { WeaponId } from "./items";
@@ -94,7 +94,7 @@ export class Vitals {
   update(): void {
     const p = this.progress, h = this.hero, s = h.stats;
     const xpNeed = p.xpNeed;
-    const key = [p.level, p.cls, p.job, p.job3, p.free, Math.ceil(h.hp), Math.ceil(h.mp), Math.round(s.maxHp), Math.round(s.maxMp), p.xp,
+    const key = [p.level, p.cls, p.job, p.job3, p.job4, p.capped, p.free, Math.ceil(h.hp), Math.ceil(h.mp), Math.round(s.maxHp), Math.round(s.maxMp), p.xp,
       Math.round(h.shield?.amount ?? 0), h.buffs.map((b) => `${b.id}${Math.ceil(b.t)}`).join()].join("|");
     if (key === this.last) return;
     this.last = key;
@@ -108,9 +108,10 @@ export class Vitals {
     this.hp.text.textContent = `${Math.ceil(h.hp)} / ${Math.round(s.maxHp)}${h.shield ? ` +${Math.round(h.shield.amount)}` : ""}`;
     this.mp.fill.style.width = `${(100 * h.mp) / s.maxMp}%`;
     this.mp.text.textContent = `${Math.floor(h.mp)} / ${Math.round(s.maxMp)}`;
-    const f = p.level >= MAX_LEVEL ? 1 : p.xp / xpNeed;
+    // (full at the top, and at the level-99 limit until it is broken)
+    const f = p.level >= MAX_LEVEL || p.capped ? 1 : p.xp / xpNeed;
     this.xp.fill.style.width = `${100 * f}%`;
-    this.xp.text.textContent = p.level >= MAX_LEVEL ? "เลเวลสูงสุด" : `EXP ${(100 * f).toFixed(1)}%`;
+    this.xp.text.textContent = p.level >= MAX_LEVEL ? "เลเวลสูงสุด" : p.capped ? "ต้องปลดล็อกขีดจำกัด" : `EXP ${(100 * f).toFixed(1)}%`;
     this.buffs.replaceChildren(...h.buffs.map((b) => {
       const t = el("span", b.id.startsWith("ail_") ? "vt-buff ail" : "vt-buff");
       t.textContent = `${b.name} ${buffTime(b.t)}`;
@@ -201,10 +202,12 @@ export class ProfileUI {
     if (this.win.classList.contains("hidden")) return;
     const p = this.progress, s = this.hero.stats, inv = this.d.inv;
     const pic = roleIcon(p);
-    // (a third job: the second it came from beside it)
-    const job = `${jobName(p)}${p.job3 && p.job ? ` (${JOBS[p.job].name})` : ""}`;
+    // (a third or fourth job: the job it came from beside it)
+    const before = p.job4 && p.job3 ? JOBS3[p.job3].name : p.job3 && p.job ? JOBS[p.job].name : null;
+    const job = `${jobName(p)}${before ? ` (${before})` : ""}`;
+    const xp = p.capped ? "EXP เต็ม · ต้องปลดล็อกขีดจำกัด (ภารกิจของพระราชาที่พระราชวังหลวง)" : `EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed}`;
     this.head.innerHTML = `<strong>${this.d.name}</strong> · ${pic ? `<img class="role-ic" src="${pic}" alt="">` : ""}${job} · Lv ${p.level} / ${MAX_LEVEL}` +
-      `<br>EXP ${Math.floor(p.xp)} / ${p.level >= MAX_LEVEL ? "-" : p.xpNeed} · แต้มสกิล ${p.free} / ${p.points} · ทอง ${inv.gold}`;
+      `<br>${xp} · แต้มสกิล ${p.free} / ${p.points} · ทอง ${inv.gold}`;
     // what it wears, slot by slot
     this.gear.replaceChildren(...EQUIP_SLOTS.map(({ slot, name }) => {
       const id = inv.equipped[slot], item = id ? ITEMS[id] : null;

@@ -52,7 +52,8 @@ const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
   shinobi: { female: [["adventurer", "navy"], ["adventurer", "black"]], male: [["warrior", "navy"], ["warrior", "black"]] },
 };
 
-// The job whose outfit a character wears.
+// The job whose outfit a character wears. A fourth job has none yet (docs/v05_jobs.md 7): it
+// wears its third job's.
 export function outfitRole(p: { cls: ClassId | null; job: JobId | null; job3?: Job3Id | null }): keyof typeof OUTFITS {
   return p.job3 ?? p.job ?? p.cls ?? "none";
 }

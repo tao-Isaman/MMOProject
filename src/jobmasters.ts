@@ -1,17 +1,21 @@
-// The third jobs' masters: extra townsfolk the towns get by this list instead of in their own
-// files (src/world3d/town_*.ts belong to the towns), merged into a town's people when it loads
-// (main.ts townsfolk). Each stands where its town's plan puts it, in that plan's pixels (u right,
-// v down, as the town file reads them; Plan and TOWN_SCALE in src/world3d/town.ts), and faces a
-// plan point. The spots were checked open and reachable from the town's way in
-// (tools/town_check.cjs). They stay in the old towns until the west lands' towns are built.
+// The job masters who aren't a town's own people: the third and fourth jobs' masters and the
+// merchant's (a second job of v0.5). The towns get them by this list instead of in their own files
+// (src/world3d/town_*.ts belong to the towns), merged into a town's people when it loads (main.ts
+// townsfolk). Each stands where its town's plan puts it, in that plan's pixels (u right, v down,
+// as the town file reads them; Plan and TOWN_SCALE in src/world3d/town.ts), and faces a plan
+// point; the palace has no plan, its file lays out its people in world centimetres before
+// TOWN_SCALE, and so do its masters here. The spots were checked open and reachable from the
+// town's way in (tools/town_check.cjs).
 //
-// Their quests are in src/quests_job3.ts; a job whose branches are still stubs isn't offered.
+// Their quests are in src/quests_job3.ts and src/quests_job4.ts (the merchant's with the
+// merchant's own); a job whose branches are still stubs isn't offered.
 
 import { Plan, TOWN_SCALE } from "./world3d/town";
 import type { NpcSpec } from "./npcs";
 
-// Each town's plan: cm a pixel and the pixel at the world origin, as its town file has them.
-const PLANS: Record<string, Plan> = {
+// Each town's plan: cm a pixel and the pixel at the world origin, as its town file has them (null:
+// none, the spots are world centimetres).
+const PLANS: Record<string, Plan | null> = {
   eden: new Plan(18, 625, 565),
   kradia: new Plan(28, 395, 410),
   trunrada: new Plan(27, 435, 440),
@@ -19,13 +23,18 @@ const PLANS: Record<string, Plan> = {
   osaki: new Plan(20, 520, 450),
   iceberg: new Plan(28, 440, 400),
   bahamas: new Plan(26, 420, 420),
+  noa: new Plan(20, 425, 367.5),
+  suzhou: new Plan(20, 560, 325),
+  highland: new Plan(26, 350, 350),
+  venezia: new Plan(100, 112, 100),
+  palace: null,
 };
 
 type UV = [number, number];
 interface Master {
   town: string;
-  at: UV;     // where it stands (plan pixels)
-  look: UV;   // the plan point it faces
+  at: UV;     // where it stands (plan pixels, or the palace's centimetres)
+  look: UV;   // the point it faces
   spec: Omit<NpcSpec, "x" | "y" | "face">;
 }
 
@@ -79,14 +88,66 @@ export const JOB_MASTERS: Master[] = [
     id: "job3_magician", name: "ซาฟีร์นักมายากล", title: "นักมายากลแห่งโอเอซิส · เปลี่ยนอาชีพนักมายากล", role: "talk",
     look: female("twintail", "crimson", "amber", "top_adventurer_plum", "bottom_adventurer_black"),
     lines: ["เลือกไพ่มาหนึ่งใบ... อ๊ะ ไพ่ใบนั้นอยู่ในกระเป๋าเจ้าแล้ว", "ใครก็ตามที่มีอาชีพที่ 2 และเลเวล 60 มาขึ้นเวทีเป็นนักมายากลกับข้าได้"] } },
+
+  // ---- the fourth jobs (docs/v05_jobs.md 3), level 90 ----
+  // the palace: the high knight in the throne hall, by the king (world centimetres)
+  { town: "palace", at: [4130, 1100], look: [3600, 0], spec: {
+    id: "job4_high_knight", name: "เซอร์เพอร์ซิวาล", title: "ผู้ถือหอกหลวง · เปลี่ยนอาชีพอัศวินชั้นสูง", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "gold", "blue"),
+    lines: ["หอกเล่มนี้เคยเป็นของกษัตริย์องค์แรก ข้าเพียงถือมันไว้รอผู้ที่คู่ควร", "อัศวิน นักประติมากรรม ชิโนบิ หรือพระนักรบที่เลเวล 90 แล้ว มาถือหอกหลวงกับข้าได้"] } },
+  // Venezia: the sniper by the column on the waterfront of the piazzetta
+  { town: "venezia", at: [140, 153], look: [140, 170], spec: {
+    id: "job4_sniper", name: "เชซาเรตาเหยี่ยว", title: "มือปืนแห่งลากูน · เปลี่ยนอาชีพสไนเปอร์", role: "talk", look: male("top_warrior_forest", "bottom_warrior_black", "ink", "amber"),
+    lines: ["นกนางนวลบนยอดเสากระโดงตัวนั้น... ปัง! เห็นไหม ไม่ต้องเล็งนาน", "นักล่า นักฆ่า หรือชิโนบิที่เลเวล 90 แล้ว มาลองจับปืนหรือธนูกับข้าดู"] } },
+  // Kradia: the warlock on the tower's square
+  { town: "kradia", at: [366, 364], look: [395, 410], spec: {
+    id: "job4_warlock", name: "พ่อมดโวลันด์", title: "พ่อมดแห่งหอคอยดำ · เปลี่ยนอาชีพพ่อมด", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "silver", "violet"),
+    lines: ["ลูกแก้วสามลูกนี้คือไฟ น้ำแข็ง และสายฟ้า ผสมให้ถูกก็เป็นเวทที่ไม่มีตำราไหนเขียน", "จอมเวทชั้นสูง บาทหลวงชั้นสูง จอมเวทนักสู้ขั้นสูง หรือนักประวัติศาสตร์ที่เลเวล 90 แล้ว มาเป็นพ่อมดกับข้า"] } },
+  // Highland Hill: the druid on the square, by the way to the east gate
+  { town: "highland", at: [405, 380], look: [340, 382], spec: {
+    id: "job4_druid", name: "ดรูอิดบริจิด", title: "ผู้พิทักษ์ป่าโบราณ · เปลี่ยนอาชีพดรูอิด", role: "talk",
+    look: female("wavy", "auburn", "teal", "top_priestess_forest", "bottom_priestess_forest"),
+    lines: ["หมีบนเขา นกบนฟ้า กวางในป่า... ข้าเคยเป็นมาแล้วทุกอย่าง", "จอมเวทชั้นสูง บาทหลวงชั้นสูง พระนักรบ หรือนักมายากลที่เลเวล 90 แล้ว มาฟังเสียงของป่ากับข้า"] } },
+  // Yodia: the slayer in the lane by the fish market, the shaman among the huts of the forest
+  // village
+  { town: "yodia", at: [308, 560], look: [266.5, 600], spec: {
+    id: "job4_slayer", name: "พรายกระซิบ", title: "มือสังหารไร้เงา · เปลี่ยนอาชีพมือสังหาร", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "ink", "crimson"),
+    lines: ["เจ้าได้ยินเสียงข้า แต่หาข้าไม่เจอ ใช่ไหมล่ะ", "นักฆ่าหรือชิโนบิที่เลเวล 90 แล้ว ถ้าอยากเป็นความตายที่ไม่มีใครเห็น มาหาข้า"] } },
+  { town: "yodia", at: [204, 283], look: [240, 300], spec: {
+    id: "job4_shaman", name: "ปู่ทองดีหมอผี", title: "หมอผีแห่งป่าดิบใต้ · เปลี่ยนอาชีพหมอผี", role: "talk", look: male("top_warrior_forest", "bottom_warrior_cocoa", "silver", "amber"),
+    lines: ["ผีป่าผีเรือนข้ารู้จักหมด บางตนยังมากินข้าวกับข้าทุกค่ำ", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว ถ้าใจไม่กลัวผี มาเรียนวิชากับปู่"] } },
+  // Suzhou: the royal guard by the governor's mansion, the wuxia by the canal-side teahouse
+  { town: "suzhou", at: [690, 296], look: [600, 330], spec: {
+    id: "job4_royal_guard", name: "ผู้กองเหยียนหลง", title: "องครักษ์เสื้อแพร · เปลี่ยนอาชีพราชองครักษ์", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "ink", "amber"),
+    lines: ["องครักษ์เสื้อแพรไม่ได้เฝ้าแค่วัง แต่ตามล่าทุกคนที่คิดร้ายต่อแผ่นดิน", "อัศวินหรือจอมเวทนักสู้ขั้นสูงที่เลเวล 90 แล้ว มาสาบานเป็นองครักษ์กับข้า"] } },
+  { town: "suzhou", at: [505, 330], look: [470, 305], spec: {
+    id: "job4_wuxia", name: "ไป๋อวิ๋น", title: "จอมยุทธ์พเนจร · เปลี่ยนอาชีพจอมยุทธ์", role: "talk", look: female("ponytail", "ink", "teal", "top_white", "bottom_navy"),
+    lines: ["กระบี่เล่มเดียว มืออีกข้างว่างไว้... เผื่อจับจอกชา", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว มาเดินบนเส้นทางยุทธภพกับข้า"] } },
+  // Noa: the alchemist by the archives
+  { town: "noa", at: [440, 298], look: [420, 367.5], spec: {
+    id: "job4_alchemist", name: "อาจารย์เอเบอร์ฮาร์ท", title: "นักเล่นแร่แปรธาตุแห่งหอจดหมายเหตุ · เปลี่ยนอาชีพนักเล่นแร่แปรธาตุ", role: "talk", look: male("top_warrior_forest", "bottom_warrior_black", "silver", "teal"),
+    lines: ["ตะกั่วเป็นทองยังไม่สำเร็จ แต่ทองเป็นระเบิดน่ะ สำเร็จมาหลายครั้งแล้ว", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว มาช่วยข้าทดลองได้"] } },
+  // Iceberg: the viking on the quay by the boats
+  { town: "iceberg", at: [606, 485], look: [660, 485], spec: {
+    id: "job4_viking", name: "ยาร์ลทอร์สไตน์", title: "เจ้าแห่งทะเลเหนือ · เปลี่ยนอาชีพนักรบไวกิ้ง", role: "talk", look: male("top_warrior", "bottom_warrior_cocoa", "gold", "blue"),
+    lines: ["เรือมังกรของข้าล่องมาแล้วทุกทะเล ยกเว้นทะเลที่ไม่มีศัตรู", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว ขึ้นเรือมากับข้า"] } },
+  // Osaki: the samurai between the halls by the mountain gate
+  { town: "osaki", at: [858, 645], look: [858, 600], spec: {
+    id: "job4_samurai", name: "ท่านอิซึรุงิ", title: "ปรมาจารย์บูชิโด · เปลี่ยนอาชีพซามูไร", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "silver", "amber"),
+    lines: ["ดาบที่ไม่เคยออกจากฝัก คือดาบที่ชนะโดยไม่ต้องสู้", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว มาเดินตามวิถีบูชิโดกับข้า"] } },
+
+  // ---- the merchant (a second job, level 30): by the old market at the crossroads of trade ----
+  { town: "noa", at: [600, 425], look: [420, 418], spec: {
+    id: "job_merchant", name: "นายห้างซาอีด", title: "นายห้างแห่งชุมทาง · เปลี่ยนอาชีพพ่อค้า", role: "talk", look: male("top_warrior", "bottom_warrior_cocoa", "ink", "amber"),
+    lines: ["ของทุกชิ้นมีราคาของมัน ที่เหลือคือหาคนที่อยากได้มันที่สุดให้เจอ", "ใครก็ได้ที่เลเวล 30 แล้ว มาเรียนวิชาค้าขายและตั้งร้านของตัวเองกับข้า"] } },
 ];
 
 // The masters standing in a map, in world centimetres (none: not a town of theirs).
 export function jobMasters(map: string): NpcSpec[] {
+  if (!(map in PLANS)) return [];
   const plan = PLANS[map];
-  if (!plan) return [];
+  const P = (u: number, v: number): [number, number] => (plan ? plan.P(u, v) : [u, v]);
   return JOB_MASTERS.filter((m) => m.town === map).map((m) => {
-    const [x, y] = plan.P(m.at[0], m.at[1]), [lx, ly] = plan.P(m.look[0], m.look[1]);
+    const [x, y] = P(m.at[0], m.at[1]), [lx, ly] = P(m.look[0], m.look[1]);
     return { ...m.spec, x: x * TOWN_SCALE, y: y * TOWN_SCALE, face: (Math.atan2(ly - y, lx - x) * 180) / Math.PI };
   });
 }
