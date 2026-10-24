@@ -1,5 +1,6 @@
 // แม่น้ำเยือกแข็ง (the frozen river), monsters Lv 122-134: the great river between Noa's plains
-// and the snow country, here 25-30 m wide and running east to west across the field. The south
+// and the snow country, here 25-30 m wide and running east to west across the field, narrower
+// upstream to the west where it comes out of the karst country (the karst peaks). The south
 // bank is still Noa's green country, the frost and the lying snow thickening towards the river
 // until the shore is white: birches and pines, a few broadleaf trees out towards Noa, reeds
 // frozen into the shore ice, a knoll with an old beacon tower. The north bank is snow and rises
@@ -50,7 +51,8 @@ const ss = (a: number, b: number, x: number) => {
 // near the bridge the banks are drawn straight and exactly three spans apart
 const atBridge = (y: number) => 1 - ss(400, 1500, Math.abs(y - BY));
 const mid = (y: number) => -100 - 0.09 * y + 260 * Math.sin(y / 2300 + 0.7);
-const wide = (y: number) => 2700 + 0.03 * y + 200 * Math.sin(y / 1700);
+// (narrowing upstream towards the west edge, to meet the arm of the jade river it comes from)
+const wide = (y: number) => (2700 + 0.03 * y + 200 * Math.sin(y / 1700)) * (1 - 0.3 * ss(3500, 6676, y));
 const xs = (y: number) => mid(y) - wide(y) / 2 + (-1500 - (mid(y) - wide(y) / 2)) * atBridge(y); // the south bank
 const xn = (y: number) => mid(y) + wide(y) / 2 + (1500 - (mid(y) + wide(y) / 2)) * atBridge(y); // the north bank (the cliff)
 // where the ice ends: upstream (west) and downstream (east), each a ragged line across
@@ -292,11 +294,11 @@ export function build(_quality: { flowers: number }): Town {
   }
   // floes in the open water
   for (const [x, y, h, s] of [
-    [-600, 3600, 20, 1], [400, 4300, 140, 0.8], [-900, 5200, 250, 1.1], [200, 6200, 60, 0.9], [-300, 3200, 300, 0.6],
+    [-600, 3600, 20, 1], [400, 4300, 140, 0.8], [-900, 5200, 250, 1.1], [-1000, 6300, 60, 0.9], [-300, 3200, 300, 0.6],
     [-200, -2200, 100, 0.9], [600, -2700, 200, 0.7], [-700, -4300, 30, 1], [500, -5000, 160, 0.8], [-400, -6200, 280, 1.1], [300, -1900, 330, 0.6],
   ] as [number, number, number, number][]) put("northcold:drift_floes", [x, y], h, { z: -14, s, solid: "none" });
   const floeMat = material("Northcold_Floe"), floes: THREE.Object3D[] = [];
-  for (const [x, y, r, s] of [[-1100, 4000, 150, 61], [700, 3400, 120, 62], [-200, 4800, 180, 63], [900, -2400, 140, 64], [-1000, -2900, 110, 65], [100, -4600, 160, 66], [-300, -5700, 130, 67], [800, 5600, 140, 68]] as number[][])
+  for (const [x, y, r, s] of [[-1100, 4000, 150, 61], [700, 3400, 120, 62], [-200, 4800, 180, 63], [900, -2400, 140, 64], [-1000, -2900, 110, 65], [100, -4600, 160, 66], [-300, -5700, 130, 67], [-1100, 5750, 140, 68]] as number[][])
     floes.push(flatSheet(blobPoly([x, y], r, r * 0.7, s, 0.25, 10), -11, floeMat));
 
   // ---- the frozen stretch: a skin of white ice over it, plates of darker ice, heaved ridges at
