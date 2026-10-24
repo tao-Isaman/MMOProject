@@ -116,7 +116,7 @@ export const JOB_MASTERS: Master[] = [
     id: "job4_shaman", name: "ปู่ทองดีหมอผี", title: "หมอผีแห่งป่าดิบใต้ · เปลี่ยนอาชีพหมอผี", role: "talk", look: male("top_warrior_forest", "bottom_warrior_cocoa", "silver", "amber"),
     lines: ["ผีป่าผีเรือนข้ารู้จักหมด บางตนยังมากินข้าวกับข้าทุกค่ำ", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว ถ้าใจไม่กลัวผี มาเรียนวิชากับปู่"] } },
   // Suzhou: the royal guard by the governor's mansion, the wuxia by the canal-side teahouse
-  { town: "suzhou", at: [690, 296], look: [600, 330], spec: {
+  { town: "suzhou", at: [688, 314], look: [600, 330], spec: {
     id: "job4_royal_guard", name: "ผู้กองเหยียนหลง", title: "องครักษ์เสื้อแพร · เปลี่ยนอาชีพราชองครักษ์", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "ink", "amber"),
     lines: ["องครักษ์เสื้อแพรไม่ได้เฝ้าแค่วัง แต่ตามล่าทุกคนที่คิดร้ายต่อแผ่นดิน", "อัศวินหรือจอมเวทนักสู้ขั้นสูงที่เลเวล 90 แล้ว มาสาบานเป็นองครักษ์กับข้า"] } },
   { town: "suzhou", at: [505, 330], look: [470, 305], spec: {
@@ -130,8 +130,8 @@ export const JOB_MASTERS: Master[] = [
   { town: "iceberg", at: [606, 485], look: [660, 485], spec: {
     id: "job4_viking", name: "ยาร์ลทอร์สไตน์", title: "เจ้าแห่งทะเลเหนือ · เปลี่ยนอาชีพนักรบไวกิ้ง", role: "talk", look: male("top_warrior", "bottom_warrior_cocoa", "gold", "blue"),
     lines: ["เรือมังกรของข้าล่องมาแล้วทุกทะเล ยกเว้นทะเลที่ไม่มีศัตรู", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว ขึ้นเรือมากับข้า"] } },
-  // Osaki: the samurai between the halls by the mountain gate
-  { town: "osaki", at: [858, 645], look: [858, 600], spec: {
+  // Osaki: the samurai on the temple's square
+  { town: "osaki", at: [798, 275], look: OSAKI_IN, spec: {
     id: "job4_samurai", name: "ท่านอิซึรุงิ", title: "ปรมาจารย์บูชิโด · เปลี่ยนอาชีพซามูไร", role: "talk", look: male("top_warrior_navy", "bottom_warrior_black", "silver", "amber"),
     lines: ["ดาบที่ไม่เคยออกจากฝัก คือดาบที่ชนะโดยไม่ต้องสู้", "ใครก็ตามที่มีอาชีพที่ 3 และเลเวล 90 แล้ว มาเดินตามวิถีบูชิโดกับข้า"] } },
 
