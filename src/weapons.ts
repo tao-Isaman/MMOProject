@@ -1,8 +1,8 @@
 // Weapons drawn into the character's hand while attacking or casting.
 //
 // The character sprite is empty-handed. tools/hand_anchors.py finds the hands in every attack
-// and cast frame (assets/hand_anchors.json); the weapon is drawn with its grip on the hand,
-// pointing out from the body along the arm.
+// and cast frame (assets/hand_anchors.json); the weapon is drawn with its grip on the hand, held
+// at one angle for the way she faces (heldAngle), so it follows her hand without moves of its own.
 
 import { toView } from "./projection";
 import type { WeaponId } from "./items";
@@ -38,21 +38,14 @@ export const WEAPON_ART: Record<WeaponId, WeaponArt> = {
   claw: { grip: 0.84 },
 };
 
-// Angle (radians, 0 = pointing up the screen, clockwise) of a weapon held at hand h by a body
-// centred at c, in sprite px. Hands close to the body hold the weapon along the facing.
-export function weaponAngle(h: [number, number], c: [number, number], facingAngle: number): number {
-  const dx = h[0] - c[0], dy = h[1] - c[1];
-  const d = Math.hypot(dx, dy);
-  if (d < 6) return facingAngle;
-  const arm = Math.atan2(dx, -dy);
-  // blend toward the facing so a weapon held low still points ahead
-  const w = Math.min(1, (d - 6) / 14);
-  return lerpAngle(facingAngle, arm, w);
-}
-
-export function lerpAngle(a: number, b: number, t: number): number {
-  const d = ((b - a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
-  return a + d * t;
+// Angle (radians, 0 = pointing up the screen, clockwise) a weapon is held at while she faces
+// `facing` (a screen angle): leaning out to the side she faces, upright when she faces away and
+// out past her right hand (the screen's left) when she faces the camera. It stays the same all
+// through an attack: the weapon moves with her hand, it does not swing on its own.
+export function heldAngle(facing: number): number {
+  const side = Math.sin(facing), down = -Math.cos(facing);
+  if (Math.abs(side) < 0.3) return down > 0 ? -40 * DEG : 0;
+  return Math.sign(side) * 55 * DEG;
 }
 
 // Screen angle (0 = up, clockwise) of a world facing vector; the forward axis is squashed.

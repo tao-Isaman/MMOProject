@@ -9,7 +9,7 @@
 import { mapX, mapY, yawEighths } from "./projection";
 import { resolve } from "./world";
 import { attackRange } from "./combat";
-import { WEAPON_ART, drawWeapon, weaponAngle, screenAngle, weaponTip, lerpAngle } from "./weapons";
+import { WEAPON_ART, drawWeapon, heldAngle, screenAngle, weaponTip } from "./weapons";
 import { silhouette } from "./recolor";
 import type { WeaponArt } from "./weapons";
 import type { WeaponType } from "./items";
@@ -26,7 +26,6 @@ export interface Target extends Vec2 {
 export interface AttackWeapon {
   motion: string;
   builtin?: boolean;
-  chop?: boolean;
   skill?: boolean;
 }
 
@@ -347,7 +346,7 @@ export class Player {
     const row = viewRow(this.dir);
     const behind = row >= 3 && row <= 5;
     const toScreen = ([hx, hy]: [number, number]) => [gx + (hx - cell / 2) * s, fy + (hy - cell) * s];
-    const facing = screenAngle(this.aimDir());
+    const held = heldAngle(screenAngle(this.aimDir()));
     // an off hand hidden behind her (or never seen in this direction) holds its gear behind her
     const offHidden = !hand?.l || !!hand.lh;
     const offBehind = behind || offHidden;
@@ -355,33 +354,21 @@ export class Player {
       if (!hand || !offhand) return;
       const l: [number, number] = hand.l ?? [hand.c[0], hand.c[1] + 4];
       const [lx, ly] = toScreen(l);
-      drawWeapon(ctx, offhand.img, offhand.art, lx, ly, weaponAngle(l, hand.c, facing), s * (offhand.art.scale ?? 1));
+      drawWeapon(ctx, offhand.img, offhand.art, lx, ly, held, s * (offhand.art.scale ?? 1));
     };
     const drawMain = () => {
       if (!hand || !weapon || !mainShown) return;
-      // swords drawn into a swing come down from overhead like axes
-      const chop = a && (a.w.chop || a.motion === "swing");
-      let angle = chop ? this.chopAngle(facing) : weaponAngle(hand.r, hand.c, facing);
       let [x, y] = toScreen(hand.r);
-      // a two-handed sword or spear is held in both hands: its grip between them, lying along
-      // the line through them (the way of that line its swing points), not off one hand alone
-      if (weapon.art.twoHand && hand.l && !offHidden) {
-        const [rx, ry] = hand.r, [lx, ly] = hand.l, d = Math.hypot(rx - lx, ry - ly);
-        [x, y] = toScreen([(rx + lx) / 2, (ry + ly) / 2]);
-        if (d >= 4) {
-          const along = Math.atan2(rx - lx, -(ry - ly));
-          const turn = Math.abs(((along - angle + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
-          angle = lerpAngle(angle, turn <= Math.PI / 2 ? along : along + Math.PI, Math.min(1, (d - 4) / 6));
-        }
-      }
+      // a two-handed sword or spear is held in both hands: its grip between them
+      if (weapon.art.twoHand && hand.l && !offHidden) [x, y] = toScreen([(hand.r[0] + hand.l[0]) / 2, (hand.r[1] + hand.l[1]) / 2]);
       const wscale = s * (weapon.art.scale ?? 1);
-      drawWeapon(ctx, weapon.img, weapon.art, x, y, angle, wscale);
+      drawWeapon(ctx, weapon.img, weapon.art, x, y, held, wscale);
       if (weapon.art.pair && hand.l) {
         const [lx, ly] = toScreen(hand.l);
-        drawWeapon(ctx, weapon.img, weapon.art, lx, ly, weaponAngle(hand.l, hand.c, facing), wscale);
+        drawWeapon(ctx, weapon.img, weapon.art, lx, ly, held, wscale);
       }
       if (this.cast && this.casting && this.gemGlow) {
-        const tip = weaponTip(weapon.img, weapon.art, x, y, angle, wscale);
+        const tip = weaponTip(weapon.img, weapon.art, x, y, held, wscale);
         const r = (18 + 8 * Math.sin(this.cast.t * 9)) * k;
         ctx.globalCompositeOperation = "lighter";
         ctx.drawImage(this.gemGlow, tip.x - r, tip.y - r, r * 2, r * 2);
@@ -406,16 +393,6 @@ export class Player {
     if (!behind) drawMain();
 
     if (this.casting) this.drawCastBar(ctx, gx, fy - HEIGHT * HEAD * k - 6 * k, k);
-  }
-
-  // Axes and maces come down from overhead: raised behind her at the start of the swing, they
-  // sweep over (or past the side, seen from the front) and land pointing where she faces.
-  chopAngle(facing: number): number {
-    const a = this.attack!;
-    const hit = HIT_AT[a.motion];
-    const u = Math.min(1, a.t / a.dur / hit);
-    const side = this.aimDir().y > 0.1 ? -1 : 1; // facing screen left swings the other way
-    return facing - side * 2.5 * (1 - u * u);
   }
 
   // Hand positions (sprite px) for a frame; falls back to a point beside the body.

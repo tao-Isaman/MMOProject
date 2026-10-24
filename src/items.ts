@@ -12,7 +12,6 @@ export interface WeaponType {
   name: string;
   motion: Motion;
   builtin?: boolean;  // the Oriverse clip draws this weapon itself
-  chop?: boolean;     // swung down from overhead
   hit?: "arc" | "line";
   reach: number;
   arc?: number;       // degrees, arc hits
@@ -36,29 +35,28 @@ export const DUAL_WIELD_SLOWDOWN = 1.15;
 
 // The bow uses the shoot clip, where Oriverse drew the bow and arrow in, so nothing is drawn over
 // it (builtin). Every other weapon has its art drawn into the hand, in an empty-handed clip (a
-// swing with a sword drawn in plays the thrust instead: see Player.clipFor); "chop" swings that
-// art down from overhead instead of pointing it along the arm. hit: "arc" (in front) or "line"
-// (straight ahead).
+// swing with a sword drawn in plays the thrust instead: see Player.clipFor), held still in the
+// hand (src/weapons.ts heldAngle). hit: "arc" (in front) or "line" (straight ahead).
 
 export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
   sword_1h: {
-    name: "ดาบมือเดียว", motion: "swing", chop: true, hit: "arc", reach: 125, arc: 110, interval: 0.62, damage: [18, 24],
+    name: "ดาบมือเดียว", motion: "swing", hit: "arc", reach: 125, arc: 110, interval: 0.62, damage: [18, 24],
     note: "ฟันเป็นแนวโค้งหน้าตัว",
   },
   sword_2h: {
-    name: "ดาบสองมือ", motion: "swing", chop: true, hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], twoHanded: true,
+    name: "ดาบสองมือ", motion: "swing", hit: "arc", reach: 155, arc: 150, interval: 1.0, damage: [32, 42], twoHanded: true,
     note: "ฟันกว้าง ช้าแต่แรง",
   },
   axe: {
-    name: "ขวาน", motion: "thrust", chop: true, hit: "arc", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.12,
+    name: "ขวาน", motion: "thrust", hit: "arc", reach: 120, arc: 95, interval: 0.82, damage: [26, 34], crit: 0.12,
     note: "โอกาสคริติคอลสูง",
   },
   axe_2h: {
-    name: "ขวานสองมือ", motion: "thrust", chop: true, hit: "arc", reach: 145, arc: 130, interval: 1.1, damage: [38, 50], crit: 0.12, twoHanded: true,
+    name: "ขวานสองมือ", motion: "thrust", hit: "arc", reach: 145, arc: 130, interval: 1.1, damage: [38, 50], crit: 0.12, twoHanded: true,
     note: "ฟันหนักเป็นวงกว้าง โอกาสคริติคอลสูง",
   },
   mace: {
-    name: "ค้อน", motion: "thrust", chop: true, hit: "arc", reach: 110, arc: 90, interval: 0.9, damage: [28, 36],
+    name: "ค้อน", motion: "thrust", hit: "arc", reach: 110, arc: 90, interval: 0.9, damage: [28, 36],
     note: "ตีหนัก",
   },
   spear_1h: {
