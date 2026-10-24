@@ -124,9 +124,9 @@ export function build(_quality: { flowers: number }): Town {
   const roads = [band(ROAD_N, 470), band(ROAD_E, 460), band(ROAD_W, 450), band(TO_CHURCH, 410), band(TO_FARM, 400), band(TO_HAMLET, 400)];
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [SEA], base: "steppe", road: [0.56, 0.47, 0.44] });
   const mix = (a: number[], b: number[], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-  // (factors on the steppe's linear colour: trampled dry grass, the border woods' warm leaf-litter
-  // floor, burnt black, grey sand)
-  const DRY = [0.5, 0.46, 1.15], WOODS = [0.74, 0.52, 0.62], BURNT = [0.22, 0.19, 0.6], SAND = [0.57, 0.52, 1.7];
+  // (factors on the steppe's linear colour: trampled dry grass as the border line has it, the border
+  // woods' darker floor, burnt black, grey sand)
+  const DRY = [0.47, 0.4, 0.36], WOODS = [0.32, 0.36, 0.2], BURNT = [0.2, 0.17, 0.3], SAND = [0.57, 0.52, 1.7];
   tintGround(ground, (x, y) => {
     const w = ease(3300, 5200, y), c = mix(mix(DRY, WOODS, w), BURNT, burntAt(x, y) * 0.85);
     return mix(c, SAND, (1 - ease(250, 900, distTo(SHORE, x, y))) * 0.9);

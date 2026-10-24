@@ -36,6 +36,7 @@ useKits(DEMON, FRONTIER, KRADIA, EAST);
 colourways({
   frontier_blight: BLIGHT,
   frontier_dark: DARK_ROCK,
+  dm_dark: { ...DARK_ROCK, Frontier_Moss: "Demonmarch_BlightEdge" }, // (black rock, the moss on it gone to blight)
   // the coast's granite gone black with the blight, crystal where the sea pinks grew
   dm_blackrock: { Eastcoast_Granite: "Demonmarch_Blight", Eastcoast_GranitePink: "Demonmarch_Blight", Eastcoast_GraniteWet: "Demonmarch_BlightSoil", Eastcoast_Weed: "Demonmarch_BlightSoil", Eastcoast_Cushion: "Demonmarch_BlightEdge", Eastcoast_Thrift: "Demonmarch_Crystal", Eastcoast_ThriftDeep: "Demonmarch_Crystal" },
 });
@@ -96,8 +97,8 @@ function blightAt(x: number, y: number): number {
   // (the floating rocks' grass greys and blackens toward the south-east too, by the border wall)
   const west = 1 - ease(2400, 5200, y) * 0.85 * (0.45 + 0.55 * ease(-3800, -500, x));
   const tree = 1 - ease(800, 3200, Math.hypot(x - TREE[0], y - TREE[1]));
-  const pass = 1 - ease(600, 2600, Math.hypot(x + 4900, y));
-  return Math.min(1, west * (0.62 + 0.28 * fieldNoise(x, y, 3)) + 0.45 * tree + 0.35 * pass);
+  const pass = 1 - ease(600, 2600, Math.hypot(x + 4900, y)), south = ease(-3000, -5200, x); // (the demon lands' black, past the wall)
+  return Math.min(1, west * (0.62 + 0.28 * fieldNoise(x, y, 3)) + 0.45 * tree + 0.35 * pass + 0.6 * south);
 }
 
 export function build(_quality: { flowers: number }): Town {
@@ -230,7 +231,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- the cove and the beached bones ----
   place("frontier:beast_bones", [3550, 1150], 75, 420, { s: 1.15, solid: [{ kind: "bones", x: 0, y: 0, w: 600, d: 300, rot: 0 }] });
-  for (const [x, y, h] of [[3250, 600, 30], [3000, 1900, 120], [3600, 1750, 70]] as number[][]) tryPlace("frontier:fallen_log", [x, y], h, 200, { s: 0.8, colours: "frontier_dark", solid: [{ kind: "log", x: 0, y: 0, w: 90, d: 420, rot: 0 }] });
+  for (const [x, y, h] of [[3250, 600, 30], [3000, 1900, 120], [3600, 1750, 70]] as number[][]) tryPlace("frontier:fallen_log", [x, y], h, 200, { s: 0.8, colours: "dm_dark", solid: [{ kind: "log", x: 0, y: 0, w: 90, d: 420, rot: 0 }] });
 
   // ---- the black wood in the north-west, fading into the grass near the west edge ----
   scatter({ x0: 1200, x1: 4600, y0: 1700, y1: 5200 }, 30, ["demonmarch:mutant_tree", "demonmarch:mutant_tree", "demonmarch:mutant_tree", "frontier:dead_tree"], 260, (x, y) => inBox(x, y, 200) && !wet(x, y, 500), { s: [0.75, 1.1], solid: bulk });
@@ -252,7 +253,7 @@ export function build(_quality: { flowers: number }): Town {
       if (ref.endsWith("tree") || ref.startsWith("flora:")) r = 230;
       if (!fits(px, py, r, r + 120)) continue;
       const s = ref.endsWith("thicket") ? 0.7 + rnd() * 0.3 : ref.endsWith("boulder") ? 0.5 + rnd() * 0.35 : 0.75 + rnd() * 0.35;
-      place(ref, [px, py], rnd() * 360, ref.endsWith("grass") || ref.endsWith("tuft") ? 60 : r * s, { s, solid: bulk(ref, s), ...(ref === "frontier:boulder" ? { colours: "frontier_dark" } : {}) });
+      place(ref, [px, py], rnd() * 360, ref.endsWith("grass") || ref.endsWith("tuft") ? 60 : r * s, { s, solid: bulk(ref, s), ...(ref === "frontier:boulder" ? { colours: "dm_dark" } : {}) });
     }
   // ground cover between: ash grass, scorched blight, glowing cracks deep in
   for (let i = 0; i < 260; i++) {

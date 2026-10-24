@@ -107,7 +107,7 @@ defineMaterial("Demonmarch_Rune", { tint: "#ff8ae0", rough: 0.4, glow: "#d02cff"
 // the thornland, a dark grey sea
 defineMaterial("Demonmarch_CliffAsh", { map: "crag", tint: "#857b72", bump: 4 });
 defineMaterial("Demonmarch_CliffBlight", { map: "crag", tint: "#5e5360", bump: 4 });
-defineMaterial("Demonmarch_DarkSea", { tint: "#2b5269", rough: 0.08, opacity: 0.95 });
+defineMaterial("Demonmarch_DarkSea", { tint: "#2c6585", rough: 0.08, opacity: 0.93 });
 
 const TAU = Math.PI * 2;
 const DEG = 180 / Math.PI;

@@ -32,6 +32,7 @@ useKits(DEMON, FRONTIER, KRADIA, EAST);
 colourways({
   frontier_blight: BLIGHT,
   frontier_dark: DARK_ROCK,
+  dm_dark: { ...DARK_ROCK, Frontier_Moss: "Demonmarch_BlightEdge" }, // (black rock, the moss on it gone to blight)
   dm_blackrock: { Eastcoast_Granite: "Demonmarch_Blight", Eastcoast_GranitePink: "Demonmarch_Blight", Eastcoast_GraniteWet: "Demonmarch_BlightSoil", Eastcoast_Weed: "Demonmarch_BlightSoil", Eastcoast_Cushion: "Demonmarch_BlightEdge", Eastcoast_Thrift: "Demonmarch_Crystal", Eastcoast_ThriftDeep: "Demonmarch_Crystal" },
   dm_hellfire: { Frontier_Flame: "Demonmarch_Hellfire", Frontier_Ember: "Demonmarch_HellCore" },
   // Kradia's racks and stores taken over by the demon army: black iron, dark timber, red cloth
@@ -87,8 +88,8 @@ const PATHS: XY[][] = [W_ROAD, AVENUE, N_ROAD, TO_RIFT];
 function blackAt(x: number, y: number): number {
   const camp = inPoly(CAMP, x, y) ? 1 : 1 - ease(0, 1400, Math.min(...CAMP.map(([cx, cy]) => Math.hypot(x - cx, y - cy))) - 900);
   const army = 1 - ease(500, 1800, distTo(N_ROAD, x, y));
-  const east = 1 - ease(-500, 3500, y);
-  return Math.min(1, Math.max(camp * 0.9, army * 0.8, east * 0.7) * (0.8 + 0.3 * fieldNoise(x, y, 11)));
+  const east = 1 - ease(-500, 3500, y), north = ease(3000, 5200, x); // (the demon lands' black, past the wall)
+  return Math.min(1, Math.max(camp * 0.9, army * 0.8, east * 0.7, north) * (0.8 + 0.3 * fieldNoise(x, y, 11)));
 }
 
 export function build(_quality: { flowers: number }): Town {
@@ -117,7 +118,7 @@ export function build(_quality: { flowers: number }): Town {
   const mix = (a: number[], b: number[], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   // (factors on the steppe's linear colour: burnt grass as the villages' east edge has it, the
   // camp's trodden black earth, dark sand)
-  const BURNT = [0.37, 0.33, 0.9], BLACK = [0.16, 0.12, 0.6], SAND = [0.42, 0.38, 1.3];
+  const BURNT = [0.34, 0.29, 0.33], BLACK = [0.16, 0.12, 0.6], SAND = [0.42, 0.38, 1.3];
   tintGround(ground, (x, y) => mix(mix(BURNT, BLACK, blackAt(x, y)), SAND, (1 - ease(250, 900, distTo(SHORE, x, y))) * 0.9), 0.35);
 
   // ---- the sea, the shore closed ----
@@ -206,7 +207,7 @@ export function build(_quality: { flowers: number }): Town {
   place("demonmarch:hell_brazier", [PICKET[0] + 450, PICKET[1] - 200], faceDir(0, 1), 100, { solid: BRAZIER });
   tryPlace("frontier:stake_row", [PICKET[0] - 900, PICKET[1] + 200], 80, 220, { colours: "frontier_dark" });
   tryPlace("frontier:stake_row", [PICKET[0] + 900, PICKET[1] + 100], 100, 220, { colours: "frontier_dark" });
-  for (const [at, s] of [[[SPY[0] - 250, SPY[1] - 300], 0.8], [[SPY[0] + 200, SPY[1] - 380], 0.6]] as [XY, number][]) place("frontier:boulder", at, rnd() * 360, 150 * s, { s, colours: "frontier_dark", solid: ring(110 * s) });
+  for (const [at, s] of [[[SPY[0] - 250, SPY[1] - 300], 0.8], [[SPY[0] + 200, SPY[1] - 380], 0.6]] as [XY, number][]) place("frontier:boulder", at, rnd() * 360, 150 * s, { s, colours: "dm_dark", solid: ring(110 * s) });
 
   // ---- the army's road down from the pass: banners, braziers, crystals and cracks ----
   for (const [x, y] of [[4200, -500], [4200, -1600]] as XY[]) tryPlace("demonmarch:demon_banner", [x, y], faceDir(-1, 0), 100, { solid: BANNER });
@@ -230,7 +231,7 @@ export function build(_quality: { flowers: number }): Town {
       if (!fits(px, py, r, r + 100)) continue;
       const s = ref.endsWith("bones") ? 0.4 + rnd() * 0.25 : ref.endsWith("crystal") ? 0.3 + rnd() * 0.25 : 0.65 + rnd() * 0.4;
       const solid: SolidSpec[] | "none" = ref.endsWith("bones") || ref.endsWith("rubble_pile") ? "none" : ref.endsWith("tree") ? ring(38 * s, "tree") : ref.endsWith("crystal") ? ring(90 * s + 30, "crystal") : ring(95 * s);
-      place(ref, [px, py], rnd() * 360, r * s, { s, solid, colours: ref.endsWith("boulder") || ref.endsWith("rock_cluster") ? "frontier_dark" : undefined });
+      place(ref, [px, py], rnd() * 360, r * s, { s, solid, colours: ref.endsWith("boulder") || ref.endsWith("rock_cluster") ? "dm_dark" : undefined });
     }
   for (let i = 0; i < 260; i++) {
     const x = -R + 200 + rnd() * (2 * R - 400), y = -R + 200 + rnd() * (2 * R - 400);
