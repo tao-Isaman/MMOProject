@@ -130,6 +130,7 @@ export interface Shape {
   gender: Gender;
   note: string;
   bare?: boolean; // what a character wears with the slot empty; no item has this shape
+  job?: boolean;  // a job's own outfit (src/outfits.ts); no item has this shape either
 }
 
 export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
@@ -140,6 +141,7 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     warrior: { name: "แจ็กเก็ตนักรบ", body: "warrior", gender: "male", note: "แจ็กเก็ตแขนพับ เสื้อด้านในสีดำ" },
     plain: { name: "เสื้อยืดผ้าฝ้าย", body: "plainf", gender: "female", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
     plain_m: { name: "เสื้อยืดผ้าฝ้าย", body: "plainm", gender: "male", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
+    swordsman_f: { name: "เสื้อนักดาบ", body: "swordsman_f", gender: "female", note: "ทูนิกสีกรมท่า ผ้าคลุมไหล่ เข็มขัดหนัง ปลอกแขนหนัง", job: true },
   },
   bottom: {
     mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "กางเกงขายาว บูทหนัง ใส่กับเสื้อคลุมจอมเวทมีชายเสื้อคลุมยาวคลุมทับ" },
@@ -148,6 +150,7 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     warrior: { name: "กางเกงนักรบ", body: "warrior", gender: "male", note: "กางเกงขายาว บูทหนัง" },
     plain: { name: "กางเกงผ้าฝ้าย", body: "plainf", gender: "female", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
     plain_m: { name: "กางเกงผ้าฝ้าย", body: "plainm", gender: "male", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
+    swordsman_f: { name: "กางเกงนักดาบ", body: "swordsman_f", gender: "female", note: "กางเกงสีทราย บูทหนังสูง", job: true },
   },
 };
 

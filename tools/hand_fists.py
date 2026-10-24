@@ -10,9 +10,12 @@ an outline is joined into whole arms, and a hand is the end of its arm farthest 
 shoulders: the fist, wherever the arm points.
 
 "r" stays on the arm hand_anchors.py chose, moved to its fist (the farthest reaching arm when
-that was the face, the neck or a spark). "l" is the fist of the farthest reaching other arm. Frames where the off hand is hidden behind the body borrow it (kept at the
+that was the face, the neck or a spark), past a cuff or a leather bracer that parts the skin of
+the arm. "l" is the fist of the farthest reaching other arm (never the weapon arm's own skin short
+of its bracer). Frames where the off hand is hidden behind the body borrow it (kept at the
 same place against the neck) from the nearest frame where it shows and are marked "lh": its
-gear is drawn behind the body. A direction where it never shows keeps null.
+gear is drawn behind the body. A direction where it never shows keeps null. A borrowed place
+that is off the figure in this frame (she lunged or turned) comes in toward her middle.
 """
 import json
 import sys
@@ -109,8 +112,8 @@ def solid(a, p, q):
 
 
 def wrapped(cell, p, q):
-    """Between p and q lies a wrapping or a cuff (near-white or greyish cloth and its dark
-    outline), not the shirt across the body to the other hand."""
+    """Between p and q lies a wrapping or a cuff (near-white or greyish cloth, a brown leather
+    bracer, and their dark outline), not the shirt across the body to the other hand."""
     n = int(np.hypot(q[0] - p[0], q[1] - p[1]) * 2) + 1
     seen = wrap = 0
     for k in range(1, n):
@@ -125,7 +128,7 @@ def wrapped(cell, p, q):
         if (h <= 32 or h >= 345) and s >= 0.58 and 0.6 <= l <= 0.92:
             continue  # the skin at either end
         seen += 1
-        wrap += l < 0.2 or l >= 0.85 or (l >= 0.45 and s < 0.4)
+        wrap += l < 0.2 or l >= 0.85 or (l >= 0.45 and s < 0.4) or (8 <= h <= 40 and s >= 0.25 and l < 0.5)
     return seen == 0 or wrap >= 0.75 * seen
 
 
@@ -166,24 +169,47 @@ def frame(cell, r, neck, face, guessed):
     shoulder = (neck[0], neck[1] + SHOULDER)
     found = [(p, *fist(p, shoulder), high) for p, high in arms(cell, neck, face, guessed)]
     low = [t for t in found if not t[3]]
+    rt = None
     if r is not None:
         # a fist raised beside the head counts, bits of a face cut up by the hair do not
         near = [t for t in found if (not t[3] or len(t[0]) >= RAISED)
                 and np.hypot(t[0][:, 0] - r[0], t[0][:, 1] - r[1]).min() <= NEAR]
         if near:
             first = min(near, key=lambda t: np.hypot(t[0][:, 0] - r[0], t[0][:, 1] - r[1]).min())
-            r = along(first, low, cell, shoulder)[1]
+            rt = along(first, low, cell, shoulder)
         elif low:
             # it was on the face, the neck or a skin-coloured spark: the arm reaching farthest
-            r = max(low, key=lambda t: t[2])[1]
-    # the off hand: the farthest reaching other arm, followed out to its fist
-    others = [t for t in low if r is None or np.hypot(t[1][0] - r[0], t[1][1] - r[1]) > OTHER]
-    l = None
-    if others:
-        l = along(max(others, key=lambda t: t[2]), low, cell, shoulder)[1]
-        if r is not None and np.hypot(l[0] - r[0], l[1] - r[1]) <= OTHER:
-            l = None
+            rt = along(max(low, key=lambda t: t[2]), low, cell, shoulder)
+        if rt is not None:
+            r = rt[1]
+    # the off hand: the farthest reaching other arm, followed out to its fist; not the skin of the
+    # weapon arm itself short of its cuff or bracer (followed out, it ends at the same fist)
+    ends = [along(t, low, cell, shoulder) for t in low]
+    others = [e for e in ends if not (rt is not None and e[0] is rt[0])
+              and (r is None or np.hypot(e[1][0] - r[0], e[1][1] - r[1]) > OTHER)]
+    l = max(others, key=lambda t: t[2])[1] if others else None
     return r, l
+
+
+def onto(cell, p, c):
+    """p if it is on the figure (an opaque pixel within 1 px), else the first point on it going
+    from p toward c (the figure's middle), 1 px in."""
+    a = cell[..., 3] > 0
+    h, w = a.shape
+
+    def on(x, y):
+        x, y = int(round(x)), int(round(y))
+        return a[max(0, y - 1):min(h, y + 2), max(0, x - 1):min(w, x + 2)].any()
+    if on(*p):
+        return p
+    d = np.hypot(c[0] - p[0], c[1] - p[1])
+    n = int(d * 2) + 1
+    for k in range(1, n + 1):
+        x, y = p[0] + (c[0] - p[0]) * k / n, p[1] + (c[1] - p[1]) * k / n
+        if on(x, y):
+            t = min(1.0, (k / n) + 1.0 / max(d, 1.0))
+            return [p[0] + (c[0] - p[0]) * t, p[1] + (c[1] - p[1]) * t]
+    return p
 
 
 def main():
@@ -221,6 +247,14 @@ def main():
                     lx, ly = frames[j]["l"]
                     h["l"] = [round(lx - necks[j][0] + necks[i][0], 1), round(ly - necks[j][1] + necks[i][1], 1)]
                     h["lh"] = 1
+                # a hand whose place was borrowed from another frame (the weapon hand hidden too,
+                # in hand_anchors.py) stays on her: where that place is off the figure (she lunged
+                # or turned between the frames) it comes in toward her middle
+                for f, h in enumerate(frames):
+                    cell = img[d * size:(d + 1) * size, f * size:(f + 1) * size]
+                    for k in ("r", "l"):
+                        if h[k]:
+                            h[k] = [round(v, 1) for v in onto(cell, h[k], h["c"])]
             total = sum(len(r) for r in rows)
             print(f"{name} {clip}: off hand shows in {shown}/{total} frames")
     with open(store, "w") as fh:

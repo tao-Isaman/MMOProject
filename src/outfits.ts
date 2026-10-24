@@ -3,10 +3,11 @@
 // tops and bottoms only add their stats; how the character looks follows the job, the way a
 // Ragnarok job changes its sprite.
 //
-// Until each job has a body of its own from Oriverse, a job's outfit is one of the bodies there
-// are (src/items.ts SHAPES) in that job's colours: a female character the mage coat, the
-// priestess robe or the adventurer vest, a male one the warrior jacket. A job line keeps its
-// class's shape and moves on in colour (the wizard a violet coat, the archmage a midnight one).
+// Each job and build is getting a body of its own from Oriverse (src/items.ts SHAPES marked
+// `job`), worn as it was drawn: so far the swordsman's female one. Until a job's body for a build
+// is in, its outfit is one of the other bodies in that job's colours: a female character the mage
+// coat, the priestess robe or the adventurer vest, a male one the warrior jacket. A job line keeps
+// its class's shape and moves on in colour (the wizard a violet coat, the archmage a midnight one).
 //
 // The look code (src/look.ts) reads a slot holding "@shape/dye" as that garment itself, so an
 // outfit goes in place of the worn top and bottom without being an item anybody can hold.
@@ -16,41 +17,38 @@ import type { Gender } from "./items";
 import type { Equipped } from "./inventory";
 
 type Piece = [shape: string, dye: string | null];
-interface Outfit {
-  female: [top: Piece, bottom: Piece];
-  male: [top: string | null, bottom: string | null]; // the warrior jacket's and trousers' dyes
-}
+type Outfit = Record<Gender, [top: Piece, bottom: Piece]>;
 
 const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
-  none: { female: [["plain", null], ["plain", null]], male: [null, null] }, // (male: plain_m, below)
+  none: { female: [["plain", null], ["plain", null]], male: [["plain_m", null], ["plain_m", null]] },
   // the classes
-  mage: { female: [["mage", null], ["mage", null]], male: ["lilac", "black"] },
-  warrior: { female: [["adventurer", null], ["adventurer", "cocoa"]], male: [null, null] },
-  archer: { female: [["adventurer", "forest"], ["adventurer", "sand"]], male: ["forest", "cocoa"] },
-  priest: { female: [["priestess", null], ["priestess", null]], male: ["white", "navy"] },
+  mage: { female: [["mage", null], ["mage", null]], male: [["warrior", "lilac"], ["warrior", "black"]] },
+  warrior: { female: [["adventurer", null], ["adventurer", "cocoa"]], male: [["warrior", null], ["warrior", null]] },
+  archer: { female: [["adventurer", "forest"], ["adventurer", "sand"]], male: [["warrior", "forest"], ["warrior", "cocoa"]] },
+  priest: { female: [["priestess", null], ["priestess", null]], male: [["warrior", "white"], ["warrior", "navy"]] },
   // the second jobs
-  wizard: { female: [["mage", "lilac"], ["mage", "navy"]], male: ["plum", "black"] },
-  battlemage: { female: [["mage", "sky"], ["mage", "wine"]], male: ["sky", "wine"] },
-  bishop: { female: [["priestess", "white"], ["priestess", "white"]], male: ["white", "white"] },
-  ranger: { female: [["adventurer", "teal"], ["adventurer", "cocoa"]], male: ["teal", "cocoa"] },
-  swordsman: { female: [["adventurer", "navy"], ["adventurer", "sand"]], male: ["navy", "sand"] },
-  warlord: { female: [["adventurer", "crimson"], ["adventurer", "black"]], male: ["crimson", "black"] },
-  thief: { female: [["adventurer", "plum"], ["adventurer", "black"]], male: ["plum", "black"] },
-  jester: { female: [["mage", "rose"], ["mage", "plum"]], male: ["rose", "plum"] },
-  mercenary: { female: [["adventurer", "ochre"], ["adventurer", "wine"]], male: ["ochre", "wine"] },
-  inventor: { female: [["adventurer", "cocoa"], ["adventurer", "ochre"]], male: ["cocoa", "ochre"] },
+  wizard: { female: [["mage", "lilac"], ["mage", "navy"]], male: [["warrior", "plum"], ["warrior", "black"]] },
+  battlemage: { female: [["mage", "sky"], ["mage", "wine"]], male: [["warrior", "sky"], ["warrior", "wine"]] },
+  bishop: { female: [["priestess", "white"], ["priestess", "white"]], male: [["warrior", "white"], ["warrior", "white"]] },
+  ranger: { female: [["adventurer", "teal"], ["adventurer", "cocoa"]], male: [["warrior", "teal"], ["warrior", "cocoa"]] },
+  swordsman: { female: [["swordsman_f", null], ["swordsman_f", null]], male: [["warrior", "navy"], ["warrior", "sand"]] },
+  warlord: { female: [["adventurer", "crimson"], ["adventurer", "black"]], male: [["warrior", "crimson"], ["warrior", "black"]] },
+  thief: { female: [["adventurer", "plum"], ["adventurer", "black"]], male: [["warrior", "plum"], ["warrior", "black"]] },
+  jester: { female: [["mage", "rose"], ["mage", "plum"]], male: [["warrior", "rose"], ["warrior", "plum"]] },
+  mercenary: { female: [["adventurer", "ochre"], ["adventurer", "wine"]], male: [["warrior", "ochre"], ["warrior", "wine"]] },
+  inventor: { female: [["adventurer", "cocoa"], ["adventurer", "ochre"]], male: [["warrior", "cocoa"], ["warrior", "ochre"]] },
   // the third jobs
-  knight: { female: [["adventurer", "white"], ["adventurer", "navy"]], male: ["white", "navy"] },
-  hunter: { female: [["adventurer", "forest"], ["adventurer", "cocoa"]], male: ["forest", "black"] },
-  archmage: { female: [["mage", "navy"], ["mage", "black"]], male: ["navy", "plum"] },
-  assassin: { female: [["adventurer", "black"], ["adventurer", "black"]], male: ["black", "black"] },
-  high_bishop: { female: [["priestess", "white"], ["priestess", "ochre"]], male: ["white", "ochre"] },
-  monk: { female: [["priestess", "ochre"], ["priestess", "wine"]], male: ["ochre", "cocoa"] },
-  spellblade: { female: [["mage", "black"], ["mage", "wine"]], male: ["black", "wine"] },
-  sculptor: { female: [["adventurer", "sand"], ["adventurer", "cocoa"]], male: ["sand", "cocoa"] },
-  magician: { female: [["mage", "crimson"], ["mage", "black"]], male: ["crimson", "white"] },
-  historian: { female: [["priestess", "forest"], ["priestess", "cocoa"]], male: ["forest", "sand"] },
-  shinobi: { female: [["adventurer", "navy"], ["adventurer", "black"]], male: ["navy", "black"] },
+  knight: { female: [["adventurer", "white"], ["adventurer", "navy"]], male: [["warrior", "white"], ["warrior", "navy"]] },
+  hunter: { female: [["adventurer", "forest"], ["adventurer", "cocoa"]], male: [["warrior", "forest"], ["warrior", "black"]] },
+  archmage: { female: [["mage", "navy"], ["mage", "black"]], male: [["warrior", "navy"], ["warrior", "plum"]] },
+  assassin: { female: [["adventurer", "black"], ["adventurer", "black"]], male: [["warrior", "black"], ["warrior", "black"]] },
+  high_bishop: { female: [["priestess", "white"], ["priestess", "ochre"]], male: [["warrior", "white"], ["warrior", "ochre"]] },
+  monk: { female: [["priestess", "ochre"], ["priestess", "wine"]], male: [["warrior", "ochre"], ["warrior", "cocoa"]] },
+  spellblade: { female: [["mage", "black"], ["mage", "wine"]], male: [["warrior", "black"], ["warrior", "wine"]] },
+  sculptor: { female: [["adventurer", "sand"], ["adventurer", "cocoa"]], male: [["warrior", "sand"], ["warrior", "cocoa"]] },
+  magician: { female: [["mage", "crimson"], ["mage", "black"]], male: [["warrior", "crimson"], ["warrior", "white"]] },
+  historian: { female: [["priestess", "forest"], ["priestess", "cocoa"]], male: [["warrior", "forest"], ["warrior", "sand"]] },
+  shinobi: { female: [["adventurer", "navy"], ["adventurer", "black"]], male: [["warrior", "navy"], ["warrior", "black"]] },
 };
 
 // The job whose outfit a character wears.
@@ -60,11 +58,9 @@ export function outfitRole(p: { cls: ClassId | null; job: JobId | null; job3?: J
 
 // The top and bottom of that outfit for a build, as "@shape/dye" (src/look.ts reads them).
 export function outfit(gender: Gender, role: keyof typeof OUTFITS): { top: string; bottom: string } {
-  const o = OUTFITS[role] ?? OUTFITS.none;
+  const [top, bottom] = (OUTFITS[role] ?? OUTFITS.none)[gender];
   const spec = ([shape, dye]: Piece) => `@${shape}/${dye ?? ""}`;
-  if (gender === "female") return { top: spec(o.female[0]), bottom: spec(o.female[1]) };
-  if (role === "none") return { top: spec(["plain_m", null]), bottom: spec(["plain_m", null]) };
-  return { top: spec(["warrior", o.male[0]]), bottom: spec(["warrior", o.male[1]]) };
+  return { top: spec(top), bottom: spec(bottom) };
 }
 
 // What a character shows: its gear in the hands, its job's outfit for the clothes.
