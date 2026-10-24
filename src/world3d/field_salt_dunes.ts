@@ -312,7 +312,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- monsters: the dunes, the beaches, the salt flats, the spit, the headland and the mesa ----
   const busy = (x: number, y: number) => Math.hypot(x - HAMLET[0], y - HAMLET[1]) < 1000 || Math.hypot(x - SALT[0], y - SALT[1]) < 600 || Math.hypot(x - BEACON[0], y - BEACON[1]) < 500;
-  f.monsterSpots(ground, IN, { step: 700, keepOut: busy, max: 52 });
+  f.monsterSpots(ground, IN, { step: 600, keepOut: busy, max: 52 });
 
   // ---- people ----
   const npcs: NpcSpec[] = [
