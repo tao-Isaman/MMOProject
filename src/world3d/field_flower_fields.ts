@@ -25,7 +25,7 @@ import * as THREE from "three";
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
 import { useKits, colourways, seeded } from "./town";
-import { KIT as HEART } from "./kits/heartland";
+import { KIT as HEART, Cover } from "./kits/heartland";
 import { KIT as WESTFARM, smooth, band, dense, blob, inPoly, toLine, towards, along, lengthwise, nearestOn, wallRun } from "./kits/westfarm";
 import type { XY } from "./kits/westfarm";
 import { KIT as PLAINS } from "./kits/plains";
@@ -179,6 +179,17 @@ export function build(quality: { flowers: number }): Town {
   };
   const ring = (r: number, kind = "rock") => ({ solid: [{ kind, x: 0, y: 0, r }] as SolidSpec[] });
   const inside = (x: number, y: number, m = 0) => Math.abs(x) < R - m && Math.abs(y) < R - m;
+  // (past the edge what a call put is thinned: all of it within the map's margin, 12 m out, fewer
+  // and fewer further out where the camera only looks from the very edge, none past 25 m, where it
+  // never looks; picked by where each stands, so the rest of the field's draws stay as they were)
+  const thinRim = (from: number) => {
+    const keep = f.puts.slice(from).filter((p) => {
+      const d = Math.max(Math.abs(p.x), Math.abs(p.y)) - R, h = Math.sin(p.x * 12.9898 + p.y * 78.233) * 43758.5453;
+      return d < 1200 || (d < 2500 && h - Math.floor(h) < 1 - (0.8 * (d - 1200)) / 1300);
+    });
+    f.puts.length = from;
+    f.puts.push(...keep);
+  };
   const scatter = (refs: string[], n: number, box: { x0: number; x1: number; y0: number; y1: number }, rad: number, o: { s?: [number, number]; solid?: SolidSpec[] | "none"; keep?: (x: number, y: number) => boolean; gap?: number } = {}) => {
     for (let i = 0, made = 0; i < n * 30 && made < n; i++) {
       const x = box.x0 + rnd() * (box.x1 - box.x0), y = box.y0 + rnd() * (box.y1 - box.y0);
@@ -310,6 +321,7 @@ export function build(quality: { flowers: number }): Town {
     }
     return true;
   };
+  const under = new Cover(); // the ground the beds' earth covers
   const fillRows = (region: XY[], dir: number, gap: number, pick: (row: number) => string) => {
     const ux = Math.cos((dir * Math.PI) / 180), uy = Math.sin((dir * Math.PI) / 180), vx = -uy, vy = ux;
     let a0 = Infinity, a1 = -Infinity, c0 = Infinity, c1 = -Infinity;
@@ -328,6 +340,7 @@ export function build(quality: { flowers: number }): Town {
         }
         put(ref, [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], lengthwise(ux, uy), { solid: "none" });
         laid.push([p0, p1]);
+        if (ref.endsWith("_bed")) under.add(p0, p1, 125);
         a += 800;
       }
     }
@@ -392,11 +405,13 @@ export function build(quality: { flowers: number }): Town {
   // ---- past the edge: oaks to the south and east, the snowy pines and birches to the north,
   // the downs and their walls to the west ----
   const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || wet(x, y, 150);
+  const rimFrom = f.puts.length;
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak", "Birch"], (x, y) => rim(x, y) || x > 5600 || (y > 5600 && x > 400), { count: 370, tries: 7000, spacing: 470 });
   f.woods({ x0: 5600, x1: A, y0: -A, y1: A }, ["Pine", "Birch", "SnowPineSmall", "Pine", "PineSmall", "SnowPine"], rim, { count: 110, tries: 2500, spacing: 520 });
   f.woods({ x0: 5600, x1: A, y0: -A, y1: A }, ["snow_patch", "snow_drift", "frost_shrub"], rim, { count: 40, tries: 1200, spacing: 650, kit: "snowland" });
   f.woods({ x0: -A, x1: A, y0: 5600, y1: A }, ["sheep_flock", "wildflowers", "wildflowers"], rim, { count: 26, tries: 1200, spacing: 800, kit: "westfarm" });
   f.woods({ x0: -A, x1: A, y0: 5600, y1: A }, ["RoundTree", "BigOak", "Birch"], (x, y) => rim(x, y) || inPoly(PW, x, y) === false && x > 500, { count: 30, tries: 1200, spacing: 700 });
+  thinRim(rimFrom);
   for (const w of [[[-1200, 6300], [-600, 7400], [200, 8600]], [[-3200, 6000], [-3600, 7800]], [[1200, 6200], [2500, 7600]]] as XY[][]) wallRun(f, w, { broken: 0.25, skip: (x, y) => nearTrack(x, y, 330) });
 
   // ---- monsters: the flower blocks, the meadows, the terraces, the down and the knoll ----
@@ -429,7 +444,7 @@ export function build(quality: { flowers: number }): Town {
     ground,
     scenery,
     sky: "#6f9150",
-    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && green(x, y) && !wet(x, y, 60), density: 0.4 * quality.flowers },
+    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && green(x, y) && !wet(x, y, 60) && !under.covered(x, y), density: 0.32 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: -350, y: 4350 },
     npcs,

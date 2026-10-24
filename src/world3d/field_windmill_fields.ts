@@ -22,7 +22,7 @@ import { FieldBuilder } from "./field";
 import { buildPaved } from "./paved";
 import type { Town } from "./town";
 import { useKits } from "./town";
-import { KIT as HEART } from "./kits/heartland";
+import { KIT as HEART, Cover } from "./kits/heartland";
 import { KIT as WESTFARM, smooth, band, dense, toLine, towards, along, lengthwise } from "./kits/westfarm";
 import type { XY } from "./kits/westfarm";
 import { KIT as PLAINS } from "./kits/plains";
@@ -177,6 +177,13 @@ export function build(quality: { flowers: number }): Town {
   };
   const ring = (r: number, kind = "rock") => ({ solid: [{ kind, x: 0, y: 0, r }] as SolidSpec[] });
   const inside = (x: number, y: number, m = 0) => Math.abs(x) < R - m && Math.abs(y) < R - m;
+  // (nothing need stand past where the camera ever looks, 25 m out from the walkable box: what a
+  // call put there is taken back)
+  const nearOnly = (from: number) => {
+    const keep = f.puts.slice(from).filter((p) => Math.max(Math.abs(p.x), Math.abs(p.y)) < R + 2500);
+    f.puts.length = from;
+    f.puts.push(...keep);
+  };
   const scatter = (refs: string[], n: number, box: { x0: number; x1: number; y0: number; y1: number }, rad: number, o: { s?: [number, number]; solid?: SolidSpec[] | "none"; keep?: (x: number, y: number) => boolean; gap?: number } = {}) => {
     for (let i = 0, made = 0; i < n * 30 && made < n; i++) {
       const x = box.x0 + rnd() * (box.x1 - box.x0), y = box.y0 + rnd() * (box.y1 - box.y0);
@@ -323,6 +330,9 @@ export function build(quality: { flowers: number }): Town {
         }
       }
   for (const [x, y, hx] of laid) for (const o of [-250, 250]) taken.push([x, y + o, hx + 60]);
+  // (the fields' earth covers the ground under them)
+  const under = new Cover();
+  for (const [x, y, hx] of laid) under.add([x, y - 400], [x, y + 400], hx);
   for (const at of [[3300, 1900], [-400, -3700], [-1900, 1100], [2600, -4000]] as XY[]) if (free(at[0], at[1], 40)) prop("plains:scarecrow", at, rnd() * 360, 40);
 
   // ---- trees, rocks and the meadow's growth; the savanna's acacias and gold coming in ----
@@ -351,8 +361,10 @@ export function build(quality: { flowers: number }): Town {
     }
   const rim = (x: number, y: number) =>
     (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || rimRows.some(([px, py]) => Math.abs(px - x) < 260 && Math.abs(py - y) < 560);
+  const rimFrom = f.puts.length;
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak"], (x, y) => rim(x, y) || dry(x, y) > 0.45, { count: 380, tries: 7000, spacing: 480 });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["acacia", "acacia", "grass_patch", "grass_patch", "dry_bush", "grass_patch"], (x, y) => rim(x, y) || dry(x, y) < 0.45, { count: 260, tries: 6000, spacing: 420, kit: "desert" });
+  nearOnly(rimFrom);
   for (const at of [[-6800, -1500], [-6800, -2400], [6600, 3500], [6600, 2700]] as XY[]) put("plains:wheat_field", at, 90, { solid: "none" });
 
   // ---- monsters: the fields, the farmyards, the down and the ridge ----
@@ -385,7 +397,7 @@ export function build(quality: { flowers: number }): Town {
     ground,
     scenery: [grass.mesh, bed.mesh],
     sky: "#86a35a",
-    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && dry(x, y) < 0.4, density: 0.3 * quality.flowers },
+    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && dry(x, y) < 0.4 && !under.covered(x, y), density: 0.3 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: 1250, y: -4250 },
     npcs,

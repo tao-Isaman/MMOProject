@@ -27,7 +27,7 @@ import * as THREE from "three";
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
 import { useKits } from "./town";
-import { KIT as HEART } from "./kits/heartland";
+import { KIT as HEART, Cover } from "./kits/heartland";
 import { KIT as WESTFARM, BRIDGE, smooth, band, dense, blob, inPoly, toLine, towards, along, lengthwise, wallRun } from "./kits/westfarm";
 import type { XY } from "./kits/westfarm";
 import { KIT as PLAINS } from "./kits/plains";
@@ -139,6 +139,17 @@ export function build(quality: { flowers: number }): Town {
     taken.push([at[0], at[1], r]);
   };
   const inside = (x: number, y: number, m = 0) => Math.abs(x) < R - m && Math.abs(y) < R - m;
+  // (past the edge what a call put is thinned: all of it within the map's margin, 12 m out, fewer
+  // and fewer further out where the camera only looks from the very edge, none past 25 m, where it
+  // never looks; picked by where each stands, so the rest of the field's draws stay as they were)
+  const thinRim = (from: number) => {
+    const keep = f.puts.slice(from).filter((p) => {
+      const d = Math.max(Math.abs(p.x), Math.abs(p.y)) - R, h = Math.sin(p.x * 12.9898 + p.y * 78.233) * 43758.5453;
+      return d < 1200 || (d < 2500 && h - Math.floor(h) < 1 - (0.8 * (d - 1200)) / 1300);
+    });
+    f.puts.length = from;
+    f.puts.push(...keep);
+  };
   const scatter = (refs: string[], n: number, box: { x0: number; x1: number; y0: number; y1: number }, rad: number, o: { s?: [number, number]; solid?: SolidSpec[] | "none"; keep?: (x: number, y: number) => boolean; gap?: number } = {}) => {
     for (let i = 0, made = 0; i < n * 30 && made < n; i++) {
       const x = box.x0 + rnd() * (box.x1 - box.x0), y = box.y0 + rnd() * (box.y1 - box.y0);
@@ -283,6 +294,7 @@ export function build(quality: { flowers: number }): Town {
     }
     return hi - lo;
   };
+  const under = new Cover(); // the ground the rows hide
   const fillRows = (region: XY[], dir: number, gap: number) => {
     const ux = Math.cos((dir * Math.PI) / 180), uy = Math.sin((dir * Math.PI) / 180), vx = -uy, vy = ux;
     let a0 = Infinity, a1 = -Infinity, c0 = Infinity, c1 = -Infinity;
@@ -296,6 +308,7 @@ export function build(quality: { flowers: number }): Town {
       const low = Math.min(f.h(p0[0], p0[1]), f.h(p1[0], p1[1]), f.h(m[0], m[1]));
       put("heartland:lavender_row", m, lengthwise(ux, uy), { solid: "none", sy, z: low - f.h(m[0], m[1]) - 3 });
       laid.push([p0, p1]);
+      under.add(p0, p1, 55);
     };
     for (let c = c0 + gap / 2; c < c1; c += gap)
       for (let a = a0; a + 400 <= a1; ) {
@@ -355,6 +368,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- past the edge: the great wood north, oaks and fields round the rest, Venezia's woods south ----
   // the windmill fields' wheat over the east edge, the plain below Noa's over the west
   const rimFields: XY[] = [];
+  const fieldsFrom = f.puts.length;
   const wheatOver = (x0: number, x1: number, y0: number, y1: number) => {
     for (let x = x0; x <= x1; x += 640)
       for (let y = y0; Math.sign(y1 - y0) * (y1 - y) >= 0; y += Math.sign(y1 - y0) * 840) {
@@ -365,11 +379,14 @@ export function build(quality: { flowers: number }): Town {
   };
   wheatOver(-3000, 1000, -5900, -7600);
   wheatOver(300, 2200, 6000, 7700);
+  thinRim(fieldsFrom);
   const rim = (x: number, y: number) =>
     (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || wet(x, y, 150) || toLine(x, y, [aqAt(AQ_BAY(-5)), aqAt(AQ_BAY(9))]) < 450 ||
     rimFields.some(([px, py]) => Math.abs(px - x) < 450 && Math.abs(py - y) < 560);
+  const rimFrom = f.puts.length;
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => rim(x, y) || (x < 5600 && rnd() < (y > 5600 ? 0.75 : 0.45)), { count: 430, tries: 8000, spacing: 420 });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["cypress", "cypress", "wildflowers", "vineyard_row"], (x, y) => rim(x, y) || x > 5600, { count: 70, tries: 2000, spacing: 600, kit: "westfarm" });
+  thinRim(rimFrom);
 
   // ---- monsters: the lavender, the hill, the terraces, the meadows ----
   const busy = (x: number, y: number) => Math.hypot(x - DISTILLERY[0], y - DISTILLERY[1]) < 1100 || Math.hypot(x - FARM[0], y - FARM[1]) < 1200 || Math.hypot(x - SHRINE[0], y - SHRINE[1]) < 450;
@@ -401,7 +418,7 @@ export function build(quality: { flowers: number }): Town {
     ground,
     scenery: [f.waterSheet({ x0: -A, x1: A, y0: -A, y1: A + 400 }, -14, "WaterSea")] as THREE.Object3D[],
     sky: "#7b8f5a",
-    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && !wet(x, y, 60), density: 0.3 * quality.flowers },
+    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && !wet(x, y, 60) && !under.covered(x, y), density: 0.25 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: 150, y: -4350 },
     npcs,
