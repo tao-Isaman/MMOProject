@@ -1,21 +1,25 @@
-// ยอดภูเขาไฟ (volcano): the volcano at the heart of Osaki's island. The track comes up from the
-// sakura hills on the south, over black lava ground: hot springs steaming in a basin of white
-// sinter on the west (the survey party from Osaki camps by them), a lake of lava fed by a
-// glowing river on the east. Then the mountain climbs in three steps of basalt cliff, a ramp up
-// each: the lower flank (sulphur vents on the west, a field of basalt columns on the east), the
-// upper flank (a dead forest, obsidian, lava seeping from cracks) and the summit, where the
-// crater glows round its lake of lava.
+// ยอดภูเขาไฟ (volcano): the volcano at the heart of Osaki's island, standing up out of the sea on
+// the north, east and west. The track comes up from the sakura hills on the south, over black lava
+// ground between two shores: on the west hot springs steam in a basin of white sinter above a beach
+// of black sand (the survey party from Osaki camps by them); on the east a lake of lava brims over
+// into a glowing river that runs down to the sea, steam where it meets the water. Then the
+// mountain climbs in three steps of basalt cliff, a ramp up each: the lower flank (sulphur vents on
+// the west, a field of basalt columns on the east), the upper flank (a dead forest, obsidian, lava
+// seeping from cracks) and the summit, where the crater glows round its lake of lava. Both flanks
+// end at the coast in sea cliffs of black basalt, a step down to a ledge and a second to the
+// rocks; on the north the summit stands out over the sea in a headland between two bays.
 //
 // Laid out at full size in centimetres around the origin (north +X, west +Y); finishField
 // scales it by TOWN_SCALE.
 
+import * as THREE from "three";
 import { FieldBuilder } from "./field";
 import { useKits } from "./town";
 import type { Town } from "./town";
 import type { Poly } from "./paved";
 import type { SolidSpec } from "../world";
 import type { NpcSpec } from "../npcs";
-import { defineMaterial } from "./textures";
+import { defineMaterial, material } from "./textures";
 import { KIT as VOLCANIC } from "./kits/volcanic";
 
 useKits(VOLCANIC);
@@ -26,15 +30,26 @@ type XY = [number, number];
 
 const R = 5500; // the walkable bounds, +-R
 const A = 9000; // the ground's area, +-A
+// ---- the coast ----
+// the shore, from past the south edge on the east (where it runs on down the sakura hills' east
+// side) north along the east, round the headland under the summit and back down the west (on down
+// to the corner Osaki's north shore comes round): the land on its left, the sea on its right
+const SHORE: XY[] = smooth([
+  [-9500, -5450], [-7600, -5420], [-6600, -5380], [-5700, -5330], [-4800, -5480], [-3900, -5380], [-2900, -5250], [-1900, -5330],
+  [-900, -5450], [200, -5400], [1300, -5300], [2400, -5150], [3300, -4850], [4100, -4350], [4750, -3750], [5300, -3100],
+  [5700, -2400], [5950, -1600], [6100, -700], [6150, 300], [6050, 1200], [5800, 2100], [5400, 2900], [4850, 3600], [4150, 4200],
+  [3400, 4650], [2500, 5000], [1500, 5250], [400, 5400], [-700, 5420], [-1800, 5330], [-2900, 5420], [-3900, 5350], [-4800, 5480],
+  [-5700, 5600], [-6600, 5740], [-7600, 5850], [-9500, 6000],
+], 4);
+const SEA: Poly = [...SHORE, [-9500, 9500], [9500, 9500], [9500, -9500], [-9500, -9500]];
+// the lower flank's sea cliffs this far in from the shore, the upper flank's twice as far (the
+// ledge between them the lower flank's)
+const CLIFF1 = inland(SHORE, 380), CLIFF2 = inland(SHORE, 760);
+
 // the three steps of the mountain, each inside the one below; the summit holds the crater
-const V1: Poly = [[-1300, 9500], [-1300, 5000], [-700, 3600], [-1200, 2200], [-600, 900], [-900, -600], [-400, -2000], [-1100, -3400], [-700, -5000], [-900, -9500], [9500, -9500], [9500, 9500]];
-const V2: Poly = [[1300, 9500], [1000, 4600], [1600, 3200], [1100, 1800], [1500, 300], [1000, -1200], [1600, -2600], [1200, -4200], [1500, -9500], [9500, -9500], [9500, 9500]];
-const V3: Poly = [[2500, -2000], [2300, -300], [2500, 1600], [3500, 2500], [4900, 2200], [5300, 600], [5200, -1500], [4100, -2500]];
-// the volcano's shoulders past the west and east edges of the low ground (scenery)
-const W1: Poly = [[-9500, 6000], [-5000, 5900], [-3000, 6300], [-1300, 6000], [-1300, 9500], [-9500, 9500]];
-const E1: Poly = [[-9500, -6000], [-4500, -5900], [-2500, -6300], [-900, -6000], [-900, -9500], [-9500, -9500]];
-// and a higher crest above the upper flank beyond the north edge
-const N1: Poly = [[6200, -9500], [6000, -3500], [6400, 0], [6000, 3800], [6300, 9500], [9500, 9500], [9500, -9500]];
+const V1: Poly = [...stretch(CLIFF1, [-800, -5000], [-1300, 5000]), [-700, 3600], [-1200, 2200], [-600, 900], [-900, -600], [-400, -2000], [-1100, -3400], [-750, -4400]];
+const V2: Poly = [...stretch(CLIFF2, [1300, -4600], [1050, 4600]), [1600, 3200], [1100, 1800], [1500, 300], [1000, -1200], [1600, -2600], [1200, -4200]];
+const V3: Poly = [[2500, -2000], [2300, -300], [2500, 1600], [3500, 2500], [4550, 2150], [4950, 700], [4850, -1200], [4150, -2400]];
 
 const RAMP1 = { top: [-750, 150] as XY, bottom: [-1829, 366] as XY, width: 460 };
 const RAMP2 = { top: [1300, -1900] as XY, bottom: [289, -2333] as XY, width: 440 };
@@ -67,6 +82,31 @@ function band(pts: XY[], w: number): Poly {
   }
   return [...L, ...Rr.reverse()];
 }
+// a line `d` in from a line on its left (out on its right for d < 0); `d` may vary along it
+function inland(line: XY[], d: number | ((i: number) => number)): XY[] {
+  return line.map((p, i): XY => {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, k = typeof d === "number" ? d : d(i);
+    return [p[0] - (dy / l) * k, p[1] + (dx / l) * k];
+  });
+}
+// the nearest point of a polyline to (x, y): the segment it is on, and how far it is
+function nearestOn(pts: XY[], x: number, y: number): { i: number; q: XY; d: number } {
+  let best = { i: 0, q: pts[0], d: Infinity };
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], dx = bx - ax, dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const q: XY = [ax + dx * t, ay + dy * t], d = Math.hypot(q[0] - x, q[1] - y);
+    if (d < best.d) best = { i, q, d };
+  }
+  return best;
+}
+const distTo = (pts: XY[], x: number, y: number) => nearestOn(pts, x, y).d;
+// the stretch of a line between the points on it nearest `a` and `b` (in the line's own order)
+function stretch(line: XY[], a: XY, b: XY): XY[] {
+  const A = nearestOn(line, a[0], a[1]), B = nearestOn(line, b[0], b[1]);
+  return [A.q, ...line.slice(A.i + 1, B.i + 1), B.q];
+}
 function inPoly(poly: Poly, x: number, y: number): boolean {
   let c = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -83,7 +123,8 @@ const SPRINGS = smooth([[-3450, 1120], [-3200, 1700], [-3450, 2300], [-3250, 280
 const LAKESIDE = smooth([[-2700, 900], [-2500, 0], [-3000, -900], [-2750, -1900], [-3050, -2800]]);
 const BASALT = smooth([[0, -1300], [-150, -2200], [150, -3000], [-100, -3700], [400, -4400]]);
 const VENTS = smooth([[-300, -400], [100, 600], [-200, 1600], [200, 2600], [0, 3500], [250, 4100]]);
-const RIVER = smooth([[-2830, -6150], [-2900, -5600], [-3100, -5000], [-3350, -4500]]);
+// the lake's overflow, out of its south-east side and down to the sea
+const RIVER = smooth([[-4150, -4450], [-4450, -4850], [-4700, -5250], [-4850, -5800]]);
 
 // the scattered pieces block only their heart (a trunk, a rock's bulk), not their whole box
 const SOLIDS: Record<string, SolidSpec[]> = {
@@ -121,22 +162,19 @@ export function build(_quality: { flowers: number }): Town {
       { x: -4200, y: -1000, r: 1200, h: 120 },
       { x: -2000, y: 3300, r: 1000, h: 110 },
       { x: -4600, y: 3300, r: 900, h: -70 },
-      { x: -7500, y: 2500, r: 2600, h: 260 },
-      { x: -7600, y: -4000, r: 2400, h: 220 },
+      { x: -7500, y: 2500, r: 2600, h: 260 }, // the hills past the south edge, toward the sakura hills
+      { x: -7900, y: -2600, r: 2200, h: 220 },
     ],
     plateaus: [
       { poly: fine(V1), h: 350, ramps: [RAMP1] },
       { poly: fine(V2), h: 700, ramps: [RAMP2] },
       { poly: fine(V3), h: 1050, ramps: [RAMP3] },
-      { poly: W1, h: 850 },
-      { poly: E1, h: 850 },
-      { poly: N1, h: 1100 },
     ],
     rock: "CliffBasalt",
   });
   const { put, rnd } = f;
 
-  // ---- the ground: ash tracks, the lava river and its lake (holes over glowing lava) ----
+  // ---- the ground: ash tracks, the lava river and its lake (holes over glowing lava), the sea ----
   const lakePoly: Poly = Array.from({ length: 26 }, (_, k): XY => {
     const a = (k / 26) * Math.PI * 2, r = 720 + Math.sin(k * 2.3) * 70 + Math.cos(k * 1.1) * 40;
     return [LAKE[0] + Math.cos(a) * r, LAKE[1] + Math.sin(a) * r * 1.2];
@@ -147,11 +185,52 @@ export function build(_quality: { flowers: number }): Town {
     tint: "#cbc3bc", // darker lava rock under the ash
     roads: [band(MAIN, 460), band(SPRINGS, 400), band(LAKESIDE, 380), band(BASALT, 380), band(VENTS, 380)],
     plazas: [],
-    water: [lakePoly, band(RIVER, 380)],
+    water: [lakePoly, band(RIVER, 380), SEA],
     road: [0.48, 0.56, 0.78],
   });
   f.blockDisc(LAKE, 820, "lava");
-  f.blockBand(RIVER, 440, { kind: "lava" });
+  // the lava: a sheet under the lake and the river only (out at sea it would glow through the water)
+  const lavaShape = (poly: Poly) => new THREE.Shape(poly.map(([x, y]) => new THREE.Vector2(x, y)));
+  const lava = new THREE.Mesh(
+    new THREE.ShapeGeometry([lavaShape(lakePoly.map(([x, y]): XY => [LAKE[0] + (x - LAKE[0]) * 1.15, LAKE[1] + (y - LAKE[1]) * 1.15])), lavaShape(band(RIVER, 520))])
+      .applyMatrix4(new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1)),
+    material("VolcanoField_Lava"),
+  );
+  lava.position.y = -16;
+  const lavaUV = lava.geometry.getAttribute("uv") as THREE.BufferAttribute;
+  for (let i = 0; i < lavaUV.count; i++) lavaUV.setXY(i, lavaUV.getX(i) / 300, lavaUV.getY(i) / 300); // (the crust's grain 3 m across)
+  f.blockBand(RIVER.filter(([x]) => x > -4800), 440, { kind: "lava" });
+
+  // ---- the sea: a band along the water's edge keeps everyone out of it (under the sea cliffs too);
+  // the water a sheet from a little under the shore out past the horizon ----
+  f.blockBand(inland(SHORE.filter(([x, y]) => Math.abs(x) < R + 1000 && Math.abs(y) < R + 1000), -280), 520, { kind: "sea" });
+  const seaShape = new THREE.Shape();
+  [...inland(SHORE, 200), [-9500, 30000], [30000, 30000], [30000, -30000], [-9500, -30000]].forEach(([x, y], i) => (i ? seaShape.lineTo(x, y) : seaShape.moveTo(x, y)));
+  const seaSheet = new THREE.Mesh(new THREE.ShapeGeometry(seaShape).applyMatrix4(new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1)), material("WaterSea"));
+  seaSheet.position.y = -14;
+  seaSheet.receiveShadow = true;
+  // beaches of black sand where the low ground comes down to the sea: a second ground a hair over
+  // the rock between the water and a line up to `w` in from it (widest mid-way, nothing at the
+  // ends), the shore from `xa` to `xb` on the west (or the east)
+  const beaches: Poly[] = [];
+  const beach = (xa: number, xb: number, west: boolean, w: number) => {
+    const s = SHORE.filter(([x, y]) => x > xa && x < xb && y > 0 === west);
+    const width = (i: number) => w * Math.pow(Math.sin((Math.PI * i) / (s.length - 1)), 0.6);
+    const inner = inland(s, width);
+    beaches.push([...s, ...[...inner].reverse()]);
+    // (its ground stops short of the stretch's ends, where the cuts' ends run slantwise)
+    const xs = s.map(([x]) => x), ys = s.map(([, y]) => y);
+    const sand = f.ground({
+      area: { x0: Math.min(...xs) + 300, x1: Math.max(...xs) - 300, y0: Math.min(...ys) - 1000, y1: Math.max(...ys) + 1000 },
+      roads: [], plazas: [], base: "sand", tint: "#5f6a8e",
+      water: [[...inner, ...inland(s, 1300).reverse()], [...s, ...inland(s, -1300).reverse()], lakePoly, band(RIVER, 380)],
+    });
+    sand.mesh.position.y += 3;
+    sand.mesh.renderOrder = 1;
+    return sand.mesh;
+  };
+  const sands = [beach(-5300, -1800, true, 850), beach(-4300, -1400, false, 560)];
+  const onBeach = (x: number, y: number) => beaches.some((b) => inPoly(b, x, y));
 
   // ---- placing things clear of each other, the tracks and the cliffs ----
   const taken: [number, number, number][] = [];
@@ -179,7 +258,7 @@ export function build(_quality: { flowers: number }): Town {
   };
   const inside = (x: number, y: number, m = 0) => Math.abs(x) < R - m && Math.abs(y) < R - m;
   const level = (x: number, y: number) => (inPoly(V3, x, y) ? 3 : inPoly(V2, x, y) ? 2 : inPoly(V1, x, y) ? 1 : 0);
-  const nearLava = (x: number, y: number, m: number) => Math.hypot(x - LAKE[0], y - LAKE[1]) < 900 + m || (y < -4300 && Math.abs(x - -3000) < 300 + m);
+  const nearLava = (x: number, y: number, m: number) => Math.hypot(x - LAKE[0], y - LAKE[1]) < 900 + m || distTo(RIVER, x, y) < 300 + m;
 
   // ---- the way out, back down to the sakura hills ----
   const SOUTH: XY = [-5150, 600], SOUTH_BACK: XY = [-4420, 640];
@@ -190,12 +269,12 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the hot springs on the west, the survey camp beside them ----
   const springs: XY[] = [[-3300, 3350], [-2500, 4300], [-4100, 4250], [-2350, 2700]];
   springs.forEach((p, i) => place("volcanic:hot_spring", p, [10, 120, 250, 60][i], 420));
-  for (const [x, y, h] of [[-3900, 2550, 30], [-2950, 5000, 100], [-1900, 3900, 200]] as const) tryPlace("volcanic:sulphur_vent", [x, y], h, 200);
+  for (const [x, y, h] of [[-3900, 2550, 30], [-2950, 4800, 100], [-1900, 3900, 200]] as const) tryPlace("volcanic:sulphur_vent", [x, y], h, 200);
   const CAMP: XY = [-4350, 1950];
   place("volcanic:survey_camp", CAMP, faceDir(1, 0.1), 430);
   for (const [x, y] of [[-4300, 3000], [-2000, 5000], [-4700, 4700], [-1700, 2300]] as const) tryPlace("volcanic:dead_tree", [x, y], rnd() * 360, 150);
 
-  // ---- the lava lake on the east, its river coming down from the shoulder ----
+  // ---- the lava lake on the east, its river running on down to the sea ----
   for (let k = 0; k < 18; k++) {
     const a = (k / 18) * Math.PI * 2 + 0.15, r = 960 + rnd() * 140;
     const at: XY = [LAKE[0] + Math.cos(a) * r, LAKE[1] + Math.sin(a) * r * 1.2];
@@ -211,8 +290,8 @@ export function build(_quality: { flowers: number }): Town {
   }
 
   // ---- the lower flank (V1): sulphur vents on the west, basalt columns on the east ----
-  for (const [x, y, h] of [[650, 3100, 0], [-300, 4300, 80], [700, 4600, 150], [-550, 2300, 40], [600, 1300, 200], [-500, 5100, 300]] as const) tryPlace("volcanic:sulphur_vent", [x, y], h, 200);
-  for (const [x, y, h] of [[700, -3900, 0], [-200, -4700, 60], [900, -4900, 200], [400, -5200, 120], [-560, -3550, 300], [900, -3000, 30]] as const) tryPlace("volcanic:basalt_columns", [x, y], h, 260);
+  for (const [x, y, h] of [[650, 3100, 0], [-300, 4300, 80], [700, 4500, 150], [-550, 2300, 40], [600, 1300, 200], [-450, 4650, 300]] as const) tryPlace("volcanic:sulphur_vent", [x, y], h, 200);
+  for (const [x, y, h] of [[700, -3900, 0], [-250, -4550, 60], [850, -4450, 200], [250, -4650, 120], [-560, -3550, 300], [900, -3000, 30]] as const) tryPlace("volcanic:basalt_columns", [x, y], h, 260);
   scatter({ x0: -1300, x1: 1600, y0: -R, y1: R }, 14, ["volcanic:lava_boulder", "volcanic:lava_rocks", "volcanic:dead_tree", "volcanic:obsidian"], 200, (x, y) => level(x, y) === 1 && inside(x, y, 250));
   scatter({ x0: -1300, x1: 1600, y0: -R, y1: R }, 16, ["volcanic:scree"], 230, (x, y) => level(x, y) === 1 && inside(x, y, 250), { solid: "none" });
 
@@ -231,12 +310,33 @@ export function build(_quality: { flowers: number }): Town {
   scatter({ x0: 2300, x1: 5300, y0: -2500, y1: 2500 }, 8, ["volcanic:scree"], 230, (x, y) => level(x, y) === 3 && Math.hypot(x - CRATER[0], y - CRATER[1]) > 1000, { solid: "none" });
 
   // ---- the low ground: rocks, scree, dead trees ----
-  scatter({ x0: -R, x1: -700, y0: -R, y1: R }, 22, ["volcanic:lava_boulder", "volcanic:lava_rocks", "volcanic:lava_rocks", "volcanic:dead_tree", "volcanic:obsidian"], 230, (x, y) => level(x, y) === 0 && inside(x, y, 250) && !nearLava(x, y, 200));
-  scatter({ x0: -R, x1: -700, y0: -R, y1: R }, 26, ["volcanic:scree"], 230, (x, y) => level(x, y) === 0 && inside(x, y, 250) && !nearLava(x, y, 100), { solid: "none" });
-  scatter({ x0: -R, x1: -700, y0: -R, y1: R }, 10, ["flora:PineSmall", "flora:Pine"], 260, (x, y) => level(x, y) === 0 && inside(x, y, 300) && !nearLava(x, y, 400) && y > -2000, { s: [0.7, 1] });
+  scatter({ x0: -R, x1: -700, y0: -R, y1: R }, 22, ["volcanic:lava_boulder", "volcanic:lava_rocks", "volcanic:lava_rocks", "volcanic:dead_tree", "volcanic:obsidian"], 230, (x, y) => level(x, y) === 0 && inside(x, y, 250) && !nearLava(x, y, 200) && !onBeach(x, y));
+  scatter({ x0: -R, x1: -700, y0: -R, y1: R }, 26, ["volcanic:scree"], 230, (x, y) => level(x, y) === 0 && inside(x, y, 250) && !nearLava(x, y, 100) && !onBeach(x, y), { solid: "none" });
+  scatter({ x0: -R, x1: -700, y0: -R, y1: R }, 10, ["flora:PineSmall", "flora:Pine"], 260, (x, y) => level(x, y) === 0 && inside(x, y, 300) && !nearLava(x, y, 400) && !onBeach(x, y) && y > -2000, { s: [0.7, 1] });
 
-  // ---- the rim: rock, dead trees and a few pines on every side, nobody gets there ----
-  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) !== 0 || Math.abs(x) > A - 200 || Math.abs(y) > A - 200;
+  // ---- the shores: lava rock along the water where there is no beach, the sea cliffs' feet heaped
+  // with it and basalt columns, more columns standing out in the sea; steam where the lava runs in ----
+  const OUT = inland(SHORE, -100);
+  for (let i = 0; i < SHORE.length; i++) {
+    const [x, y] = SHORE[i], n: XY = [(OUT[i][0] - x) / 100, (OUT[i][1] - y) / 100];
+    if (Math.abs(x) > R + 1100 || Math.abs(y) > R + 1100 || onBeach(x - n[0] * 60, y - n[1] * 60) || distTo(RIVER, x, y) < 500 || rnd() < 0.3) continue;
+    const under = level(x - n[0] * 450, y - n[1] * 450) > 0; // a sea cliff above
+    const out = -60 + rnd() * 160, at: XY = [x + n[0] * out, y + n[1] * out];
+    const ref = under && rnd() < 0.35 ? "volcanic:basalt_columns" : rnd() < 0.5 ? "volcanic:lava_boulder" : "volcanic:lava_rocks";
+    put(ref, at, rnd() * 360, { s: 0.5 + rnd() * 0.4, z: -6 - rnd() * 14, solid: "none" });
+  }
+  for (const [x, y, s] of [[5000, -4600, 1.6], [6300, -2700, 1.3], [6600, 1900, 1.5], [5300, 4300, 1.7], [3300, 5900, 1.2], [-1200, 6300, 1.4], [-4300, 6400, 1.2], [700, -6300, 1.5], [-3300, -6200, 1.3]] as const)
+    put("volcanic:basalt_columns", [x, y], rnd() * 360, { s, z: -60, solid: "none" });
+  const steam: THREE.Object3D[] = [];
+  for (const [dx, dy, z, r] of [[0, 0, 70, 120], [-90, -140, 170, 170], [60, -60, 290, 220], [-40, -220, 420, 260], [80, -320, 560, 240]] as const) {
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), material("Volcanic_Steam"));
+    puff.scale.set(1, 0.8, 1);
+    puff.position.set(-4840 + dx, z, 5520 - dy);
+    steam.push(puff);
+  }
+
+  // ---- the rim: rock, dead trees and a few pines on the land past the south edge, nobody gets there ----
+  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) !== 0 || distTo(SHORE, x, y) < 400 || Math.abs(x) > A - 200 || Math.abs(y) > A - 200;
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["dead_tree", "dead_tree", "lava_boulder", "lava_rocks", "basalt_columns", "dead_tree"], rimOut, { count: 300, spacing: 520, tries: 9000, kit: "volcanic" });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["Pine", "PineSmall", "Pine"], (x, y) => rimOut(x, y) || x > 2000, { count: 160, spacing: 480, tries: 6000 });
 
@@ -258,7 +358,7 @@ export function build(_quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
-    scenery: [f.waterSheet({ x0: -A, x1: -1500, y0: -A, y1: -1800 }, -16, "VolcanoField_Lava")],
+    scenery: [lava, seaSheet, ...sands, ...steam],
     sky: "#3b302d",
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: -4250, y: 640 },
@@ -269,6 +369,8 @@ export function build(_quality: { flowers: number }): Town {
       { x: -3000, y: 3700, text: "บ่อน้ำพุร้อน" },
       { x: CAMP[0] - 300, y: CAMP[1] - 600, text: "ค่ายหน่วยสำรวจ", kind: "small" },
       { x: LAKE[0] + 1100, y: LAKE[1] + 200, text: "ทะเลสาบลาวา" },
+      { x: -4300, y: -5000, text: "ธารลาวาลงทะเล", kind: "small" },
+      { x: -3700, y: 5000, text: "หาดทรายดำ", kind: "small" },
       { x: 200, y: -4000, text: "ลานเสาหินบะซอลต์" },
       { x: 300, y: 3700, text: "ปล่องกำมะถัน" },
       { x: 3000, y: 3900, text: "ป่าไม้ตาย" },

@@ -6,7 +6,9 @@
 // fallen columns, and on a higher step the temple mountain with its fig-split prang. To the east
 // a ridge carries a giant strangler fig. In the south-east, mud pools ringed with reeds. A side
 // track runs on west past the stream to the way out to the royal necropolis, where two of the
-// necropolis's stone guardians stand overgrown on either side of it.
+// necropolis's stone guardians stand overgrown on either side of it. Toward the north edge, where
+// the desert round Bahamas begins, the jungle thins out: the ground goes dry and grassy, then
+// sandy, and the trees give way to acacias, palms and thorn bushes among sandstone rocks.
 //
 // Full size in the field's own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finish.
 
@@ -18,8 +20,9 @@ import type { SolidSpec } from "../world";
 import { KIT as JUNGLE } from "./kits/jungle";
 import { KIT as YODIA } from "./kits/yodia";
 import { KIT as OLD_RUINS } from "./kits/ruins";
+import { KIT as DESERT } from "./kits/desert";
 
-useKits(JUNGLE, YODIA, OLD_RUINS);
+useKits(JUNGLE, YODIA, OLD_RUINS, DESERT);
 
 type XY = [number, number];
 
@@ -96,6 +99,19 @@ function along(pts: XY[], d: number): { p: XY; dir: XY } {
   return { p: pts[0], dir: [1, 0] };
 }
 const lengthOf = (pts: XY[]) => pts.slice(1).reduce((t, p, i) => t + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+// ---- the dry country toward Bahamas (north): how far into it a point is, 0 in the jungle to 1 on
+// the sand by the north edge, along a line that wanders in and out (and draws back north toward
+// the corners, the forest on the maps west and east running up beside the desert) ----
+const dryLine = (y: number) => 220 * Math.sin(y / 650 + 1.3) + 130 * Math.sin(y / 290 + 0.4) + 70 * Math.sin(y / 140 + 2.1);
+const toCorner = (y: number) => 0.7 * Math.max(0, Math.abs(y) - 4000);
+const dry = (x: number, y: number) => smoothstep(3000, 5300, x + dryLine(y) - toCorner(y));
+// everything south of the line where the ground at `x` turns (the line's fingers deeper than the dryness's)
+const southOf = (x: number): Poly => [...Array.from({ length: 191 }, (_, i) => -9500 + i * 100).map((y): XY => [x - 1.3 * dryLine(y) + toCorner(y), y]), [-9500, 9500], [-9500, -9500]];
 
 export function build(quality: { flowers: number }): Town {
   // ---- the land: the ruin plateau and its temple step (north-west), the fig ridge (north-east),
@@ -106,19 +122,19 @@ export function build(quality: { flowers: number }): Town {
   const P3: Poly = bevel([[-4300, 1900], [-3000, 1500], [-2000, 2000], [-1900, 3400], [-2800, 4300], [-4200, 4000], [-4700, 3000]]);
   const RIM_E: Poly = bevel([[-300, -6000], [1500, -6300], [3200, -5800], [4800, -6300], [6200, -6000], [6500, -9300], [-500, -9300]]);
   const RIM_W: Poly = bevel([[-5600, 5900], [-3800, 6300], [-1900, 6000], [-1700, 9300], [-5800, 9300]]);
-  const RIM_N: Poly = bevel([[6300, 1200], [7200, 600], [9300, 900], [9300, 6500], [6000, 6600], [5800, 4000]]);
   const f = new FieldBuilder(115, {
     hills: [
       { x: -3300, y: -700, r: 1100, h: 110 }, { x: 100, y: 3300, r: 900, h: 130 }, { x: -4700, y: -1000, r: 900, h: -80 },
       { x: 3600, y: -1000, r: 800, h: 90 }, { x: -100, y: -3400, r: 700, h: 120 }, { x: -2600, y: 4800, r: 700, h: 100 },
       { x: 5000, y: 300, r: 900, h: 120 }, { x: -5200, y: -4200, r: 900, h: 140 },
+      { x: 7600, y: 3600, r: 2600, h: 240 }, { x: 7300, y: -3300, r: 2000, h: 150 }, // sandy rises past the north edge
     ],
     plateaus: [
       { poly: P1, h: 380, ramps: [{ top: [2500, 953], bottom: [2570, -245], width: 450 }] },
       { poly: P1b, h: 760, ramps: [{ top: [1800, 3100], bottom: [612, 2930], width: 420 }] },
       { poly: P2, h: 320, ramps: [{ top: [1500, -1950], bottom: [1164, -1008], width: 420 }] },
       { poly: P3, h: 260, ramps: [{ top: [-3650, 1700], bottom: [-3900, 887], width: 420 }] },
-      { poly: RIM_E, h: 650 }, { poly: RIM_W, h: 600 }, { poly: RIM_N, h: 700 },
+      { poly: RIM_E, h: 650 }, { poly: RIM_W, h: 600 },
     ],
     rock: "Jungle_CliffMoss",
   });
@@ -149,6 +165,16 @@ export function build(quality: { flowers: number }): Town {
   const STREAM = smooth([[-1200, 9500], [-1000, 7000], [-1500, 5300], [-1100, 3600], [-1500, 2000], [-1300, 600], [-1340, -1000], [-900, -2600], [-1400, -4300], [-1100, -6500], [-1300, -9500]], 5);
   const M1 = blob(-2300, -2300, 620, 520, 1), M2 = blob(-4000, -3000, 520, 600, 2), M3 = blob(-2650, -4250, 480, 380, 3);
   const ground = f.ground({ area: AREA, cell: 60, roads, plazas: [COURT, band(CAUSEWAY, 360), band(TEMPLE, 340)], water: [band(STREAM, 470), M1, M2, M3], base: "jungle", road: [0.6, 0.47, 0.37], plaza: [0.7, 0.72, 0.6] });
+  // the dry ground: a second ground of dry grass a hair over the jungle's north of one wandering
+  // line, and a third of sand over that north of another (the tracks paler on each)
+  const dryGround = (line: number, base: string, road: [number, number, number], lift: number) => {
+    const x0 = Math.floor((line - 600 + 9000) / 60) * 60 - 9000; // (on the jungle ground's own grid)
+    const g = f.ground({ area: { x0, y0: -9000, x1: 9000, y1: 9000 }, cell: 60, roads, plazas: [COURT, band(CAUSEWAY, 360), band(TEMPLE, 340)], water: [southOf(line), band(STREAM, 470), M1, M2, M3], base, road, plaza: [0.7, 0.72, 0.6] });
+    g.mesh.position.y += lift;
+    g.mesh.renderOrder = lift;
+    return g.mesh;
+  };
+  const dryGrass = dryGround(3500, "steppe", [0.74, 0.6, 0.46], 2), drySand = dryGround(4650, "sand", [0.84, 0.74, 0.6], 4);
   const BRIDGE: XY = [-1320, -200];
   f.blockBand(STREAM.filter((p) => Math.abs(p[1]) < 6200), 430, { gaps: [BRIDGE], gapR: 175, step: 125 });
   for (const [m, c, r] of [[M1, [-2300, -2300], 470], [M2, [-4000, -3000], 450], [M3, [-2650, -4250], 360]] as [Poly, XY, number][]) {
@@ -159,6 +185,7 @@ export function build(quality: { flowers: number }): Town {
     }
   }
   const scenery = [
+    dryGrass, drySand,
     f.waterSheet({ x0: -2000, x1: -400, y0: -9000, y1: 9000 }, -14, "Jungle_Stream"),
     f.waterSheet({ x0: -3000, x1: -1600, y0: -2950, y1: -1650 }, -9, "Jungle_Mud"),
     f.waterSheet({ x0: -4600, x1: -3400, y0: -3700, y1: -2300 }, -9, "Jungle_Mud"),
@@ -262,13 +289,19 @@ export function build(quality: { flowers: number }): Town {
   // the Bahamas way: torches and a sign
   for (const y of [-1000, -330]) put("yodia:tiki_torch", [4900, y], 0, { solid: [disc(14, 0, 0, "post")], r: 60 });
   put("trail_sign", [4500, -1150], 30, { solid: [disc(20, 0, 0, "post")], r: 90 });
-  put("boulder_mossy", [5000, -1700], 300, { s: 0.8, solid: [disc(130, 0, 0, "rock")], r: 200 });
+  put("desert:boulder_big", [5000, -1700], 300, { s: 0.7, solid: [disc(140, 0, 0, "rock")], r: 220 });
+  // the dry country: sandstone rocks, thorn bushes and a lone acacia or two
+  for (const [x, y, ref, h, sc, r] of [[4300, -3300, "desert:rock_cluster", 40, 0.8, 150], [5100, -4300, "desert:boulder_flat", 120, 0.9, 170], [4600, 1200, "desert:boulder_big", 200, 0.6, 140], [5100, 5000, "desert:rock_cluster", 80, 0.9, 160], [3900, -5000, "desert:boulder_flat", 10, 0.7, 140]] as [number, number, string, number, number, number][])
+    if (open(x, y, r + 60) && f.level(x, y, r)) put(ref, [x, y], h, { s: sc, solid: [disc(r, 0, 0, "rock")], r: r + 60 });
+  for (const [x, y, h] of [[4700, -2900, 30], [5000, 2000, 150], [4200, -4300, 260]] as [number, number, number][])
+    if (open(x, y, 300) && f.level(x, y, 200)) put("desert:acacia", [x, y], h, { s: 0.95, solid: [disc(42)], r: 300 });
   put("fallen_log", [3600, -1450], 100, { s: 0.9, solid: [box(100, 560, 0, 0, "log")], r: 300 });
   put("stump", [600, -1500], 20, { solid: [disc(60, 0, 0, "log")], r: 110 });
   put("stump", [-900, 1300], 140, { solid: [disc(60, 0, 0, "log")], r: 110 });
 
   // ---- the forest: thick along the edges and in thickets, a tree here and there between, so
-  // glades open where the monsters roam; ferns, bushes and elephant ears under it all ----
+  // glades open where the monsters roam; ferns, bushes and elephant ears under it all. Toward the
+  // north it thins, and acacias, palms and thorn bushes take over ----
   const THICKETS: [number, number, number][] = [
     [-2500, 1000, 600], [-4900, 4600, 800], [-2300, 5000, 600], [-4800, -2000, 700], [-1900, -3400, 500], [-4300, -4700, 800],
     [400, 900, 650], [-300, 2100, 500], [1300, -4000, 650], [3800, -4300, 550], [4900, -2200, 650], [1800, 5000, 700],
@@ -282,35 +315,43 @@ export function build(quality: { flowers: number }): Town {
     view(x, y, -3100, 2900, 750) || view(x, y, 1800, 1950, 600) || view(x, y, -4720, 1300, 600) || view(x, y, 1100, 4600, 500) ||
     inside(COURT, x, y) || f.warps.some((w) => Math.hypot(w.x - x, w.y - y) < 700);
   const KINDS = ["flora:JungleTree", "flora:JungleTree", "flora:JungleTree", "vine_tree", "flora:Bamboo", "flora:JungleTree", "flora:PalmTall", "vine_tree", "flora:Bamboo"];
+  const DRY_KINDS = ["desert:acacia", "flora:Palm", "desert:acacia", "flora:PalmTall", "desert:acacia", "flora:Palm", "desert:dead_tree", "desert:acacia"];
   const rnd = f.rnd;
   for (let x = -R + 150; x < R; x += 330)
     for (let y = -R + 150; y < R; y += 330) {
       const px = x + (rnd() - 0.5) * 260, py = y + (rnd() - 0.5) * 260;
       const edge = Math.min(R - Math.abs(px), R - Math.abs(py));
       const thick = THICKETS.some(([cx, cy, r]) => Math.hypot(px - cx, py - cy) < r);
-      const want = edge < 700 ? 0.85 : edge < 1200 ? 0.5 : thick ? 0.65 : 0.1;
+      const d = dry(px, py), want = (edge < 700 ? 0.85 : edge < 1200 ? 0.5 : thick ? 0.65 : 0.1) * (1 - 0.82 * d);
       if (rnd() > want || !open(px, py, 260) || !f.level(px, py, 170) || !free(px, py, 230) || keepOut(px, py)) continue;
-      const kind = KINDS[Math.floor(rnd() * KINDS.length)];
+      const kind = rnd() < d ? DRY_KINDS[Math.floor(rnd() * DRY_KINDS.length)] : KINDS[Math.floor(rnd() * KINDS.length)];
       const big = kind.endsWith("vine_tree");
-      put(kind, [px, py], rnd() * 360, { s: 0.8 + rnd() * 0.35, solid: kind.includes("Bamboo") ? [disc(45)] : big ? [disc(50)] : "auto", r: big ? 260 : 180 });
+      put(kind, [px, py], rnd() * 360, { s: 0.8 + rnd() * 0.35, solid: kind.includes("Bamboo") ? [disc(45)] : big ? [disc(50)] : kind.startsWith("desert:") ? [disc(42)] : "auto", r: big ? 260 : 180 });
     }
   // the understory: thick near trees and paths, never on them
   const UNDER = ["giant_fern", "giant_fern", "flora:JungleBush", "elephant_ear", "giant_fern", "flora:JungleBush", "tree_fern", "flora:JungleBush", "elephant_ear", "giant_fern", "flora:JungleBush", "giant_fern"];
+  const DRY_UNDER = ["desert:dry_bush", "desert:grass_tuft", "desert:dry_bush", "desert:grass_patch", "flora:JungleBush", "desert:grass_tuft"];
   for (let x = -R + 100; x < R; x += 230)
     for (let y = -R + 100; y < R; y += 230) {
       const px = x + (rnd() - 0.5) * 200, py = y + (rnd() - 0.5) * 200;
       const edge = Math.min(R - Math.abs(px), R - Math.abs(py));
       const nearTree = taken.some(([tx, ty, tr]) => tr >= 180 && tr <= 260 && Math.hypot(tx - px, ty - py) < 420);
       const nearPath = !open(px, py, 420);
-      const want = edge < 900 ? 0.65 : nearTree ? 0.6 : nearPath ? 0.5 : 0.36;
+      const d = dry(px, py), want = (edge < 900 ? 0.65 : nearTree ? 0.6 : nearPath ? 0.5 : 0.36) * (1 - 0.6 * d);
       if (rnd() > want || !open(px, py, 170) || !f.level(px, py, 100) || !free(px, py, 90) || keepOut(px, py)) continue;
-      const kind = UNDER[Math.floor(rnd() * UNDER.length)];
+      const kind = rnd() < d * 1.2 ? DRY_UNDER[Math.floor(rnd() * DRY_UNDER.length)] : UNDER[Math.floor(rnd() * UNDER.length)];
       put(kind, [px, py], rnd() * 360, { s: 0.75 + rnd() * 0.4, solid: kind === "tree_fern" ? [disc(22, 0, 0, "post")] : "none", r: 80 });
     }
-  // past the edge: deep jungle all round (and on the mountain walls)
+  // past the edge: deep jungle all round (and on the mountain walls), but for the dry country on
+  // the north, scattered acacias, palms, thorn bushes and sandstone rocks on the sand
   const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) === 3 || ground.kind(x, y) === 1;
-  f.woods(AREA, ["JungleTree", "JungleTree", "Bamboo", "PalmTall", "JungleTree", "JungleBush", "JungleTree", "Palm"], rimOut, { count: 720, spacing: 330, tries: 12000 });
-  f.woods(AREA, ["vine_tree", "giant_fern", "tree_fern"], (x, y) => rimOut(x, y) || Math.abs(x) < R + 500 && Math.abs(y) < R + 500, { count: 160, spacing: 600, tries: 4000, kit: "jungle" });
+  const wet = (x: number, y: number) => rimOut(x, y) || dry(x, y) > 0.55 || (dry(x, y) > 0.25 && rnd() < 0.5);
+  f.woods(AREA, ["JungleTree", "JungleTree", "Bamboo", "PalmTall", "JungleTree", "JungleBush", "JungleTree", "Palm"], wet, { count: 720, spacing: 330, tries: 12000 });
+  f.woods(AREA, ["vine_tree", "giant_fern", "tree_fern"], (x, y) => wet(x, y) || Math.abs(x) < R + 500 && Math.abs(y) < R + 500, { count: 160, spacing: 600, tries: 4000, kit: "jungle" });
+  const sandy = (x: number, y: number) => rimOut(x, y) || dry(x, y) < 0.55;
+  f.woods(AREA, ["acacia", "dry_bush", "dry_bush", "acacia", "grass_tuft", "dry_bush", "acacia"], sandy, { count: 150, spacing: 520, tries: 6000, kit: "desert" });
+  f.woods(AREA, ["Palm", "PalmTall", "Palm"], sandy, { count: 26, spacing: 900, tries: 3000 });
+  f.woods(AREA, ["boulder_big", "rock_cluster", "boulder_flat", "rock_cluster"], sandy, { count: 26, spacing: 1100, tries: 3000, kit: "desert" });
 
   // ---- monsters: the glades, the ruins, the ridge, the mound ----
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 680, keepOut: (x, y) => inside(COURT, x, y) || Math.hypot(x - BRIDGE[0], y - BRIDGE[1]) < 800 });
@@ -320,7 +361,7 @@ export function build(quality: { flowers: number }): Town {
     ground,
     scenery,
     sky: "#2c4724",
-    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0, density: 0.12 * quality.flowers },
+    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && dry(x, y) < 0.35, density: 0.12 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: SPAWN[0], y: SPAWN[1] },
     npcs: [
