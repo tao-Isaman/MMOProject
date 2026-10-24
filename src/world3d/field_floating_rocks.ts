@@ -72,6 +72,9 @@ const LAKE_C: XY = [-1900, 2800];
 const LAKE: Poly = blob(LAKE_C, 640, 700, 4, 20, 0.07);
 const RIVER: XY[] = smooth([[-2950, A + 600], [-2800, 5500], [-2650, 4600], [-2450, 3900], [-2150, 3300]], 4);
 const RIVER_W = 600;
+// the sea in the north-east corner, where the storm cape's east shore turns along the thorn land's
+// north coast
+const SEA: Poly = [[A + 400, -4450], [6200, -4500], [5650, -4620], [5350, -4950], [5100, -5250], [5050, -5700], [4800, -6200], [4900, -6900], [4750, -7700], [4850, -A - 400], [A + 400, -A - 400]];
 
 // ---- the tracks and the ways out ----
 const N_EXIT: XY = [5150, 0], E_EXIT: XY = [0, -5150], S_EXIT: XY = [-5150, -2000], W_EXIT: XY = [2000, 5150];
@@ -110,19 +113,23 @@ export function build(quality: { flowers: number }): Town {
   // ---- the ground: steppe grass, the blight greying it toward the thorn land in the east ----
   const river = band(RIVER, RIVER_W);
   const roads = [band(NORTH, 480), band(EAST, 480), band(SOUTH, 480), band(WEST, 440), band(TO_RING, 420), band(TO_LAKE, 380), band(TO_CAMP, 380)];
-  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [LAKE, river], base: "steppe", road: [0.82, 0.76, 0.68] });
+  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [LAKE, river, SEA], base: "steppe", road: [0.82, 0.76, 0.68] });
   const blight = (y: number) => Math.min(1, Math.max(0, (-y - 2600) / 3400));
   {
     const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i));
       const b = blight(y + 500 * Math.sin(x / 900) + 250 * Math.sin(x / 330 + 1)), e = b * b * (3 - 2 * b);
-      col.set([1 - 0.32 * e, 1 - 0.45 * e, 1 - 0.22 * e], i * 3);
+      // (and browned toward the border's trampled grass along the south)
+      const w = Math.min(1, Math.max(0, (-3300 - x - 300 * Math.sin(y / 800)) / 2200)), s = w * w * (3 - 2 * w) * 0.75;
+      col.set([(1 - 0.32 * e) * (1 - 0.45 * s), (1 - 0.45 * e) * (1 - 0.52 * s), (1 - 0.22 * e) * (1 - 0.6 * s)], i * 3);
     }
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
     (ground.mesh.material as THREE.MeshStandardMaterial).vertexColors = true;
   }
-  const water = f.waterSheet({ x0: -2800, x1: -1000, y0: 1800, y1: A + 900 }, -14, "WaterSea");
+  const water = f.waterSheet({ x0: -3800, x1: -1000, y0: 1800, y1: A + 900 }, -14, "WaterSea");
+  const sea = f.waterSheet({ x0: 4800, x1: A + 3000, y0: -A - 3000, y1: -4300 }, -14, "Eastheights_StormSea");
+  f.blockBand(SEA.slice(1, 10), 420, { kind: "sea" });
   f.blockBand(RIVER.filter(([, y]) => y < R + 900), RIVER_W + 80);
   const LAKE_IN = LAKE.map(([x, y]): XY => [LAKE_C[0] + (x - LAKE_C[0]) * 0.86, LAKE_C[1] + (y - LAKE_C[1]) * 0.86]);
   f.blockBand([...LAKE_IN, LAKE_IN[0]], 300);
@@ -130,7 +137,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- placing things clear of each other, the tracks, the water and the cliffs ----
   const taken: [number, number, number][] = [];
   const onTrack = (x: number, y: number, m: number) => TRACKS.some((t) => distTo(t, x, y) < m) || [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
-  const wet = (x: number, y: number, m = 0) => inPoly(LAKE, x, y) || distTo([...LAKE, LAKE[0]], x, y) < m || distTo(RIVER, x, y) < RIVER_W / 2 + m;
+  const wet = (x: number, y: number, m = 0) => inPoly(SEA, x, y) || distTo(SEA.slice(1, 10), x, y) < m || inPoly(LAKE, x, y) || distTo([...LAKE, LAKE[0]], x, y) < m || distTo(RIVER, x, y) < RIVER_W / 2 + m;
   const free = (x: number, y: number, r: number) => !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + r);
   const fits = (x: number, y: number, r: number, m = r) => f.level(x, y, Math.min(r, 260)) && !onTrack(x, y, m + 230) && free(x, y, r) && !wet(x, y, r + 120);
   const place = (ref: string, at: XY, h: number, r: number, o: Parameters<typeof put>[3] = {}) => {
@@ -188,8 +195,8 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the torn mesa: the ring of stones round the rune pillar ----
   place("eastheights:stone_ring", RING, faceTo(RING, R_ME.top), 760, { solid: [{ kind: "stone", x: 0, y: 0, r: 470 }] });
-  for (const [ref, at, h] of [["eastheights:floating_stones", [3800, -2300], 30], ["eastheights:heath_boulder", [2000, -4300], 80], ["eastheights:rock_scatter", [3700, -4200], 150], ["frontier:glow_crack", [2300, -2200], 60]] as [string, XY, number][])
-    tryPlace(ref, at, h, 260, ref.includes("floating") ? { solid: "none" } : ref.includes("crack") ? { solid: "none" } : { solid: ring(150) });
+  for (const [ref, at, h] of [["eastheights:floating_stones", [3800, -2300], 30], ["eastheights:heath_boulder", [2000, -4300], 80], ["eastheights:rock_scatter", [3700, -4200], 150], ["eastheights:torn_hollow", [2300, -2200], 60]] as [string, XY, number][])
+    tryPlace(ref, at, h, 260, ref.includes("floating") || ref.includes("hollow") ? { solid: "none" } : { solid: ring(150) });
   tryPlace("kradia:arcane_lamp", [2200, -2700], 0, 60, { solid: ring(25, "post") });
   tryPlace("kradia:arcane_lamp", [2200, -3500], 0, 60, { solid: ring(25, "post") });
 
@@ -202,6 +209,12 @@ export function build(quality: { flowers: number }): Town {
   place("trunrada:campfire", [-1650, -2850], 0, 150, { solid: ring(80, "fire") });
   for (const at of [[-900, -2600], [-900, -4300], [-2900, -4200], [-2800, -2300], [-1900, -2300]] as XY[]) tryPlace("kradia:arcane_lamp", at, 0, 60, { solid: ring(25, "post") });
   for (const [x, y, h] of [[-2250, -3800, 20], [-2350, -3880, 70], [-1200, -3600, 10]] as number[][]) tryPlace("common:crate", [x, y], h, 60);
+
+  // ---- rocks along the shore of the sea in the corner ----
+  for (let i = 1; i + 1 < 10; i++) {
+    const [ax, ay] = SEA[i], [bx, by] = SEA[i + 1];
+    for (let t = 0.2; t < 1; t += 0.45) put(rnd() < 0.5 ? "eastheights:rock_scatter" : "steppe:boulder", [ax + (bx - ax) * t - 120, ay + (by - ay) * t + 60], rnd() * 360, { s: 0.45 + rnd() * 0.3, solid: "none", z: -6 });
+  }
 
   // ---- the gorge to the border: fallen rock at the walls' feet ----
   for (let k = 0; k < 8; k++) {
@@ -223,9 +236,8 @@ export function build(quality: { flowers: number }): Town {
   isle("eastheights:floating_isle_small", [-3100, -3600], 1);
   isle("eastheights:floating_isle_small", [2100, 1200], 0.8);
   isle("eastheights:floating_isle", [-2800, 400], 0.8);
-  for (const at of [[-1300, 1100], [1300, -3100], [3700, 4700], [-3400, -1000], [800, 2300], [3000, -5000]] as XY[]) tryPlace("eastheights:floating_stones", at, rnd() * 360, 280, { s: 0.8 + rnd() * 0.3, solid: "none" });
+  for (const at of [[-1300, 1100], [1300, -3100], [3700, 4700], [-3400, -1000], [800, 2300], [3000, -5000], [1250, 750], [-900, -1800], [2700, -900], [-2300, -500]] as XY[]) tryPlace("eastheights:floating_stones", at, rnd() * 360, 280, { s: 0.8 + rnd() * 0.3, solid: "none" });
   scatter({ x0: -R, x1: R, y0: -R, y1: R }, 16, ["eastheights:torn_hollow"], 150, (x, y) => inBox(x, y, 300), { s: [0.5, 0.9], solid: "none" });
-  scatter({ x0: -R, x1: R, y0: -R, y1: R }, 10, ["frontier:glow_crack"], 150, (x, y) => inBox(x, y, 300) && low(x, y), { s: [0.5, 0.8], solid: "none" });
 
   // ---- the plain: boulders, rock shelves, a few crooked pines; the blight in the east: dead
   // trees, dark crystals, burnt patches ----
@@ -234,7 +246,7 @@ export function build(quality: { flowers: number }): Town {
   scatter({ x0: -R, x1: R, y0: -R, y1: R }, 12, ["eastheights:bent_pine"], 260, (x, y) => inBox(x, y, 400) && !grey(x, y) && rnd() < 0.6, { s: [0.75, 1.05], head: downwind });
   scatter({ x0: -R, x1: R, y0: -R, y1: -2000 }, 16, ["frontier:dead_tree"], 150, (x, y) => inBox(x, y, 250) && grey(x, y), { s: [0.75, 1.05], solid: 40 });
   scatter({ x0: -R, x1: R, y0: -R, y1: -2500 }, 14, ["frontier:dark_crystal"], 150, (x, y) => inBox(x, y, 250) && grey(x, y), { s: [0.35, 0.6], solid: 60 });
-  scatter({ x0: -R, x1: R, y0: -R, y1: -2000 }, 22, ["frontier:scorch_mark"], 150, (x, y) => inBox(x, y, 250) && low(x, y) && grey(x, y), { s: [0.8, 1.4], solid: "none", colours: "fr_blight" });
+  scatter({ x0: -R, x1: R, y0: -R, y1: -2000 }, 14, ["frontier:scorch_mark"], 150, (x, y) => inBox(x, y, 250) && low(x, y) && grey(x, y), { s: [0.5, 0.9], solid: "none", colours: "fr_blight" });
   scatter({ x0: -R, x1: R, y0: -R, y1: -2000 }, 8, ["frontier:rock_cluster", "frontier:boulder"], 180, (x, y) => inBox(x, y, 250) && grey(x, y), { s: [0.6, 0.9], solid: 120, colours: "fr_dark" });
   scatter({ x0: -R, x1: R, y0: -R, y1: R }, 40, ["eastheights:heather"], 110, (x, y) => inBox(x, y, 200) && !grey(x, y), { s: [0.7, 1.1], solid: "none", head: downwind });
   scatter({ x0: -R - 400, x1: R + 400, y0: -R - 400, y1: R + 400 }, Math.round(260 + 120 * quality.flowers), ["eastheights:bent_grass", "steppe:grass_tuft", "steppe:grass_tuft"], 60, (x, y) => !wet(x, y, 80) && !grey(x, y), { s: [0.7, 1.2], solid: "none", tries: 10000, head: downwind });
@@ -281,7 +293,7 @@ export function build(quality: { flowers: number }): Town {
   REPORT = () => [`placements ${f.puts.length}`, ...fieldReport(f, ground)];
   return f.finishField({
     ground,
-    scenery: [water],
+    scenery: [water, sea],
     sky: "#8d8aa0",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && blight(y) < 0.2, density: 0.07 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },

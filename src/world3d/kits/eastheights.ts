@@ -38,32 +38,32 @@ import type { Kit } from "./types";
 // the heights: granite and its lichens, the wind-cut stone in its beds, grass, heather, pines
 defineMaterial("Eastheights_Granite", { map: "crag", tint: "#a6a399", bump: 3 });
 defineMaterial("Eastheights_GraniteDark", { map: "crag", tint: "#77746d", bump: 3 });
-defineMaterial("Eastheights_LichenGold", { map: "felt", tint: "#c9a83c", rough: 1 });
-defineMaterial("Eastheights_LichenRust", { map: "felt", tint: "#b8673a", rough: 1 });
+defineMaterial("Eastheights_LichenGold", { map: "felt", tint: "#b8a253", rough: 1 });
+defineMaterial("Eastheights_LichenRust", { map: "felt", tint: "#a66d45", rough: 1 });
 defineMaterial("Eastheights_LichenGrey", { map: "felt", tint: "#bfc3ad", rough: 1 });
-defineMaterial("Eastheights_Windstone", { map: "sandstone", tint: "#c4b192", bump: 2 });
-defineMaterial("Eastheights_WindstoneDark", { map: "sandstone", tint: "#9a8670", bump: 2 });
+defineMaterial("Eastheights_Windstone", { map: "crag", tint: "#c9b596", bump: 2.5 });
+defineMaterial("Eastheights_WindstoneDark", { map: "crag", tint: "#a08a72", bump: 2.5 });
 defineMaterial("Eastheights_Grass", { tint: "#a1a457", rough: 0.9 });
 defineMaterial("Eastheights_GrassDry", { tint: "#cbb97c", rough: 0.9 });
 defineMaterial("Eastheights_GrassDark", { tint: "#6a7a3c", rough: 0.95 });
 defineMaterial("Eastheights_Turf", { map: "felt", tint: "#7f8c48", rough: 1 });
 defineMaterial("Eastheights_TurfDark", { map: "felt", tint: "#5a6634", rough: 1 });
-defineMaterial("Eastheights_HeatherCore", { map: "foliage", tint: "#6b5a5c", rough: 1, bump: 1.5 });
+defineMaterial("Eastheights_HeatherCore", { map: "foliage", tint: "#8e7088", rough: 1, bump: 1.5 });
 defineMaterial("Eastheights_HeatherDark", { card: "tuft", tint: "#7a7a48", rough: 0.9 });
 defineMaterial("Eastheights_Heather", { card: "tuft", tint: "#b277a8", rough: 0.85 });
 defineMaterial("Eastheights_HeatherLight", { card: "tuft", tint: "#e2acd6", rough: 0.8 });
-defineMaterial("Eastheights_PineCore", { map: "foliage", tint: "#243d2c", rough: 0.95, bump: 1.5 });
-defineMaterial("Eastheights_PineDark", { card: "needles", tint: "#2b4934", rough: 0.9 });
-defineMaterial("Eastheights_Pine", { card: "needles", tint: "#45694a", rough: 0.85 });
-defineMaterial("Eastheights_PineLight", { card: "needles", tint: "#7a986a", rough: 0.8 });
+defineMaterial("Eastheights_PineCore", { map: "foliage", tint: "#2f4b35", rough: 0.95, bump: 1.5 });
+defineMaterial("Eastheights_PineDark", { card: "needles", tint: "#35573d", rough: 0.9 });
+defineMaterial("Eastheights_Pine", { card: "needles", tint: "#527b53", rough: 0.85 });
+defineMaterial("Eastheights_PineLight", { card: "needles", tint: "#8eab76", rough: 0.8 });
 defineMaterial("Eastheights_Bark", { map: "bark", tint: "#6a5545", bump: 2.5 });
 defineMaterial("Eastheights_BarkBleached", { map: "bark", tint: "#b5ad9f", bump: 2.5 });
 defineMaterial("Eastheights_Charred", { map: "bark", tint: "#2c2624", bump: 2 });
 defineMaterial("Eastheights_Dark", { tint: "#141211", rough: 1 });
 // the old peoples' stones and the nomads' things
-defineMaterial("Eastheights_Megalith", { map: "stone", tint: "#aca89c", bump: 2.5 });
-defineMaterial("Eastheights_MegalithDark", { map: "stone", tint: "#817d73", bump: 2.5 });
-defineMaterial("Eastheights_Carving", { map: "stone", tint: "#5e5a53", bump: 2 });
+defineMaterial("Eastheights_Megalith", { map: "crag", tint: "#9d988c", bump: 2.5 });
+defineMaterial("Eastheights_MegalithDark", { map: "crag", tint: "#858077", bump: 2.5 });
+defineMaterial("Eastheights_Carving", { map: "crag", tint: "#5e5a53", bump: 2 });
 defineMaterial("Eastheights_Bone", { map: "marble", tint: "#e2d8c0", rough: 0.75 });
 defineMaterial("Eastheights_ScarfBlue", { map: "fabric", tint: "#3f7cca", rough: 0.9 });
 defineMaterial("Eastheights_ScarfWhite", { map: "fabric", tint: "#f1ede2", rough: 0.9 });
@@ -86,7 +86,7 @@ defineMaterial("Eastheights_Copper", { map: "metal", tint: "#bb7442", rough: 0.4
 defineMaterial("Eastheights_Verdigris", { map: "metal", tint: "#5f9e88", rough: 0.6, metal: 0.3 });
 defineMaterial("Eastheights_Arc", { tint: "#e6f3ff", rough: 0.4, glow: "#8cc8ff", glowI: 2.4 });
 defineMaterial("Eastheights_Fulgurite", { tint: "#46524f", rough: 0.3, glow: "#3a8cff", glowI: 0.5 });
-defineMaterial("Eastheights_Scorch", { map: "felt", tint: "#2e2a27", rough: 1 });
+defineMaterial("Eastheights_Scorch", { map: "felt", tint: "#3b322d", rough: 1, opacity: 0.62 });
 defineMaterial("Eastheights_HullTar", { map: "wood", tint: "#4d3e32", bump: 1.3 });
 defineMaterial("Eastheights_HullPaint", { map: "wood", tint: "#7c3326", bump: 1.2 });
 defineMaterial("Eastheights_Plank", { map: "wood", tint: "#8a7a66", bump: 1.3 });
@@ -110,8 +110,7 @@ defineMaterial("Eastheights_Glass", { tint: "#9ec4e8", rough: 0.1, glow: "#9ec4e
 defineMaterial("Eastheights_CliffHeath", { map: "crag", tint: "#a39e92", bump: 4 });
 defineMaterial("Eastheights_CliffStorm", { map: "crag", tint: "#85858a", bump: 4 });
 defineMaterial("Eastheights_CliffRift", { map: "crag", tint: "#9a8e88", bump: 4 });
-defineMaterial("Eastheights_Sea", { tint: "#26495c", rough: 0.06, opacity: 0.95 });
-defineMaterial("Eastheights_StormSea", { tint: "#203c4b", rough: 0.08, opacity: 0.95 });
+defineMaterial("Eastheights_StormSea", { tint: "#285a73", rough: 0.08, opacity: 0.93 });
 
 const TAU = Math.PI * 2;
 const DEG = 180 / Math.PI;
@@ -285,6 +284,37 @@ function shard(a: V3, b: V3, r: number, mat = "Eastheights_Rift"): Geo {
   return merge(cylinderBetween(a, m, 0.01, 5, mat, r), cylinderBetween(m, b, r, 5, mat, 0.01));
 }
 
+// Spots of lichen (or barnacles) crusting a rock: n little flat rosettes on faces that look up at
+// least `minUp`, each lying on its face, r0..r1 across.
+function lichenSpots(g: Geo, seed: number, n: number, mat: string, r0 = 6, r1 = 16, minUp = 0.25): Geo {
+  const rnd = seeded(seed), faces: { c: THREE.Vector3; n: THREE.Vector3 }[] = [];
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), E = new THREE.Vector3(), F = new THREE.Vector3();
+  for (const part of g) {
+    const geo = part.geo.index ? part.geo.toNonIndexed() : part.geo, pos = geo.getAttribute("position");
+    for (let i = 0; i + 2 < pos.count; i += 3) {
+      A.fromBufferAttribute(pos, i);
+      B.fromBufferAttribute(pos, i + 1);
+      C.fromBufferAttribute(pos, i + 2);
+      const nn = new THREE.Vector3().crossVectors(E.subVectors(B, A), F.subVectors(C, A));
+      if (nn.lengthSq() < 4) continue;
+      nn.normalize();
+      if (nn.z >= minUp) faces.push({ c: A.clone().add(B).add(C).multiplyScalar(1 / 3), n: nn });
+    }
+  }
+  const out: Geo[] = [], Z = new THREE.Vector3(0, 0, 1);
+  for (let k = 0; k < n && faces.length; k++) {
+    // each a little cluster of crusts run together
+    const f = faces[Math.floor(rnd() * faces.length)], r = r0 + rnd() * (r1 - r0);
+    const q = new THREE.Quaternion().setFromUnitVectors(Z, f.n);
+    for (let j = 0; j < 3; j++) {
+      const off = new THREE.Vector3((rnd() - 0.5) * r * 1.4, (rnd() - 0.5) * r * 1.4, 0).applyQuaternion(q), rr = r * (0.35 + rnd() * 0.4);
+      const m = new THREE.Matrix4().compose(f.c.clone().add(off).addScaledVector(f.n, 0.8), q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(Z, rnd() * 3)), new THREE.Vector3(rr, rr * (0.5 + rnd() * 0.4), 1));
+      out.push(sphereCenter(1, [0, 0, 0], mat, 6).map((p) => ({ geo: p.geo.clone().applyMatrix4(m), mat: p.mat })));
+    }
+  }
+  return merge(...out);
+}
+
 // A ragged patch lying flat on the ground (scorched turf, raw soil): rx x ry about `at`, darkest in
 // its middle, fading at its ragged edge.
 function scorchPatch(rx: number, ry: number, seed: number, at: [number, number] = [0, 0], mat = "Eastheights_Scorch", z = 1.5): Geo {
@@ -313,8 +343,8 @@ function heathBoulder(): Geo {
   blades(sh, 4107, 46, { rx: 165, ry: 135, h0: 30, h1: 62, lean: 0.6, ring: 0.62 });
   return merge(
     b,
-    coverTop(b, "Eastheights_LichenGold", { amount: 0.35, thick: 1.2, seed: 3, patches: 0.3 }),
-    coverTop(b, "Eastheights_LichenRust", { amount: 0.6, thick: 1, seed: 7, patches: 0.14 }),
+    lichenSpots(b, 3, 12, "Eastheights_LichenGold"),
+    lichenSpots(b, 7, 6, "Eastheights_LichenRust"),
     stone([90, 70, 55], 0.35, 4103, "Eastheights_GraniteDark", [-150, 75, 0], 20),
     pebbles(4105, [0, 0], 150, 120, 7, 16),
     sh.geo(),
@@ -333,8 +363,8 @@ function rockScatter(): Geo {
   blades(sh, 4209, 40, { rx: 210, ry: 160, h0: 25, h1: 55, lean: 0.6, keep: (x, y) => Math.hypot(x / 1.3, y) > 90 });
   return merge(
     slabs,
-    coverTop(slabs, "Eastheights_LichenGold", { amount: 0.2, thick: 1, seed: 11, patches: 0.25 }),
-    coverTop(slabs, "Eastheights_LichenGrey", { amount: 0.2, thick: 0.8, seed: 13, patches: 0.2 }),
+    lichenSpots(slabs, 11, 10, "Eastheights_LichenGold"),
+    lichenSpots(slabs, 13, 8, "Eastheights_LichenGrey"),
     stone([115, 95, 85], 0.35, 4205, "Eastheights_GraniteDark", [60, 125, 0], 0),
     stone([70, 60, 55], 0.35, 4206, "Eastheights_Granite", [-175, -65, 0], 50),
     stone([50, 45, 36], 0.4, 4207, "Eastheights_Granite", [185, 60, 0], 10),
@@ -364,9 +394,9 @@ function graniteTor(): Geo {
   blades(sh, 4315, 50, { rx: 250, ry: 215, h0: 30, h1: 60, lean: 0.6, ring: 0.6 });
   return merge(
     pile, fallen,
-    coverTop(pile, "Eastheights_LichenGold", { amount: 0.3, thick: 1.2, seed: 17, patches: 0.3 }),
-    coverTop(pile, "Eastheights_LichenGrey", { amount: 0.5, thick: 1, seed: 19, patches: 0.2 }),
-    coverTop(fallen, "Eastheights_LichenRust", { amount: 0.3, thick: 1, seed: 23, patches: 0.25 }),
+    lichenSpots(pile, 17, 12, "Eastheights_LichenGold"),
+    lichenSpots(pile, 19, 8, "Eastheights_LichenGrey"),
+    lichenSpots(fallen, 23, 10, "Eastheights_LichenRust"),
     pebbles(4317, [0, 0], 210, 180, 9, 18),
     sh.geo(),
   );
@@ -392,7 +422,7 @@ function heather(): Geo {
   lobes.push([-50, 4, 12, 38, 25, 13]);
   const sh = new Sheet();
   blades(sh, 4503, 16, { rx: 90, ry: 60, h0: 25, h1: 45, lean: 0.6, ring: 0.75 });
-  return merge(shrub({ seed: 4505, lobes, leaf: 17, look: HEATHER, ragged: 0.45, core: 0.86, density: 0.5, stems: { mat: "Eastheights_Bark", r: 1.6, n: 4 } }), sh.geo());
+  return merge(shrub({ seed: 4505, lobes, leaf: 17, look: HEATHER, ragged: 0.45, core: 0.8, density: 0.62, sun: 0.12, stems: { mat: "Eastheights_Bark", r: 1.6, n: 4 } }), sh.geo());
 }
 
 // A pine grown crooked in the wind (4.9 x 2.6 m, 4.2 m high): its trunk bowed downwind (-X), the
@@ -426,7 +456,7 @@ function bentTreeGeo(seed = 4601): Geo {
     [-120, 28, 252, 105, 78, 40], [-205, -36, 300, 118, 84, 42], [-300, 8, 342, 98, 70, 36],
     [-62, -28, 205, 78, 58, 32], [-185, 58, 228, 78, 54, 30], [-330, -40, 318, 70, 50, 28],
   ];
-  parts.push(shrub({ seed: seed + 9, lobes, leaf: 30, look: PINE, ragged: 0.45, core: 0.82, density: 0.5 }));
+  parts.push(shrub({ seed: seed + 9, lobes, leaf: 30, look: PINE, ragged: 0.5, core: 0.78, density: 0.42 }));
   return translate(merge(...parts), [170, 0, 0]);
 }
 
@@ -447,7 +477,7 @@ function windRockMushroom(): Geo {
   blades(sh, 4709, 34, { rx: 240, ry: 210, h0: 25, h1: 50, lean: 0.6, ring: 0.65 });
   return merge(
     stem, capAt,
-    coverTop(capAt, "Eastheights_LichenGold", { amount: 0.15, thick: 1.2, seed: 29, patches: 0.3 }),
+    lichenSpots(capAt, 29, 12, "Eastheights_LichenGold"),
     stone([120, 90, 40], 0.3, 4705, W, [-200, 90, -4], 30, true),
     stone([90, 70, 34], 0.3, 4706, WD, [150, -150, -4], 70, true),
     stone([70, 60, 50], 0.35, 4707, W, [-120, -170, 0], 10),
@@ -475,7 +505,7 @@ function windRockArch(): Geo {
   blades(sh, 4729, 40, { rx: 360, ry: 200, h0: 25, h1: 50, lean: 0.6, keep: (x, y) => Math.abs(y) > 140 || Math.abs(x) > 140 });
   return merge(
     all,
-    coverTop(span, "Eastheights_LichenGold", { amount: 0.15, thick: 1, seed: 31, patches: 0.25 }),
+    lichenSpots(span, 31, 10, "Eastheights_LichenGold"),
     stone([110, 80, 36], 0.3, 4725, W, [-170, 360, -4], 20, true),
     stone([80, 70, 50], 0.35, 4726, WD, [160, -380, 0], 60),
     pebbles(4727, [0, -250], 160, 120, 6, 15, W),
@@ -572,8 +602,8 @@ function warriorStone(): Geo {
   parts.push(block);
   const relief: Geo[] = [];
   // the helmet: its peak, crest, rim and cheek guards
-  relief.push(ellipsoid([18, 66, 50], [F - 2, 0, 312], M, 12));
-  relief.push(beamBetween([F - 14, 0, 292], [F - 6, 0, 368], 10, 9, M));
+  for (const s of [-1, 1]) relief.push(beamBetween([F - 6, s * 64, 284], [F - 6, 0, 336], 12, 11, M));
+  relief.push(beamBetween([F - 9, 0, 286], [F - 6, 0, 334], 8, 8, MD));
   relief.push(box([14, 140, 15], [F - 7, 0, 288], MD, 3));
   for (const s of [-1, 1]) relief.push(box([12, 22, 74], [F - 7, s * 60, 246], MD, 3));
   // the face: brow, deep eyes, nose, moustache, mouth, beard
@@ -606,8 +636,8 @@ function warriorStone(): Geo {
       if (k % 2) parts.push(beamBetween([-14, y, z - 8], [10, y, z + 8], 3, 4, C));
     }
   // weathering: lichen over the helmet and the top
-  parts.push(coverTop(merge(block, reliefG), "Eastheights_LichenGold", { amount: 0.25, thick: 1.2, seed: 37, patches: 0.3 }));
-  parts.push(coverTop(block, "Eastheights_LichenGrey", { amount: 0.6, thick: 1, seed: 41, patches: 0.12 }));
+  parts.push(lichenSpots(merge(block, reliefG), 37, 12, "Eastheights_LichenGold"));
+  parts.push(lichenSpots(block, 41, 5, "Eastheights_LichenGrey"));
   // packing stones round its foot
   for (let k = 0; k < 9; k++) {
     const a = (k / 9) * TAU + rnd() * 0.3, r = 120 + rnd() * 30;
@@ -1002,8 +1032,8 @@ function stormWreck(): Geo {
     boxBounds([240, -70, sheer(260) - 18], [380, 70, sheer(260) + 6], "Eastheights_HullTar", 2),
     boxBounds([250, -60, sheer(260) - 12], [370, 60, sheer(260) + 8], "Eastheights_Dark"),
   );
-  parts.push(translate(rotateZ(rotateX(bow, -30), -5), [-60, -40, 150]));
-  parts.push(translate(rotateZ(rotateX(stern, 22), 4), [60, 40, 120]));
+  parts.push(translate(rotateZ(rotateX(bow, -20), -7), [-70, -50, 175]));
+  parts.push(translate(rotateZ(rotateX(stern, 14), 5), [70, 50, 150]));
   // the mainmast down across the rocks with its yard and a torn sail
   const m0: V3 = [160, 120, 120], m1: V3 = [520, 820, 30];
   parts.push(cylinderBetween(m0, m1, 15, 8, "Eastheights_Plank", 11));
@@ -1018,7 +1048,7 @@ function stormWreck(): Geo {
   for (let k = 0; k < 7; k++) {
     const a = rnd() * TAU, x = Math.cos(a) * (500 + rnd() * 300), y = Math.sin(a) * (260 + rnd() * 160), s = 0.7 + rnd() * 0.6;
     const r = stone([170 * s, 140 * s, 110 * s], 0.32, 5630 + k, "Eastheights_GraniteDark", [x, y, -10], rnd() * 180);
-    parts.push(r, coverTop(r, "Eastheights_Barnacle", { amount: 0.95, thick: 1, seed: 43 + k, patches: 0.2 }));
+    parts.push(r, lichenSpots(r, 43 + k, 14, "Eastheights_Barnacle", 5, 12, -0.6));
   }
   for (let k = 0; k < 5; k++) parts.push(translate(rotateZ(boxAt([260 + rnd() * 120, 22, 12], [0, 0, 0], "Eastheights_Plank", 2), rnd() * 180), [-600 + rnd() * 1300, -500 + rnd() * 200 + (k % 2) * 900, 0]));
   parts.push(translate(rotateY(cylinderAt({ rBot: 30, rTop: 30, height: 80, segments: 9, bottom: [0, 0, -40] }, "Eastheights_Plank"), 90), [-500, 380, 30]));
@@ -1167,7 +1197,7 @@ function floatingStones(): Geo {
     }
     // the pit it came from
     const px = at[0] * 0.8 + (rnd() - 0.5) * 30, py = at[1] * 0.8 + (rnd() - 0.5) * 30;
-    parts.push(scorchPatch(s * 0.55, s * 0.45, 5940 + i, [px, py], "Eastheights_SoilDark"));
+    parts.push(scorchPatch(s * 0.5, s * 0.4, 5940 + i, [px, py], "Eastheights_Soil"));
     parts.push(pebbles(5950 + i, [px, py], s * 0.55, s * 0.45, 5, 10, "Eastheights_Soil"));
   });
   blades(sh, 5970, 44, { rx: 280, ry: 260, h0: 22, h1: 45, lean: 0.6, ring: 0.5 });
@@ -1214,7 +1244,7 @@ function stoneRing(): Geo {
     const a = (i / 9) * TAU + 0.2, at: V3 = [Math.cos(a) * RR, Math.sin(a) * RR, zOn(a)];
     const slab = rotateZ(rotateY(rock([66, 130, 175], 0.2, 6010 + i, i % 3 ? "Eastheights_Megalith" : "Eastheights_MegalithDark"), 8 + rnd() * 20), a * DEG + 90 + (rnd() - 0.5) * 30);
     const placed = translate(slab, [at[0], at[1], at[2] - 85]);
-    parts.push(placed, coverTop(placed, "Eastheights_LichenGold", { amount: 0.2, thick: 1, seed: 60 + i, patches: 0.25 }));
+    parts.push(placed, lichenSpots(placed, 60 + i, 10, "Eastheights_LichenGold"));
     parts.push(ellipsoid([40, 40, 14], [at[0], at[1], at[2] - 95], "Eastheights_RiftSoft", 8));
     for (let k = 1; k <= 3; k++) {
       const b = a - k * 0.07, s = 14 - k * 3;
@@ -1237,18 +1267,21 @@ function stoneRing(): Geo {
 // cut roots sticking out of its sides, stones and crumbs in it, a violet glint or two.
 function tornHollow(): Geo {
   const parts: Geo[] = [], rnd = seeded(6101), sh = new Sheet(), RX = 150, RY = 120;
-  parts.push(scorchPatch(RX, RY, 6105, [0, 0], "Eastheights_SoilDark", 2.5));
-  for (let k = 0; k < 14; k++) {
-    const a = (k / 14) * TAU + rnd() * 0.2, r = 1 + rnd() * 0.12, s = 60 + rnd() * 30;
-    parts.push(stone([s * 1.3, s * 0.8, s * 0.42], 0.4, 6110 + k, k % 3 ? "Eastheights_Soil" : "Eastheights_SoilDark", [Math.cos(a) * RX * r, Math.sin(a) * RY * r, -6], a * DEG + 90, true));
+  parts.push(scorchPatch(RX * 1.05, RY * 1.05, 6105, [0, 0], "Eastheights_Soil", 2), scorchPatch(RX * 0.6, RY * 0.6, 6106, [10, -5], "Eastheights_SoilDark", 2.6));
+  for (let k = 0; k < 13; k++) {
+    if (rnd() < 0.25) continue;
+    const a = (k / 13) * TAU + rnd() * 0.3, r = 0.95 + rnd() * 0.2, s = 40 + rnd() * 55, at: V3 = [Math.cos(a) * RX * r, Math.sin(a) * RY * r, -8];
+    // a clod of torn earth, its turf still on top
+    const clod = stone([s * 1.4, s * 0.8, s * 0.5], 0.45, 6110 + k, k % 3 ? "Eastheights_Soil" : "Eastheights_SoilDark", at, a * DEG + 90 + (rnd() - 0.5) * 40, true);
+    parts.push(clod, translate(rotateZ(scale(sphereCenter(1, [0, 0, 0], "Eastheights_TurfDark", 6), [s * 0.42, s * 0.26, 2.5]), a * DEG + 90), [at[0] + Math.cos(a) * 10, at[1] + Math.sin(a) * 10, s * 0.3]));
     if (k % 2 === 0) {
       // a flap of turf turned back over the rim
-      const c: V3 = [Math.cos(a) * (RX + 30), Math.sin(a) * (RY + 30), 16], u: V3 = [-Math.sin(a) * 30, Math.cos(a) * 30, 0], o: V3 = [Math.cos(a) * 40, Math.sin(a) * 40, -12];
-      sh.quad("Eastheights_Turf", [c[0] - u[0], c[1] - u[1], c[2]], [c[0] + u[0], c[1] + u[1], c[2]], [c[0] + u[0] + o[0], c[1] + u[1] + o[1], c[2] + o[2]], [c[0] - u[0] + o[0], c[1] - u[1] + o[1], c[2] + o[2]], [1, 1, 0.8, 0.8], null, true);
+      const c: V3 = [Math.cos(a) * (RX + 40), Math.sin(a) * (RY + 40), 10], w = 18 + rnd() * 16, u: V3 = [-Math.sin(a) * w, Math.cos(a) * w, 0], o: V3 = [Math.cos(a) * (30 + rnd() * 20), Math.sin(a) * (30 + rnd() * 20), -8];
+      sh.quad("Eastheights_Turf", [c[0] - u[0], c[1] - u[1], c[2]], [c[0] + u[0], c[1] + u[1], c[2]], [c[0] + u[0] * 0.7 + o[0], c[1] + u[1] * 0.7 + o[1], c[2] + o[2]], [c[0] - u[0] * 0.8 + o[0], c[1] - u[1] * 0.8 + o[1], c[2] + o[2]], [1, 1, 0.8, 0.8], null, true);
     }
     if (k % 3 === 1) {
-      const p: V3 = [Math.cos(a) * RX * 0.92, Math.sin(a) * RY * 0.92, 18];
-      parts.push(limb([p, [p[0] * 0.85, p[1] * 0.85, 22], [p[0] * 0.72, p[1] * 0.72, 12]], 2.4, 0.8, "Eastheights_Root", { seg: 4, maxRings: 3 }));
+      const p: V3 = [Math.cos(a) * RX * 0.92, Math.sin(a) * RY * 0.92, 14];
+      parts.push(limb([p, [p[0] * 0.85, p[1] * 0.85, 18], [p[0] * 0.72, p[1] * 0.72, 8]], 2.4, 0.8, "Eastheights_Root", { seg: 4, maxRings: 3 }));
     }
   }
   parts.push(pebbles(6130, [0, 0], RX * 0.55, RY * 0.55, 8, 13, "Eastheights_Soil"));

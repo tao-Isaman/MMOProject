@@ -33,7 +33,7 @@ import type { NpcSpec } from "../npcs";
 import { KIT as HEIGHTS } from "./kits/eastheights";
 import { smooth, band, inPoly, distTo, faceDir, faceTo, seaSheet } from "./kits/eastcoast";
 import type { XY, Poly } from "./kits/eastcoast";
-import { KIT as STEPPE, fieldReport } from "./kits/steppe";
+import { KIT as STEPPE, fieldReport, fenceRun } from "./kits/steppe";
 import { KIT as TRUNRADA } from "./kits/trunrada";
 import { KIT as SOUTHSANDS } from "./kits/southsands";
 
@@ -138,7 +138,8 @@ export function build(quality: { flowers: number }): Town {
     const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i)), z = pos.getY(i);
-      const up = Math.min(1, Math.max(0, (z - 200) / 300)), n = (Math.sin(x / 830 + y / 610) + Math.sin(x / 270 - y / 390)) * 0.025;
+      // (and combed into long streaks running with the wind, north to south)
+      const up = Math.min(1, Math.max(0, (z - 200) / 300)), n = (Math.sin(x / 830 + y / 610) + Math.sin(x / 270 - y / 390)) * 0.02 + 0.045 * Math.sin(y / 260 + 2.2 * Math.sin(x / 900)) + 0.025 * Math.sin(y / 120 + x / 1300);
       col.set([1 + 0.04 * up + n, 0.98 - 0.05 * up + n, 0.93 - 0.08 * up + n], i * 3);
     }
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -146,7 +147,7 @@ export function build(quality: { flowers: number }): Town {
   }
 
   // the sea, the tarn and the river: the water, and solids along the edges
-  const sea = seaSheet([...SEA_EDGE.map(([x, y]) => [x - 120, y] as XY), [30000, -30000], [30000, 30000]], -14, "Eastheights_Sea");
+  const sea = seaSheet([...SEA_EDGE.map(([x, y]) => [x - 120, y] as XY), [30000, -30000], [30000, 30000]], -14, "WaterSea");
   const fresh = f.waterSheet({ x0: -A - 800, x1: 2600, y0: -2000, y1: 1000 }, -14, "WaterSea");
   f.blockBand(SEA_EDGE.filter(([, y]) => Math.abs(y) < R + 1500).map(([x, y]) => [x - 40, y] as XY), 260, { kind: "sea" });
   f.blockBand(RIVER.filter(([x]) => x > -R - 900), RIVER_W + 80, { gaps: [BRIDGE], gapR: 230 });
@@ -220,6 +221,13 @@ export function build(quality: { flowers: number }): Town {
   place("trunrada:campfire", [1600, 1950], 0, 160, { solid: ring(90, "fire") });
   place("trunrada:drying_rack", [2450, 1450], faceDir(-1, 0.4), 160);
   for (const [x, y, h] of [[1700, 2550, 20], [1850, 2620, 70]] as number[][]) tryPlace("common:crate", [x, y], h, 60);
+  // the yak pen by the camp, empty since the herd went wild, its gate hanging open
+  {
+    const P: XY[] = [[180, 700], [780, 700], [780, 1250], [180, 1250]], mid: XY = [480, 975];
+    for (let i = 0; i < 4; i++) fenceRun(f, P[i], P[(i + 1) % 4], mid, i === 1 ? { gates: [0.5] } : i === 3 ? { broken: [0] } : {});
+    taken.push([mid[0], mid[1], 420]);
+    tryPlace("steppe:water_trough", [620, 1400], 90, 120);
+  }
 
   // ---- the north heights: the falls' spring, crooked pines, heather, tors, a kurgan, flags ----
   for (const [ref, at, h, r] of [
@@ -266,7 +274,10 @@ export function build(quality: { flowers: number }): Town {
     ["eastheights:heath_boulder", [-1300, 3400], 30], ["eastheights:rock_scatter", [1900, 4100], 120], ["eastheights:heath_boulder", [-600, -2900], 200],
     ["eastheights:rock_scatter", [-1400, 600], 60], ["steppe:boulder", [1000, -2700], 80], ["eastheights:heath_boulder", [2300, 3300], 140], ["steppe:boulder_flat", [-200, -1700], 20],
   ] as [string, XY, number][]) tryPlace(ref, at, h, 220, { solid: ring(140) });
-  tryPlace("trunrada:cart", [300, 3400], faceDir(-0.4, 1), 220);
+  tryPlace("trunrada:cart", [600, 3600], faceDir(-0.4, 1), 220);
+  // smaller rocks the wind has worn into odd shapes, out on the open grass
+  for (const [at, h, s] of [[[-1100, 2300], 40, 0.55], [[1500, 3700], 160, 0.6], [[-600, -2100], 250, 0.5], [[2700, 4400], 80, 0.6], [[3300, -5000], 10, 0.55]] as [XY, number, number][])
+    tryPlace("eastheights:wind_rock_mushroom", at, h, 260 * s, { s, solid: ring(110 * s) });
 
   // ---- crooked pines in the lee of the tablelands, heather, grass laid over by the wind ----
   const pine = (x: number, y: number, s: number) => {

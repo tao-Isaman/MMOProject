@@ -31,9 +31,9 @@ import { KIT as STEPPE, fieldReport } from "./kits/steppe";
 import { KIT as TRUNRADA } from "./kits/trunrada";
 import { KIT as SOUTHSANDS } from "./kits/southsands";
 import { KIT as WESTHILLS } from "./kits/westhills";
-import { KIT as FRONTIER } from "./kits/frontier";
+import { KIT as WESTFARM } from "./kits/westfarm";
 
-useKits(HEIGHTS, STEPPE, TRUNRADA, SOUTHSANDS, WESTHILLS, FRONTIER, EASTCOAST);
+useKits(HEIGHTS, STEPPE, TRUNRADA, SOUTHSANDS, WESTHILLS, WESTFARM, EASTCOAST);
 
 // the last build's own check (see fieldReport), for building the field; the game never calls it
 export let REPORT: () => string[] = () => [];
@@ -45,8 +45,8 @@ const A = 9000; // the ground's area, +-A
 // down the east to past the south edge; the land south-west of it ----
 const SHORE: XY[] = [
   [4500, A + 400], [4500, 5500], [4350, 4300], [4550, 3200], [4250, 2300], [3500, 1700], [2750, 1100], [2550, 300], [2800, -500],
-  [3600, -900], [4400, -1300], [4900, -2300], [4800, -3300], [4200, -3900], [3200, -4300], [2000, -4450], [800, -4250],
-  [-500, -4500], [-1800, -4350], [-3200, -4550], [-4500, -4450], [-5500, -4550], [-A - 400, -4600],
+  [3600, -900], [4400, -1300], [4900, -2300], [4800, -3300], [4200, -3900], [3200, -4300], [2000, -4450], [1300, -4150], [800, -4300], [100, -4700],
+  [-500, -4450], [-1100, -4200], [-1800, -4400], [-2600, -4800], [-3200, -4500], [-3900, -4300], [-4500, -4550], [-5500, -4550], [-A - 400, -4600],
 ];
 const SEA: Poly = [...SHORE, [-A - 400, -A - 400], [A + 400, -A - 400], [A + 400, A + 400]];
 
@@ -114,7 +114,19 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the ground: steppe grass gone grey in the salt wind, tracks, the sea cut out ----
   const roads = [band(MAIN, 480), band(UP_W, 420), band(UP_SW, 420), band(TO_CAPE, 420), band(ALONG_C1, 360), band(TO_COVE, 400)];
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [SEA], base: "steppe", road: [0.78, 0.75, 0.68] });
-  (ground.mesh.material as THREE.MeshStandardMaterial).color.set("#c9c7a6");
+  // (greyed by the salt wind out on the cape; the bands along the west and south edges keep the
+  // colour of the heights and the floating rocks' grass they run into)
+  {
+    const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
+    const ease = (t: number) => t * t * (3 - 2 * t), clamp01 = (t: number) => Math.min(1, Math.max(0, t));
+    for (let i = 0; i < pos.count; i++) {
+      const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i));
+      const t = ease(Math.min(clamp01((5500 - y) / 2200), clamp01((x + 5500) / 2200)));
+      col.set([1 - 0.3 * t, 1 - 0.3 * t, 1 - 0.45 * t], i * 3);
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    (ground.mesh.material as THREE.MeshStandardMaterial).vertexColors = true;
+  }
   // the cove's shingle: a second ground a hair over the grass, cut away outside the beach
   const BOX: Poly = [[1700, -700], [4000, -700], [4000, 2600], [1700, 2600]];
   const areaOf = (p: Poly) => p.reduce((t, [x, y], i) => t + x * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * y, 0);
@@ -162,7 +174,6 @@ export function build(_quality: { flowers: number }): Town {
   };
   // the gales come in off the sea from the north-east: everything leans away south-west
   const lee = () => -45 + (rnd() - 0.5) * 30;
-  const low = (x: number, y: number) => ![HW, HSW, C1].some((p) => inPoly(p, x, y));
   const onBeach = (x: number, y: number) => inPoly(BEACH, x, y);
 
   // ---- the ways out marked ----
@@ -212,6 +223,33 @@ export function build(_quality: { flowers: number }): Town {
     ["eastheights:rock_scatter", [-1600, -3900], 70], ["southsands:scorched_rock", [-4000, 1900], 200], ["westhills:storm_rocks", [-200, 3600], 120], ["eastheights:heath_boulder", [1600, 400], 10],
     ["southsands:fulgurite", [-3600, -2500], 140], ["eastheights:rock_scatter", [-500, -1400], 40],
   ] as [string, XY, number][]) tryPlace(ref, at, h, 220, { solid: ring(140) });
+  // the signal keepers' cottage at the foot of the headland, roofless, its hearth cold
+  {
+    const C: XY = [950, -2150], h = faceTo(C, [450, -700]);
+    const wall = (dx: number, dy: number, turn: number, sy = 1) => {
+      const a = (h * Math.PI) / 180, x = C[0] + dx * Math.cos(a) - dy * Math.sin(a), y = C[1] + dx * Math.sin(a) + dy * Math.cos(a);
+      put("steppe:ruined_wall", [x, y], h + turn, { sy, solid: [{ kind: "wall", x: 0, y: 0, w: 70, d: 400 * sy, rot: 0 }] });
+    };
+    wall(-260, 0, 0, 0.7);
+    wall(260, 0, 0);
+    wall(0, -330, 90, 1.3);
+    wall(0, 330, 90, 0.9);
+    put("trunrada:campfire", [C[0] + 40, C[1] + 60], 0, { solid: "none" });
+    put("steppe:fallen_log", [C[0] - 520, C[1] - 260], h + 30, { s: 0.8 });
+    taken.push([C[0], C[1], 620]);
+  }
+  // old dykes across the moor, broken by the storms
+  for (const [a, b] of [[[-600, -2500], [-3400, -2600]], [[-1300, 2300], [-1400, 1100]], [[-3900, -1300], [-4400, -3300]]] as [XY, XY][]) {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.round(L / 400), h = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI - 90;
+    for (let i = 0; i < n; i++) {
+      if (rnd() < 0.18) continue;
+      const at: XY = [a[0] + ((b[0] - a[0]) * (i + 0.5)) / n, a[1] + ((b[1] - a[1]) * (i + 0.5)) / n];
+      tryPlace(rnd() < 0.5 ? "westfarm:drystone_wall_broken" : "westfarm:drystone_wall", at, h, 200, { solid: [{ kind: "wall", x: 0, y: 0, w: 60, d: 400, rot: 0 }] });
+    }
+  }
+  for (const [at, h] of [[[-1900, -3500], 30], [[-3800, -3900], 160], [[1400, 2800], 80]] as [XY, number][]) tryPlace("eastheights:granite_tor", at, h, 300, { s: 0.85, solid: ring(180) });
+  for (const at of [[1700, -400], [2100, -900], [-1200, 3100]] as XY[]) tryPlace("trunrada:cairn", at, rnd() * 90, 120, { solid: ring(80) });
+
   // the rocky shore of the moor to the east, spray on it, stacks out in the sea
   for (const { p } of every(SHORE.slice(14), 340)) {
     if (Math.abs(p[0]) > R + 1500) continue;
@@ -226,7 +264,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- crooked pines in the lee, heather, grass beaten flat ----
   for (const [c, r, n] of [
     [[1500, 4300], 700, 4], [[-800, 4200], 500, 2], [[-2800, -3800], 700, 4], [[1000, -2300], 600, 3], [[-4400, -2200], 600, 3], [[-2700, 3900], 600, 3],
-    [[2900, -2500], 500, 2], [[-1200, 2300], 500, 2], [[3300, 4800], 400, 2],
+    [[2900, -2500], 500, 2], [[-1200, 2300], 500, 2], [[3300, 4800], 400, 2], [[-500, -3300], 600, 3], [[1800, -3800], 500, 3], [[-3900, 3000], 500, 2],
   ] as [XY, number, number][])
     for (let i = 0, made = 0; i < n * 20 && made < n; i++) {
       const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r, x = c[0] + Math.cos(a) * d, y = c[1] + Math.sin(a) * d;
@@ -236,9 +274,8 @@ export function build(_quality: { flowers: number }): Town {
       place("eastheights:bent_pine", [x, y], h, 230 * s, { s, solid: [{ kind: "tree", x: 170, y: 0, r: 30 }] });
       made++;
     }
-  scatter({ x0: -R, x1: R, y0: -R, y1: R }, 50, ["eastheights:heather"], 110, (x, y) => inBox(x, y, 200) && !onBeach(x, y), { s: [0.75, 1.15], solid: "none", tries: 5000, head: lee });
-  scatter({ x0: -R, x1: R, y0: -R, y1: R }, 12, ["steppe:boulder_flat", "steppe:rock_cluster", "eastheights:heath_boulder"], 180, (x, y) => inBox(x, y, 250) && !onBeach(x, y), { s: [0.55, 0.9], solid: 110 });
-  scatter({ x0: -R, x1: R, y0: -R, y1: R }, 14, ["frontier:scorch_mark"], 150, (x, y) => inBox(x, y, 250) && low(x, y) && !onBeach(x, y), { s: [0.7, 1.1], solid: "none" });
+  scatter({ x0: -R, x1: R, y0: -R, y1: R }, 95, ["eastheights:heather"], 110, (x, y) => inBox(x, y, 200) && !onBeach(x, y), { s: [0.75, 1.15], solid: "none", tries: 5000, head: lee });
+  scatter({ x0: -R, x1: R, y0: -R, y1: R }, 26, ["steppe:boulder_flat", "steppe:rock_cluster", "eastheights:heath_boulder", "eastheights:rock_scatter"], 180, (x, y) => inBox(x, y, 250) && !onBeach(x, y), { s: [0.55, 0.9], solid: 110 });
   scatter({ x0: -R - 400, x1: R + 400, y0: -R - 400, y1: R + 400 }, 420, ["eastheights:bent_grass", "eastheights:bent_grass", "steppe:grass_tuft"], 60, (x, y) => !onBeach(x, y) && !wet(x, y, 100), { s: [0.7, 1.2], solid: "none", tries: 12000, head: lee });
   // the beach: stones, weed, driftwood
   scatter({ x0: 1900, x1: 3800, y0: -500, y1: 2400 }, 12, ["eastheights:rock_scatter", "steppe:boulder", "steppe:fallen_log"], 150, onBeach, { s: [0.5, 0.8], solid: 90 });

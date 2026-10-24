@@ -241,6 +241,10 @@ export function build(quality: { flowers: number }): Town {
     deco(r < 0.55 ? "steppe:grass_tuft" : r < 0.75 ? "steppe:scrub" : r < 0.9 ? "steppe:boulder" : "steppe:rock_cluster", [x, y], f.rnd() * 360, 0.7 + f.rnd() * 0.6);
   }
 
+  // a boulder fallen from the east wall onto the strip of bank above the canyon's river, on the
+  // way north (the strip is too narrow to walk; nothing should live there)
+  f.put("steppe:boulder", [4830, -2060], 70, { s: 0.8, solid: SHAPES.boulder });
+
   // ---- monsters: the plain, the canyon, both plateaus and the ruins ----
   f.monsterSpots(ground, { x0: -R + 400, x1: R - 400, y0: -R + 400, y1: R - 400 }, {
     step: 880,
