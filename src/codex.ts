@@ -5,7 +5,7 @@
 
 import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, sellPrice, isFashion } from "./items";
 import type { ItemKind } from "./items";
-import { MONSTERS, statsFor } from "./bestiary";
+import { MONSTERS, VISITORS, fieldMonsters, statsFor } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { VARIANTS } from "./monsters";
 import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
@@ -57,6 +57,8 @@ export const TOWN_LORE: Record<TownId, string> = {
     + "ถึงหิมะจะคลุมเกือบทั้งปี ชาวไร่ก็ยังปลูกมันฝรั่ง กะหล่ำ และข้าวบาร์เลย์ในเรือนกระจกได้ ผู้เฒ่าของเมืองยังเฝ้ารักษาเรื่องเล่าก่อนจะมีอาณาจักร",
   venezia: "เวนิชเซียสร้างบนเกาะเล็กเกาะน้อยกลางลากูน ชาวประมงตอกเสาไม้ลงโคลนทีละต้นจนกลายเป็นเมืองที่มีคลองแทนถนน และกอนโดลาแทนเกวียน "
     + "ท่าเรือใหญ่ของเมืองส่งเรือไปทุกเมืองท่า ทุกปีชาวเมืองสวมหน้ากากออกงานรื่นเริงริมจัตุรัสมหาวิหาร และกองคาราวานก็ขึ้นเหนือผ่านที่ราบแห้งแล้งไปถึงบาฮามัส",
+  palace: "พระราชวังหลวงตั้งอยู่บนเนินเหนืออีเดน ที่ซึ่งหิมะเริ่มตก ตำนานเล่าว่าเมื่อกษัตริย์องค์แรกรวมเผ่าทั้งหลายได้แล้ว มังกรฟ้าก็ลงมาสวมมงกุฎให้บนยอดเขาหลังวัง "
+    + "มงกุฎนั้นหล่อจากเงินในเหมืองหลวง พระราชวังสร้างด้วยหินขาวแบบเดียวกับอีเดน มีท้องพระโรง โบสถ์หลวง หอสมุด และอุทยาน ทุกวันนี้พระราชาประทับที่นี่ และออกราชโองการให้นักผจญภัยไปปราบภัยทุกมุมของอาณาจักร",
 };
 
 export class CodexUI {
@@ -180,12 +182,12 @@ export class CodexUI {
     }
     const fields = (Object.keys(FIELDS) as (keyof typeof FIELDS)[]).sort((a, b) => FIELDS[a].levels[0] - FIELDS[b].levels[0]);
     for (const f of fields) {
-      const here = MONSTERS.filter((m) => m.field === f && match(m.name)).sort((a, b) => a.levels[0] - b.levels[0]);
+      const here = fieldMonsters(f).filter((m) => match(m.name)).sort((a, b) => a.levels[0] - b.levels[0]);
       if (!here.length) continue;
       el("h4", "ws-craft", this.list).textContent = `${FIELDS[f].name} (เลเวล ${FIELDS[f].levels.join("–")})`;
       for (const m of here) {
         const lv = m.levels[0] === m.levels[1] ? `${m.levels[0]}` : m.levels.join("–");
-        const body = this.row(`m:${m.id}`, this.portrait(m.id, m.race ?? "brute"), `Lv ${lv} ${m.name}`,
+        const body = this.row(`m:${f}:${m.id}`, this.portrait(m.id, m.race ?? "brute"), `Lv ${lv} ${m.name}`,
           `${KIND_NAMES[m.kind]} · ${RACE_NAMES[m.race ?? "brute"]}${m.element ? ` · ธาตุ${ELEMENTS[m.element].name}` : " · ไร้ธาตุ"}`);
         if (body) body.innerHTML = monsterText(m);
       }
@@ -288,7 +290,11 @@ function monsterText(m: MonsterDef): string {
   if (tier) drops.push(`อุปกรณ์เลเวล ${tier} (สุ่ม 1 ชิ้น) ${pct(TIER_DROP[m.kind])}`);
   drops.push(`หมวก รองเท้า แหวน จี้ของร้าน (สุ่ม) ${pct(m.kind === "boss" ? 0.6 : m.kind === "rare" ? 0.25 : 0.012)}`);
   drops.push(`ตำราที่ยังเรียนได้ (สุ่ม) ${pct(m.kind === "boss" ? BOOK_CHANCE.boss : m.kind === "rare" ? BOOK_CHANCE.rare : BOOK_CHANCE.normal)}${m.levels[1] >= TIER2_DROP_LEVEL ? " รวมตำราขั้นสอง" : ""}`);
-  return `<b>ที่อยู่:</b> ${MAP_NAMES[m.field]}<br>`
+  // a monster seen in its home field also names the fields it visits, and the other way round
+  const home = MONSTERS.find((x) => x.id === m.id)!;
+  const elsewhere = [home, ...VISITORS.filter((v) => v.id === m.id)].filter((x) => x.field !== m.field)
+    .map((x) => `${MAP_NAMES[x.field]} (Lv ${x.levels[0]}–${x.levels[1]})`);
+  return `<b>ที่อยู่:</b> ${MAP_NAMES[m.field]}${elsewhere.length ? ` · พบที่${elsewhere.join(" · ")}ด้วย` : ""}<br>`
     + `HP ${range(lo.hp, hi.hp)} · พลังโจมตี ${range(lo.atk, hi.atk)} · ป้องกัน ${range(lo.def, hi.def)} · ต้านเวท ${range(lo.mdef, hi.mdef)} · EXP ${range(lo.xp, hi.xp)}<br>`
     + `${m.aggro ? "โจมตีก่อน" : "ไม่โจมตีก่อน"}${ways.length ? ` · ${ways.join(" · ")}` : ""}<br>`
     + `${eleDefText(m.eleDef)}<br><i>${m.look}</i><br><b>ของดรอป:</b> ${drops.join(" · ")}`;

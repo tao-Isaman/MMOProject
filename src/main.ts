@@ -19,7 +19,7 @@ import type { Craft } from "./workshop";
 import { slimeSheets, spawnMonsters, rollDrops, MonsterLooks, Monster, variantOf, shots, updateShots, drawShots } from "./monsters";
 import { Ground } from "./loot";
 import type { MonsterCtx, Person } from "./monsters";
-import { MONSTERS, MONSTER_BY_ID, PEOPLE, behaviour } from "./bestiary";
+import { MONSTER_BY_ID, PEOPLE, behaviour, fieldMonsters } from "./bestiary";
 import type { MonsterDef } from "./bestiary";
 import { Looks } from "./look";
 import { dressed } from "./outfits";
@@ -537,12 +537,12 @@ async function boot(): Promise<void> {
   const monLooks = new MonsterLooks(slimeSheets({
     idle: images.slime_idle, hop: images.slime_hop, hurt: images.slime_hurt, die: images.slime_die,
   }), dress);
-  // A map's monsters: towns have none; a field its own from the bestiary (and those its boss
-  // calls up), their sheets loaded first.
+  // A map's monsters: towns have none; a field its own from the bestiary and its visitors from
+  // other fields (and those its boss calls up), their sheets loaded first.
   async function populate(map: GameMap): Promise<Monster[]> {
     shots.length = 0;
     if (map.town) return [];
-    const pool = MONSTERS.filter((d) => d.field === map.id);
+    const pool = fieldMonsters(map.id);
     const called = pool.map((d) => behaviour(d, "summon")).filter((id): id is string => !!id && !!MONSTER_BY_ID[id]).map((id) => MONSTER_BY_ID[id]);
     await monLooks.prepare([...pool, ...called]);
     return spawnMonsters(monLooks, { spots: map.spots, levels: map.levels, pool, spawn: map.spawn });

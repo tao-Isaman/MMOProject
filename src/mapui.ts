@@ -280,7 +280,7 @@ export class MapUI {
       if (!p || !map) return;
       if (p.id === map.id) return this.say(`ตอนนี้อยู่ที่${p.name}แล้ว`);
       if (this.ports && !this.ports.includes(p.id)) return this.say(`เรือลำนี้ไม่ได้แล่นไป${p.name}`);
-      if (!p.open || p.kind === "field" || p.kind === "castle") return this.say(`ผู้นำทางยังพาไป${p.name}ไม่ได้`);
+      if (!p.open || p.kind === "field") return this.say(`ผู้นำทางยังพาไป${p.name}ไม่ได้`);
       const why = this.onTravel(p.id, !!this.ports);
       if (why) return this.say(why);
       this.toggle(false);
@@ -399,7 +399,7 @@ export class MapUI {
   // Whether a guide (or a ship) can take you to a place.
   reachable(p: Place): boolean {
     if (this.ports) return this.ports.includes(p.id);
-    return p.open && p.kind !== "field" && p.kind !== "castle";
+    return p.open && p.kind !== "field";
   }
 
   drawWorld(st: MapState): void {
@@ -424,10 +424,9 @@ export class MapUI {
     for (let row = r0; row <= r1; row++)
       for (let col = c0; col <= c1; col++) {
         const p = at.get(`${col},${row}`), x = X(col), y = Y(row);
-        const img = p && p.kind !== "castle" ? this.tile(p.id) : null;
+        const img = p ? this.tile(p.id) : null;
         if (img) g.drawImage(img, x, y, k + 0.5, k + 0.5);
         else groundSquare(g, groundAt(col, row), x, y, k, col * 31 + row * 17);
-        if (p?.kind === "castle") castleMark(g, x + k / 2, y + k * 0.48, k * 0.28);
       }
     // the lines between the squares
     g.strokeStyle = "rgba(20, 24, 16, 0.55)";
@@ -703,17 +702,4 @@ function groundSquare(g: CanvasRenderingContext2D, ground: Ground, x: number, y:
       g.stroke();
     }
   }
-}
-
-// The royal castle's mark on its (shut) square: a keep with two towers.
-function castleMark(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
-  g.fillStyle = "#c4bdb0";
-  g.strokeStyle = "#3a2c1a";
-  g.lineWidth = Math.max(1, r * 0.06);
-  for (const [bx, by, bw, bh] of [[-0.6, -0.35, 1.2, 0.75], [-0.85, -0.7, 0.38, 1.1], [0.47, -0.7, 0.38, 1.1], [-0.2, -0.95, 0.4, 0.7]]) {
-    g.fillRect(x + bx * r, y + by * r, bw * r, bh * r);
-    g.strokeRect(x + bx * r, y + by * r, bw * r, bh * r);
-  }
-  g.fillStyle = "#3a2c1a";
-  g.fillRect(x - 0.12 * r, y + 0.05 * r, 0.24 * r, 0.35 * r);
 }

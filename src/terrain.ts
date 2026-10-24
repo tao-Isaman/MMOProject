@@ -18,7 +18,7 @@ export const TERRAIN_NAMES: Record<TerrainKind, string> = {
 const TERRAIN: Record<string, TerrainKind> = {
   // the towns
   eden: "town", iceberg: "town", trunrada: "town", kradia: "town", bahamas: "town", yodia: "town", osaki: "town",
-  noa: "town", suzhou: "town", highland: "town", venezia: "town",
+  noa: "town", suzhou: "town", highland: "town", venezia: "town", palace: "town",
   // round Eden and north to the snow
   field: "grassland", west_woods: "forest", royal_road: "grassland",
   snow_foothills: "snow", ice_pass: "snow", north_icefield: "snow",
@@ -33,6 +33,15 @@ const TERRAIN: Record<string, TerrainKind> = {
   rice_terraces: "grassland", highland_downs: "mountain", karst_peaks: "mountain", ancient_plain: "ruins",
   frozen_river: "snow", west_pass: "mountain", tangled_hills: "mountain", lagoon_marsh: "coast",
   royal_necropolis: "ruins", north_cliffs: "coast", west_cape: "coast",
+  // the rest of the land (docs/v04_lands.md)
+  flower_fields: "grassland", windmill_fields: "grassland", royal_hunt: "snow", frozen_falls: "snow",
+  old_royal_mine: "mountain", royal_peaks: "mountain", dragon_summit: "mountain", west_glacier: "snow",
+  ice_queen_hollow: "snow", aurora_field: "snow", frostfang_ridge: "snow", humming_stones: "mountain",
+  snow_abbey: "snow", primeval_forest: "jungle", sunken_temple_woods: "ruins",
+  lavender_hills: "grassland", salt_dunes: "desert", glass_desert: "desert", waterfall_gorge: "jungle",
+  sacred_banyan: "forest", first_tree: "forest", inner_sea_cliffs: "coast", caravan_road: "grassland",
+  golden_maples: "forest", witch_cape: "forest", windswept_heights: "grassland", storm_cape: "coast",
+  floating_rocks: "grassland", thornland: "volcano", burnt_villages: "ruins", demon_camp: "volcano",
 };
 
 // A map not in the table: by the words in its id.

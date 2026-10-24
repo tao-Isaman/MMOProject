@@ -61,6 +61,11 @@ export const MAP_LINKS: Record<string, string[]> = {
   "noa_plains",
   "dry_plains"
  ],
+ "palace": [
+  "old_royal_mine",
+  "royal_road",
+  "royal_hunt"
+ ],
  "west_woods": [
   "field",
   "noa",
@@ -195,6 +200,137 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "west_cape": [
   "west_pass"
+ ],
+ "windmill_fields": [
+  "south_savanna",
+  "lavender_hills"
+ ],
+ "flower_fields": [
+  "snow_foothills",
+  "royal_road",
+  "noa_meadow"
+ ],
+ "royal_hunt": [
+  "pine_river",
+  "frozen_falls",
+  "palace"
+ ],
+ "salt_dunes": [
+  "great_desert",
+  "desert_edge"
+ ],
+ "lavender_hills": [
+  "west_woods",
+  "venezia",
+  "windmill_fields",
+  "noa_plains"
+ ],
+ "inner_sea_cliffs": [
+  "west_steppe",
+  "caravan_road"
+ ],
+ "waterfall_gorge": [
+  "great_desert",
+  "mangrove_coast",
+  "south_jungle"
+ ],
+ "frozen_falls": [
+  "west_steppe",
+  "horse_meadow",
+  "royal_hunt"
+ ],
+ "caravan_road": [
+  "trunrada",
+  "golden_maples",
+  "kradia",
+  "inner_sea_cliffs"
+ ],
+ "windswept_heights": [
+  "stone_plain",
+  "storm_cape",
+  "horse_meadow"
+ ],
+ "old_royal_mine": [
+  "palace",
+  "royal_peaks",
+  "ice_pass"
+ ],
+ "west_glacier": [
+  "ice_queen_hollow",
+  "iceberg"
+ ],
+ "golden_maples": [
+  "caravan_road",
+  "border_woods"
+ ],
+ "glass_desert": [
+  "great_desert"
+ ],
+ "aurora_field": [
+  "north_icefield"
+ ],
+ "witch_cape": [
+  "border_woods"
+ ],
+ "floating_rocks": [
+  "storm_cape",
+  "border_line",
+  "thornland",
+  "stone_plain"
+ ],
+ "storm_cape": [
+  "floating_rocks",
+  "windswept_heights"
+ ],
+ "burnt_villages": [
+  "border_line",
+  "demon_camp",
+  "border_woods"
+ ],
+ "thornland": [
+  "demon_land",
+  "floating_rocks"
+ ],
+ "demon_camp": [
+  "demon_land",
+  "burnt_villages"
+ ],
+ "royal_peaks": [
+  "dragon_summit",
+  "old_royal_mine"
+ ],
+ "primeval_forest": [
+  "snow_abbey",
+  "west_pass",
+  "karst_peaks"
+ ],
+ "dragon_summit": [
+  "royal_peaks"
+ ],
+ "ice_queen_hollow": [
+  "west_glacier"
+ ],
+ "snow_abbey": [
+  "primeval_forest",
+  "highland_downs"
+ ],
+ "humming_stones": [
+  "highland_downs",
+  "north_cliffs"
+ ],
+ "frostfang_ridge": [
+  "tangled_hills",
+  "north_cliffs"
+ ],
+ "sunken_temple_woods": [
+  "lagoon_marsh"
+ ],
+ "sacred_banyan": [
+  "royal_necropolis",
+  "yodia"
+ ],
+ "first_tree": [
+  "royal_necropolis"
  ]
 };
 

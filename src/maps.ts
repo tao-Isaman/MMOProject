@@ -19,7 +19,7 @@ import type { NpcSpec } from "./npcs";
 import type { Level } from "./world3d/view";
 import type { Vec2 } from "./types";
 
-export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki" | "noa" | "suzhou" | "highland" | "venezia";
+export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki" | "noa" | "suzhou" | "highland" | "venezia" | "palace";
 
 // The fields: name, monster levels, and the builder (src/world3d/field_<id>.ts).
 export const FIELDS = {
@@ -58,17 +58,49 @@ export const FIELDS = {
   royal_necropolis: { name: "สุสานหลวงโบราณ", levels: [170, 182], load: () => import("./world3d/field_royal_necropolis") },
   north_cliffs: { name: "หน้าผาทะเลเหนือ", levels: [182, 192], load: () => import("./world3d/field_north_cliffs") },
   west_cape: { name: "แหลมทะเลตะวันตก", levels: [188, 200], load: () => import("./world3d/field_west_cape") },
+  // the rest of the land (docs/v04_lands.md): the squares of the world map no map filled before
+  windmill_fields: { name: "ทุ่งกังหันลม", levels: [20, 28], load: () => import("./world3d/field_windmill_fields") },
+  flower_fields: { name: "ทุ่งดอกไม้หลวง", levels: [24, 32], load: () => import("./world3d/field_flower_fields") },
+  royal_hunt: { name: "ป่าล่าสัตว์หลวง", levels: [28, 36], load: () => import("./world3d/field_royal_hunt") },
+  salt_dunes: { name: "เนินทรายริมทะเลใน", levels: [30, 40], load: () => import("./world3d/field_salt_dunes") },
+  lavender_hills: { name: "ทุ่งลาเวนเดอร์", levels: [34, 44], load: () => import("./world3d/field_lavender_hills") },
+  inner_sea_cliffs: { name: "ทุ่งผาริมทะเลใน", levels: [38, 48], load: () => import("./world3d/field_inner_sea_cliffs") },
+  waterfall_gorge: { name: "หุบผาน้ำตก", levels: [42, 52], load: () => import("./world3d/field_waterfall_gorge") },
+  frozen_falls: { name: "หุบน้ำตกเยือกแข็ง", levels: [46, 56], load: () => import("./world3d/field_frozen_falls") },
+  caravan_road: { name: "ถนนคาราวานตะวันออก", levels: [52, 62], load: () => import("./world3d/field_caravan_road") },
+  windswept_heights: { name: "ที่ราบสูงลมแรง", levels: [56, 66], load: () => import("./world3d/field_windswept_heights") },
+  old_royal_mine: { name: "เหมืองหลวงเก่า", levels: [62, 72], load: () => import("./world3d/field_old_royal_mine") },
+  west_glacier: { name: "ธารน้ำแข็งตะวันตก", levels: [66, 76], load: () => import("./world3d/field_west_glacier") },
+  golden_maples: { name: "ป่าเมเปิลทอง", levels: [68, 78], load: () => import("./world3d/field_golden_maples") },
+  glass_desert: { name: "ทะเลทรายแก้ว", levels: [74, 84], load: () => import("./world3d/field_glass_desert") },
+  aurora_field: { name: "ทุ่งแสงเหนือ", levels: [78, 88], load: () => import("./world3d/field_aurora_field") },
+  witch_cape: { name: "แหลมแม่มด", levels: [84, 94], load: () => import("./world3d/field_witch_cape") },
+  floating_rocks: { name: "ทุ่งหินลอย", levels: [88, 98], load: () => import("./world3d/field_floating_rocks") },
+  storm_cape: { name: "แหลมพายุ", levels: [92, 102], load: () => import("./world3d/field_storm_cape") },
+  burnt_villages: { name: "หมู่บ้านร้างชายแดน", levels: [98, 108], load: () => import("./world3d/field_burnt_villages") },
+  thornland: { name: "ทุ่งหนามอสูร", levels: [104, 114], load: () => import("./world3d/field_thornland") },
+  demon_camp: { name: "ค่ายทัพอสูร", levels: [110, 120], load: () => import("./world3d/field_demon_camp") },
+  royal_peaks: { name: "สันเขาหลวง", levels: [114, 124], load: () => import("./world3d/field_royal_peaks") },
+  primeval_forest: { name: "ป่าดึกดำบรรพ์", levels: [120, 130], load: () => import("./world3d/field_primeval_forest") },
+  dragon_summit: { name: "ยอดเขามังกรฟ้า", levels: [124, 134], load: () => import("./world3d/field_dragon_summit") },
+  ice_queen_hollow: { name: "หุบวังน้ำแข็ง", levels: [130, 140], load: () => import("./world3d/field_ice_queen_hollow") },
+  snow_abbey: { name: "ผาอารามหิมะ", levels: [136, 146], load: () => import("./world3d/field_snow_abbey") },
+  humming_stones: { name: "หุบหินร้องเพลง", levels: [148, 158], load: () => import("./world3d/field_humming_stones") },
+  frostfang_ridge: { name: "สันเขาเขี้ยวน้ำแข็ง", levels: [160, 170], load: () => import("./world3d/field_frostfang_ridge") },
+  sunken_temple_woods: { name: "ป่าวิหารจม", levels: [170, 180], load: () => import("./world3d/field_sunken_temple_woods") },
+  sacred_banyan: { name: "ป่าไทรศักดิ์สิทธิ์", levels: [180, 190], load: () => import("./world3d/field_sacred_banyan") },
+  first_tree: { name: "ป่าต้นไม้แรก", levels: [190, 200], load: () => import("./world3d/field_first_tree") },
 } satisfies Record<string, { name: string; levels: [number, number]; load: () => Promise<{ build: (quality: { flowers: number }) => Town }> }>;
 export type FieldId = keyof typeof FIELDS;
 export type MapId = TownId | FieldId | "field";
 
 export const MAP_NAMES = {
   eden: "อีเดน", field: "ทุ่งหญ้าตะวันตก", iceberg: "ไอซ์เบิร์ก", trunrada: "ทรุนราดา", kradia: "คราเดีย",
-  bahamas: "บาฮามัส", yodia: "โยเดีย", osaki: "โอซากิ", noa: "โนอา", suzhou: "ซูโจว", highland: "ไฮแลนด์ ฮิล", venezia: "เวนิชเซีย",
+  bahamas: "บาฮามัส", yodia: "โยเดีย", osaki: "โอซากิ", noa: "โนอา", suzhou: "ซูโจว", highland: "ไฮแลนด์ ฮิล", venezia: "เวนิชเซีย", palace: "พระราชวังหลวง",
   ...(Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.name])) as Record<FieldId, string>),
 } as Record<MapId, string>;
 // the towns a travel guide can send you to (every town)
-export const TOWNS: TownId[] = ["eden", "iceberg", "trunrada", "kradia", "bahamas", "yodia", "osaki", "noa", "suzhou", "highland", "venezia"];
+export const TOWNS: TownId[] = ["eden", "iceberg", "trunrada", "kradia", "bahamas", "yodia", "osaki", "noa", "suzhou", "highland", "venezia", "palace"];
 
 // Each town's builder; all but Eden load with their kits when first entered.
 const BUILDERS: Record<TownId, () => Promise<(quality: { flowers: number }) => Town>> = {
@@ -83,6 +115,7 @@ const BUILDERS: Record<TownId, () => Promise<(quality: { flowers: number }) => T
   suzhou: () => import("./world3d/town_suzhou").then((m) => m.buildSuzhou),
   highland: () => import("./world3d/town_highland").then((m) => m.buildHighland),
   venezia: () => import("./world3d/town_venezia").then((m) => m.buildVenezia),
+  palace: () => import("./world3d/town_palace").then((m) => m.buildPalace),
 };
 
 // A name written on the map window: a place (big), a corner of it (small) or a gate.
