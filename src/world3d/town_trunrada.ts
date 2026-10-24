@@ -1,5 +1,6 @@
 // ทรุนราดา (Trunrada), the clan town of the cold north-eastern steppe, laid out from the player's
-// own plan and set square on a grid: a square palisade with three gates (west, east and north);
+// own plan and set square on a grid: a square palisade with four gates (west, east, north, and
+// south at the foot of the south-west lane, out to the caravan road);
 // the broad main road straight from the west gate to the east gate; the north road straight down
 // from the north gate to the main road, where the chief's great yurt and the clan's long hall
 // face each other across it halfway down; the lane up on the left to the north back street, and
@@ -91,6 +92,9 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     rect(LANE_E.u0, SQ_V1, LANE_E.u1, MAIN.v0),
     // the tracks on out of the gates
     rect(-700, 427, WL + 2, 453), rect(EL - 2, 427, 1600, 453), rect(429, -700, 455, NL + 2),
+    // v0.4: the south gate's way, on from the south-west lane past the back street and out to the
+    // caravan road
+    rect(LANE_SW.u0 + 2, BACK_S.v1 - 2, LANE_SW.u1 - 2, SL + 2), rect(333, SL - 2, 359, 1100),
   ];
   const ground = buildPaved({
     area: { x0: -16500, x1: 17000, y0: -16500, y1: 17500 }, roads, plazas: [rect(SQ_U, SQ_V, SQ_U1, SQ_V1)], base: "steppe",
@@ -104,11 +108,12 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   const GATE_N: XY = [NORTH, P((NROAD.u0 + NROAD.u1) / 2, 0)[1]];
   const GATE_W: XY = [P(0, (MAIN.v0 + MAIN.v1) / 2)[0], WEST];
   const GATE_E: XY = [P(0, (MAIN.v0 + MAIN.v1) / 2)[0], EAST];
+  const GATE_S: XY = [SOUTH, P((LANE_SW.u0 + LANE_SW.u1) / 2, 0)[1]]; // v0.4: to the caravan road
   const run = (a: XY, b: XY, out: Side, gaps: number[] = []) => town.wall(a, b, out, "trunrada:palisade", { gaps, len: 600, gap: 600 });
   run([NORTH, WEST], [NORTH, EAST], "n", [WEST - GATE_N[1]]);
   run([NORTH, EAST], [SOUTH, EAST], "e", [NORTH - GATE_E[0]]);
   run([NORTH, WEST], [SOUTH, WEST], "w", [NORTH - GATE_W[0]]);
-  run([SOUTH, WEST], [SOUTH, EAST], "s");
+  run([SOUTH, WEST], [SOUTH, EAST], "s", [WEST - GATE_S[1]]);
   const tower = (x: number, y: number, inward: Side) => put("trunrada:watchtower", [x, y], FACE[inward]);
   tower(NORTH, WEST, "s"); tower(NORTH, EAST, "s"); tower(SOUTH, WEST, "n"); tower(SOUTH, EAST, "n");
   for (const u of [280, 600]) tower(NORTH, P(u, 0)[1], "s");
@@ -125,6 +130,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   put("trunrada:palisade_gate", GATE_N, FACE.n, { solid: gateSolid });
   put("trunrada:palisade_gate", GATE_W, FACE.w, { solid: gateSolid });
   put("trunrada:palisade_gate", GATE_E, FACE.e, { solid: gateSolid });
+  put("trunrada:palisade_gate", GATE_S, FACE.s, { solid: gateSolid });
 
   // ---- houses: rows with their fronts SET back from the street, evenly spaced from one end of
   // the block to the other; the yurts in rows of their own ----
@@ -319,7 +325,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   prop("cairn", OVOO[0], OVOO[1], 30, 200, { s: 1.3 });
   for (const du of [-17, 17]) prop("brazier_post", OVOO[0] + du, OVOO[1], 0, 60);
   // the gates: braziers either side of the way in, clan standards outside
-  for (const [g, side] of [[GATE_N, "n"], [GATE_W, "w"], [GATE_E, "e"]] as [XY, Side][]) {
+  for (const [g, side] of [[GATE_N, "n"], [GATE_W, "w"], [GATE_E, "e"], [GATE_S, "s"]] as [XY, Side][]) {
     const a = (FACE[side] * Math.PI) / 180, ox = -Math.cos(a), oy = -Math.sin(a); // outward
     for (const s of [-1, 1]) {
       const bx = g[0] - ox * 470 - oy * s * 360, by = g[1] - oy * 470 + ox * s * 360;
@@ -400,7 +406,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
   for (const [u, v] of [[760, 180], [80, 250], [90, 690], [760, 660]] as XY[]) put("trunrada:haystack", P(u, v), rnd() * 90, { solid: "none" });
   town.woods({ x0: -15500, x1: 16000, y0: -15500, y1: 16500 }, ["Birch", "Pine", "PineSmall", "Bush", "Birch"], (x, y) => {
     const inside = x > SOUTH - 1000 && x < NORTH + 1000 && y > EAST - 1000 && y < WEST + 1000;
-    const road = (Math.abs(x - GATE_W[0]) < 900 && (y > WEST || y < EAST)) || (Math.abs(y - GATE_N[1]) < 900 && x > NORTH);
+    const road = (Math.abs(x - GATE_W[0]) < 900 && (y > WEST || y < EAST)) || (Math.abs(y - GATE_N[1]) < 900 && x > NORTH) || (Math.abs(y - GATE_S[1]) < 900 && x < SOUTH);
     return inside || road || herds.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < 700);
   }, { count: 160, spacing: 600 });
 
@@ -432,11 +438,13 @@ export function buildTrunrada(quality: { flowers: number }): Town {
     bounds: { minX: SOUTH - 700, maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(412, 440),
     npcs: trunradaNpcs(CHIEF_V),
-    // north to the horse meadows by the sea, west across the steppe, east to the old stone plain
+    // north to the horse meadows by the sea, west across the steppe, east to the old stone plain,
+    // south down the caravan road
     ...waysOut([
       gateWay(GATE_N, "n", "horse_meadow", 420, 420),
       gateWay(GATE_W, "w", "west_steppe", 420, 420),
       gateWay(GATE_E, "e", "stone_plain", 420, 420),
+      gateWay(GATE_S, "s", "caravan_road", 420, 420),
     ]),
     closed: [],
     labels: [
@@ -452,6 +460,7 @@ export function buildTrunrada(quality: { flowers: number }): Town {
       { x: GATE_N[0] - 60, y: GATE_N[1], text: "ประตูเหนือ · ทุ่งเลี้ยงม้า", kind: "gate" },
       { x: GATE_W[0], y: GATE_W[1] - 60, text: "ประตูตะวันตก · สเตปป์ตะวันตก", kind: "gate" },
       { x: GATE_E[0], y: GATE_E[1] + 60, text: "ประตูตะวันออก · ที่ราบหินโบราณ", kind: "gate" },
+      { x: GATE_S[0] + 60, y: GATE_S[1], text: "ประตูใต้ · ถนนคาราวานตะวันออก", kind: "gate" },
     ],
   });
 }
