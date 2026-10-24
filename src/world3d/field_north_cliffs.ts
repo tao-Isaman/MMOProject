@@ -6,10 +6,12 @@
 // and runs on west into the snowy mountains; the east headland climbs in two to the cliffs where
 // the seabirds nest. Down in the cove, on a beach of shingle under the cliffs, lies the wreck of
 // a trader the lighthouse could not save. Out in the sea stand stacks of dark stone, ice round
-// their feet. There is no way on from here: the land ends, the sea only to the north.
+// their feet. The land ends here, the sea only to the north; but from the east headland a track
+// runs out east along its back to the frostfang ridge.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   way out: south -> highland
+//   way out: east (the middle, up on the east headland) -> frostfang_ridge
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -96,6 +98,11 @@ export function build(_quality: { flowers: number }): Town {
   const WEST: XY[] = [...smooth([[-1100, 350], [-300, 600], climb(RHW)[0]]), ...climb(RHW).slice(1), ...smooth([climb(RHW)[3], [900, 2700], climb(RHW2, 400)[0]]), ...climb(RHW2, 400).slice(1), ...smooth([climb(RHW2)[3], [1700, 4300], climb(RHW3, 350)[0]]), ...climb(RHW3, 350).slice(1), [3250, 4500]];
   const EAST: XY[] = [...smooth([[-1700, 850], [-1000, -250], climb(RHE)[0]]), ...climb(RHE).slice(1), ...smooth([climb(RHE)[3], [-400, -3300], climb(RHE2)[0]]), ...climb(RHE2).slice(1), ...smooth([climb(RHE2)[3], [2400, -3900], [3200, -3800]])];
   const roads = [band(MOOR, 460), band(WEST, 400), band(EAST, 400)];
+  // ---- the way east to the frostfang ridge: off the track over the east headland, out along
+  // its back to the east edge ----
+  const E_EXIT: XY = [-300, -5150];
+  const EAST_WAY: XY[] = smooth([[-420, -3200], [-520, -3800], [-380, -4500], E_EXIT, [-300, -7600]]);
+  roads.push(band(EAST_WAY, 400));
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const ROAD: [number, number, number] = [0.72, 0.74, 0.84];
   const ground = f.ground({ area, roads, plazas: [], water: [SEA], base: "snow", road: ROAD });
@@ -110,6 +117,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- the way out ----
   f.exit("highland", S_EXIT, [-4400, 3000]);
+  f.exit("frostfang_ridge", E_EXIT, [-360, -4450]);
 
   // ---- the sea: cold dark water, the shore closed, floes and stacks out on it ----
   const sea = f.waterSheet({ x0: 2400, x1: A + 2500, y0: -A - 2500, y1: A + 2500 }, -14, "Northcold_NorthSea");
@@ -184,6 +192,9 @@ export function build(_quality: { flowers: number }): Town {
     prop("northcold:seabird_rock", at, h, 300 * s, { s, solid: [{ kind: "rock", x: 0, y: 0, r: 240 }] });
   prop("snowland:cairn", [2000, -3600], 0, 70, ring(45));
   for (const [x, y] of [[4000, -2700], [4100, -4400], [3900, -2200]] as XY[]) if (free(x, y, 150)) prop("northcold:iced_rocks", [x, y], rnd() * 360, 200, { s: 0.7, solid: [{ kind: "rock", x: 0, y: 0, r: 140 }] });
+
+  // ---- the way east: its sign at the way out ----
+  prop("snowland:trail_sign", [-780, -4850], -90, 80, ring(30, "post"));
 
   // ---- the moor: an old memorial cairn for the drowned, the way marked, rocks ----
   prop("snowland:trail_sign", [-4950, 2700], 90, 80, ring(30, "post"));
@@ -269,6 +280,7 @@ export function build(_quality: { flowers: number }): Town {
     npcs,
     labels: [
       { x: S_EXIT[0] + 150, y: S_EXIT[1], text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },
+      { x: E_EXIT[0] - 300, y: E_EXIT[1] + 150, text: "ทางไปสันเขาเขี้ยวน้ำแข็ง", kind: "gate" },
       { x: LIGHT[0] - 700, y: LIGHT[1] - 300, text: "ประภาคารร้าง" },
       { x: WRECK[0] - 700, y: WRECK[1] - 600, text: "ซากเรือบนหาดกรวด" },
       { x: 2300, y: -1500, text: "อ่าวหาดกรวด", kind: "small" },
