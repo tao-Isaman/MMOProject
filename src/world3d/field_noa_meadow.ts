@@ -1,5 +1,5 @@
 // ทุ่งหญ้าโนอา (the Noa downs), monsters Lv 30-40: wide windy grassland north of the west woods
-// (north-east of Noa, which is reached through the woods), a dead end. The road up from the woods
+// (north-east of Noa, which is reached through the woods). The road up from the woods
 // comes in at the middle of the south edge and climbs gently north-east over rolling pasture cut
 // up by old dry-stone walls to the mouth of a valley between two raised downs. Off it a lane loops
 // south through the sheep pastures: the shepherd's hut, two round sheepfolds, the pond, whose
@@ -7,7 +7,10 @@
 // north-west down carries the old stone windmill, its sails turning over the whole field; the far
 // down in the east is the reward for the climb: a wide high pasture with its own walls and flocks,
 // and on its higher step the ruined watchtower that once guarded Noa's border, old relics round
-// its foot and the best view of the downs. Higher downs close the valley's end and the east.
+// its foot and the best view of the downs. Higher downs close the valley's end and the east; from
+// the pasture lane's far corner a lane runs east past the second fold, over the shoulder of the
+// hill and through a gap in those downs, out of the middle of the east side to the royal flower
+// fields.
 //
 // The field lies between the snow and the green. North of it the tangled hills stand under snow:
 // over the last fifth of the field towards the north edge frost and snow patches thicken on the
@@ -18,7 +21,8 @@
 // south bank, snow lying in patches, pines and birches past it. East and south it is grassland.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   way out: south -> west_woods (e 0.50, the woods' north way out)
+//   ways out: south -> west_woods (e 0.50, the woods' north way out), east -> flower_fields (n 0.47,
+//   the flower fields' west way out)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -53,7 +57,8 @@ const P1: XY[] = [[1700, 2700], [2500, 1500], [3600, 1150], [5000, 1500], [6300,
 const P2: XY[] = [[700, -900], [1900, -900], [3500, -800], [5600, -1000], [A, -1300], [A, -A], [300, -A], [400, -5600], [700, -4000], [1000, -2400]];
 const P3: XY[] = [[2400, -2400], [3900, -2000], [4800, -2900], [4600, -4400], [3300, -4700], [2300, -3700]];
 const MV: XY[] = [[6100, -1700], [6500, 0], [6200, 1900], [A, 2100], [A, -1900]];
-const ME: XY[] = [[-A, -6300], [-4500, -6100], [-1500, -6500], [200, -6200], [600, -A], [-A, -A]];
+// (v0.4: ME stops short of the gap the lane east to the flower fields goes through)
+const ME: XY[] = [[-A, -6300], [-4500, -6100], [-1700, -6500], [-1000, -6700], [-1050, -A], [-A, -A]];
 const R1 = { top: [2100, 2100] as XY, bottom: [1351, 1600] as XY, width: 460 };
 const R2 = { top: [1300, -900] as XY, bottom: [1300, 0] as XY, width: 460 };
 const R3 = { top: [2350, -3050] as XY, bottom: [1453, -2981] as XY, width: 440 };
@@ -114,7 +119,10 @@ const MAIN: XY[] = [
 ];
 const MILL_WAY: XY[] = [...smooth([JUNCTION, [1050, 1050], along(R1.bottom, R1.top, -450)]), R1.bottom, R1.top, ...smooth([along(R1.bottom, R1.top, 1350), [2650, 2500], [2850, 2650]])];
 const PASTURE: XY[] = smooth([[-1450, 1000], [-2150, 150], [-2500, -800], [-2450, -1700], [-2150, -2550], [-1500, -3250], [-650, -3050], [-50, -1900], [200, -600], [250, 420]]);
-const TRACKS = [MAIN, MILL_WAY, PASTURE];
+// ---- (v0.4) the lane east to the royal flower fields, off the pasture lane's far corner ----
+const E_WAY: XY = [-300, -5150], E_BACK: XY = [-410, -4400];
+const FLOWER_WAY: XY[] = smooth([[-700, -3100], [-550, -3900], [-350, -4600], E_WAY, [-260, -6500], [-220, -A]]);
+const TRACKS = [MAIN, MILL_WAY, PASTURE, FLOWER_WAY];
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(301, {
@@ -141,7 +149,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- the ground in three layers: snow under everything (the snow the patches open onto),
   // the frozen river's pale dry grass over the west, and the meadow's green on top, each upper
   // layer a hair higher and cut away where what is under it shows ----
-  const roads = [band(MAIN, 460), band(MILL_WAY, 400), band(PASTURE, 380)];
+  const roads = [band(MAIN, 460), band(MILL_WAY, 400), band(PASTURE, 380), band(FLOWER_WAY, 400)];
   const ROAD: [number, number, number] = [0.94, 0.88, 0.8];
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [POND, band(BROOK, BW), MERE_WATER], base: "snow", road: ROAD });
   // patches of what is under, `amount` of them (0..1) at each point of a jittered grid over a box
@@ -205,6 +213,10 @@ export function build(quality: { flowers: number }): Town {
   prop("plains:signpost", [-4750, -450], 100, 80);
   prop("plains:milestone", [-4550, 650], 170, 60);
   prop("trunrada:cairn", [-5250, 700], 0, 120);
+  // (v0.4) the way out east to the flower fields: a signpost and a cairn
+  f.exit("flower_fields", E_WAY, E_BACK);
+  prop("plains:signpost", [150, -4750], 0, 80);
+  prop("trunrada:cairn", [-750, -5250], 0, 120);
   // where the lanes meet: a signpost at the valley's mouth
   prop("plains:signpost", [600, 1000], 200, 80);
 
@@ -456,6 +468,7 @@ export function build(quality: { flowers: number }): Town {
     npcs,
     labels: [
       { x: WAY[0] + 50, y: WAY[1] - 300, text: "ทางไปป่าใหญ่ตะวันตก", kind: "gate" },
+      { x: E_WAY[0] + 300, y: E_WAY[1] + 250, text: "ทางไปทุ่งดอกไม้หลวง", kind: "gate" },
       { x: -1800, y: 1300, text: "ทุ่งหญ้าโนอา" },
       { x: MILL[0] - 450, y: MILL[1], text: "เนินกังหันลม" },
       { x: TOWER[0] - 600, y: TOWER[1], text: "ซากหอยามโบราณ" },

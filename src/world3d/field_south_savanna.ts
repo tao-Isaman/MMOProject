@@ -8,7 +8,9 @@
 // and woods of acacias close the west and south.
 //
 // Laid out at full size in centimetres (north +X, east -Y) and scaled by TOWN_SCALE in finish.
-// Ways out: north to Eden's south gate, south to the desert's edge.
+// Ways out: north to Eden's south gate, south to the desert's edge, and west to the windmill fields
+// (n 0.62, where their east way out is) by a farm track off the caravan road at the waystation's
+// yard, past the waterhole and between the hills.
 
 import { FieldBuilder } from "./field";
 import type { SolidSpec } from "../world";
@@ -149,8 +151,11 @@ export function build(_quality: { flowers: number }): Town {
   const SPUR_B = smooth([[-2010, 820], [-2040, 1300], [-2075, 1800], [-2110, 2300], [-2300, 2800], [-2650, 3250]]);
   const SPUR_W = smooth([[3300, 600], [3150, 1150], [2900, 1650], [2650, 1950]]);
   const YARD: Poly = [[700, -860], [1750, -860], [1800, -420], [650, -560]];
+  // ---- (v0.4) the farm track west to the windmill fields, off the caravan road by the yard ----
+  const W_WAY: XY = [1350, 5150];
+  const WEST_WAY = smooth([[900, -430], [950, 800], [1150, 2100], [1300, 3600], W_WAY, [1400, 6500], [1450, A]]);
   const POND = ellipse(2600, 2650, 650, 480, 22);
-  const roads = [band(MAIN, 500), band(SPUR_A, 420), band(SPUR_B, 420), band(SPUR_W, 380), YARD];
+  const roads = [band(MAIN, 500), band(SPUR_A, 420), band(SPUR_B, 420), band(SPUR_W, 380), YARD, band(WEST_WAY, 420)];
   const ground = f.ground({
     area: { x0: -A, x1: A, y0: -A, y1: A },
     roads,
@@ -227,6 +232,7 @@ export function build(_quality: { flowers: number }): Town {
   const N: XY = [5150, yAt(MAIN, 5150)], S: XY = [-5150, yAt(MAIN, -5150)];
   f.exit("eden", N, [4450, yAt(MAIN, 4450)]);
   f.exit("desert_edge", S, [-4450, yAt(MAIN, -4450)]);
+  f.exit("windmill_fields", W_WAY, [1320, 4450]);
 
   // what stands where, so nothing is put in anything else
   const taken: [number, number, number][] = [];
@@ -264,6 +270,9 @@ export function build(_quality: { flowers: number }): Town {
   put("desert:signpost", [S[0] + 150, S[1] + 420], 0, 80);
   put("desert:boulder_big", [S[0] - 100, S[1] - 600], 60, 260, { s: 0.7 });
   put("desert:rock_cluster", [S[0] + 450, S[1] - 520], 20, 200, { s: 0.6 });
+  // (v0.4) the way west to the windmill fields
+  put("desert:signpost", [W_WAY[0] + 420, W_WAY[1] - 150], -90, 80);
+  put("desert:boulder_flat", [W_WAY[0] - 520, W_WAY[1] - 300], 40, 200, { s: 0.6 });
 
   // ---- the waystation by the track, its yard, carts and camp ----
   put("desert:waystation", [1250, -1300], -90, 520);
@@ -387,6 +396,7 @@ export function build(_quality: { flowers: number }): Town {
     { x: -1000, y: -5000, text: "ทะเลใน" },
     { x: N[0], y: N[1], text: "ทางไปอีเดน", kind: "gate" },
     { x: S[0], y: S[1], text: "ทางไปขอบทะเลทราย", kind: "gate" },
+    { x: W_WAY[0], y: W_WAY[1], text: "ทางไปทุ่งกังหันลม", kind: "gate" },
   ];
 
   return f.finishField({

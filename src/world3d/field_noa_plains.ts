@@ -10,10 +10,13 @@
 // strides the old aqueduct that fed Noa: a double arcade on the flat, a gap where it has fallen at
 // each end of a long ridge it runs along on a single tier, and a bay straddling the river; a ramp
 // climbs the ridge to walk beside it. In the north-west the land steps up onto a terrace of
-// vineyards, and the farmstead looks out over the road from its edge.
+// vineyards, and the farmstead looks out over the road from its edge. Off the royal road near the
+// north way out a farm track runs south-east through the fields, under an arch of the aqueduct and
+// out of the north end of the east side to the lavender hills.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: north -> noa, south-east corner -> venezia, west -> lagoon_marsh
+//   ways out: north -> noa, south-east corner -> venezia, west -> lagoon_marsh, east ->
+//   lavender_hills (n 0.83, the lavender hills' west way out)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -72,7 +75,11 @@ const FORK: XY = [800, -250];
 const WEST: XY[] = smooth([FORK, [400, 600], [-150, 1900], [-650, 3200], [-1000, 4300], [-1100, 5150], [-1200, 7600]]);
 const VINE_WAY: XY[] = [...smooth([[2650, 330], [2350, 700], along(RV.bottom, RV.top, -400)]), RV.bottom, RV.top, ...smooth([along(RV.bottom, RV.top, 1150), [2150, 2500], [FARM[0] - 650, FARM[1] - 350]])];
 const RIDGE_WAY: XY[] = [...smooth([[-150, -700], [150, -1050], along(RR.bottom, RR.top, -400)]), RR.bottom, RR.top, ...smooth([along(RR.bottom, RR.top, 1600), aqAt(SRM + 400, 600), aqAt(SRM + 1100, 520)])];
-const TRACKS = [WEST, VINE_WAY, RIDGE_WAY];
+// ---- (v0.4) the farm track to the lavender hills: off the royal road, south-east under the
+// aqueduct's arch (the eighth bay from the one over the river) and out of the east side ----
+const WAY_E: XY = [3600, -5150], BACK_E: XY = [4050, -4530];
+const LAV_WAY: XY[] = smooth([[3900, 470], [4250, -500], [4300, -1300], aqAt(5340 + 8 * 800, 650), aqAt(5340 + 8 * 800), aqAt(5340 + 8 * 800, -650), [4500, -4000], [3950, -4650], WAY_E, [3450, -6500], [3300, -A]]);
+const TRACKS = [WEST, VINE_WAY, RIDGE_WAY, LAV_WAY];
 
 const WAY_N: XY = [5150, 250], WAY_S: XY = [-5150, -4900], WAY_W: XY = [-1100, 5150];
 
@@ -134,6 +141,10 @@ export function build(quality: { flowers: number }): Town {
   prop("plains:signpost", [4700, -230], 0, 80);
   prop("plains:signpost", [-4600, -4700], 50, 80);
   prop("plains:signpost", [-650, 4800], -90, 80);
+  // (v0.4) the way to the lavender hills
+  f.exit("lavender_hills", WAY_E, BACK_E);
+  prop("plains:signpost", [3200, -4800], 90, 80);
+  prop("plains:signpost", [3650, 900], 160, 80);
 
   // ---- the lagoon's shore: sand along it (laid over the grass between the shore and a line a few
   // metres in), the water closed off, reeds and stones on the sand, channel markers and a moored
@@ -409,6 +420,7 @@ export function build(quality: { flowers: number }): Town {
       { x: WAY_N[0] - 250, y: WAY_N[1], text: "ทางไปโนอา", kind: "gate" },
       { x: WAY_S[0] + 250, y: WAY_S[1] + 150, text: "ทางไปเวนิชเซีย", kind: "gate" },
       { x: WAY_W[0], y: WAY_W[1] - 250, text: "ทางไปบึงลากูน", kind: "gate" },
+      { x: WAY_E[0], y: WAY_E[1] + 250, text: "ทางไปทุ่งลาเวนเดอร์", kind: "gate" },
       { x: 1800, y: 50, text: "ถนนหลวงโบราณ" },
       { x: aqAt(SRM)[0], y: aqAt(SRM)[1] + 350, text: "ท่อส่งน้ำโบราณ" },
       { x: 3800, y: 4300, text: "ลานไร่องุ่น" },

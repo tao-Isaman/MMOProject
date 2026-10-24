@@ -7,7 +7,8 @@
 //     closed by a brick wall with swallowtail merlons (towers at the corners and along it) and two
 //     open gates: north on the axis of the basilica, whose road turns west outside the wall and runs
 //     along it and over the strip of land at the lagoon's head to the north-west corner, on to the
-//     plains below Noa; and the north-east one in the east wall, the caravan road to the dry plains
+//     plains below Noa, and goes straight on north too, out of the north side to the lavender
+//     hills; and the north-east one in the east wall, the caravan road to the dry plains
 //     (and from them south to the ancient plain, or on to Bahamas);
 //   - the grand canal, 16 m wide, winding through in a reverse S: in from the lagoon on the west
 //     (v 44), round a bend south past the Rialto, which carries the market street over it, east
@@ -115,7 +116,8 @@ const GATE_N: UV = [126, NORTH], GATE_NE: UV = [EAST, 34];
 const SPAWN: UV = [126, 146];
 // the north road: out of the north gate, west along the outside of the wall and over the strip of
 // land at the lagoon's head to the north-west corner, where it leaves for the plains below Noa
-const NORTH_ROAD: UV[] = [[126, 2], [126, -4], [123, -7.5], [110, -7.5], [60, -7.5], [12, -7.5], [-10, -7.5], [-22, -12], [-40, -27], [-80, -60]];
+// (v0.4: its corner cut a little sharper, clear of the way north to the lavender hills)
+const NORTH_ROAD: UV[] = [[126, 2], [126, -3], [121, -7.5], [110, -7.5], [60, -7.5], [12, -7.5], [-10, -7.5], [-22, -12], [-40, -27], [-80, -60]];
 const WAY_NW: UV = [-11, -7.5];
 // the lagoon's head: its shore along the foot of that strip, then away north-west past the edge
 const LAGOON: UV[] = [[WEST, -2], [-16, -3], [-28, -12], [-48, -34], [-90, -64], [-300, -70], [-300, 420], [WEST, 420]];
@@ -273,6 +275,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
   const roads: Poly[] = [
     rect(16, 14, 122, 20),     // the lane along the north wall
     rect(122, -6, 130, 44),    // the north road, from outside the north gate to behind the basilica
+    rect(122, -40, 130, -6),   // (v0.4) and straight on north out of the town to the lavender hills
     band(NORTH_ROAD, 6),       // and on outside the wall to the north-west corner
     rect(130, 30, 260, 38),    // the north-east road, out through the caravan gate
     rect(106, 44, 146, 52),    // the lane round the basilica's apse
@@ -508,7 +511,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
   town.woods({ x0: P(0, 150)[0], x1: P(0, -150)[0], y0: P(300, 0)[1], y1: P(-60, 0)[1] }, ["RoundTree", "BigOak", "Pine", "SmallTree", "RoundTree"], (x, y) => {
     const u = 112 - y / 100, v = 100 - x / 100;
     const inside = v > -12 && u < EAST + 12;
-    const road = toNorthRoad(u, v) < 8 || (Math.abs(v - GATE_NE[1]) < 12 && u > EAST);
+    const road = toNorthRoad(u, v) < 8 || (Math.abs(v - GATE_NE[1]) < 12 && u > EAST) || (Math.abs(u - GATE_N[0]) < 8 && v < 0);
     return inside || road || isWater(u, v) || isWater(u + 8, v) || isWater(u, v + 8) || isWater(u - 8, v + 8);
   }, { count: 220, spacing: 520 });
 
@@ -536,6 +539,8 @@ export function buildVenezia(quality: { flowers: number }): Town {
     ...waysOut([
       { warp: { ...pt(...WAY_NW), r: 170, to: "noa_plains" }, back: pt(WAY_NW[0] + 9, WAY_NW[1]) },
       gateWay(at(...GATE_NE), "e", "dry_plains", 480, 420),
+      // (v0.4) straight on north from the north gate to the lavender hills
+      gateWay(at(...GATE_N), "n", "lavender_hills", 1030, 450),
     ]),
     closed: [],
     labels: [
@@ -556,7 +561,8 @@ export function buildVenezia(quality: { flowers: number }): Town {
       { ...pt(34, 131), text: "ย่านริมลากูน" },
       { ...pt(66, 156), text: "โบสถ์ปากคลอง", kind: "small" },
       { ...pt(125, 210), text: "เกาะโบสถ์", kind: "small" },
-      { x: at(...GATE_N)[0] - 300, y: at(...GATE_N)[1], text: "ประตูเหนือ · ที่ราบใต้โนอา", kind: "gate" },
+      { x: at(...GATE_N)[0] - 300, y: at(...GATE_N)[1], text: "ประตูเหนือ · ที่ราบใต้โนอา · ทุ่งลาเวนเดอร์", kind: "gate" },
+      { ...pt(GATE_N[0] + 4, -10), text: "ทางไปทุ่งลาเวนเดอร์", kind: "gate" },
       { x: at(...GATE_NE)[0], y: at(...GATE_NE)[1] + 300, text: "ประตูตะวันออกเฉียงเหนือ · ที่ราบแห้งแล้ง", kind: "gate" },
       { x: at(...WAY_NW)[0] - 300, y: at(...WAY_NW)[1] - 600, text: "ทางไปที่ราบใต้โนอา", kind: "gate" },
       { ...pt(-6, 60), text: "ลากูน", kind: "small" },
