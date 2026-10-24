@@ -666,7 +666,7 @@ export class Monster {
     const fierce = this.fierce;
     if (alive && !unseen && fierce && toPlayer < (this.angry > 0 ? SIGHT : this.variant.aggro * SEE_MORE)) this.angry = Math.max(this.angry, 2);
     if (!alive || unseen || (fierce ? toPlayer > SIGHT : fromHome > CHASE_LEASH + this.radius * 2)) this.angry = this.rush = 0;
-    if (fierce && this.angry > 0) this.rouse();
+    if (fierce && this.angry > 0) this.rouse(pl);
     // hurt: heal up, call for help, run off
     if (this.heals && !mute && this.healCd <= 0 && this.hp < this.maxHp * 0.45) {
       const n = Math.round(this.maxHp * 0.3);
@@ -738,10 +738,12 @@ export class Monster {
     this.step(dt);
   }
 
-  // Its kind near it that sees it after the player comes too (each then rouses its own).
-  private rouse(): void {
+  // Its kind near it that sees it after the player (`pl`), and has her in SIGHT too, comes too
+  // (each then rouses its own).
+  private rouse(pl: Vec2): void {
     for (const o of this.kin ?? []) {
-      if (o.angry <= 0 && o.alive && o.variant.id === this.variant.id && Math.hypot(o.x - this.x, o.y - this.y) < o.variant.aggro * SEE_MORE) o.angry = 2;
+      if (o.angry > 0 || !o.alive || o.variant.id !== this.variant.id) continue;
+      if (Math.hypot(o.x - this.x, o.y - this.y) < o.variant.aggro * SEE_MORE && Math.hypot(o.x - pl.x, o.y - pl.y) < SIGHT) o.angry = 2;
     }
   }
 
