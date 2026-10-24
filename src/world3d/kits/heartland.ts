@@ -91,16 +91,15 @@ const MATS: Record<string, Recipe> = {
   Heartland_SunPetal: { map: "felt", tint: "#f7c31d", rough: 0.8 },
   Heartland_SunPetalDeep: { map: "felt", tint: "#eb9b14", rough: 0.8 },
   Heartland_SunDisc: { map: "felt", tint: "#4a2c16", rough: 0.9, bump: 2 },
-  // lavender: cut bundles, and the bushes' silver-green tufts
+  // lavender: cut bundles and their stems, and the bushes in flower
   Heartland_Lavender: { map: "felt", tint: "#8c6cbc", rough: 0.9, bump: 1.2 },
   Heartland_LavenderDark: { map: "felt", tint: "#634890", rough: 0.9, bump: 1.2 },
   Heartland_LavStem: { map: "felt", tint: "#8a9476", rough: 0.9 },
-  // (a bush in flower: the silver-green leaves under a haze of purple spikes)
+  // (a bush in flower: a haze of purple spikes over its leafy heart)
   Heartland_LavCore: { map: "foliage", tint: "#9582c4", rough: 1, bump: 1.5 },
   Heartland_LavDark: { card: "tuft", tint: "#8c7cc0", rough: 0.9 },
   Heartland_LavMid: { card: "tuft", tint: "#ae9ae4", rough: 0.85 },
   Heartland_LavLight: { card: "tuft", tint: "#d0c0f8", rough: 0.8 },
-  Heartland_LavLeaf: { card: "tuft", tint: "#8f9a7e", rough: 0.85 },
   // the flower beds' leaves, and the meadow's tufts
   Heartland_BedCore: { map: "foliage", tint: "#4c7a33", rough: 1, bump: 1.5 },
   Heartland_BedDark: { card: "leaves", tint: "#447231", rough: 0.85 },
@@ -143,6 +142,42 @@ function tri(a: V3, b: V3, c: V3, mat: string): Geo {
   return [{ geo, mat }];
 }
 const quad = (a: V3, b: V3, c: V3, d: V3, mat: string): Geo => merge(tri(a, b, c, mat), tri(a, c, d, mat));
+// Flat triangles seen from one side only (what always shows the camera the same face: the sky side
+// of a leaf, the face of a flower), gathered by material: each turned so it looks along `out`.
+class Faces {
+  private by = new Map<string, number[]>();
+  tri(a: V3, b: V3, c: V3, mat: string, out: V3 = [0, 0, 1]): void {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const flip = n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0;
+    let list = this.by.get(mat);
+    if (!list) this.by.set(mat, (list = []));
+    list.push(...a, ...(flip ? c : b), ...(flip ? b : c));
+  }
+  geo(): Geo {
+    return [...this.by].map(([mat, p]) => {
+      const geo = new THREE.BufferGeometry(), n = p.length / 3, uv = new Float32Array(n * 2);
+      for (let i = 0; i < n; i++) {
+        uv[i * 2] = (p[i * 3] + p[i * 3 + 2] * 0.5) / 100;
+        uv[i * 2 + 1] = (p[i * 3 + 1] + p[i * 3 + 2] * 0.5) / 100;
+      }
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(p, 3));
+      geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+      geo.computeVertexNormals();
+      return { geo, mat };
+    });
+  }
+}
+// A tube from a to b without end caps (its ends stand in the ground or inside something else).
+function tube(a: V3, b: V3, r: number, segments: number, mat: string, rEnd = r): Geo {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = new THREE.Vector3().subVectors(B, A), len = d.length();
+  const g = new THREE.CylinderGeometry(rEnd, r, len, segments, 1, true);
+  const uv = g.getAttribute("uv");
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * Math.PI * 2 * r) / 100, (uv.getY(i) * len) / 100);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+  g.translate(...A.add(B).multiplyScalar(0.5).toArray());
+  return [{ geo: g.toNonIndexed(), mat }];
+}
 // the footprint's middle onto the origin
 function centre(g: Geo): Geo {
   const b = new THREE.Box3();
@@ -273,13 +308,13 @@ function skep(r = 26, h = 44): Geo {
   out.push(boxBounds([-r - 1, -5, 0], [-r + 6, 5, 7], "Heartland_Dark"));
   return merge(...out);
 }
-// A bee: a striped body, a dark head, two wings; about the size of a sparrow, so it reads.
+// A bee: a striped body, a dark head, two wings; about the size of a sparrow, so it reads (a few
+// pixels across in the game: a few faces each).
 function bee(at: V3, yaw: number): Geo {
   const b: Geo[] = [
-    translate(scale(sphereCenter(1, [0, 0, 0], "Heartland_Bee", 6), [3.4, 2.4, 2.3]), [0, 0, 0]),
-    translate(scale(sphereCenter(1, [0, 0, 0], "Heartland_BeeDark", 6), [0.9, 2.5, 2.4]), [0.6, 0, 0]),
-    translate(scale(sphereCenter(1, [0, 0, 0], "Heartland_BeeDark", 6), [0.8, 2.3, 2.2]), [2.2, 0, 0]),
-    sphereCenter(1.7, [-3.6, 0, 0.3], "Heartland_BeeDark", 6),
+    translate(scale(sphereCenter(1, [0, 0, 0], "Heartland_Bee", 5), [3.4, 2.4, 2.3]), [0, 0, 0]),
+    translate(scale(sphereCenter(1, [0, 0, 0], "Heartland_BeeDark", 4), [0.9, 2.5, 2.4]), [1.2, 0, 0]),
+    sphereCenter(1.7, [-3.6, 0, 0.3], "Heartland_BeeDark", 4),
     tri([0, 0, 1.8], [2.5, 5.2, 4.5], [-1.5, 4.5, 3.5], "Heartland_Wing"),
     tri([0, 0, 1.8], [2.5, -5.2, 4.5], [-1.5, -4.5, 3.5], "Heartland_Wing"),
   ];
@@ -290,6 +325,17 @@ function rowLobes(L: number, step: number, x: number, z: number, r: [number, num
   const out: Lobe[] = [];
   for (let y = -L / 2 + step / 2; y < L / 2; y += step) out.push([x + (rnd() - 0.5) * 8, y + (rnd() - 0.5) * 10, z, r[0] * (0.9 + rnd() * 0.2), r[1] * (0.9 + rnd() * 0.2), r[2] * (0.85 + rnd() * 0.3)]);
   return out;
+}
+// The dark leafy hearts under a row's cards, one to every two of its lobes (they lie run together
+// along the row): `k` their size relative to the lobes.
+function pairedCores(lobes: Lobe[], k: number, seed: number, mat: string): Geo {
+  const out: Geo[] = [];
+  for (let i = 0; i < lobes.length; i += 2) {
+    const a = lobes[i], b = lobes[Math.min(i + 1, lobes.length - 1)], half = Math.abs(b[1] - a[1]) / 2;
+    const c: V3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+    out.push(lump(c, [Math.max(a[3], b[3]) * k, half + Math.max(a[4], b[4]) * k, Math.max(a[5], b[5]) * k], seed * 13 + i * 7, mat, 0));
+  }
+  return merge(...out);
 }
 
 // ---- the turning sails ----
@@ -432,7 +478,7 @@ function beeStump(): Geo {
 // พุ่มกุหลาบป่า: a wild rose (a dog rose) sprawling 2 m across, thick with pink and white flowers.
 function flowerBush(): Geo {
   return shrub({
-    seed: 81, leaf: 17, look: SHRUB_GREEN, ragged: 0.6, density: 0.9, core: 0.78, stems: { mat: "BarkWarm", r: 2.5, n: 6 },
+    seed: 81, leaf: 22, look: SHRUB_GREEN, ragged: 0.6, density: 0.9, core: 0.78, coreDetail: 0, stems: { mat: "BarkWarm", r: 2.5, n: 6 },
     lobes: [[0, 0, 52, 62, 56, 46], [48, 30, 40, 44, 40, 36], [-46, 34, 42, 46, 40, 38], [16, -52, 38, 42, 38, 34], [-30, -40, 34, 40, 36, 30], [6, 8, 92, 40, 36, 26]],
     flowers: { cells: [F.rosePink, F.rosePink, F.blossom, F.cosmosPink], n: 90, size: 13, up: 0.6 },
   });
@@ -441,7 +487,7 @@ function flowerBush(): Geo {
 // ดงป๊อปปี้ป่า: wild poppies, cornflowers and daisies in the grass, a clump about 1.4 m across.
 function poppyPatch(): Geo {
   return shrub({
-    seed: 91, leaf: 15, look: TUFT, core: 0, ragged: 0.95, density: 0.85,
+    seed: 91, leaf: 20, look: TUFT, core: 0, ragged: 0.95, density: 0.85,
     lobes: [[0, 0, 16, 50, 46, 20], [44, 30, 12, 34, 30, 15], [-40, 36, 12, 32, 30, 14], [12, -46, 12, 34, 28, 14]],
     flowers: { cells: [F.roseRed, F.roseRed, F.roseRed, F.forgetMeNot, F.daisy], n: 44, size: 14, up: 0.85 },
   });
@@ -450,7 +496,7 @@ function poppyPatch(): Geo {
 // กอลาเวนเดอร์ป่า: one wild lavender bush, a silver-green cushion bristling with purple spikes.
 function lavenderClump(): Geo {
   return shrub({
-    seed: 95, leaf: 13, look: LAV, core: 0.8, ragged: 0.5, density: 0.6,
+    seed: 95, leaf: 17, look: LAV, core: 0.8, coreDetail: 0, ragged: 0.5, density: 0.6,
     lobes: [[0, 0, 26, 40, 38, 26], [24, 16, 20, 26, 24, 20], [-22, 18, 20, 26, 24, 20], [6, -24, 20, 26, 22, 18]],
     flowers: { cells: [F.lavender, F.lavender, F.wisteria], n: 60, size: 22, up: 0.95 },
   });
@@ -464,32 +510,42 @@ function sunflower(foot: V3, h: number, r: number, yaw: number, rnd: () => numbe
   const out: Geo[] = [];
   const lean: V3 = [(rnd() - 0.5) * 18 - 8, (rnd() - 0.5) * 18, 0];
   const top: V3 = [foot[0] + lean[0], foot[1] + lean[1], h];
-  out.push(cylinderBetween(foot, [top[0], top[1], h - r * 0.4], 2.6, 4, "Heartland_Stem", 1.8));
-  // leaves: broad, drooping, in turn up the stem
+  out.push(tube(foot, [top[0], top[1], h - r * 0.4], 2.6, 3, "Heartland_Stem", 1.8));
+  // leaves: broad, drooping, in turn up the stem (their upper faces: the camera looks down on them)
+  const leaves = new Faces();
   for (let k = 0; k < 3; k++) {
     const t = 0.25 + k * 0.2, a = (yaw + k * 137) * D, L = 34 - k * 5, W = 17 - k * 2;
     const b: V3 = [foot[0] + lean[0] * t, foot[1] + lean[1] * t, h * t];
     const tip: V3 = [b[0] + Math.cos(a) * L, b[1] + Math.sin(a) * L, b[2] - 8];
     const mid: V3 = [b[0] + Math.cos(a) * L * 0.5, b[1] + Math.sin(a) * L * 0.5, b[2] + 4];
     const side: V3 = [-Math.sin(a) * W * 0.5, Math.cos(a) * W * 0.5, 0];
-    out.push(quad(b, [mid[0] + side[0], mid[1] + side[1], mid[2]], tip, [mid[0] - side[0], mid[1] - side[1], mid[2]], "Heartland_SunLeaf"));
+    leaves.tri(b, [mid[0] + side[0], mid[1] + side[1], mid[2]], tip, "Heartland_SunLeaf");
+    leaves.tri(b, tip, [mid[0] - side[0], mid[1] - side[1], mid[2]], "Heartland_SunLeaf");
   }
-  // the head, built facing +Z then turned to face its way
-  const head: Geo[] = [
-    cylinderAt({ rBot: r * 0.6, rTop: r * 0.42, height: 7, segments: 8, bottom: [0, 0, -1] }, "Heartland_SunDisc"),
-    cylinderAt({ rBot: r * 0.3, rTop: r * 0.6, height: 8, segments: 6, bottom: [0, 0, -9] }, "Heartland_Stem"),
-  ];
-  const ring = (n: number, r0: number, r1: number, z: number, off: number, mat: string) => {
+  out.push(leaves.geo());
+  // the head, built facing +Z then turned to face its way: the disc a low cone, two rings of
+  // petals round it, the green cup behind (tilted at most 40 degrees, its face always shows the
+  // camera, so each face is drawn on one side only)
+  const head = new Faces(), rd = r * 0.58;
+  const fan = (n: number, rr: number, z: number, apex: number, mat: string, back: boolean) => {
     for (let i = 0; i < n; i++) {
-      const a0 = ((i + off) / n) * Math.PI * 2, a1 = ((i + 0.5 + off) / n) * Math.PI * 2, a2 = ((i + 1 + off) / n) * Math.PI * 2;
-      head.push(tri([Math.cos(a0) * r0, Math.sin(a0) * r0, z], [Math.cos(a1) * r1, Math.sin(a1) * r1, z + 3], [Math.cos(a2) * r0, Math.sin(a2) * r0, z], mat));
+      const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
+      head.tri([0, 0, apex], [Math.cos(a0) * rr, Math.sin(a0) * rr, z], [Math.cos(a1) * rr, Math.sin(a1) * rr, z], mat, back ? [Math.cos(am), Math.sin(am), -0.8] : [0, 0, 1]);
     }
   };
-  ring(11, r * 0.5, r * 1.08, 1.5, 0, "Heartland_SunPetal");
-  ring(11, r * 0.5, r * 0.94, 0.5, 0.5, "Heartland_SunPetalDeep");
+  fan(8, rd, 1, 6, "Heartland_SunDisc", false);
+  fan(6, r * 0.66, 0, -9, "Heartland_Stem", true);
+  const ring = (k: number, r0: number, r1: number, z: number, off: number, mat: string) => {
+    for (let i = 0; i < k; i++) {
+      const a0 = ((i + off) / k) * Math.PI * 2, a1 = ((i + 0.5 + off) / k) * Math.PI * 2, a2 = ((i + 1 + off) / k) * Math.PI * 2;
+      head.tri([Math.cos(a0) * r0, Math.sin(a0) * r0, z], [Math.cos(a1) * r1, Math.sin(a1) * r1, z + 3], [Math.cos(a2) * r0, Math.sin(a2) * r0, z], mat);
+    }
+  };
+  ring(10, r * 0.5, r * 1.08, 1.5, 0, "Heartland_SunPetal");
+  ring(10, r * 0.5, r * 0.94, 0.5, 0.5, "Heartland_SunPetalDeep");
   // (lifted to the sky more than turned to the front: from above, a field of them reads yellow)
   const tilt = -(18 + rnd() * 22);
-  out.push(translate(rotateZ(rotateY(merge(...head), tilt), (rnd() - 0.5) * 40), top));
+  out.push(translate(rotateZ(rotateY(head.geo(), tilt), (rnd() - 0.5) * 40), top));
   return merge(...out);
 }
 // แถวทานตะวัน: a row of sunflowers 8 m long, two staggered lines of them, taller than a man,
@@ -506,17 +562,20 @@ function sunflowerRow(): Geo {
 // A flower bed 8 m long along Y and 2.6 m across: three rows of plants on raked earth, each row
 // a band of leafy clumps under its flowers.
 function bed(seed: number, cells: number[], n: number, size: number, h: number): Geo {
-  const rnd = seeded(seed), out: Geo[] = [boxAt([250, 800, 10], [0, 0, -4], "Heartland_Soil", 4)];
+  const rnd = seeded(seed), out: Geo[] = [boxAt([250, 800, 10], [0, 0, -4], "Heartland_Soil")];
   // the furrows between the rows
-  for (const x of [-42, 42]) out.push(boxBounds([x - 6, -396, 5], [x + 6, 396, 7], "Heartland_SoilDry", 2));
-  for (const x of [-84, 0, 84])
-    out.push(shrub({ seed: seed + x + 100, leaf: 19, look: BED, core: 0.92, coreDetail: 0, ragged: 0.6, density: 0.26, lobes: rowLobes(780, 95, x, h * 0.5, [40, 58, h * 0.5], rnd), flowers: { cells, n, size, up: 1.4 } }));
+  for (const x of [-42, 42]) out.push(boxBounds([x - 6, -396, 5], [x + 6, 396, 7], "Heartland_SoilDry"));
+  for (const x of [-84, 0, 84]) {
+    const lobes = rowLobes(780, 95, x, h * 0.5, [40, 58, h * 0.5], rnd);
+    out.push(pairedCores(lobes, 0.92, seed + x, "Heartland_BedCore"));
+    out.push(shrub({ seed: seed + x + 100, leaf: 25, look: BED, core: 0, ragged: 0.6, density: 0.24, lobes, flowers: { cells, n, size, up: 1.4 } }));
+  }
   return merge(...out);
 }
 // แปลงป๊อปปี้: a bed of red poppies.
-const poppyBed = (): Geo => bed(111, [F.roseRed, F.roseRed, F.roseRed, F.tulips], 210, 18, 34);
+const poppyBed = (): Geo => bed(111, [F.roseRed, F.roseRed, F.roseRed, F.tulips], 150, 21, 34);
 // แปลงดอกไม้ขาว: a bed of white flowers (daisies and white blossom) for the cathedral's altars.
-const whiteBed = (): Geo => bed(121, [F.daisy, F.daisy, F.blossom], 210, 18, 38);
+const whiteBed = (): Geo => bed(121, [F.daisy, F.daisy, F.blossom], 150, 21, 38);
 
 // แถวลาเวนเดอร์: a row of lavender 8 m long, cushion after cushion on a ridge of dry earth.
 function lavenderRow(): Geo {
@@ -524,9 +583,9 @@ function lavenderRow(): Geo {
   const lobes: Lobe[] = [];
   // (cushion run into cushion, as the rows grow when they are old)
   for (let y = -370; y <= 370; y += 67) lobes.push([(rnd() - 0.5) * 8, y + (rnd() - 0.5) * 6, 36, 54 + rnd() * 6, 50 + rnd() * 4, 36 + rnd() * 6]);
-  out.push(shrub({ seed: 133, leaf: 20, look: LAV, core: 0.92, coreDetail: 0, ragged: 0.35, density: 0.36, sun: 0.2, lobes, flowers: { cells: [F.lavender, F.hydrangea, F.wisteria], n: 250, size: 24, up: 0.95 } }));
-  // silver-green leaves showing at the cushions' feet
-  out.push(shrub({ seed: 137, leaf: 14, look: { core: "Heartland_LavCore", dark: "Heartland_LavLeaf", mid: "Heartland_LavLeaf", light: "Heartland_LavLeaf" }, core: 0, ragged: 0.8, density: 0.16, lobes: lobes.map(([x, y, , rx, ry]) => [x, y, 10, rx * 1.08, ry, 12] as Lobe) }));
+  // (tufts the size of a hand: the rows stand by the hundred, and the camera is well above them;
+  // a little more of them in the sun, as the fewer, bigger tufts leave more of the heart showing)
+  out.push(shrub({ seed: 133, leaf: 29, look: LAV, core: 0.92, coreDetail: 0, ragged: 0.35, density: 0.36, sun: 0.3, lobes, flowers: { cells: [F.lavender, F.hydrangea, F.wisteria], n: 150, size: 29, up: 0.95 } }));
   return merge(...out);
 }
 
@@ -534,17 +593,18 @@ function lavenderRow(): Geo {
 // roof, the entrance slot over its landing board, bees coming and going. Painted white (the
 // fields put them in other colours).
 function beehive(): Geo {
+  // (plain boxes: a bevel this small is under a pixel in the game, and the hives stand by the dozen)
   const H = "Heartland_Hive", out: Geo[] = [];
-  for (const [x, y] of [[-22, -22], [-22, 22], [22, -22], [22, 22]] as [number, number][]) out.push(boxAt([7, 7, 34], [x, y, 0], "Heartland_OldWood", 1));
-  out.push(boxAt([66, 66, 6], [0, 0, 32], "Heartland_OldWood", 1.5));
-  out.push(boxBounds([-28, -28, 38], [28, 28, 46], H, 1.5));
-  out.push(boxBounds([-46, -20, 39], [-28, 20, 42], H, 1));
+  for (const [x, y] of [[-22, -22], [-22, 22], [22, -22], [22, 22]] as [number, number][]) out.push(boxAt([7, 7, 34], [x, y, 0], "Heartland_OldWood"));
+  out.push(boxAt([66, 66, 6], [0, 0, 32], "Heartland_OldWood"));
+  out.push(boxBounds([-28, -28, 38], [28, 28, 46], H));
+  out.push(boxBounds([-46, -20, 39], [-28, 20, 42], H));
   out.push(boxBounds([-27, -27, 46], [27, 27, 86], H, 1.5), boxBounds([-26, -26, 86], [26, 26, 88], "Heartland_Dark"), boxBounds([-27, -27, 88], [27, 27, 112], H, 1.5));
   out.push(boxBounds([-28.5, -16, 46], [-26, 16, 51], "Heartland_Dark"));
   // the hand holds in the sides
   for (const s of [-1, 1]) for (const z of [70, 102]) out.push(boxBounds([-10, s * 27 - 1.5, z], [10, s * 27 + 1.5, z + 4], "Heartland_Dark"));
   // the roof: a gable of zinc, its ends closed
-  out.push(boxBounds([-30, -30, 112], [30, 30, 116], H, 1));
+  out.push(boxBounds([-30, -30, 112], [30, 30, 116], H));
   out.push(gableRoof([66, 64, 3], [0, 0, 116], 16, 4, "Heartland_HiveRoof"), gableWall(-31, 30, 116, 16, H), gableWall(31, 30, 116, 16, H));
   out.push(bee([-58, -10, 58], 20), bee([-72, 12, 76], -40), bee([-44, 22, 92], 150), bee([-90, -14, 64], 70));
   return merge(...out);
@@ -937,12 +997,13 @@ function wattleFence(): Geo {
 // stubble in rows, and stooks on it: sheaves stood up in eights and tens, leaning together to dry,
 // each tied round its waist, the ears at the top.
 function wheatStooks(): Geo {
-  const rnd = seeded(231), out: Geo[] = [boxAt([800, 600, 6], [0, 0, -2], "Heartland_HayDark", 3)];
-  for (let y = -270; y <= 270; y += 45) out.push(boxBounds([-392, y - 10, 3], [392, y + 10, 8], "Heartland_Hay", 2));
+  const rnd = seeded(231), out: Geo[] = [boxAt([800, 600, 6], [0, 0, -2], "Heartland_HayDark")];
+  for (let y = -270; y <= 270; y += 45) out.push(boxBounds([-392, y - 10, 3], [392, y + 10, 8], "Heartland_Hay"));
+  // (each sheaf a few faces round: the stook is a hand's breadth across on the screen)
   const sheaf = (foot: V3, top: V3, seed: number): Geo => {
-    const g: Geo[] = [cylinderBetween(foot, top, 13, 7, "Heartland_Hay", 8)];
+    const g: Geo[] = [tube(foot, top, 13, 6, "Heartland_Hay", 8)];
     const mid: V3 = [foot[0] + (top[0] - foot[0]) * 0.4, foot[1] + (top[1] - foot[1]) * 0.4, foot[2] + (top[2] - foot[2]) * 0.4];
-    g.push(cylinderBetween([mid[0], mid[1], mid[2] - 3], [mid[0], mid[1], mid[2] + 3], 11.5, 7, "Heartland_HayDark"));
+    g.push(tube([mid[0], mid[1], mid[2] - 3], [mid[0], mid[1], mid[2] + 3], 11.5, 6, "Heartland_HayDark"));
     const dir: V3 = [top[0] - foot[0], top[1] - foot[1], top[2] - foot[2]], L = Math.hypot(...dir);
     g.push(lump([top[0] + (dir[0] / L) * 10, top[1] + (dir[1] / L) * 10, top[2] + 8], [15, 15, 20], seed, "Heartland_HayDark", 0, 0.25, 20));
     return merge(...g);
@@ -960,7 +1021,7 @@ function wheatStooks(): Geo {
   stook([250, -130, 6], 10, 75, 251);
   stook([-120, 190, 6], 8, 110, 257);
   // loose straw lying about
-  for (let i = 0; i < 12; i++) out.push(translate(rotateZ(scale(cylinderBetween([-30, 0, 2], [30, 0, 2], 3, 4, "Heartland_Hay"), [1, 1, 0.5]), rnd() * 360), [(rnd() - 0.5) * 700, (rnd() - 0.5) * 500, 6]));
+  for (let i = 0; i < 12; i++) out.push(translate(rotateZ(scale(tube([-30, 0, 2], [30, 0, 2], 3, 4, "Heartland_Hay"), [1, 1, 0.5]), rnd() * 360), [(rnd() - 0.5) * 700, (rnd() - 0.5) * 500, 6]));
   return merge(...out);
 }
 
@@ -1092,6 +1153,32 @@ function dryingRack(): Geo {
   out.push(cylinderAt({ rBot: 26, rTop: 32, height: 36, segments: 10, bottom: [0, -40, 0] }, "Heartland_Skep"));
   for (let i = 0; i < 7; i++) out.push(cylinderBetween([(rnd() - 0.5) * 30, -40 + (rnd() - 0.5) * 30, 20], [(rnd() - 0.5) * 50, -40 + (rnd() - 0.5) * 50, 58], 3, 4, "Heartland_LavenderDark", 5));
   return merge(...out);
+}
+
+// ---- for the fields ----
+// The ground hidden under pieces laid flat over it (the rows and beds, the wheat): strips from a to
+// b, `half` wide either side of the line; `covered` says whether a point lies under one (the
+// meadow's flowers are kept out from under them: nobody sees them there).
+export class Cover {
+  private strips: [number, number, number, number, number, number][] = [];
+  private cells = new Map<string, number[]>();
+  add(a: [number, number], b: [number, number], half: number): void {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, i = this.strips.length;
+    this.strips.push([a[0], a[1], (b[0] - a[0]) / L, (b[1] - a[1]) / L, L, half]);
+    for (let cx = Math.floor((Math.min(a[0], b[0]) - half) / 400); cx <= Math.floor((Math.max(a[0], b[0]) + half) / 400); cx++)
+      for (let cy = Math.floor((Math.min(a[1], b[1]) - half) / 400); cy <= Math.floor((Math.max(a[1], b[1]) + half) / 400); cy++) {
+        const k = `${cx},${cy}`, list = this.cells.get(k);
+        if (list) list.push(i);
+        else this.cells.set(k, [i]);
+      }
+  }
+  covered(x: number, y: number): boolean {
+    const list = this.cells.get(`${Math.floor(x / 400)},${Math.floor(y / 400)}`);
+    return !!list && list.some((i) => {
+      const [ax, ay, ux, uy, L, half] = this.strips[i], dx = x - ax, dy = y - ay, t = dx * ux + dy * uy;
+      return t >= 0 && t <= L && Math.abs(dx * uy - dy * ux) <= half;
+    });
+  }
 }
 
 // ---- the sample: where the flower fields run up to the windmill country and the lavender ----
