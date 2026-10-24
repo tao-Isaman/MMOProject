@@ -4,21 +4,25 @@
 // earth, dry grass and thorn scrub to the way on to Venezia at the north end of the west side.
 // Halfway along it stands the caravan waystation: the rest house, a well, awnings, posts where the
 // camels are tethered, a fire; from it a track runs south through a gap in the ridge to the
-// ancient plain, the ground greening towards it, olives and pines on the ridge. Mesas rise out of
-// the plain: the great one in the north-east carries an abandoned stone fort, its corner towers
-// and its gatehouse facing the long ramp up; the south-western one steps up again to a butte
-// where an old beacon tower guided the caravans by night. A dry wash winds down the south-east,
-// mud cracked in its bed, and in it lie the bleached bones of some huge beast. Lone buttes stand
-// all round past the edge.
+// ancient plain, the ground greening towards it, olives and pines on the ridge. The west side
+// greens too, into the grass and woods outside Venezia's walls, and in the south-west corner the
+// head of Venezia's bacino reaches in, a little inlet with a shore of wet sand and reeds. Mesas
+// rise out of the plain: the great one in the north-east carries an abandoned stone fort, its
+// corner towers and its gatehouse facing the long ramp up; the south-western one steps up again
+// to a butte where an old beacon tower guided the caravans by night. A dry wash winds down the
+// south-east, mud cracked in its bed, and in it lie the bleached bones of some huge beast. Lone
+// buttes stand past the north and east edges.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: west (north end) -> venezia, east (south end) -> desert_edge, south -> ancient_plain
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
+import { buildPaved } from "./paved";
+import type { Poly } from "./paved";
 import type { Town } from "./town";
 import { useKits, colourways } from "./town";
-import { KIT as WESTFARM, smooth, band, dense, blob, toLine, towards, along } from "./kits/westfarm";
+import { KIT as WESTFARM, smooth, band, dense, blob, toLine, towards, along, inPoly } from "./kits/westfarm";
 import type { XY } from "./kits/westfarm";
 import { KIT as DESERT } from "./kits/desert";
 import { KIT as BAHAMAS } from "./kits/bahamas";
@@ -26,10 +30,11 @@ import { KIT as STEPPE, SHAPES as STEPPE_SHAPES } from "./kits/steppe";
 import { KIT as TRUNRADA } from "./kits/trunrada";
 import { KIT as FRONTIER } from "./kits/frontier";
 import { KIT as RUINS } from "./kits/ruins";
+import { KIT as VENEZIA } from "./kits/venezia";
 import type { NpcSpec } from "../npcs";
 import type { SolidSpec } from "../world";
 
-useKits(WESTFARM, DESERT, BAHAMAS, STEPPE, TRUNRADA, FRONTIER, RUINS);
+useKits(WESTFARM, DESERT, BAHAMAS, STEPPE, TRUNRADA, FRONTIER, RUINS, VENEZIA);
 // the desert's columns in the ancient plain's travertine, for the old city's stones by the south track
 colourways({ dp_travertine: { Desert_Ruin: "Ruins_Travertine", Desert_RuinDark: "Ruins_TravertineDark", Desert_RuinPale: "Ruins_TravertineMid", Desert_Fluted: "Ruins_Fluted", Desert_Sand: "Ruins_Turf", Desert_SandDark: "Ruins_Turf" } });
 
@@ -48,12 +53,10 @@ const RM2 = { top: [-1750, 1850] as XY, bottom: [-629, 1591] as XY, width: 460 }
 const RMB = { top: [-3250, 2200] as XY, bottom: [-2779, 1375] as XY, width: 420 };
 const RIMS: [XY[], number][] = [
   [[[6100, -A], [6300, -3000], [5900, 0], [6400, 3500], [6000, A], [A, A], [A, -A]], 950],
-  [[[-6000, 1300], [-6400, 4000], [-6100, A], [-A, A], [-A, 1000], [-6600, 1000]], 820],
+  [[[-6000, 1300], [-6400, 3800], [-6300, 4500], [-A, 4800], [-A, 1000], [-6600, 1000]], 820],
   [[[-6200, -A], [-A, -A], [-A, -1000], [-6600, -1000], [-6000, -1300], [-6300, -3500]], 820],
   [[[2500, -7200], [3500, -6600], [4300, -7400], [3400, -8300]], 1050],
-  [[[-3000, 6800], [-2000, 6300], [-1200, 7100], [-2200, 8000]], 900],
   [[[-1900, -7100], [-800, -6700], [-400, -7700], [-1500, -8100]], 860],
-  [[[600, 6900], [1700, 6500], [2200, 7600], [900, 8100]], 1150],
   [[[500, -8100], [1500, -7600], [2000, -8500], [800, -A]], 700],
 ];
 
@@ -80,10 +83,17 @@ const WASH_WAY: XY[] = smooth([[-750, -2000], [-1700, -2300], [-2300, -2650]]);
 const SOUTH_WAY: XY[] = smooth([[-300, 0], [-1300, 150], [-2500, 100], [-3600, -100], [-4500, -50], [-5150, 0], [-6600, 0], [-A, 0]]);
 const TRACKS = [ROAD, FORT_WAY, BEACON_WAY, WASH_WAY, SOUTH_WAY];
 const WAY_W: XY = [3200, 5150], WAY_E: XY = [-3700, -5150], WAY_S: XY = [-5150, 0];
-// how far into the band along the south edge, where the ground greens towards the ancient
-// plain's (0 at its inner side, 1 at the edge and past it)
-const GREEN0 = -3300, GREEN1 = -5500;
-const greening = (x: number) => Math.min(1, Math.max(0, (GREEN0 - x) / (GREEN0 - GREEN1)));
+// how far into the bands along the south and west edges, where the ground greens towards the
+// ancient plain's and Venezia's (0 at a band's inner side, 1 at the edge and past it)
+const GREEN0 = -3300, GREEN1 = -5500, WEST0 = 3300, WEST1 = 5500;
+const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
+const greenS = (x: number) => clamp01((GREEN0 - x) / (GREEN0 - GREEN1)), greenW = (y: number) => clamp01((y - WEST0) / (WEST1 - WEST0));
+const greening = (x: number, y: number) => Math.max(greenS(x), greenW(y));
+
+// ---- the inlet: the head of Venezia's bacino reaching into the south-west corner (its shore from
+// past the west edge round to past the south edge); the water west and south of it ----
+const INLET: XY[] = [[-3300, A + 400], [-3300, 6300], [-3450, 5500], [-3800, 5050], [-4300, 4850], [-4900, 4850], [-5400, 5050], [-5900, 5400], [-6600, 5700], [-A - 400, 5900]];
+const BAY: XY[] = [...INLET, [-A - 400, A + 400]];
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(303, {
@@ -106,33 +116,64 @@ export function build(quality: { flowers: number }): Town {
   });
   const { put, rnd } = f;
   const YARD = blob([250, 750], 620, 900, 5, 18, 0.08);
+  const roads: Poly[] = [band(ROAD, 480), band(FORT_WAY, 420), band(BEACON_WAY, 400), band(WASH_WAY, 360), band(SOUTH_WAY, 400), YARD];
   const ground = f.ground({
     area: { x0: -A, y0: -A, x1: A, y1: A },
-    roads: [band(ROAD, 480), band(FORT_WAY, 420), band(BEACON_WAY, 400), band(WASH_WAY, 360), band(SOUTH_WAY, 400), YARD],
+    roads,
     plazas: [],
+    water: [BAY],
     base: "steppe",
     tint: "#efe0bf",
     road: [0.98, 0.86, 0.7],
   });
-  // the south band greening: the dry ground's colour shaded point by point towards the ancient
-  // plain's grass, all the way at the edge and past it (a factor on its linear colour; not on the
-  // tracks)
+  // the bands greening: the dry ground's colour shaded point by point towards the ancient plain's
+  // grass on the south (half way, it dries to meet it) and all the way to Venezia's on the west, at
+  // the edge and past it (a factor on its linear colour; not on the tracks)
   {
     const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
+    const ease = (t: number) => t * t * (3 - 2 * t);
     for (let i = 0; i < pos.count; i++) {
       const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i));
       const track = [[0, 0], [90, 0], [-90, 0], [0, 90], [0, -90]].some(([dx, dy]) => ground.kind(x + dx, y + dy) === 1);
-      const g = track ? 0 : greening(x), k = g * g * (3 - 2 * g);
-      col.set([1 - 0.43 * k, 1, 1 - 0.4 * k], i * 3);
+      const s = track ? 0 : ease(greenS(x)), w = track ? 0 : ease(greenW(y));
+      col.set([Math.min(1 - 0.43 * s, 1 - 0.7 * w), 1 - 0.04 * w, Math.min(1 - 0.4 * s, 1 - 0.7 * w)], i * 3);
     }
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
     (ground.mesh.material as THREE.MeshStandardMaterial).vertexColors = true;
   }
+  // and grass laid over the outer part of the west band, a ragged edge into the dry ground (another
+  // ground a little over this one, on the same grid, following the cliffs the same way); a shore of
+  // wet sand round the inlet
+  const over = (area: { x0: number; x1: number; y0: number; y1: number }, base: string, cut: Poly[], lift: number, tint?: string) => {
+    const g = buildPaved({
+      area, roads: [], plazas: [], water: cut, base, cell: 100, ...(tint ? { tint } : {}),
+      height: (x, y) => f.h(x, y) + lift,
+      place: (x, y, cell) => {
+        const [px, py, h, k] = f.terrain.place(x, y, cell);
+        return [px, py, h + lift, k];
+      },
+    });
+    g.mesh.renderOrder = 1;
+    return g;
+  };
+  const shoreIn = INLET.map(([x, y], i): XY => {
+    const a = INLET[Math.max(0, i - 1)], b = INLET[Math.min(INLET.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
+    if (inPoly(BAY, x + nx * 150, y + ny * 150)) [nx, ny] = [-nx, -ny];
+    return [nx, ny];
+  });
+  const SHORE_IN: XY[] = INLET.map(([x, y], i) => [x + shoreIn[i][0] * (340 + 120 * Math.sin(i * 2.1)), y + shoreIn[i][1] * (340 + 120 * Math.sin(i * 2.1))]);
+  const SHORE: Poly = [...INLET, ...[...SHORE_IN].reverse()];
+  const onShore = (x: number, y: number) => inPoly(SHORE, x, y);
+  const GRASS_IN: XY[] = [];
+  for (let x = -A; x <= A; x += 150) GRASS_IN.push([x, 4650 + 380 * Math.sin(x / 610 + 0.7) + 220 * Math.sin(x / 260 + 2.1) + 110 * Math.sin(x / 90)]);
+  const grass = over({ x0: -A, x1: A, y0: 3000, y1: A }, "grass", [[...GRASS_IN, [A, 3000], [-A, 3000]], BAY, SHORE, ...roads], 3);
+  const wet = over({ x0: -A, x1: -2000, y0: 3000, y1: A }, "sand", [BAY, [...SHORE_IN, [-A - 400, 3000], [-2000, 3000], [-2000, A + 400]], ...roads], 4, "#cbbd9c");
 
   // ---- placing things: clear of the tracks, the cliffs and each other ----
   const taken: [number, number, number][] = [];
   const nearTrack = (x: number, y: number, d: number) => TRACKS.some((t) => toLine(x, y, t) < d) || ground.kind(x, y) !== 0;
-  const free = (x: number, y: number, r: number, gap = 0) => !nearTrack(x, y, r + 230) && f.level(x, y, Math.min(r, 220)) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + r + gap);
+  const free = (x: number, y: number, r: number, gap = 0) => !nearTrack(x, y, r + 230) && !onShore(x, y) && f.level(x, y, Math.min(r, 220)) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + r + gap);
   const prop = (ref: string, at: XY, h = 0, r = 150, o: Parameters<typeof put>[3] = {}) => {
     put(ref, at, h, o);
     taken.push([at[0], at[1], r]);
@@ -150,7 +191,7 @@ export function build(quality: { flowers: number }): Town {
   const IN = { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 };
   const nearExit = (x: number, y: number) => [WAY_W, WAY_E, WAY_S].some((w) => Math.hypot(x - w[0], y - w[1]) < 1000);
   // the dry country's own things thin out over the green band
-  const dry = (x: number) => rnd() > greening(x) * 0.85;
+  const dry = (x: number, y: number) => rnd() > greening(x, y) * 0.85;
 
   // ---- the ways out ----
   f.exit("venezia", WAY_W, [2700, 4500]);
@@ -236,7 +277,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- the plain: cracked earth, thorn scrub, dry grass, dead trees, rocks, bones ----
   for (let i = 0, made = 0; i < 300 && made < 16; i++) {
     const x = IN.x0 + rnd() * (IN.x1 - IN.x0), y = IN.y0 + rnd() * (IN.y1 - IN.y0);
-    if (nearTrack(x, y, 380) || !f.level(x, y, 250) || !dry(x) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 300)) continue;
+    if (nearTrack(x, y, 380) || !f.level(x, y, 250) || !dry(x, y) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 300)) continue;
     put("westfarm:cracked_earth", [x, y], rnd() * 360, { s: 0.7 + rnd() * 0.5 });
     taken.push([x, y, 150]);
     made++;
@@ -247,30 +288,51 @@ export function build(quality: { flowers: number }): Town {
   scatter(["desert:dead_tree"], 9, IN, 150, { s: [0.8, 1.1], solid: [{ kind: "tree", x: 0, y: 0, r: 26 }], keep: dry });
   scatter(["desert:acacia"], 5, IN, 260, { s: [0.8, 1.05], solid: [{ kind: "tree", x: 0, y: 0, r: 34 }] });
   scatter(["desert:dry_bush"], 46, IN, 110, { s: [0.7, 1.15], keep: dry });
-  scatter(["desert:bones", "steppe:bones", "desert:bones"], 8, IN, 200, { solid: "none", keep: (x, y) => !nearExit(x, y) && dry(x) });
+  scatter(["desert:bones", "steppe:bones", "desert:bones"], 8, IN, 200, { solid: "none", keep: (x, y) => !nearExit(x, y) && dry(x, y) });
   scatter(["desert:fallen_log", "desert:stump"], 6, IN, 200);
   scatter(["steppe:scrub", "steppe:scrub"], 14, IN, 110, { s: [0.7, 1] });
 
   // ---- the band along the south edge: the green of the ancient plain coming in, wild olives,
   // stone pines and bushes thickening towards the ridge, a column of the old city fallen by the
-  // track ----
+  // track; along the west edge the trees of the woods outside Venezia's walls ----
   const GB = { x0: -R + 300, x1: GREEN0 + 800, y0: -R + 300, y1: R - 300 };
-  const green = (x: number) => rnd() < greening(x) * 0.9 + 0.05;
-  scatter(["ruins:olive_tree"], 16, GB, 260, { s: [0.7, 1], solid: [{ kind: "tree", x: 0, y: 0, r: 40 }], keep: green });
-  scatter(["flora:Pine", "flora:PineSmall", "flora:Bush", "flora:Bush"], 16, GB, 200, { s: [0.75, 1.05], keep: green });
+  const WB = { x0: -R + 300, x1: R - 300, y0: WEST0 - 800, y1: R - 300 };
+  const green = (x: number, y: number) => rnd() < greening(x, y) * 0.9 + 0.05;
+  scatter(["ruins:olive_tree"], 16, GB, 260, { s: [0.7, 1], solid: [{ kind: "tree", x: 0, y: 0, r: 40 }], keep: (x) => rnd() < greenS(x) * 0.9 + 0.05 });
+  scatter(["flora:Pine", "flora:PineSmall", "flora:Bush", "flora:Bush"], 16, GB, 200, { s: [0.75, 1.05], keep: (x) => rnd() < greenS(x) * 0.9 + 0.05 });
+  scatter(["flora:RoundTree", "flora:BigOak", "flora:Pine", "flora:SmallTree", "flora:Bush"], 26, WB, 220, { s: [0.75, 1.05], keep: (_x, y) => rnd() < greenW(y) * 0.95 });
   prop("desert:column_fallen", [-4700, -650], 80, 200, { s: 0.8, colours: "dp_travertine" });
   prop("desert:ruin_column", [-4900, 520], 30, 120, { colours: "dp_travertine" });
   // dry grass everywhere it can grow, greener grass over the band
   const grassOut = (x: number, y: number) => nearTrack(x, y, 60) || !f.level(x, y, 90) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr * 0.8);
   // (as thick as the flowers are on the greener fields)
-  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft", "grass_tuft", "grass_patch"], (x, y) => grassOut(x, y) || !dry(x), { count: Math.round(150 + 130 * quality.flowers), tries: 5000, spacing: 340, kit: "desert" });
+  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft", "grass_tuft", "grass_patch"], (x, y) => grassOut(x, y) || !dry(x, y), { count: Math.round(150 + 130 * quality.flowers), tries: 5000, spacing: 340, kit: "desert" });
   f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft"], grassOut, { count: 80, tries: 2000, spacing: 500, kit: "steppe" });
-  f.woods(GB, ["grass_tuft", "grass_tuft", "boulder_flat"], (x, y) => grassOut(x, y) || !green(x), { count: 70, tries: 2500, spacing: 380, kit: "steppe" });
+  f.woods(IN, ["grass_tuft", "grass_tuft", "boulder_flat"], (x, y) => grassOut(x, y) || !green(x, y), { count: 110, tries: 4000, spacing: 380, kit: "steppe" });
+
+  // ---- the inlet: the water (the same as Venezia's bacino) under the cut-away ground, the shore
+  // closed off, reeds and stones on the wet sand, channel markers out on the water ----
+  const bay = f.waterSheet({ x0: -A - 2500, x1: -2600, y0: 3800, y1: A + 2500 }, -14, "Venezia_Water");
+  f.blockBand(INLET.filter(([x, y]) => Math.abs(x) < R + 600 && Math.abs(y) < R + 600).map(([x, y]) => {
+    const i = INLET.findIndex((p) => p[0] === x && p[1] === y);
+    return [x - shoreIn[i][0] * 260, y - shoreIn[i][1] * 260] as XY;
+  }), 520, { kind: "sea" });
+  for (let i = 0; i + 1 < INLET.length; i++) {
+    const [ax, ay] = INLET[i], [bx, by] = INLET[i + 1], n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 360));
+    for (let k = 0; k < n; k++) {
+      const t = (k + rnd()) / n, w = 50 + rnd() * 240, x = ax + (bx - ax) * t + shoreIn[i][0] * w, y = ay + (by - ay) * t + shoreIn[i][1] * w;
+      if (Math.abs(x) > A - 300 || Math.abs(y) > A - 300 || !f.level(x, y, 60)) continue;
+      const k2 = rnd();
+      put(k2 < 0.6 ? "desert:reeds" : k2 < 0.85 ? "steppe:grass_tuft" : "steppe:boulder_flat", [x, y], rnd() * 360, { s: k2 < 0.85 ? 0.9 + rnd() * 0.5 : 0.4 + rnd() * 0.2, solid: "none" });
+    }
+  }
+  for (const at of [[-4700, 5600], [-5900, 6000], [-3900, 6100]] as XY[]) put("venezia:mooring_poles", at, rnd() * 360, { solid: "none" });
 
   // ---- past the edge: the dust, scrub and rocks going on, buttes; olives and pines on the ridge
-  // to the south ----
-  const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 300);
-  f.woods({ x0: -5600, x1: A, y0: -A, y1: A }, ["dry_bush", "grass_patch", "grass_tuft", "boulder_big", "rock_cluster", "dead_tree", "acacia", "butte", "hoodoo"], rim, { count: 300, tries: 6000, spacing: 520, kit: "desert" });
+  // to the south, the woods outside Venezia to the west ----
+  const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 300) || onShore(x, y) || inPoly(BAY, x, y);
+  f.woods({ x0: -5600, x1: A, y0: -A, y1: 5700 }, ["dry_bush", "grass_patch", "grass_tuft", "boulder_big", "rock_cluster", "dead_tree", "acacia", "butte", "hoodoo"], rim, { count: 260, tries: 6000, spacing: 520, kit: "desert" });
+  f.woods({ x0: -5600, x1: A, y0: 5700, y1: A }, ["RoundTree", "BigOak", "Pine", "SmallTree", "RoundTree"], rim, { count: 90, tries: 2500, spacing: 480 });
   f.woods({ x0: -A, x1: -5600, y0: -A, y1: A }, ["Pine", "Pine", "PineSmall", "Bush", "RoundTree"], rim, { count: 70, tries: 2000, spacing: 480 });
   f.woods({ x0: -A, x1: -5600, y0: -A, y1: A }, ["olive_tree"], rim, { count: 40, tries: 1500, spacing: 560, kit: "ruins" });
 
@@ -307,6 +369,7 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
+    scenery: [grass.mesh, wet.mesh, bay],
     sky: "#d6c08e",
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: 2700, y: 4650 },

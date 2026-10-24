@@ -349,7 +349,8 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- monsters: the grass between the ruins, the platform, the hill, the arena ----
   const SCHOLAR: XY = [1800, 900], WATCH: XY = [4600, 700];
-  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 840, keepOut: (x, y) => Math.hypot(x - SCHOLAR[0], y - SCHOLAR[1]) < 900 || Math.hypot(x - WATCH[0], y - WATCH[1]) < 700 });
+  // (a little closer together than the grid the plain first had: the bay has taken its west side)
+  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 815, keepOut: (x, y) => Math.hypot(x - SCHOLAR[0], y - SCHOLAR[1]) < 900 || Math.hypot(x - WATCH[0], y - WATCH[1]) < 700 });
 
   const npcs: NpcSpec[] = [
     {
