@@ -131,38 +131,53 @@ function snowFacets(g: Geo, minUp = 0.55, lift = 2.5, mat = "Snow"): Geo {
   return [{ geo, mat }];
 }
 
-// Seams of another material through a rock: every facet whose middle lies within `w` of one of a
-// few wavy planes across it takes `mat` (silver in the granite).
-function veined(g: Geo, mat: string, seed: number, n = 3, w = 9): Geo {
-  const rnd = seeded(seed);
-  const planes = Array.from({ length: n }, () => {
-    const a = rnd() * Math.PI, tilt = (rnd() - 0.5) * 1.2;
-    return { n: new THREE.Vector3(Math.cos(a), Math.sin(a), tilt).normalize(), d: (rnd() - 0.5) * 60, k: 0.02 + rnd() * 0.02, amp: 10 + rnd() * 14 };
-  });
-  const out: Geo = [];
+// Seams of silver along a rock's faces: a few runs from edge to edge of its facets (each step to
+// the next corner that carries on most nearly the way the run is going), drawn as thin bright
+// cords standing a little proud of the stone.
+function seams(g: Geo, seed: number, runs = 3, steps = 9, r = 2.6, mat = "Royalmount_SilverVein"): Geo {
+  const rnd = seeded(seed), key = (x: number, y: number, z: number) => `${Math.round(x)},${Math.round(y)},${Math.round(z)}`;
+  const pts = new Map<string, { p: THREE.Vector3; n: THREE.Vector3; nb: Set<string> }>();
   for (const part of g) {
-    const src = part.geo.index ? part.geo.toNonIndexed() : part.geo, P = src.getAttribute("position");
-    const keep: number[] = [], vein: number[] = [];
+    const P = part.geo.getAttribute("position");
     for (let t = 0; t + 2 < P.count; t += 3) {
-      const c = new THREE.Vector3((P.getX(t) + P.getX(t + 1) + P.getX(t + 2)) / 3, (P.getY(t) + P.getY(t + 1) + P.getY(t + 2)) / 3, (P.getZ(t) + P.getZ(t + 1) + P.getZ(t + 2)) / 3);
-      const hit = planes.some((p) => Math.abs(c.dot(p.n) - p.d - p.amp * Math.sin((c.x + c.y) * p.k + c.z * p.k * 0.7)) < w);
-      (hit ? vein : keep).push(t, t + 1, t + 2);
+      const v = [0, 1, 2].map((k) => new THREE.Vector3().fromBufferAttribute(P, t + k));
+      const n = new THREE.Vector3().subVectors(v[1], v[0]).cross(new THREE.Vector3().subVectors(v[2], v[0])).normalize();
+      const ks = v.map((q) => key(q.x, q.y, q.z));
+      v.forEach((q, i) => {
+        let e = pts.get(ks[i]);
+        if (!e) pts.set(ks[i], (e = { p: q, n: new THREE.Vector3(), nb: new Set() }));
+        e.n.add(n);
+        e.nb.add(ks[(i + 1) % 3]).add(ks[(i + 2) % 3]);
+      });
     }
-    const pick = (idx: number[]) => {
-      const geo = new THREE.BufferGeometry();
-      for (const name of Object.keys(src.attributes)) {
-        const a = src.getAttribute(name) as THREE.BufferAttribute, arr = new Float32Array(idx.length * a.itemSize);
-        idx.forEach((i, j) => {
-          for (let k = 0; k < a.itemSize; k++) arr[j * a.itemSize + k] = a.array[i * a.itemSize + k] as number;
-        });
-        geo.setAttribute(name, new THREE.BufferAttribute(arr, a.itemSize));
-      }
-      return geo;
-    };
-    if (keep.length) out.push({ geo: pick(keep), mat: part.mat });
-    if (vein.length) out.push({ geo: pick(vein), mat });
   }
-  return out;
+  const all = [...pts.keys()].filter((k) => pts.get(k)!.p.z > 12), out: Geo[] = [];
+  const top = Math.max(...all.map((k) => pts.get(k)!.p.z));
+  for (let run = 0; run < runs && all.length; run++) {
+    let cur = all[Math.floor(rnd() * all.length)], tries = 0;
+    while (pts.get(cur)!.p.z < top * 0.35 && tries++ < 20) cur = all[Math.floor(rnd() * all.length)];
+    const a = rnd() * Math.PI * 2;
+    let dir = new THREE.Vector3(Math.cos(a), Math.sin(a), -0.6 + rnd() * 0.4).normalize();
+    for (let s = 0; s < steps; s++) {
+      const c = pts.get(cur)!;
+      let best = "", bd = 0.15;
+      for (const k of c.nb) {
+        const q = pts.get(k)!;
+        if (q.p.z < 4) continue;
+        const d = q.p.clone().sub(c.p).normalize().dot(dir) + (rnd() - 0.5) * 0.4;
+        if (d > bd) [bd, best] = [d, k];
+      }
+      if (!best) break;
+      const q = pts.get(best)!, lift = (e: typeof c): V3 => {
+        const n = e.n.clone().normalize();
+        return [e.p.x + n.x * 1.5, e.p.y + n.y * 1.5, e.p.z + n.z * 1.5];
+      };
+      out.push(cylinderBetween(lift(c), lift(q), r * (0.7 + rnd() * 0.6), 4, mat));
+      dir = dir.multiplyScalar(0.6).add(q.p.clone().sub(c.p).normalize().multiplyScalar(0.4)).normalize();
+      cur = best;
+    }
+  }
+  return merge(...out);
 }
 
 // A rock with snow lying on its upper faces (`cover`: how much of it, 0..1).
@@ -405,8 +420,7 @@ function plume(at: V3, n: number, r: number, seed: number, mat = "Royalmount_Ste
 function silverBoulder(): Geo {
   const body = rock([260, 210, 170], 0.32, 11, "Royalmount_Granite");
   const small = translate(rock([110, 90, 70], 0.4, 13, "Royalmount_GraniteDark"), [130, 90, 0]);
-  const g = merge(veined(body, "Royalmount_SilverVein", 15, 4, 13), veined(small, "Royalmount_SilverVein", 17, 2, 10));
-  return merge(g, snowFacets(merge(body, small), 0.86), mound(220, 150, 20, 19, [-90, -60, 0], 30), mound(140, 110, 14, 20, [110, -90, 0], -20));
+  return merge(body, small, seams(body, 15, 4, 10, 3), seams(small, 17, 2, 6, 2.2), snowFacets(merge(body, small), 0.86), mound(220, 150, 20, 19, [-90, -60, 0], 30), mound(140, 110, 14, 20, [110, -90, 0], -20));
 }
 
 // A crag hung with icicles: a tall rock with a ledge jutting out over its front, ice glazing the
@@ -1240,7 +1254,7 @@ function oreCrystals(): Geo {
   const rnd = seeded(701), parts: Geo[] = [];
   const crag = rock([300, 240, 250], 0.32, 703, "Royalmount_Granite");
   const side = translate(rock([150, 130, 120], 0.4, 705, "Royalmount_GraniteDark"), [90, -110, 0]);
-  parts.push(veined(crag, "Royalmount_SilverVein", 707, 3, 9), veined(side, "Royalmount_SilverVein", 709, 2, 8), snowFacets(merge(crag, side), 0.9));
+  parts.push(crag, side, seams(crag, 707, 4, 10, 3), seams(side, 709, 2, 6, 2.2), snowFacets(merge(crag, side), 0.9));
   parts.push(crystalCluster([-100, 30, 120], [-1, 0.2, 0.6], 8, 170, 711), crystalCluster([-40, -80, 180], [-0.5, -0.7, 0.8], 6, 130, 713), crystalCluster([30, 90, 170], [0.1, 1, 0.7], 6, 120, 715), crystalCluster([-120, -60, 30], [-1, -0.3, 0.3], 5, 90, 717), crystalCluster([20, 0, 230], [0, 0, 1], 5, 110, 718));
   for (let i = 0; i < 7; i++) {
     const a = rnd() * Math.PI * 2, d = 160 + rnd() * 70;
@@ -1254,17 +1268,22 @@ function oreCrystals(): Geo {
 // to its foot, a few broken timbers in it, a barrow left on its side, snow on its top. About 5.6
 // x 4.4 m, 1.7 m high.
 function spoilHeap(): Geo {
-  const rnd = seeded(731), parts: Geo[] = [], LX = 460, LY = 360, H = 170;
+  const rnd = seeded(731), parts: Geo[] = [], LX = 460, LY = 360, H = 130;
   // the heap's core: a big rough lump of waste, broader than high
   const core = rock([LX, LY, H], 0.45, 733, "Royalmount_Spoil", true);
   parts.push(core);
-  // (about how high the heap is at a point)
-  const zAt = (x: number, y: number) => H * 0.8 * Math.max(0, 1 - Math.hypot((2 * x) / LX, (2 * y) / LY)) ** 0.8;
+  // (how high the heap is at a point: its highest corner near it)
+  const cp = core[0].geo.getAttribute("position");
+  const zAt = (x: number, y: number) => {
+    let z = 0;
+    for (let i = 0; i < cp.count; i++) if (Math.hypot(cp.getX(i) - x, cp.getY(i) - y) < 45) z = Math.max(z, cp.getZ(i));
+    return z;
+  };
   // the rubble lying all over it, bigger lumps rolled down to its foot
   for (let i = 0; i < 52; i++) {
     const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * (i < 38 ? 0.9 : 1.2), x = Math.cos(a) * (LX / 2) * d, y = Math.sin(a) * (LY / 2) * d;
-    const big = i >= 38 ? 1.6 : 1, sz: V3 = [(24 + rnd() * 30) * big, (20 + rnd() * 24) * big, (16 + rnd() * 16) * big];
-    parts.push(frostRock(sz, 0.5, 735 + i, { mat: rnd() < 0.25 ? "Royalmount_Granite" : rnd() < 0.5 ? "Royalmount_GraniteDark" : "Royalmount_Spoil", at: [x, y, zAt(x, y) - sz[2] * 0.3], cover: rnd() < 0.3 ? 0.35 : 0, turn: rnd() * 180 }));
+    const big = i >= 38 ? 1.6 : 1, sz: V3 = [(28 + rnd() * 34) * big, (24 + rnd() * 28) * big, (18 + rnd() * 18) * big];
+    parts.push(frostRock(sz, 0.5, 735 + i, { mat: rnd() < 0.25 ? "Royalmount_Granite" : rnd() < 0.5 ? "Royalmount_GraniteDark" : "Royalmount_Spoil", at: [x, y, zAt(x, y) - sz[2] * 0.45], cover: rnd() < 0.3 ? 0.35 : 0, turn: rnd() * 180 }));
   }
   for (let i = 0; i < 5; i++) parts.push(blob(40 + rnd() * 30, [(rnd() - 0.5) * LX * 0.6, (rnd() - 0.5) * LY * 0.6, H * 0.5 + rnd() * 30], "Snow", 0.25, 8));
   for (let i = 0; i < 3; i++) {
