@@ -282,6 +282,7 @@ kbd {
 .sk-points { font-size: 14px; color: var(--muted); }
 .sk-points b { color: #9df0b4; font-size: 16px; }
 .sk-tabs { display: flex; gap: 6px; margin-left: auto; }
+.sk-tabs.hidden { display: none; }
 .sk-tab { padding: 5px 12px; border-radius: 8px; cursor: pointer; font: 600 13px var(--font); color: var(--text);
   background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.16); }
 .sk-tab.on { border-color: var(--gold); background: rgba(244, 210, 122, 0.14); color: var(--gold); }

@@ -22,6 +22,8 @@ export const STALL_SLOTS = 6;
 const NAME_MAX = 24;
 const LOG_MAX = 30;
 const PRICE_MAX = 99_999_999;
+const SIGN_UP = 150;    // map px from her feet up to the middle of the sign
+const ABOVE_SIGN = 250; // cm up where the stall's words float, clear of the sign
 
 // One good on the stall: how many are left and what one costs.
 export interface Good {
@@ -112,7 +114,7 @@ export class Stall {
     this.log = [];
     this.buyers.reset(this);
     const at = this.deps.at();
-    this.deps.floaters.add(at.x, at.y, 170, `เปิดร้าน "${this.name}"`, "level");
+    this.deps.floaters.add(at.x, at.y, ABOVE_SIGN, `เปิดร้าน "${this.name}"`, "level");
     this.changed();
     return null;
   }
@@ -149,7 +151,7 @@ export class Stall {
     const name = `${ITEMS[g.id].name}${n > 1 ? ` ×${n}` : ""}`;
     this.note(`${who} ซื้อ${name} ${gold.toLocaleString()} ทอง`);
     const at = this.deps.at();
-    this.deps.floaters.add(at.x, at.y, 190, `ขาย${name} +${gold.toLocaleString()} ทอง`, "loot");
+    this.deps.floaters.add(at.x, at.y, ABOVE_SIGN, `ขาย${name} +${gold.toLocaleString()} ทอง`, "loot");
     if (this.goods.every((x) => x.count <= 0)) this.close("ขายหมดแล้ว ร้านปิด");
     else this.changed();
   }
@@ -183,10 +185,10 @@ export class Stall {
   drawSign(ctx: CanvasRenderingContext2D, view: View): void {
     if (!this.open) return;
     const { k, ox, oy } = view, at = this.deps.at();
-    const x = mapX(at.x, at.y) * k + ox, y = mapY(at.x, at.y) * k + oy - 158 * k;
+    const x = mapX(at.x, at.y) * k + ox, y = mapY(at.x, at.y) * k + oy - SIGN_UP * k;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `600 ${15 * k}px Kanit, system-ui, sans-serif`;
-    const w = ctx.measureText(this.name).width + 40 * k, h = 26 * k;
+    ctx.font = `600 ${17 * k}px Kanit, system-ui, sans-serif`;
+    const w = ctx.measureText(this.name).width + 44 * k, h = 30 * k;
     // two cords up from the board, as if it hung from a pole
     ctx.strokeStyle = "#6b3f24";
     ctx.lineWidth = 2 * k;
@@ -206,10 +208,10 @@ export class Stall {
     // a coin before the name
     ctx.fillStyle = "#f4d27a";
     ctx.beginPath();
-    ctx.arc(x - w / 2 + 14 * k, y, 6 * k, 0, Math.PI * 2);
+    ctx.arc(x - w / 2 + 16 * k, y, 7 * k, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#a8692a";
-    ctx.fillRect(x - w / 2 + 13 * k, y - 3 * k, 2 * k, 6 * k);
+    ctx.fillRect(x - w / 2 + 15 * k, y - 4 * k, 2 * k, 8 * k);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#fff2c2";

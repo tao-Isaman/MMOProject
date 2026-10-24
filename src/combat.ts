@@ -16,7 +16,7 @@ import type { Img, Textures, Vec2, View } from "./types";
 
 // Where a gun's muzzle is when she fires: this far ahead of her (cm) and this high, and this far
 // to the side when she aims up or down the screen.
-const MUZZLE = { out: 62, z: 95, side: 30 };
+const MUZZLE = { out: 62, z: 95, side: 44 };
 
 export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
 
@@ -284,10 +284,13 @@ export class Combat {
   // color, onHit(monster, dir) }. A bullet leaves from the muzzle of the gun held out at
   // shoulder height, in a flash.
   shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
-    const gun = p.kind === "bullet", out = gun ? MUZZLE.out : 40, z = gun ? MUZZLE.z : 60;
+    const gun = p.kind === "bullet", z = gun ? MUZZLE.z : 60;
+    const v = toView(aim.x, aim.y), len = Math.hypot(v.left, v.fwd) || 1;
+    // aimed off to a far corner, the gun is held out at arm's length in the hand that points it
+    // (not between her hands), so its muzzle is farther out
+    const out = gun ? MUZZLE.out * (1 + 1.4 * (Math.max(0, v.fwd) / len) * (Math.abs(v.left) / len)) : 40;
     let x = origin.x + aim.x * out, y = origin.y + aim.y * out;
     // a gun aimed straight up or down the screen is held out at the side (weapons.ts aimAngle)
-    const v = toView(aim.x, aim.y);
     if (gun && Math.abs(v.left) < 0.3 * Math.hypot(v.left, v.fwd * S2)) {
       const right = fromView(0, -MUZZLE.side);
       x += right.x;
