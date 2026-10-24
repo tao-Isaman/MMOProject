@@ -121,7 +121,8 @@ export function build(quality: { flowers: number }): Town {
     const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i));
-      const g = ground.kind(x, y) === 1 ? 0 : greening(x), k = g * g * (3 - 2 * g);
+      const track = [[0, 0], [90, 0], [-90, 0], [0, 90], [0, -90]].some(([dx, dy]) => ground.kind(x + dx, y + dy) === 1);
+      const g = track ? 0 : greening(x), k = g * g * (3 - 2 * g);
       col.set([1 - 0.43 * k, 1, 1 - 0.4 * k], i * 3);
     }
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));

@@ -123,8 +123,11 @@ export function build(quality: { flowers: number }): Town {
   {
     const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
     const DRY = [2.1, 1.0, 2.0], SAND = [2.4, 1.2, 3.2];
+    // (nor at the grid's points just off it, which would tint its edge)
+    const near = [[0, 0], [90, 0], [-90, 0], [0, 90], [0, -90]];
     for (let i = 0; i < pos.count; i++) {
-      const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i)), paved = ground.kind(x, y) === 1 || ground.kind(x, y) === 2;
+      const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i));
+      const paved = near.some(([dx, dy]) => ground.kind(x + dx, y + dy) === 1 || ground.kind(x + dx, y + dy) === 2);
       const n = paved ? 0 : toDry(x), e = paved ? 0 : toSand(y);
       col.set([0, 1, 2].map((c) => (1 + (DRY[c] - 1) * n) * (1 - e) + SAND[c] * e), i * 3);
     }
