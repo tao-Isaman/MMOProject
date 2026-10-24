@@ -8,7 +8,11 @@
 //   - in the north-west, the crystal mesa (4.2 m) crowned by a giant dark crystal (ramp on its
 //     south-east face);
 //   - three chasms at ground level, glowing from far below, cracks running off them;
-//   - in the south-west, the bone field: a giant's skeleton among crystals and purple fire.
+//   - in the south-west, the bone field: a giant's skeleton among crystals and purple fire;
+//   - (v0.4) a track north off the main one, between the northern chasm and the citadel, through a
+//     pass in the black wall to the thornland (the middle of the north edge), and one south past
+//     the bone field's chasm and under the citadel, through a pass in the south wall to the demon
+//     army's camp.
 // Full size, north +X, west +Y; finishField scales it by TOWN_SCALE.
 
 import * as THREE from "three";
@@ -34,9 +38,10 @@ const R = 5500;
 const A = 9000;
 
 // ---- the raised ground ----
-// the black walls north and south (scenery)
-const NRIM: XY[] = [[5300, A], [5600, 2000], [5200, 0], [5700, -2500], [5300, -A], [A, -A], [A, A]];
-const SRIM: XY[] = [[-5300, A], [-A, A], [-A, -A], [-5300, -A], [-5700, -2500], [-5200, 0], [-5600, 2000]];
+// the black walls north and south (scenery); (v0.4) each cut by a pass, the part east of it on
+// its own (NRIM_E, SRIM_E below)
+const NRIM: XY[] = [[5300, A], [5600, 2000], [5250, 450], [A, 450], [A, A]];
+const SRIM: XY[] = [[-5300, A], [-A, A], [-A, -600], [-5320, -600], [-5200, 0], [-5600, 2000]];
 // the citadel: a broad plateau running on east out of the bounds, the gate's step on it
 const CITADEL: XY[] = [[3300, -1700], [3900, -3500], [3400, -A], [-3400, -A], [-3900, -3500], [-3300, -1700], [-1500, -1200], [1500, -1200]];
 const KEEP: XY[] = [[1500, -3100], [1700, -4400], [1200, -5700], [-1200, -5700], [-1700, -4400], [-1500, -3100], [-600, -2900], [600, -2900]];
@@ -53,6 +58,15 @@ const CRYSTAL: XY = [3550, 3900];
 const BONES: XY = [-3300, 1300];
 const CAMP: XY = [-600, 4300];
 const EXIT: XY = [0, 5150], BACK: XY = [40, 4450];
+
+// ---- v0.4: the ways north to the thornland and south to the demon camp, through passes in the
+// black walls, where those fields' own ways out are ----
+const NRIM_E: XY[] = [[A, -450], [5250, -450], [5700, -2500], [5300, -A], [A, -A]];
+const SRIM_E: XY[] = [[-A, -1500], [-5500, -1500], [-5700, -2500], [-5300, -A], [-A, -A]];
+const N_EXIT: XY = [5150, 0], N_BACK: XY = [4450, 0];
+const S_EXIT: XY = [-5150, -1050], S_BACK: XY = [-4450, -1050];
+const TO_THORNS = chaikin([[-500, 600], [300, 300], [1300, 50], [2500, -280], [3700, -150], [4500, 0], N_EXIT, [A + 200, 0]], 3);
+const TO_CAMP = chaikin([[-700, 300], [-1300, -80], [-2100, -600], [-3000, -800], [-3900, -950], [-4600, -1050], S_EXIT, [-A - 200, -1050]], 3);
 
 // the chasms' centre lines and widths
 const CHASMS: [XY[], number][] = [
@@ -141,6 +155,9 @@ export function build(_quality: { flowers: number }): Town {
       { poly: subdiv(CITADEL), h: 360, ramps: [R_CITADEL] },
       { poly: subdiv(KEEP), h: 720, ramps: [R_KEEP] },
       { poly: subdiv(MESA), h: 420, ramps: [R_MESA] },
+      // v0.4: the walls' parts east of their passes
+      { poly: subdiv(NRIM_E), h: 700 },
+      { poly: subdiv(SRIM_E), h: 650 },
     ],
     rock: "Frontier_CliffDark",
   });
@@ -155,11 +172,12 @@ export function build(_quality: { flowers: number }): Town {
   const TO_BONES = chaikin([[-300, 1300], [-1100, 1600], [-2000, 1550], [-2700, 1400]], 2);
   const CITADEL_S = chaikin([R_CITADEL.top, [-1700, -1900], [-2600, -2600], [-2900, -3600]], 2);
   const CITADEL_N = chaikin([R_KEEP.bottom, [900, -1800], [2000, -2200], [2700, -3000]], 2);
-  const PATHS = [MAIN, ON_CITADEL, FORECOURT, TO_MESA, ON_MESA, TO_BONES, CITADEL_S, CITADEL_N, ...RAMPS.map((r): XY[] => [r.bottom, r.top])];
+  const PATHS = [MAIN, ON_CITADEL, FORECOURT, TO_MESA, ON_MESA, TO_BONES, CITADEL_S, CITADEL_N, ...RAMPS.map((r): XY[] => [r.bottom, r.top]), TO_THORNS, TO_CAMP];
   const roads: Poly[] = [
     bandPoly(MAIN, 480, 60), bandPoly(ON_CITADEL, 440), bandPoly(FORECOURT, 520), bandPoly(TO_MESA, 420, 40), bandPoly(ON_MESA, 400),
     bandPoly(TO_BONES, 400, 40), bandPoly(CITADEL_S, 400, 40), bandPoly(CITADEL_N, 400, 40),
     ...RAMPS.map((r) => bandPoly([r.bottom, r.top], r.width - 40)),
+    bandPoly(TO_THORNS, 440, 50), bandPoly(TO_CAMP, 440, 50),
   ];
   const chasms = CHASMS.map(([line, w], i) => chasmPoly(line, w, 31 + i * 17));
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: chasms, base: "rock", road: [0.72, 0.5, 0.56], tint: "#7a6890" });
@@ -190,6 +208,14 @@ export function build(_quality: { flowers: number }): Town {
   put("frontier:campfire", [-700, 3850], 0, { solid: [{ kind: "fire", x: 0, y: 0, r: 95 }] });
   put("kradia:supplies", [-1250, 3700], 60);
   put("kradia:banner_pole", [-600, 4700], -90);
+
+  // ---- v0.4: the ways out north to the thornland and south to the demon camp, a signpost and
+  // a pair of dark crystals at each pass ----
+  f.exit("thornland", N_EXIT, N_BACK);
+  f.exit("demon_camp", S_EXIT, S_BACK);
+  put("frontier:signpost", [4650, 620], 180);
+  put("frontier:signpost", [-4650, -1650], 0);
+  for (const [x, y, h] of [[4900, 800, 30], [4950, -750, 200], [-4950, -350, 120], [-4950, -1800, 300]] as number[][]) put("frontier:dark_crystal", [x, y], h, { s: 0.45 });
 
   // ---- the citadel: the demon gate on its step, braziers and crystals round the forecourt,
   // spires and dead trees on the broad step below ----
@@ -243,7 +269,7 @@ export function build(_quality: { flowers: number }): Town {
     for (let y = -R + 300; y < R; y += 560) {
       const px = x + (rnd() - 0.5) * 400, py = y + (rnd() - 0.5) * 400;
       if (Math.abs(px) > R - 150 || Math.abs(py) > R - 150 || onTrack(px, py, 420) || nearRamp(RAMPS, px, py, 260) || nearChasm(px, py, 250)) continue;
-      if (near(GATE, px, py, 1500) || near(CRYSTAL, px, py, 900) || near(BONES, px, py, 1000) || near(CAMP, px, py, 1100) || near(EXIT, px, py, 900) || !f.level(px, py, 200)) continue;
+      if (near(GATE, px, py, 1500) || near(CRYSTAL, px, py, 900) || near(BONES, px, py, 1000) || near(CAMP, px, py, 1100) || near(EXIT, px, py, 900) || near(N_EXIT, px, py, 900) || near(S_EXIT, px, py, 900) || !f.level(px, py, 200)) continue;
       const k = rnd();
       if (k < 0.2) deadTree([px, py], 0.65 + rnd() * 0.45);
       else if (k < 0.27) put("frontier:dark_crystal", [px, py], rnd() * 360, { s: 0.3 + rnd() * 0.3 });
@@ -261,7 +287,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- the rim: dead woods and crystals all round, black rock on the walls ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
-  const road = (x: number, y: number) => distToPath(MAIN, x, y) < 480;
+  const road = (x: number, y: number) => distToPath(MAIN, x, y) < 480 || distToPath(TO_THORNS, x, y) < 480 || distToPath(TO_CAMP, x, y) < 480;
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["dead_tree", "dead_tree", "dead_tree", "dark_crystal"], (x, y) => inside(x, y) || road(x, y), { count: 330, spacing: 520, kit: "frontier" });
   for (let i = 0; i < 70; i++) {
     const x = -A + rnd() * 2 * A, y = -A + rnd() * 2 * A;
@@ -299,6 +325,8 @@ export function build(_quality: { flowers: number }): Town {
     npcs: [scout],
     labels: [
       { x: 100, y: 4700, text: "ทางไปแนวป้องกันชายแดน", kind: "gate" },
+      { x: N_EXIT[0] - 250, y: N_EXIT[1], text: "ทางไปทุ่งหนามอสูร", kind: "gate" },
+      { x: S_EXIT[0] + 250, y: S_EXIT[1], text: "ทางไปค่ายทัพอสูร", kind: "gate" },
       { x: 0, y: -3300, text: "ประตูอสูร" },
       { x: -600, y: -1700, text: "ป้อมดำ" },
       { x: 3300, y: 3300, text: "ผลึกมารยักษ์" },

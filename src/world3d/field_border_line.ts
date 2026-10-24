@@ -9,7 +9,9 @@
 //     on the north side the bastion (4.6 m) with the ruined watchtower, on the south side the
 //     old forward line (2.3 m), both with ramps;
 //   - in the east the ground turns black and purple: blight, dead trees, the first dark
-//     crystals and glowing cracks, the way on to the demon lands.
+//     crystals and glowing cracks, the way on to the demon lands;
+//   - (v0.4) a track south off the one to the old forward line, over the battlefield's west end
+//     and through a pass in the south wall to the burnt villages.
 // Full size, north +X, west +Y; finishField scales it by TOWN_SCALE.
 
 import * as THREE from "three";
@@ -31,7 +33,9 @@ const A = 9000;
 // ---- the raised ground ----
 // the mountain walls either side of the valley (scenery: no way up)
 const NWALL: XY[] = [[4700, A], [4950, 3800], [4800, 2400], [5150, 1200], [4650, 0], [4900, -1400], [5250, -3000], [4800, -4500], [4900, -A], [A, -A], [A, A]];
-const SWALL: XY[] = [[-4800, A], [-A, A], [-A, -A], [-4900, -A], [-5200, -3600], [-4700, -2400], [-5050, -900], [-4750, 700], [-5150, 2300], [-4850, 3900]];
+// (v0.4: the south wall cut by the pass to the burnt villages, its part east of it on its own,
+// SWALL_E below)
+const SWALL: XY[] = [[-4800, A], [-A, A], [-A, 1350], [-4912, 1350], [-5150, 2300], [-4850, 3900]];
 // Kradia's line: two ramparts with a bastion bump each, the breach between them
 const WLN: XY[] = [[1000, 2500], [2500, 2420], [2700, 2100], [3300, 2100], [3500, 2420], [4300, 2450], [4350, 3400], [1000, 3450]];
 const WLS: XY[] = [[-600, 2500], [-600, 3450], [-4300, 3400], [-4350, 2450], [-2900, 2450], [-2700, 2150], [-2100, 2150], [-1900, 2450]];
@@ -50,6 +54,12 @@ const TOWER: XY = [3150, 0];
 const CHECK: XY = [200, 3900]; // the checkpoint behind the breach
 const WEST_EXIT: XY = [300, 5150], WEST_BACK: XY = [270, 4450];
 const EAST_EXIT: XY = [-200, -5150], EAST_BACK: XY = [-160, -4450];
+
+// ---- v0.4: the way south to the burnt villages, through a pass in the south wall, where the
+// villages' own way out is ----
+const SWALL_E: XY[] = [[-A, 450], [-4797, 450], [-5050, -900], [-4700, -2400], [-5200, -3600], [-4900, -A], [-A, -A]];
+const SOUTH_EXIT: XY = [-5150, 900], SOUTH_BACK: XY = [-4450, 900];
+const TO_VILLAGES: XY[] = chaikin([[-1500, 250], [-2200, 600], [-3100, 750], [-4000, 850], [-4600, 900], SOUTH_EXIT, [-A - 200, 900]], 3);
 
 export function build(_quality: { flowers: number }): Town {
   // the old trench: a ditch of hollows across the valley in front of the line
@@ -72,6 +82,7 @@ export function build(_quality: { flowers: number }): Town {
       { poly: subdiv(WLS), h: 260, ramps: [R_WLS] },
       { poly: subdiv(BASTION), h: 460, ramps: [R_BASTION] },
       { poly: subdiv(FWD), h: 230, ramps: [R_FWD, R_FWD2] },
+      { poly: subdiv(SWALL_E), h: 600 }, // v0.4
     ],
     rock: "Frontier_CliffEarth",
   });
@@ -90,11 +101,12 @@ export function build(_quality: { flowers: number }): Town {
   const ON_FWD = chaikin([R_FWD.top, [-1800, -1450], [-2500, -1450], [-3300, -1350], R_FWD2.top], 2);
   const TO_FWD2 = chaikin([[150, 300], [-700, 350], [-1500, 250], R_FWD2.bottom], 2);
   const RAMP_PATHS: XY[][] = RAMPS.map((r) => [r.bottom, r.top]);
-  const PATHS = [MAIN, TO_WLN, ON_WLN, TO_WLS, ON_WLS, TO_BASTION, ON_BASTION, TO_FWD, ON_FWD, TO_FWD2, ...RAMP_PATHS];
+  const PATHS = [MAIN, TO_WLN, ON_WLN, TO_WLS, ON_WLS, TO_BASTION, ON_BASTION, TO_FWD, ON_FWD, TO_FWD2, ...RAMP_PATHS, TO_VILLAGES];
   const roads: Poly[] = [
     bandPoly(MAIN, 500, 70), bandPoly(TO_WLN, 400, 40), bandPoly(ON_WLN, 380), bandPoly(TO_WLS, 400, 40), bandPoly(ON_WLS, 380),
     bandPoly(TO_BASTION, 420), bandPoly(ON_BASTION, 400), bandPoly(TO_FWD, 400), bandPoly(ON_FWD, 380, 40), bandPoly(TO_FWD2, 400, 40),
     ...RAMPS.map((r) => bandPoly([r.bottom, r.top], r.width - 40)),
+    bandPoly(TO_VILLAGES, 420, 50),
   ];
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], base: "steppe", road: [0.8, 0.7, 0.6] });
   // trampled, burnt grass: the steppe browned and greyed
@@ -120,6 +132,9 @@ export function build(_quality: { flowers: number }): Town {
   put("frontier:dark_crystal", [450, -5100], 200, { s: 0.55 });
   put("frontier:signpost", [400, -4650], 90);
   put("frontier:dead_tree", [-1100, -4700], 40, { s: 0.9, solid: [{ kind: "tree", x: 0, y: 0, r: 40 }] });
+  // v0.4: the way out south to the burnt villages
+  f.exit("burnt_villages", SOUTH_EXIT, SOUTH_BACK);
+  put("frontier:signpost", [-4650, 1500], 0);
 
   // ---- the checkpoint behind the breach ----
   for (const [x, y] of [[-450, 2380], [-450, 2100], [780, 2380], [820, 2100]] as XY[]) put("kradia:barricade", [x, y], 90 + (rnd() - 0.5) * 10);
@@ -179,7 +194,7 @@ export function build(_quality: { flowers: number }): Town {
     ["kradia:barricade", [3700, 1800], 80, 1], ["frontier:beast_bones", [-3400, -300], 200, 0.9], ["frontier:rock_cluster", [3800, 3800], 30, 0.9],
     ["frontier:boulder", [-3700, 4300], 0, 0.9], ["frontier:flat_rocks", [-4200, -400], 60, 1], ["frontier:boulder", [4100, -2400], 100, 0.8],
   ];
-  for (const [ref, p, h, s] of field) at(ref, p, h, 220, { s });
+  for (const [ref, p, h, s] of field) if (distToPath(TO_VILLAGES, p[0], p[1]) > 400) at(ref, p, h, 220, { s }); // (v0.4: none left on the track south)
   for (let i = 0; i < 26; i++) {
     const x = -4300 + rnd() * 8600, y = -2600 + rnd() * 4800;
     if (onTrack(x, y, 400) || nearRamp(RAMPS, x, y, 200) || near(TOWER, x, y, 800)) continue;
@@ -238,10 +253,11 @@ export function build(_quality: { flowers: number }): Town {
   const road = (x: number, y: number) => distToPath(MAIN, x, y) < 480;
   f.woods({ x0: -A, x1: A, y0: R, y1: A }, ["red_maple"], (x, y) => inside(x, y) || road(x, y), { count: 90, spacing: 480, kit: "frontier" });
   f.woods({ x0: -A, x1: A, y0: R, y1: A }, ["AutumnTree", "AutumnTree", "Pine"], (x, y) => inside(x, y) || road(x, y), { count: 110, spacing: 420 });
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["AutumnTree", "PineSmall", "Pine"], (x, y) => inside(x, y) || Math.abs(x) < 4700 || y < -2500, { count: 160, spacing: 650 });
+  const south = (x: number, y: number) => distToPath(TO_VILLAGES, x, y) < 520; // v0.4: the pass kept clear
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["AutumnTree", "PineSmall", "Pine"], (x, y) => inside(x, y) || Math.abs(x) < 4700 || y < -2500 || south(x, y), { count: 160, spacing: 650 });
   f.woods({ x0: -A, x1: A, y0: -A, y1: -2500 }, ["dead_tree", "dead_tree", "dark_crystal"], (x, y) => inside(x, y) || road(x, y), { count: 170, spacing: 520, kit: "frontier" });
   f.woods({ x0: 4800, x1: A, y0: -A, y1: A }, ["rock_cluster", "boulder"], inside, { count: 40, spacing: 900, kit: "frontier" });
-  f.woods({ x0: -A, x1: -4800, y0: -A, y1: A }, ["rock_cluster", "boulder"], inside, { count: 40, spacing: 900, kit: "frontier" });
+  f.woods({ x0: -A, x1: -4800, y0: -A, y1: A }, ["rock_cluster", "boulder"], (x, y) => inside(x, y) || south(x, y), { count: 40, spacing: 900, kit: "frontier" });
   for (let i = 0; i < 70; i++) {
     const x = -A + rnd() * 2 * A, y = -A + rnd() * (A - R);
     if (road(x, y) || !f.level(x, y, 200)) continue;
@@ -282,6 +298,7 @@ export function build(_quality: { flowers: number }): Town {
     labels: [
       { x: 300, y: 4750, text: "ทางไปคราเดีย", kind: "gate" },
       { x: -180, y: -4750, text: "ทางไปดินแดนอสูร", kind: "gate" },
+      { x: SOUTH_EXIT[0] + 250, y: SOUTH_EXIT[1], text: "ทางไปหมู่บ้านร้างชายแดน", kind: "gate" },
       { x: 150, y: 3000, text: "แนวป้องกันคราเดีย" },
       { x: 2600, y: 100, text: "ซากหอคอยรักษาการณ์" },
       { x: -2600, y: -1350, text: "แนวหน้าเก่า" },
