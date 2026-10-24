@@ -1,7 +1,9 @@
 // โยเดีย (Yodia), the second port of the kingdom, on the southern coast where the plains meet the
 // jungle. Laid out as if drawn on the player's paper: a box of log palisade open to the sea on the
 // south, cut into four by Harbour Road (from the north gate down to the quay) and Trade Road (from
-// the jungle gate in the west to the east gate), with three gates and watchtowers. Arcaded
+// the jungle gate in the west to the east gate), with three gates and watchtowers: the north gate
+// to the southern jungle, the east gate to the mangrove coast, the jungle gate out west to the
+// sacred banyan woods. Arcaded
 // shophouses line both roads, the market square at their crossing and the lanes south of it; the
 // temple stands in its court in the north-east; the stilt houses of the jungle folk fill the west
 // under palms and bamboo along plank paths. Along the quay the warehouses and the customs house
@@ -409,15 +411,13 @@ export function buildYodia(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0 && x < NORTH - 400 && x > SHORE + 400 && y < WEST - 400 && y > EAST + 400,
       density: 0.3 * quality.flowers,
     },
-    // the forest gate is still shut: a bar across the far end of its passage (the gate towers'
-    // solids reach 124 cm out from the palisade's line)
-    late: [{ kind: "closed", x: GATE_W[0], y: GATE_W[1] + 220, w: 600, d: 200, rot: 0 }],
     bounds: { minX: P(0, 870)[0], maxX: NORTH + 700, minY: EAST - 700, maxY: WEST + 700 },
     spawn: pt(422, 660),
     npcs: yodiaNpcs(),
-    // north through the jungle to Bahamas, east along the mangrove coast
-    ...waysOut([gateWay(GATE_N, "n", "south_jungle", 450, 420), gateWay(GATE_E, "e", "mangrove_coast", 450, 420)]),
-    closed: [{ x: GATE_W[0], y: GATE_W[1] + 60, r: 260, text: "ประตูป่ายังไม่เปิด ป่าแดนใต้ข้างนอกรกและอันตราย กำลังถางทางอยู่" }],
+    // north through the jungle to Bahamas, east along the mangrove coast, west by the forest gate to
+    // the sacred banyan woods
+    ...waysOut([gateWay(GATE_N, "n", "south_jungle", 450, 420), gateWay(GATE_E, "e", "mangrove_coast", 450, 420), gateWay(GATE_W, "w", "sacred_banyan", 450, 420)]),
+    closed: [],
     // names on the map window
     labels: [
       { ...pt(560, 660), text: "ท่าเรือโยเดีย" },
@@ -433,7 +433,7 @@ export function buildYodia(quality: { flowers: number }): Town {
       { ...pt(530, 588), text: "แนวโกดัง", kind: "small" },
       { ...pt(668, 664), text: "โรงเตี๊ยมชาวเรือ", kind: "small" },
       { x: GATE_N[0] - 150, y: GATE_N[1], text: "ประตูเหนือ · ป่าดิบแดนใต้", kind: "gate" },
-      { x: GATE_W[0], y: GATE_W[1] - 150, text: "ประตูป่า (ปิด)", kind: "gate" },
+      { x: GATE_W[0], y: GATE_W[1] - 150, text: "ประตูป่า · ป่าไทรศักดิ์สิทธิ์", kind: "gate" },
       { x: GATE_E[0], y: GATE_E[1] + 150, text: "ประตูตะวันออก · ชายฝั่งป่าชายเลน", kind: "gate" },
     ],
   });

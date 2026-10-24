@@ -15,10 +15,12 @@
 // shadow (two rope bridges hung with prayer flags cross it), then down the open slopes south of
 // the range to Suzhou. Rockfalls lie at the feet of the walls, wind-bent pines cling to the
 // terraces, and pilgrims' cairns mark the crest and the valley. The dry olive ground greens toward
-// the forest on the east and toward Suzhou's fields on the south.
+// the forest on the east and toward Suzhou's fields on the south. From the pilgrims' ground under
+// the north wall a path runs north up a cleft that splits the wall near its west end, a rib of it
+// left standing between the cleft and the sea, to the primeval forest beyond the range.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: east -> elder_forest, south -> suzhou, west -> west_cape
+//   ways out: east -> elder_forest, south -> suzhou, west -> west_cape, north -> primeval_forest
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
@@ -53,7 +55,10 @@ const RB1 = rampOff([-1000, 2050], [200, 2150], [-400, 800], 1000, 460);
 // the sea, their cliffs falling into it
 const S1: XY[] = [[-A, -A], [-1500, -A], [-1400, -6000], [-1700, -4600], [-1300, -3400], [-1600, -2200], [-1650, -1700], [-2700, -1450], [-4000, -1600], [-5300, -1400], [-6600, -1550], [-A, -1450]];
 const S_SPUR: XY[] = [[-1700, -1700], [-1200, -1450], [-100, -1150], [50, -500], [-150, 150], [-1200, 450], [-1800, 300], [-1900, -800]];
-const N1: XY[] = [[3800, -A], [A, -A], [A, 5500], [6600, 5550], [5600, 5650], [4800, 5800], [4300, 5950], [4100, 5000], [3700, 3200], [4000, 1800], [3800, 900], [3800, -300], [3900, -1600], [4000, -2600], [3800, -3600], [4100, -4800], [3700, -6000]];
+// (split near its west end by the cleft the way north runs up: N1W is the rib left between the
+// cleft and the sea)
+const N1: XY[] = [[3800, -A], [A, -A], [A, 4400], [6300, 4400], [5000, 4380], [4100, 4360], [3700, 3200], [4000, 1800], [3800, 900], [3800, -300], [3900, -1600], [4000, -2600], [3800, -3600], [4100, -4800], [3700, -6000]];
+const N1W: XY[] = [[4150, 5200], [5000, 5220], [6300, 5200], [A, 5200], [A, 5500], [6600, 5550], [5600, 5650], [4800, 5800], [4300, 5950]];
 const N_SPUR: XY[] = [[4200, -1900], [3400, -1500], [2700, -1250], [2600, -800], [2700, -150], [3500, 250], [4300, -300], [4600, -1100]];
 const S2: XY[] = [[-A, -A], [-3200, -A], [-3000, -5000], [-3400, -3300], [-3900, -2400], [-6000, -2300], [-A, -2400]];
 const N2: XY[] = [[5400, -A], [A, -A], [A, 4500], [6300, 4600], [5800, 4000], [5300, 1500], [5600, -500], [5200, -3000], [5600, -6000]];
@@ -88,6 +93,7 @@ export function build(_quality: { flowers: number }): Town {
       { poly: dense(S2, 900), h: 1800 },
       { poly: dense(N2, 900), h: 1900 },
       { poly: dense(SW_HEAD, 500), h: 650 },
+      { poly: dense(N1W, 600), h: 1200 },
     ],
     rock: "Westmount_CliffGranite",
   });
@@ -103,7 +109,7 @@ export function build(_quality: { flowers: number }): Town {
   const B1 = cross([-2650, 3350]), B2 = cross([-3050, 4150]);
 
   // ---- the road and the paths: over the pass, then west to the cape and south to Suzhou ----
-  const E_EXIT: XY = [600, -5150], S_EXIT: XY = [-5150, -770], W_EXIT: XY = [0, 5150];
+  const E_EXIT: XY = [600, -5150], S_EXIT: XY = [-5150, -770], W_EXIT: XY = [0, 5150], N_EXIT: XY = [5150, 4800];
   const ROAD: XY[] = [
     ...smooth([[400, -7600], E_EXIT, [1200, -4950], [2300, -4850], beyond(RA1.top, RA1.bottom, 400)]), RA1.bottom, RA1.top,
     ...smooth([beyond(RA1.bottom, RA1.top, 350), [2300, -2750], [1300, -2600], [600, -2850], beyond(RC1.top, RC1.bottom, 330)]), RC1.bottom, RC1.top,
@@ -119,7 +125,8 @@ export function build(_quality: { flowers: number }): Town {
   const WEST_WAY: XY[] = smooth([FORK, [-250, 4300], W_EXIT, [0, 7600]]);
   const LOOP: XY[] = [...smooth([[-1700, 3450], [-1650, 4250], [-2000, 4750], B2.off(-950)]), ...smooth([B2.off(950), [-3950, 3000], [-3800, 2600]])];
   const CAIRN_WAY: XY[] = smooth([[-1100, 3500], [0, 3700], [900, 3900], [CAIRNS[0] - 300, CAIRNS[1] - 100]]);
-  const TRACKS = [ROAD, SOUTH_WAY, WEST_WAY, LOOP, CAIRN_WAY];
+  const CLEFT_WAY: XY[] = smooth([[CAIRNS[0] - 300, CAIRNS[1] - 100], [1900, 4170], [2400, 4260], [3100, 4560], [3900, 4790], N_EXIT, [7600, 4800]]);
+  const TRACKS = [ROAD, SOUTH_WAY, WEST_WAY, LOOP, CAIRN_WAY, CLEFT_WAY];
   const roads = TRACKS.map((t, i) => band(t, i < 3 ? 460 : 380));
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
@@ -191,6 +198,7 @@ export function build(_quality: { flowers: number }): Town {
   f.exit("elder_forest", E_EXIT, [800, -4450]);
   f.exit("suzhou", S_EXIT, [-4450, -720]);
   f.exit("west_cape", W_EXIT, [-80, 4450]);
+  f.exit("primeval_forest", N_EXIT, [4450, 4790]);
 
   // ---- placing things ----
   const taken: [number, number, number][] = [];
@@ -250,6 +258,8 @@ export function build(_quality: { flowers: number }): Town {
   prop("steppe:signpost", [-4500, -1150], 0, 80, ring(30, "post"));
   prop("steppe:signpost", [350, 4750], -90, 80, ring(30, "post"));
   prop("westmount:prayer_cairn", [-450, 5000], 0, 160, { s: 0.55, ...ring(65) });
+  prop("steppe:signpost", [4600, 4450], 180, 80, ring(30, "post"));
+  prop("westmount:prayer_cairn", [3700, 5150], 0, 160, { s: 0.55, ...ring(65) });
   // the headland's cliffs and the north wall's foot in the sea: storm rocks, spray breaking
   for (const [x, y, h, s] of [[-5300, 5000, 30, 0.9], [-4950, 5800, 120, 0.7], [-6300, 4500, 200, 1], [4500, 6400, 60, 0.8], [5400, 6100, 160, 0.9], [6500, 6000, 250, 0.7]] as [number, number, number, number][])
     put("westhills:storm_rocks", [x, y], h, { s, z: -14, solid: "none" });
@@ -356,6 +366,7 @@ export function build(_quality: { flowers: number }): Town {
       { x: E_EXIT[0], y: E_EXIT[1] + 250, text: "ทางไปป่าโบราณ", kind: "gate" },
       { x: S_EXIT[0] + 200, y: S_EXIT[1], text: "ทางไปซูโจว", kind: "gate" },
       { x: W_EXIT[0] + 250, y: W_EXIT[1] - 200, text: "ทางไปแหลมทะเลตะวันตก", kind: "gate" },
+      { x: N_EXIT[0] - 200, y: N_EXIT[1], text: "ทางไปป่าดึกดำบรรพ์", kind: "gate" },
       { x: -900, y: 4700, text: "คอแผ่นดินสู่แหลม", kind: "small" },
       { x: FORT[0] + 500, y: FORT[1] - 750, text: "ด่านชายแดนเก่า" },
       { x: B1.at[0] + 300, y: B1.at[1] + 900, text: "หุบเหวสะพานเชือก" },

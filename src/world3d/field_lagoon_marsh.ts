@@ -9,10 +9,12 @@
 // hummock in the north-west, up a ramp, from which a round shrine can be seen sinking into the
 // pool beside it; a second hummock in the south-east where a great dead tree stands over a
 // forgotten tomb. Reeds and cattails crowd every edge, drowned trees stand in the water, wisps
-// hang over it and banks of poison mist lie on the pools.
+// hang over it and banks of poison mist lie on the pools. From the dry ground east of the first
+// pool a track turns off south-west, between the west pools and the channel, and leaves over the
+// south edge through the woods to the sunken temple woods.
 //
 // Full size in the field's own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finish.
-//   ways out: west -> suzhou, east -> noa_plains
+//   ways out: west -> suzhou, east -> noa_plains, south -> sunken_temple_woods
 
 import { FieldBuilder } from "./field";
 import { useKits } from "./town";
@@ -66,7 +68,7 @@ const BW3: XY[] = smooth([[860, -2480], [760, -2900], [600, -3350], [560, -3820]
 const BW5: XY[] = smooth([[-2950, 2600], [-3200, 2050], [-3350, 1650], [-3420, 1350]]);
 const BWS = [BW4, BW1, BW2, BW3, BW5];
 
-const SZ: XY = [0, 5150], NP: XY = [-1100, -5150];
+const SZ: XY = [0, 5150], NP: XY = [-1100, -5150], ST: XY = [-5150, -150];
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(312, {
@@ -89,7 +91,8 @@ export function build(quality: { flowers: number }): Town {
   const VILLAGE: XY[] = smooth([BW1[0], [-2750, 3250], [-2950, 2950], BW5[0]]);
   const HUMMOCK1: XY[] = [...smooth([[-500, 950], [100, 950], H1_RAMP.bottom]), H1_RAMP.top, [H1_RAMP.top[0] + 40, H1_RAMP.top[1] + 350]];
   const HUMMOCK2: XY[] = [...smooth([[540, -4000], [1300, -4250], H2_RAMP.bottom]), H2_RAMP.top, [H2_RAMP.top[0] + 300, H2_RAMP.top[1] - 80]];
-  const tracks = [L0, L0B, L1, L2, L3, VILLAGE, HUMMOCK1, HUMMOCK2];
+  const L4: XY[] = smooth([[-550, 650], [-1500, 350], [-2600, -150], [-3600, -450], [-4500, -250], ST, [-7300, -100]]);
+  const tracks = [L0, L0B, L1, L2, L3, VILLAGE, HUMMOCK1, HUMMOCK2, L4];
   const pools = [P1, P2, P3, P4, P5, LG, ...Q, ...MORE];
   const ground = f.ground({
     area: AREA, cell: 60, roads: tracks.map((t) => band(t, 380)), plazas: [], water: [...pools, band(CH, 460), band(CH2, 400), band(CH3, 360), ...RIM_WATER],
@@ -101,6 +104,7 @@ export function build(quality: { flowers: number }): Town {
   // (each arrival on the way in, past the first channel on the west, clear of the pools)
   f.exit("suzhou", SZ, [410, 4250]);
   f.exit("noa_plains", NP, [-450, -5090]);
+  f.exit("sunken_temple_woods", ST, [-4450, -280]);
 
   // ---- what keeps everyone out of the water: discs over every pool, shrunk beside the boardwalks
   // so they close up to the rails without reaching the planks; the channel banded with a gap where
@@ -150,6 +154,7 @@ export function build(quality: { flowers: number }): Town {
   put("jungle:trail_sign", [-650, -4600], towards(0.5, 1), { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("jungle:trail_sign", [-650, 1250], towards(-1, 0.5), { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("jungle:trail_sign", [700, -4150], towards(-0.4, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  put("jungle:trail_sign", [-4700, 250], towards(-1, 0.3), { solid: [disc(20, 0, 0, "post")], r: 90 });
 
   // ---- the drowned village: stilt houses in the south-west pool, the boardwalk to the first ----
   put("stilt_ruin", [-3650, 900], -117, { solid: "none", r: 420 }); // its ladder to the boardwalk's end
@@ -267,6 +272,7 @@ export function build(quality: { flowers: number }): Town {
     labels: [
       { x: SZ[0] + 250, y: SZ[1] - 250, text: "ทางไปซูโจว", kind: "gate" },
       { x: NP[0], y: NP[1] + 250, text: "ทางไปที่ราบใต้โนอา", kind: "gate" },
+      { x: ST[0] + 250, y: ST[1] + 250, text: "ทางไปป่าวิหารจม", kind: "gate" },
       { x: 2450, y: -1200, text: "ลากูนใหญ่" },
       { x: -3300, y: 1800, text: "หมู่บ้านใต้ถุนสูงร้าง" },
       { x: 1000, y: 2850, text: "ศาลจมบึง", kind: "small" },
