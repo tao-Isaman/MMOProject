@@ -12,10 +12,9 @@ const n1 = (v: number) => +v.toFixed(1);
 
 // An invoked spell: what the invoke casts for one recipe, and how its desc tells it at a rank.
 type Spell = { name: string; skill: SkillDef; text: (r: number) => string };
-const ORB_NAME: Record<string, string> = { fire: "ไฟ", ice: "น้ำแข็ง", lightning: "สายฟ้า" };
-// The spells of a table one after another, each with its recipe ("ไฟ ไฟ น้ำแข็ง").
-const spellsText = (table: Record<string, Spell>, r: number) =>
-  Object.entries(table).map(([key, sp]) => `[${key.split("+").map((e) => ORB_NAME[e]).join(" ")}] ${sp.name}: ${sp.text(r)}`).join(" · ");
+// The spells of a table one after another. (The skill window and the tooltip list each one's
+// orbs in their colours, with its MP and cooldown, over this.)
+const spellsText = (table: Record<string, Spell>, r: number) => Object.values(table).map((sp) => `${sp.name}: ${sp.text(r)}`).join(" · ");
 
 // The invoke's ten spells, keyed by the orbs held (sorted, joined by "+"). Each keeps its own MP,
 // cooldown and cast time; its numbers grow with the invoke's rank.
