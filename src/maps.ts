@@ -152,7 +152,7 @@ const FIELD_SOLIDS: SolidSpec[] = [
 ];
 const FIELD_BOUNDS = { minX: 60, maxX: 2650, minY: -760, maxY: 2050 };
 // where Eden's west gate leads out, and where the way back in stands
-const FIELD_WARP = { x: 400, y: -680, r: 150, to: "eden" };
+const FIELD_WARP = { x: 1355, y: -680, r: 150, to: "eden" };
 // and the way on west into the great forest
 const FIELD_WOODS = { x: 760, y: 1990, r: 150, to: "west_woods" };
 
@@ -176,7 +176,7 @@ export async function loadMap(id: MapId, quality: { flowers: number }): Promise<
         level: fieldLevel(quality, [FIELD_WARP, FIELD_WOODS]),
         npcs: [{ id: "mira", x: MERCHANT.x, y: MERCHANT.y, face: 180, name: MERCHANT.name, title: MERCHANT.title, role: "shop", sprite: "merchant", lines: ["ยินดีต้อนรับจ้า"] }],
         warps: [FIELD_WARP, FIELD_WOODS],
-        gates: { eden: { x: 430, y: -470 }, west_woods: { x: 850, y: 1700 } },
+        gates: { eden: { x: 1330, y: -440 }, west_woods: { x: 850, y: 1700 } },
         closed: [],
         labels: [{ x: 1910, y: 1440, text: "บ้านไร่" }, { x: 1100, y: 820, text: "บ่อน้ำ", kind: "small" }],
       };

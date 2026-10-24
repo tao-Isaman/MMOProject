@@ -1,13 +1,17 @@
 // ป่าใหญ่ตะวันตก (the great western wood), monsters Lv 8-15: an old oak forest west of the first
-// field. The way in from Eden's side is on its east (from the western meadow, `field`); a track
-// winds west through the trees, over a stream on a plank bridge, past a hunter's lodge on its
-// knoll, and up onto a wooded plateau whose higher step holds the reward: an old shrine of the
-// forest spirits. From the foot of that plateau's ramp the old road to Noa goes on west, between
-// the knoll and the plateau and over a wooded rise, out of the wood's west side. A second track
-// loops north over another bridge to a clearing of mossy stones on a rise. A high mossy bluff
-// walls the north-west; thick woods ring the rest.
+// field. The way in from Eden's side is low on its east (from the western meadow, `field`); a
+// track winds north-west through the trees, over a stream on a plank bridge, past a hunter's
+// lodge on its knoll, and up onto a wooded plateau whose higher step holds the reward: an old
+// shrine of the forest spirits. From the foot of that plateau's ramp the old road to Noa goes on
+// west between the knoll and the plateau, along the plateau's foot and out of the wood's west
+// side to Noa's east gate. A second track loops north over another bridge to a clearing of mossy
+// stones on a rise; off it, before the bridge, a road runs north out of the wood to the Noa
+// meadow, between the stream (which comes down from the meadow's pond) and a high mossy bluff
+// that walls the north-west. Thick woods ring the rest.
 //
 // Full size in its own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finishField.
+//   ways out: east -> field (n 0.27, the field's west way out), west -> noa (n 0.26, Noa's east
+//   gate), north -> noa_meadow (e 0.50, the meadow's south way out)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -127,30 +131,36 @@ const off = (c: { at: XY; ax: XY }, k: number): XY => [c.at[0] + c.ax[0] * k, c.
 // the ground: a hunter's knoll (P1), the shrine plateau (P2) and its higher step (P3), a mossy
 // bluff along the north-west (P4, no way up), and rolling ground
 const P1: Poly = [[-3900, 300], [-1900, 150], [-1700, 2300], [-3700, 2500]];
-const P2: Poly = [[-2600, 3300], [1300, 3000], [3700, 3400], [4200, 7500], [-3000, 7500]];
+// (P2's south side stands back far enough for the road to Noa to pass along its foot)
+const P2: Poly = [[-1800, 3238], [1300, 3000], [3700, 3400], [4200, 7500], [-1800, 7500]];
 const P3: Poly = [[100, 4000], [2700, 3850], [3000, 7000], [-100, 7000]];
-const P4: Poly = [[4500, -400], [4800, 1200], [4400, 2900], [8500, 2900], [8500, -400]];
+// (P4 stands back from the road north to the meadow)
+const P4: Poly = [[4500, 900], [4800, 1900], [4400, 2900], [8500, 2900], [8500, 900]];
 const R1 = { top: [-1798, 1250] as XY, bottom: [-900, 1300] as XY, width: 440 };
 const R2 = { top: [-500, 3138] as XY, bottom: [-450, 2060] as XY, width: 460 };
 const R3 = { top: [40, 4900] as XY, bottom: [-900, 4900] as XY, width: 440 };
 
 // the tracks: the main one from the way in (east) to the shrine, a branch up to the lodge, and a
 // loop north over the second bridge to the mossy stones
-const T1: XY[] = smooth([[-400, -5900], [-350, -4600], [150, -3700], [-250, -2700], off(C1, -700), BR1, off(C1, 700), [-1200, 400], [-700, 800], [-250, 1350], R2.bottom]);
+const T1: XY[] = smooth([[-2300, -6900], [-2300, -5150], [-1900, -4300], [-1000, -3500], [-250, -2700], off(C1, -700), BR1, off(C1, 700), [-1200, 400], [-700, 800], [-250, 1350], R2.bottom]);
 const T1b: XY[] = smooth([R2.bottom, R2.top, [-650, 3800], [-900, 4500], R3.bottom]);
 const T1c: XY[] = [R3.bottom, R3.top, [900, 4900]];
 const T2: XY[] = smooth([[-700, 800], [-950, 1050], R1.bottom]);
 const T2b: XY[] = [R1.bottom, R1.top, [-2500, 1300]];
-const T3: XY[] = smooth([[-700, 800], [500, 450], [1500, 0], off(C2, 700), BR2, off(C2, -700), [2000, -2700], [2550, -3250], [2300, -3800], [1500, -3950], [600, -3800], [150, -3700]]);
+const T3: XY[] = smooth([[-700, 800], [500, 450], [1500, 0], off(C2, 700), BR2, off(C2, -700), [2000, -2700], [2550, -3250], [2300, -3800], [1500, -3950], [600, -3800], [150, -3700], [-560, -3150]]);
 // the road to Noa: from the foot of the shrine plateau's ramp, west between the knoll and the
-// plateau, over the rise in the south-west and out of the wood's west side
-const T4: XY[] = smooth([R2.bottom, [-1100, 2450], [-2000, 2800], [-3100, 3000], [-3700, 3650], [-3850, 4450], [-3800, 5150], [-3750, 6900]]);
+// plateau, along the plateau's foot and out of the wood's west side
+const T4: XY[] = smooth([R2.bottom, [-1100, 2450], [-2000, 2800], [-2450, 3500], [-2450, 4400], [-2400, 5150], [-2400, 6900]]);
+// the road north to the Noa meadow: off the loop before its bridge, north between the stream and
+// the bluff and out of the wood's north side
+const T5: XY[] = smooth([[1500, 0], [2500, 200], [3500, 100], [4300, 0], [4650, 0], [6900, 0]]);
 
 const SHRINE: XY = [1550, 4900];
 const LODGE: XY = [-3000, 1300];
 const STONES: XY = [2650, -3600];
-const WAY_IN: XY = [-380, -5150], ARRIVE: XY = [-270, -4450];
-const WAY_NOA: XY = [-3800, 5150], ARRIVE_NOA: XY = [-3830, 4430];
+const WAY_IN: XY = [-2300, -5150], ARRIVE: XY = [-2010, -4500];
+const WAY_NOA: XY = [-2400, 5150], ARRIVE_NOA: XY = [-2440, 4430];
+const WAY_MEADOW: XY = [4650, 0], ARRIVE_MEADOW: XY = [3930, 50];
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(211, {
@@ -171,10 +181,10 @@ export function build(quality: { flowers: number }): Town {
     rock: "CliffMoss",
   });
   const { put, rnd } = f;
-  const tracks = [T1, T1b, T1c, T2, T2b, T3, T4];
+  const tracks = [T1, T1b, T1c, T2, T2b, T3, T4, T5];
   const ground = f.ground({
     area: AREA,
-    roads: tracks.map((t, i) => band(t, i === 0 || t === T4 ? 470 : 400)),
+    roads: tracks.map((t, i) => band(t, i === 0 || t === T4 || t === T5 ? 470 : 400)),
     plazas: [],
     water: [band(STREAM, SW)],
     base: "grass",
@@ -218,18 +228,24 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the way in: a signpost at the edge of the wood ----
   f.exit("field", WAY_IN, ARRIVE);
-  P("plains:signpost", [-760, -4850], 90, 80);
-  P("plains:boulder", [380, -4900], 20, 230);
-  P("plains:stump", [-900, -4300], 0, 100);
-  P("plains:tall_grass", [-750, -4600], 0, 60);
-  P("plains:tall_grass", [150, -4500], 0, 60);
+  P("plains:signpost", [-2680, -4850], 90, 80);
+  P("plains:boulder", [-1540, -4950], 20, 230);
+  P("plains:stump", [-2820, -4300], 0, 100);
+  P("plains:tall_grass", [-2670, -4600], 0, 60);
+  P("plains:tall_grass", [-1500, -4400], 0, 60);
 
   // ---- the way out west to Noa: a signpost and a cairn where the road leaves the wood ----
   f.exit("noa", WAY_NOA, ARRIVE_NOA);
-  P("plains:signpost", [-3420, 4880], 180, 80);
-  P("trunrada:cairn", [-4250, 4750], 0, 140);
-  P("plains:boulder", [-4300, 5200], 60, 230, { s: 0.8 });
-  P("plains:stump", [-3350, 4350], 0, 100);
+  P("plains:signpost", [-2780, 4900], 180, 80);
+  P("trunrada:cairn", [-2950, 5300], 0, 140);
+  P("plains:boulder", [-3150, 4600], 60, 230, { s: 0.8 });
+  P("plains:stump", [-2900, 4100], 0, 100);
+
+  // ---- the way out north to the Noa meadow: a signpost and a cairn by the road ----
+  f.exit("noa_meadow", WAY_MEADOW, ARRIVE_MEADOW);
+  P("plains:signpost", [4250, -420], 0, 80);
+  P("trunrada:cairn", [4300, 520], 0, 140);
+  P("plains:stump", [3700, 600], 0, 100);
 
   // ---- the hunter's lodge on its knoll ----
   P("plains:hunter_lodge", LODGE, 180, 560);
@@ -252,9 +268,9 @@ export function build(quality: { flowers: number }): Town {
   P("plains:stump", [500, 5500], 0, 100);
   for (const [x, y] of [[600, 5300], [2100, 3950], [800, 4500], [2650, 4850]] as XY[]) P("plains:fern_clump", [x, y], rnd() * 360, 70);
   // the lower plateau: a clearing among the trees, old stones
-  P("plains:boulder", [-1900, 4300], 120, 230);
-  P("plains:fallen_log", [-1500, 3600], 100, 330);
-  P("trunrada:standing_stone", [-2100, 3700], 30, 90);
+  P("plains:boulder", [-1450, 4500], 120, 230);
+  P("plains:fallen_log", [-1250, 3700], 100, 330);
+  P("trunrada:standing_stone", [-1450, 3950], 30, 90);
   P("trunrada:standing_stone", [-1500, 5200], -20, 90);
   P("plains:rock_cluster", [3400, 4400], 80, 260);
   P("plains:fallen_log", [3500, 5800], 10, 330);
@@ -279,7 +295,7 @@ export function build(quality: { flowers: number }): Town {
   ] as [string, XY, number, number][]) if (f.level(at[0], at[1], r * 0.6)) P(ref, at, h, r);
 
   // ---- the oak wood: thick, with glades left open; ferns, grass and bushes under it ----
-  const glades: [XY, number][] = [[STONES, 900], [SHRINE, 900], [LODGE, 700], [[-2400, 1300], 600], [[-300, -3300], 1000], [[1800, 1500], 1100], [[-1400, 4300], 900], [[-3300, -3200], 900], [[3400, -1800], 700], [[-3600, 4300], 700], [[3500, 4600], 600], [ARRIVE, 700], [ARRIVE_NOA, 600]];
+  const glades: [XY, number][] = [[STONES, 900], [SHRINE, 900], [LODGE, 700], [[-2400, 1300], 600], [[-300, -3300], 1000], [[1800, 1500], 1100], [[-1400, 4300], 900], [[-3300, -3200], 900], [[3400, -1800], 700], [[-2950, 4400], 600], [[3500, 4600], 600], [ARRIVE, 700], [ARRIVE_NOA, 600], [ARRIVE_MEADOW, 600]];
   const inGlade = (x: number, y: number, k = 1) => glades.some(([c, r]) => dist([x, y], c) < r * k);
   const OAKS = ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "BigOak"];
   for (let x = B.minX + 150; x < B.maxX; x += 480)
@@ -299,7 +315,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the rim: thick woods all round, the land going on ----
   const inside = (x: number, y: number) => x > B.minX - 250 && x < B.maxX + 250 && y > B.minY - 250 && y < B.maxY + 250;
-  f.woods(AREA, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => inside(x, y) || nearWater(x, y, 150) || toLine([x, y], T1) < 300 || toLine([x, y], T4) < 330, { count: 900, tries: 9000, spacing: 400 });
+  f.woods(AREA, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => inside(x, y) || nearWater(x, y, 150) || toLine([x, y], T1) < 300 || toLine([x, y], T4) < 330 || toLine([x, y], T5) < 330, { count: 900, tries: 9000, spacing: 400 });
   f.woods(AREA, ["Bush", "SmallTree"], (x, y) => inside(x, y) || nearWater(x, y, 60), { count: 160, tries: 2000, spacing: 300 });
 
   // ---- monsters: the glades, the plateaus, the loop ----
@@ -335,7 +351,7 @@ export function build(quality: { flowers: number }): Town {
     sky: "#34502a",
     flowers: { box: { x: B.minX, y: B.minY, w: B.maxX - B.minX, h: B.maxY - B.minY }, open: (x, y) => ground.kind(x, y) === 0, density: 0.22 * quality.flowers },
     bounds: B,
-    spawn: { x: -130, y: -4150 },
+    spawn: { x: -1800, y: -4180 },
     npcs,
     labels: [
       { x: SHRINE[0] - 700, y: SHRINE[1], text: "ศาลเจ้าป่าโบราณ" },
@@ -346,6 +362,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -1500, y: 4200, text: "ที่ราบศาลเจ้า", kind: "small" },
       { x: WAY_IN[0], y: WAY_IN[1] + 250, text: "ทางไปทุ่งหญ้าตะวันตก", kind: "gate" },
       { x: WAY_NOA[0], y: WAY_NOA[1] - 250, text: "ทางไปโนอา", kind: "gate" },
+      { x: WAY_MEADOW[0] - 250, y: WAY_MEADOW[1], text: "ทางไปทุ่งหญ้าโนอา", kind: "gate" },
     ],
   });
 }

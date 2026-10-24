@@ -5,11 +5,12 @@
 //
 // The plan (plan pixels, u right = east, v down = south; 20 cm a pixel; the walls a box
 // u 0..850, v 0..735, so 170 x 147 m):
-//   - the city wall with five open gates: north (the cardo out to the frozen river and on to
+//   - the city wall with four open gates: north (the cardo out to the frozen river and on to
 //     Highland Hill), south (the cardo out to the plains and Venezia), west (the west road out to
-//     the elder forest and over the mountains to Suzhou), and two in the east wall: the meadow
-//     road through its north part to the Noa meadow, the caravan road through its south part to
-//     the west woods and Eden;
+//     the elder forest and over the mountains to Suzhou), and east, low in the east wall: the
+//     caravan road out to the west woods and Eden (the Noa meadow lies north of the woods, so it is
+//     reached that way now). The old meadow gate higher up the east wall was walled up long ago;
+//     a tower stands where it was, at the end of the meadow road;
 //   - the two old roads crossing in the middle: the cardo from the north gate to the south gate
 //     (u 395..445), and the west road from the west gate (v 342.5..392.5) into the clock square,
 //     the big square at the crossing (u 330..510, v 285..450), with the old fountain where the
@@ -27,15 +28,15 @@
 //     600..730, v 405..590: stalls in three lines round the old well) and on to the caravan yard
 //     inside the south-east gate (wagons drawn up either side of the road, their loads stacked
 //     by them), the caravan inn on the yard's north side;
-//   - north of the square: the meadow road from the cardo east to its gate (v 115..165), and on
-//     west under the aqueduct into the palace precinct;
+//   - north of the square: the meadow road from the cardo east to the walled-up gate (v 115..165),
+//     and on west under the aqueduct into the palace precinct;
 //   - houses everywhere else, in rows wall to wall along the streets and lanes: the north-east
 //     quarter (a lane north-south at u 670..692 and one east-west at v 285..307), houses down both
 //     sides of the cardo, and the south-west quarter (a lane down from the west road at u 140..162
 //     and one across at v 560..582, on under the aqueduct to the cardo), the smithy by the west
 //     gate; Eden's houses in faded colourways and Noa's own old townhouses among them;
 //   - greens between the rows full of old trees and fallen columns, orchards and garden wells
-//     between the southern rows and the wall; outside, milestones and lamps by the five roads,
+//     between the southern rows and the wall; outside, milestones and lamps by the four roads,
 //     and woods.
 //
 // The plan is read in its own pixels and turned into the world (north is +X, east is -Y); the
@@ -84,10 +85,11 @@ type UV = [number, number];
 
 // ---- the plan (plan pixels) ----
 const WALL = { u0: 0, u1: 850, v0: 0, v1: 735 };
-const G_N: UV = [420, 0], G_S: UV = [420, 735], G_W: UV = [0, 367.5], G_EN: UV = [850, 140], G_ES: UV = [850, 560];
+const G_N: UV = [420, 0], G_S: UV = [420, 735], G_W: UV = [0, 367.5], G_E: UV = [850, 560];
+const OLD_GATE: UV = [850, 140];     // the meadow gate, walled up: a tower stands in it
 const CARDO: UV = [395, 445];        // u, from gate to gate
 const WEST_RD: UV = [342.5, 392.5];  // v, from the west gate into the square
-const MEADOW_RD: UV = [115, 165];    // v, from the precinct under the aqueduct to the meadow gate
+const MEADOW_RD: UV = [115, 165];    // v, from the precinct under the aqueduct to the old meadow gate
 const SQ = { u0: 330, u1: 510, v0: 285, v1: 450 };
 const MARKET = { u0: 600, u1: 730, v0: 405, v1: 590 };
 const YARD = { u0: 745, u1: 842, v0: 500, v1: 650 };
@@ -112,7 +114,7 @@ export function buildNoa(quality: { flowers: number }): Town {
   const roads: Poly[] = [
     rect(CARDO[0], -250, CARDO[1], WALL.v1 + 250),       // the cardo, out of both gates
     rect(-250, WEST_RD[0], SQ.u0, WEST_RD[1]),           // the west road
-    rect(290, MEADOW_RD[0], WALL.u1 + 250, MEADOW_RD[1]), // the meadow road
+    rect(290, MEADOW_RD[0], WALL.u1 - 4, MEADOW_RD[1]),   // the meadow road, up to the old gate's tower
     rect(SQ.u1, 405, MARKET.u0, 450),                    // the caravan road: the square to the market
     rect(MARKET.u1, 535, WALL.u1 + 250, 585),            // ... the market to the yard and its gate
     // the lanes
@@ -149,10 +151,10 @@ export function buildNoa(quality: { flowers: number }): Town {
   wallRun(at(0, 0), at(850, 0), "n", [[along(G_N, [0, 0]), GATE_W], [along([AQ_U, 0], [0, 0]), AQ_W]]);
   wallRun(at(0, 735), at(850, 735), "s", [[along(G_S, [0, 735]), GATE_W], [along([AQ_U, 735], [0, 735]), AQ_W]]);
   wallRun(at(0, 0), at(0, 735), "w", [[along(G_W, [0, 0]), GATE_W]]);
-  wallRun(at(850, 0), at(850, 735), "e", [[along(G_EN, [850, 0]), GATE_W], [along(G_ES, [850, 0]), GATE_W]]);
+  wallRun(at(850, 0), at(850, 735), "e", [[along(G_E, [850, 0]), GATE_W]]);
   const tower = (u: number, v: number) => put("eden:wall_tower", at(u, v), 0, { colours: "noa-wall", solid: [{ kind: "tower", x: 0, y: 0, r: 330 }] });
-  for (const [u, v] of [[0, 0], [850, 0], [0, 735], [850, 735], [170, 0], [640, 0], [170, 735], [640, 735], [0, 180], [0, 560], [850, 350]] as UV[]) tower(u, v);
-  for (const [g, side] of [[G_N, "n"], [G_S, "s"], [G_W, "w"], [G_EN, "e"], [G_ES, "e"]] as [UV, Side][]) put("noa:old_gate", at(...g), FACE[side], { solid: NOA_SOLIDS.old_gate });
+  for (const [u, v] of [[0, 0], [850, 0], [0, 735], [850, 735], [170, 0], [640, 0], [170, 735], [640, 735], [0, 180], [0, 560], [850, 350], OLD_GATE] as UV[]) tower(u, v);
+  for (const [g, side] of [[G_N, "n"], [G_S, "s"], [G_W, "w"], [G_E, "e"]] as [UV, Side][]) put("noa:old_gate", at(...g), FACE[side], { solid: NOA_SOLIDS.old_gate });
 
   // ---- the aqueduct: 7 m bays from outside the north wall to outside the south wall, a pier
   // standing in each wall's line; the two ends broken off ----
@@ -319,7 +321,7 @@ export function buildNoa(quality: { flowers: number }): Town {
   town.greens(ground, { x0: SOUTH, x1: NORTH, y0: EAST, y1: WEST }, { trees: ["RoundTree", "BigOak", "SmallTree", "BigOak", "Birch", "RoundTree"], other: "noa:broken_column", chance: 0.8, step: 420 });
 
   // ---- outside the walls: milestones and lamps by the roads, the aqueduct's ends, woods ----
-  for (const [g, side] of [[G_N, "n"], [G_S, "s"], [G_W, "w"], [G_EN, "e"], [G_ES, "e"]] as [UV, Side][]) {
+  for (const [g, side] of [[G_N, "n"], [G_S, "s"], [G_W, "w"], [G_E, "e"]] as [UV, Side][]) {
     const d: UV = side === "n" ? [0, -1] : side === "s" ? [0, 1] : side === "w" ? [-1, 0] : [1, 0];
     const n: UV = [d[1], d[0]];
     const p = (k: number, s: number): UV => [g[0] + d[0] * k + n[0] * s, g[1] + d[1] * k + n[1] * s];
@@ -328,8 +330,8 @@ export function buildNoa(quality: { flowers: number }): Town {
   }
   const walled = (x: number, y: number) => x > SOUTH - 900 && x < NORTH + 900 && y > EAST - 900 && y < WEST + 900;
   const nearRoad = (x: number, y: number) => {
-    const [cx, wy, my, ey] = [at(420, 0)[1], at(0, 367.5)[0], at(0, 140)[0], at(0, 560)[0]];
-    return Math.abs(y - cx) < 1000 || (Math.abs(x - wy) < 1000 && y > 0) || ((Math.abs(x - my) < 1000 || Math.abs(x - ey) < 1000) && y < 0) || Math.abs(y - at(AQ_U, 0)[1]) < 700;
+    const [cx, wy, ey] = [at(420, 0)[1], at(0, 367.5)[0], at(0, 560)[0]];
+    return Math.abs(y - cx) < 1000 || (Math.abs(x - wy) < 1000 && y > 0) || (Math.abs(x - ey) < 1000 && y < 0) || Math.abs(y - at(AQ_U, 0)[1]) < 700;
   };
   town.woods({ x0: -15000, x1: 15000, y0: -16500, y1: 16500 }, ["RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine", "Birch"], (x, y) => walled(x, y) || nearRoad(x, y), { count: 170 });
 
@@ -350,8 +352,7 @@ export function buildNoa(quality: { flowers: number }): Town {
       gateWay(at(...G_N), "n", "frozen_river", 480, 450),
       gateWay(at(...G_S), "s", "noa_plains", 480, 450),
       gateWay(at(...G_W), "w", "elder_forest", 480, 450),
-      gateWay(at(...G_EN), "e", "noa_meadow", 480, 450),
-      gateWay(at(...G_ES), "e", "west_woods", 480, 450),
+      gateWay(at(...G_E), "e", "west_woods", 480, 450),
     ]),
     closed: [],
     labels: [
@@ -370,8 +371,7 @@ export function buildNoa(quality: { flowers: number }): Town {
       { x: at(...G_N)[0] - 300, y: at(...G_N)[1], text: "ประตูเหนือ · แม่น้ำเยือกแข็ง", kind: "gate" },
       { x: at(...G_S)[0] + 300, y: at(...G_S)[1], text: "ประตูใต้ · ที่ราบใต้โนอา", kind: "gate" },
       { x: at(...G_W)[0], y: at(...G_W)[1] - 300, text: "ประตูตะวันตก · ป่าโบราณ", kind: "gate" },
-      { x: at(...G_EN)[0], y: at(...G_EN)[1] + 300, text: "ประตูตะวันออก · ทุ่งหญ้าโนอา", kind: "gate" },
-      { x: at(...G_ES)[0], y: at(...G_ES)[1] + 300, text: "ประตูตะวันออก · ป่าใหญ่ตะวันตก", kind: "gate" },
+      { x: at(...G_E)[0], y: at(...G_E)[1] + 300, text: "ประตูตะวันออก · ป่าใหญ่ตะวันตก", kind: "gate" },
     ],
   });
 }
@@ -407,11 +407,12 @@ function noaNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
       lines: ["ออกประตูตะวันตกไปคือป่าโบราณ ต้นไม้ที่นั่นอายุนับพันปี", "ผ่านป่าไปแล้วต้องข้ามช่องเขาตะวันตกถึงจะไปถึงซูโจวเมืองท่าปลายทวีป"] },
     { id: "noa_guard_w2", ...spot(24, 383), face: -90, name: "ทหารยามรูเพิร์ต", title: "ทหารยามประตูตะวันตก", role: "talk", look: guard("top_warrior", "silver"),
       lines: ["ในป่ามีศาลหินยุคโนอาซ่อนอยู่ ว่ากันว่าสร้างก่อนกำแพงเมืองนี้เสียอีก", "เห็ดเรืองแสงในป่าสวยก็จริง แต่อย่าเก็บมากินเชียว"] },
-    // the east gates
-    { id: "noa_guard_en1", ...spot(826, 124), face: 90, name: "ทหารยามเฟลิกซ์", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_navy", "gold"),
-      lines: ["ประตูนี้ออกไปทุ่งหญ้าโนอา ลมแรงทั้งปี มีกังหันลมกับฝูงแกะ", "มือใหม่ล่ามอนสเตอร์ที่ทุ่งหญ้าก่อนเถอะ แถวนั้นยังไม่อันตรายนัก"] },
-    { id: "noa_guard_en2", ...spot(826, 156), face: 90, name: "ทหารยามเกออร์ก", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_navy"),
-      lines: ["ถนนทุ่งหญ้าวิ่งตรงจากประตูนี้ไปถึงถนนใหญ่กลางเมือง", "ถ้าจะไปอีเดน ใช้ประตูตะวันออกอีกบานทางใต้ ประตูกองคาราวานนั่นแหละ"] },
+    // the old meadow gate, walled up: its guards stand watch by the tower in it
+    { id: "noa_guard_en1", ...spot(812, 124), face: -90, name: "ทหารยามเฟลิกซ์", title: "ทหารยามประตูทุ่งหญ้าเก่า", role: "talk", look: guard("top_warrior_navy", "gold"),
+      lines: ["ประตูทุ่งหญ้าบานนี้ก่อปิดเป็นหอคอยไปนานแล้ว ทางเก่าข้ามเนินพังจนเกวียนผ่านไม่ได้", "จะไปทุ่งหญ้าโนอา ออกประตูตะวันออกทางใต้ไปป่าใหญ่ตะวันตก แล้วเดินขึ้นเหนือออกชายป่า"] },
+    { id: "noa_guard_en2", ...spot(812, 156), face: -90, name: "ทหารยามเกออร์ก", title: "ทหารยามประตูทุ่งหญ้าเก่า", role: "talk", look: guard("top_warrior_navy"),
+      lines: ["ถนนทุ่งหญ้าวิ่งตรงจากหอคอยนี้ไปถึงถนนใหญ่กลางเมือง", "ทุ่งหญ้าโนอาลมแรงทั้งปี มีกังหันลมกับฝูงแกะ อยู่เหนือป่าใหญ่ตะวันตกขึ้นไป"] },
+    // the east gate
     { id: "noa_guard_es1", ...spot(826, 544), face: 90, name: "ทหารยามโทเบียส", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_forest", "auburn"),
       lines: ["ออกประตูนี้ไปคือป่าใหญ่ตะวันตก ทะลุป่าไปเป็นทุ่งหญ้าตะวันตกแล้วก็ถึงอีเดน", "กองคาราวานเข้าออกประตูนี้ทุกวัน ถนนสายนี้คือถนนสู่อีเดนมาแต่โบราณ"] },
     { id: "noa_guard_es2", ...spot(826, 576), face: 90, name: "ทหารยามแอนเซล์ม", title: "ทหารยามประตูตะวันออก", role: "talk", look: guard("top_warrior_forest"),
@@ -421,7 +422,7 @@ function noaNpcs(doors: Record<string, [number, number]>): NpcSpec[] {
     { id: "noa_guide", ...spot(398, 420), face: toward(398, 420, 420, 418), name: "มาร์ธา", title: "ผู้นำทาง", role: "talk",
       look: { gender: "female", hair: "hime", hairColor: "auburn", eyes: "teal", top: "top_adventurer_teal", bottom: "bottom_adventurer_sand" },
       lines: ["ยินดีต้อนรับสู่โนอา เมืองหลวงแรกของอาณาจักร ที่นี่คือจัตุรัสหอนาฬิกา", "ซากวังเก่าอยู่หลังกำแพงพังทางตะวันตกเฉียงเหนือ หอจดหมายเหตุอยู่ด้านเหนือของจัตุรัส",
-        "ตลาดเก่ากับลานกองคาราวานอยู่ทางตะวันออก ตามถนนคาราวานออกไปทางมุมจัตุรัส", "ประตูเมืองมีห้าบาน เหนือ ใต้ ตะวันตก และตะวันออกอีกสองบาน ทุกบานเปิดหมดแล้ว"] },
+        "ตลาดเก่ากับลานกองคาราวานอยู่ทางตะวันออก ตามถนนคาราวานออกไปทางมุมจัตุรัส", "ประตูเมืองมีสี่บาน เหนือ ใต้ ตะวันออก ตะวันตก ทุกบานเปิดหมดแล้ว"] },
     { id: "noa_healer", ...spot(382, 352), face: toward(382, 352, ...FOUNTAIN), name: "ซิสเตอร์อิซาเบล", title: "นักบวช · รักษาฟรี", role: "heal",
       look: { gender: "female", hair: "twintail", hairColor: "silver", eyes: "blue", top: "top_priestess_white", bottom: "bottom_priestess_white" },
       lines: ["น้ำพุนี้ศักดิ์สิทธิ์มาตั้งแต่ก่อนสร้างเมือง ขอพรให้ท่านปลอดภัย", "หายเหนื่อยแล้ว ไปเดินทางต่อได้เลย"] },
