@@ -36,6 +36,9 @@ export const WEAPON_ART: Record<WeaponId, WeaponArt> = {
   // points; the claw's band sits on the fist with the blades reaching on past it
   knuckle: { grip: 0.64 },
   claw: { grip: 0.84 },
+  // v0.5 guns (placeholders: copies of the dagger and the spear until their own art is drawn)
+  pistol: { grip: 0.75 },
+  rifle: { grip: 0.62, twoHand: true },
 };
 
 // Angle (radians, 0 = pointing up the screen, clockwise) a weapon is held at while she faces

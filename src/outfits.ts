@@ -37,6 +37,7 @@ const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
   jester: { female: [["mage", "rose"], ["mage", "plum"]], male: [["warrior", "rose"], ["warrior", "plum"]] },
   mercenary: { female: [["adventurer", "ochre"], ["adventurer", "wine"]], male: [["warrior", "ochre"], ["warrior", "wine"]] },
   inventor: { female: [["adventurer", "cocoa"], ["adventurer", "ochre"]], male: [["warrior", "cocoa"], ["warrior", "ochre"]] },
+  merchant: { female: [["adventurer", "ochre"], ["adventurer", "cocoa"]], male: [["warrior", "ochre"], ["warrior", "cocoa"]] },
   // the third jobs
   knight: { female: [["adventurer", "white"], ["adventurer", "navy"]], male: [["warrior", "white"], ["warrior", "navy"]] },
   hunter: { female: [["adventurer", "forest"], ["adventurer", "cocoa"]], male: [["warrior", "forest"], ["warrior", "black"]] },

@@ -150,7 +150,7 @@ export function shapeTargets(origin: Vec2, dir: Vec2, shape: Shape, monsters: Mo
 }
 
 export interface ShotSpec {
-  kind: "bolt" | "arrow" | "wave" | "skill";
+  kind: "bolt" | "arrow" | "bullet" | "wave" | "skill";
   speed: number;
   range: number;
   radius: number;

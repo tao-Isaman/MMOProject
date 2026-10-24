@@ -21,12 +21,13 @@ export interface WeaponType {
   crit?: number;
   pierce?: boolean;
   hits?: number;
-  projectile?: { kind: "bolt" | "arrow"; speed: number; range: number; radius: number };
+  projectile?: { kind: "bolt" | "arrow" | "bullet"; speed: number; range: number; radius: number };
   twoHanded?: boolean; // takes the off hand too
   note?: string;
 }
 
-export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow" | "knuckle" | "claw";
+export type WeaponId = "sword_1h" | "sword_2h" | "axe" | "axe_2h" | "mace" | "spear_1h" | "spear_2h" | "dagger" | "staff" | "bow" | "knuckle" | "claw"
+  | "pistol" | "rifle";
 
 // A one-handed weapon in the off hand adds a second hit for this much of its damage to whatever
 // the main hand hit, and every attack takes this much longer.
@@ -90,6 +91,19 @@ export const WEAPON_TYPES: Record<WeaponId, WeaponType> = {
   claw: {
     name: "กรงเล็บ", motion: "thrust", hit: "arc", reach: 100, arc: 80, interval: 0.42, damage: [12, 16], crit: 0.08,
     note: "ข่วนเร็ว ระยะสั้น อาวุธฟัน",
+  },
+  // v0.5 (docs/v05_jobs.md): guns, fired with the arm held out (the empty-handed thrust). A
+  // pistol is one-handed (one in each hand fires both); a rifle takes both hands and outranges
+  // the bow. They need no shot in the bag.
+  pistol: {
+    name: "ปืนสั้น", motion: "thrust", reach: 0, interval: 0.6, damage: [12, 16],
+    projectile: { kind: "bullet", speed: 1900, range: 560, radius: 20 },
+    note: "ยิงเร็ว ระยะกลาง ถือคู่ได้",
+  },
+  rifle: {
+    name: "ปืนยาว", motion: "thrust", reach: 0, interval: 1.2, damage: [28, 36], twoHanded: true,
+    projectile: { kind: "bullet", speed: 2400, range: 880, radius: 22 },
+    note: "ยิงช้าแต่แรง ไกลที่สุดในเกม",
   },
 };
 

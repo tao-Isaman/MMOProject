@@ -41,9 +41,12 @@ const KIND: Record<AllyKind, { radius: number; speed: number; hp: number; def: n
   statue: { radius: 30, speed: 0, hp: 0.5, def: 1, flee: 0, every: 0, life: 30, name: "รูปปั้น" },
   wall: { radius: 70, speed: 0, hp: 0.8, def: 1.5, flee: 0, every: 0, life: 20, name: "กำแพง" },
   decoy: { radius: 24, speed: 0, hp: 0.3, def: 1, flee: 1, every: 0, life: 10, name: "ร่างแยก" }, // (as hard to hit as the player, as before)
+  // v0.5 (docs/v05_jobs.md): a shooter that floats after the player, a helper that heals her
+  spirit: { radius: 24, speed: 400, hp: 0.25, def: 0.6, flee: 1, every: 1.2, life: 30, name: "วิญญาณ" },
+  familiar: { radius: 24, speed: 400, hp: 0.3, def: 0.8, flee: 1, every: 3, life: 40, name: "ผู้ช่วย" },
 };
 // How much nearer (under 1) or farther a monster counts each kind when it picks whom to go for.
-const DRAW: Record<AllyKind, number> = { wolf: 1, clone: 1, golem: 0.45, statue: 1.6, wall: Infinity, decoy: 0 };
+const DRAW: Record<AllyKind, number> = { wolf: 1, clone: 1, golem: 0.45, statue: 1.6, wall: Infinity, decoy: 0, spirit: 1.2, familiar: 1.4 };
 const FOLLOW = 150;   // cm a wolf or clone keeps from the player when there's nothing to fight
 const LEASH = 1300;   // farther than this from her, it gives up the fight and comes back
 const RECHECK = 0.4;  // s a monster keeps its choice of foe

@@ -1,15 +1,15 @@
 // Checks the skill trees (src/progression.ts with src/trees/*): compiles them with tsc into a
 // temporary folder, loads them in node and reports what would break or read wrong in the game:
 //   - a class tree without TREE_SKILLS[1] skills, a job branch without TREE_SKILLS[2], a third
-//     job's branch without TREE_SKILLS[3] (a stub, `stub: true`, may have none yet: its job isn't
-//     offered until it is written)
+//     job's branch without TREE_SKILLS[3], a fourth job's without TREE_SKILLS[4] (a job's branch
+//     may be a stub, `stub: true`, with none yet: its job isn't offered until it is written)
 //   - a tree that isn't laid out on the 4 x 4 grid (columns 0-3, rows 0-3), two nodes on one
 //     spot, a prerequisite outside the tree or not on a higher row, a rank asked for that the
 //     prerequisite can't reach, a max other than 1, 5 or 10
 //   - a glyph src/icons.ts can't draw, an unknown weapon, element or kind of monster
 //   - an active without a skill, a passive without stats, a desc or number that comes out as
 //     NaN, undefined or not a number at some rank, a skill type skills.ts doesn't know
-//   - a job branch or book the jobs tables (JOBS, JOBS3) and the trees disagree about
+//   - a job branch or book the jobs tables (JOBS, JOBS3, JOBS4) and the trees disagree about
 //   - the third jobs' riders: an ally kind, a combo after a skill that doesn't exist, an autocast
 //     of one that doesn't, a terrain kind or a made item that isn't there
 // and, run without ids, the masteries and the elements:
@@ -76,12 +76,13 @@ for (const [id, t] of Object.entries(P.TREES)) {
   if (!t.name || !t.note || !/^#[0-9a-f]{6}$/i.test(t.color || "")) bad(id, "tree needs name, note and a #rrggbb color");
   const spots = new Set(), byId = Object.fromEntries(t.nodes.map((n) => [n.id, n]));
   // a class tree has TREE_SKILLS[1] skills, a job branch TREE_SKILLS[2], a third job's
-  // TREE_SKILLS[3]; a book tree 6-16; a stub what it has so far (only a third job's may be one)
-  const want = t.cls ? P.TREE_SKILLS[1] : t.job ? P.TREE_SKILLS[2] : t.job3 ? P.TREE_SKILLS[3] : null;
-  if (t.stub && !t.job3) bad(id, "only a third job's branch can be a stub");
-  if (t.stub && t.job3 && P.job3Open(t.job3)) bad(id, "a stub, but its job is open");
+  // TREE_SKILLS[3], a fourth's TREE_SKILLS[4]; a book tree 6-16; a stub what it has so far (only
+  // a job's branch may be one)
+  const want = t.cls ? P.TREE_SKILLS[1] : t.job ? P.TREE_SKILLS[2] : t.job3 ? P.TREE_SKILLS[3] : t.job4 ? P.TREE_SKILLS[4] : null;
+  if (t.stub && !t.job && !t.job3 && !t.job4) bad(id, "only a job's branch can be a stub");
+  if (t.stub && (t.job ? P.jobOpen(t.job) : t.job3 ? P.job3Open(t.job3) : t.job4 && P.job4Open(t.job4))) bad(id, "a stub, but its job is open");
   if (t.stub) { if (t.nodes.length > (want || 16)) bad(id, `${t.nodes.length} nodes`); }
-  else if (want && t.nodes.length !== want) bad(id, `${t.nodes.length} nodes (a ${t.cls ? "class tree" : t.job ? "job branch" : "third job's branch"} has ${want})`);
+  else if (want && t.nodes.length !== want) bad(id, `${t.nodes.length} nodes (a ${t.cls ? "class tree" : t.job ? "job branch" : t.job3 ? "third job's branch" : "fourth job's branch"} has ${want})`);
   else if (!want && (t.nodes.length < 6 || t.nodes.length > 16)) bad(id, `${t.nodes.length} nodes (6-16 fit the window)`);
   for (const n of t.nodes) {
     const where = `${id}.${n.id}`;
@@ -160,6 +161,7 @@ for (const [id, t] of Object.entries(P.TREES)) {
   }
   if (t.job && !P.JOBS[t.job]?.branches.includes(id)) bad(id, `job ${t.job} doesn't list this branch`);
   if (t.job3 && !P.JOBS3[t.job3]?.branches.includes(id)) bad(id, `third job ${t.job3} doesn't list this branch`);
+  if (t.job4 && !P.JOBS4[t.job4]?.branches.includes(id)) bad(id, `fourth job ${t.job4} doesn't list this branch`);
 }
 for (const [jid, j] of Object.entries(P.JOBS)) for (const b of j.branches) {
   if (only.length && !only.includes(b)) continue;
@@ -173,6 +175,15 @@ for (const [jid, j] of Object.entries(P.JOBS3)) {
     if (only.length && !only.includes(b)) continue;
     if (!P.TREES[b]) bad(jid, `branch ${b} has no tree yet`);
     else if (P.TREES[b].job3 !== jid) bad(b, `tree must say job3: "${jid}"`);
+  }
+}
+for (const [jid, j] of Object.entries(P.JOBS4)) {
+  if (!glyphs.has(j.glyph)) bad(jid, `job glyph "${j.glyph}" unknown`);
+  for (const f of j.from || []) if (!P.JOBS3[f]) bad(jid, `from unknown third job ${f}`);
+  for (const b of j.branches) {
+    if (only.length && !only.includes(b)) continue;
+    if (!P.TREES[b]) bad(jid, `branch ${b} has no tree yet`);
+    else if (P.TREES[b].job4 !== jid) bad(b, `tree must say job4: "${jid}"`);
   }
 }
 
