@@ -5,8 +5,12 @@
 // shore below it the camp an expedition abandoned when their ship froze into the ice: tents
 // half buried, their flag still flying, the fire long cold, the sleds left where they stood.
 //
+// A track leaves the road east of the lake and runs out south-east past the hill to a gap broken
+// through the glacier wall on the east, and on through it to the aurora field.
+//
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   way out: south -> iceberg (its north gate)
+//   ways out: south -> iceberg (its north gate), east -> aurora_field (through the gap in the
+//   glacier wall, n 0.46)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -28,12 +32,15 @@ const SHORE: XY[] = [[4600, -5850], [4400, -5000], [4700, -4200], [4300, -3200],
 const SEA: XY[] = [...SHORE, [A, A], [A, -5850]];
 
 // ---- the levels: the glacier in the west (G1 350, G2 650 on it, G3 1050 beyond the edge), the
-// ice shelf by the sea (S1 280), the glacier wall past the east edge (GE 900) ----
+// ice shelf by the sea (S1 280), the glacier wall past the east edge (GE 900), broken through by a
+// gap where the track goes out to the aurora field (GE_S south of it, GE_N north) ----
 const G1: XY[] = [[-A, 3700], [-5000, 3500], [-3600, 2900], [-2100, 3300], [-700, 4400], [1200, 4200], [2600, 4800], [3300, 4700], [3400, A], [-A, A]];
 const G2: XY[] = [[-A, 4500], [-4400, 4200], [-3300, 4400], [-2700, 5000], [-2600, A], [-A, A]];
 const G3: XY[] = [[-A, 6200], [-3000, 5900], [0, 6400], [3200, 6000], [3300, A], [-A, A]];
 const S1: XY[] = [[1500, -4300], [2800, -4600], [3700, -3900], [3800, -3200], [2900, -3000], [1900, -3300]];
-const GE: XY[] = [[-A, -6000], [-3000, -6400], [0, -6100], [2500, -6600], [4200, -6300], [A, -6100], [A, -A], [-A, -A]];
+const GAP = { x0: -1250, x1: 300 };
+const GE_S: XY[] = [[-A, -6000], [-3000, -6400], [GAP.x0 - 50, -6150], [GAP.x0 + 50, -7000], [GAP.x0 - 40, -A], [-A, -A]];
+const GE_N: XY[] = [[GAP.x1 - 60, -6120], [2500, -6600], [4200, -6300], [A, -6100], [A, -A], [GAP.x1 + 50, -A], [GAP.x1 - 50, -7000]];
 
 const RG1 = { top: [-2850, 3100] as XY, bottom: [-2566, 2037] as XY, width: 460 };
 const RG2 = { top: [-3000, 4700] as XY, bottom: [-2328, 4028] as XY, width: 420 };
@@ -68,7 +75,8 @@ export function build(_quality: { flowers: number }): Town {
       { poly: dz(G2), h: 650, ramps: [RG2] },
       { poly: dz(G3), h: 1050 },
       { poly: dz(S1), h: 280, ramps: [RS1] },
-      { poly: dz(GE), h: 900 },
+      { poly: dz(GE_S), h: 900 },
+      { poly: dz(GE_N), h: 900 },
     ],
     rock: "Snowland_GlacierCliff",
   });
@@ -85,13 +93,17 @@ export function build(_quality: { flowers: number }): Town {
     ...smooth([along(RG1.bottom, RG1.top, len(RG1) + 300), [-2500, 3900], along(RG2.bottom, RG2.top, -300)]), RG2.bottom, RG2.top,
     ...smooth([along(RG2.bottom, RG2.top, len(RG2) + 300), [-3800, 5000], [-4500, 5050]]),
   ];
-  const roads = [band(MAIN, 460), band(SHELF_WAY, 380), band(GLACIER_WAY, 400)];
+  // out to the aurora field: off the road east of the lake, past the hill, through the gap
+  const E_EXIT: XY = [-475, -5150];
+  const AURORA_WAY: XY[] = smooth([[-300, -1300], [-500, -2300], [-850, -3200], [-700, -4300], E_EXIT, [-475, -6676], [-475, -A - 200]]);
+  const roads = [band(MAIN, 460), band(SHELF_WAY, 380), band(GLACIER_WAY, 400), band(AURORA_WAY, 420)];
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const ground = f.ground({ area, roads, plazas: [], water: [SEA, LAKE], base: "snow", road: [0.72, 0.77, 1.04] });
 
   // ---- the way out ----
   f.exit("iceberg", S_EXIT, [-4400, 230]);
+  f.exit("aurora_field", E_EXIT, [-470, -4450]);
 
   // ---- the sea: cold water, the shore solid, ice floating off it ----
   const sea = f.waterSheet({ x0: 3000, x1: A + 2000, y0: -A - 2000, y1: A + 2000 }, -14, "Snowland_SeaCold");
@@ -143,6 +155,10 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- the way out: a sign, cairns ----
   prop("snowland:trail_sign", [-4950, -150], 90, 80, ring(30, "post"));
+  // and the way out east to the aurora field: a sign where it leaves the road, one at the gap
+  prop("snowland:trail_sign", [-650, -1650], towards(1, 1), 80, ring(30, "post"));
+  prop("snowland:trail_sign", [-1000, -4800], 0, 80, ring(30, "post"));
+  prop("snowland:cairn", [0, -4950], 0, 70, ring(45));
   prop("snowland:cairn", [-4950, 780], 0, 70, ring(45));
   for (const at of [[-3400, -820], [-2100, -1300], [2950, -1800], [-3900, 1100]] as XY[]) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
 
@@ -232,7 +248,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- past the edge: woods to the south (toward Iceberg), bare glaciers east and west ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const onTrack = (x: number, y: number) => [[0, 0], [250, 0], [-250, 0], [0, 250], [0, -250]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
-  const bare = (x: number, y: number) => inPoly(GE, x, y) || inPoly(G3, x, y) || inPoly(SEA, x - 300, y);
+  const bare = (x: number, y: number) => inPoly(GE_S, x, y) || inPoly(GE_N, x, y) || inPoly(G3, x, y) || inPoly(SEA, x - 300, y);
   f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak"], (x, y) => inside(x, y) || onTrack(x, y) || bare(x, y) || (x > 0 && rnd() < 0.6), { count: 260, spacing: 440, tries: 5000 });
 
   // ---- monsters ----
@@ -264,6 +280,7 @@ export function build(_quality: { flowers: number }): Town {
     npcs,
     labels: [
       { x: S_EXIT[0] + 150, y: S_EXIT[1], text: "ทางไปไอซ์เบิร์ก", kind: "gate" },
+      { x: E_EXIT[0] + 250, y: E_EXIT[1] + 100, text: "ทางไปทุ่งแสงเหนือ", kind: "gate" },
       { x: LAKE_C[0], y: LAKE_C[1] - 300, text: "ทะเลสาบน้ำแข็ง" },
       { x: CAMP[0] - 600, y: CAMP[1] - 200, text: "ค่ายนักสำรวจร้าง" },
       { x: WRECK[0] - 700, y: WRECK[1], text: "ซากเรือคณะสำรวจ" },
