@@ -38,6 +38,7 @@ const MATS: Record<string, Recipe> = {
   Palace_Statue: { map: "marble", tint: "#f1eee7", rough: 0.45 },
   Palace_Water: { tint: "#62b4de", rough: 0.05, opacity: 0.86 },
   Palace_Spray: { tint: "#e4f5ff", rough: 0.1, opacity: 0.6, glow: "#a6dcff", glowI: 0.35 },
+  Palace_Veil: { tint: "#9fd6f5", rough: 0.05, opacity: 0.3, glow: "#7cc4ee", glowI: 0.12 },
   Palace_GlassBlue: { tint: "#4a78d6", rough: 0.2, glow: "#2a4caa", glowI: 0.6 },
   Palace_GlassRed: { tint: "#d4485a", rough: 0.2, glow: "#a8283a", glowI: 0.6 },
   Palace_GlassGold: { tint: "#f2c450", rough: 0.2, glow: "#c88a20", glowI: 0.6 },
@@ -1349,6 +1350,13 @@ function trainingDummy(): Geo {
 }
 
 // ===================================================================== the court
+// A sheet of water falling from a bowl's lip (radius r0 at z0) out to r1 at z1: an open cone.
+function veil(r0: number, z0: number, r1: number, z1: number, mat: string, seg = 24): Geo {
+  const geo = new THREE.CylinderGeometry(r0, r1, z0 - z1, seg, 1, true).rotateX(Math.PI / 2);
+  geo.translate(0, 0, (z0 + z1) / 2);
+  return [{ geo, mat }];
+}
+
 // ---- the three-tier fountain (น้ำพุสามชั้น) ----
 // An octagonal marble basin 8.8 m across on two steps, three bowls one over another spilling
 // into each other, jets from the rim arching in, a gilt crown on a globe at the top.
@@ -1378,12 +1386,9 @@ function tieredFountain(): Geo {
     out.push(cylinderAt({ rBot: i ? b.stem * 0.75 : 36, rTop: b.r, height: b.lip - b.foot, segments: 16, bottom: [0, 0, b.foot] }, "MarbleWhite"));
     out.push(translate(torus(b.r, 6, 24, 6, "MarbleWhite"), [0, 0, b.lip]), cylinderAt({ radius: b.r - 4, height: 2, segments: 16, bottom: [0, 0, b.lip - 2] }, "Palace_Water"));
     out.push(translate(torus(b.r * 0.97, 2, 24, 3, "GoldTrim"), [0, 0, b.lip - 14]));
-    // the water spilling over the lip, the splash ring where it lands
+    // the water spilling over the lip in a sheet all round, the splash ring where it lands
     const [fr, fz] = b.fall;
-    for (let k = 0; k < 12; k++) {
-      const a = (k / 12) * Math.PI * 2 + i * 0.26;
-      out.push(cylinderBetween([Math.cos(a) * (b.r + 4), Math.sin(a) * (b.r + 4), b.lip - 2], [Math.cos(a) * fr, Math.sin(a) * fr, fz], 4.5, 5, "Palace_Spray", 7));
-    }
+    out.push(veil(b.r + 5, b.lip - 1, fr, fz, "Palace_Veil"));
     out.push(translate(torus(fr, 6, 24, 4, "Palace_Spray"), [0, 0, fz - 2]));
   });
   // the crown on a globe at the top, water springing from it

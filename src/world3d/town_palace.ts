@@ -2,30 +2,35 @@
 // begins. The first dynasty, the legend says, united the tribes and built it above Eden; it is
 // built as Eden is (pale stone, white plaster, blue roofs) but grander. The royal road comes up
 // from the south through the wheat fields to its great gatehouse; past the walls to the west the
-// snowy foothills climb away, to the north the mountains of the old royal mine, to the east the
-// snowy pine woods of the royal hunt. Only the south is still green.
+// foothills climb away (snowy in the north, green in the south as they are next door), to the
+// north the mountains of the old royal mine, to the east the snowy pine woods of the royal hunt;
+// the south is still green.
 //
 // The plan (full size, north +X, west +Y; the curtain wall 160 x 140 m with round towers and long
 // royal banners all round):
 //   - the south gate (the great gatehouse, the one the royal road looks up at) opens on the gate
-//     court, where the royal coach waits with the stable master who drives travellers to the other
-//     towns, the quartermaster's store on the lane along the south wall, the royal kitchens and the
-//     servants' houses in terraces either side;
-//   - the outer ward: the royal avenue straight north from the gate to the inner gate; west of it
-//     the parade ground where the royal guard drill with the barracks along the west wall; east of
-//     it the royal stables along the east wall with their paddock of white horses, the hunting
-//     party's yard and the royal smithy;
+//     court with its flower beds and the notice board; the quartermaster's store, the royal
+//     kitchens and the servants' houses stand in terraces along the lane inside the south wall;
+//   - the outer ward: the royal avenue of lamps and trees straight north from the gate to the
+//     inner gate; west of it the parade ground where the royal guard drill, its dummies in rows,
+//     the barracks along the west wall; east of it the coach yard where the royal coach waits
+//     with the stable master who drives travellers to the other towns (the spawn is by him, far
+//     enough up the avenue to be clear of the gatehouse's towers), the royal stables along the
+//     east wall with their paddock of white horses, and the royal smithy;
 //   - the inner wall across the ward with its clock gate; behind it the great court with the
-//     three-tier fountain and the statues of all the kings in two rows, the royal chapel on its
-//     west side (healing and the save point), the library and the treasury on its east side (the
-//     east gate to the royal hunt between them), and on its north side the throne hall, open to
-//     the court through its colonnade so the king on his throne shows from the court;
+//     three-tier fountain, walks where the statues of all the kings stand in two rows and lawns of
+//     flower beds and clipped box between, the royal chapel (healing) and the guest house on its
+//     west side, the library and the treasury on its east side (the east gate to the royal hunt
+//     between them), and on its north side the throne hall, open to the court through its
+//     colonnade so the king on his throne shows from the court (the ground is raised under the
+//     throne's dais at the end, so he stands on it);
 //   - the royal garden round and behind the throne hall: the hedge maze and topiary beasts in the
 //     west, the pond with its pavilion and bridge and rose arbours in the east, the garden walk
 //     behind the hall under a tunnel of roses to the north postern (to the old royal mine).
-//   - outside: snowy slopes and snow pines west, north and east (the south-west corner snowy too,
-//     where the royal road and the foothills meet round it), the road out of each gate; the royal
-//     road coming up through green country from the south, lamps and banners along it.
+//   - outside: snowy slopes and snow pines north, east and in the north of the west, a snowy
+//     hillside in the south-west corner where the royal road and the foothills meet round it, the
+//     road out of each gate; the royal road coming up through green country from the south between
+//     lamps, banners and trees.
 // Ways out: south gate -> royal_road, north postern -> old_royal_mine, east gate -> royal_hunt,
 // each in the middle of its side (the west, facing the foothills, has none).
 //
@@ -78,7 +83,7 @@ const STABLES: XY = [-4700, -6300], SMITHY: XY = [-3000, -2700], BARRACKS: XY = 
 // where travellers arrive by the guide (clear of the gatehouse's tall towers behind them)
 const SPAWN: XY = [-4700, -300];
 const PADDOCK = { x0: -6200, x1: -3700, y0: -4900, y1: -2700 };
-const PARADE = { x0: -5700, x1: -2600, y0: 1300, y1: 5400 };
+const PARADE = { x0: -5400, x1: -2900, y0: 1700, y1: 5100 }; // (x0 its south side, y0 its east side)
 // the garden's
 const MAZE_C: XY = [6400, 4600];
 const POND_C: XY = [6200, -4700], POND_R: XY = [1000, 1050], BRIDGE: XY = [5480, -4700];
@@ -108,10 +113,10 @@ function inPoly(poly: Poly, x: number, y: number): boolean {
 }
 
 // The snow outside the walls (the grass of the palace and of the south is a second ground over
-// it, cut away here): everything north of the north wall, west of the west wall and east of the
-// east wall, and south of the south wall a ragged snow line comes down from the south-west corner
-// (where the foothills meet the royal road) and from east of the south-east corner, leaving the
-// royal road's green approach between.
+// it, cut away here): everything north of the north wall and east of the east wall; west of the
+// west wall only its northern half, as the snowy foothills next door are snowy down to there
+// and green below; south of that a snowy hillside in the south-west corner, where the royal road
+// and the foothills meet round it; the royal road's approach green between.
 function snowLine(pts: XY[], seed: number): XY[] {
   let s = seed;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -126,9 +131,20 @@ function snowLine(pts: XY[], seed: number): XY[] {
   out.push(pts[pts.length - 1]);
   return out;
 }
+// a ragged patch of snow round c
+function patch(c: XY, r: XY, seed: number, n = 26): Poly {
+  let s = seed;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  return Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2, k = 0.82 + rnd() * 0.3;
+    return [c[0] + Math.cos(a) * r[0] * k, c[1] + Math.sin(a) * r[1] * k] as XY;
+  });
+}
+const SNOW_SW: XY = [-7300, 9500];
 const SNOW: Poly[] = [
   rect(N + 175, AREA.y0 - 10, AREA.x1 + 10, AREA.y1 + 10),
-  [[N + 180, W + 175], ...snowLine([[S + 300, W + 175], [S - 200, 5600], [S - 1400, 4800], [S - 2800, 4100], [S - 4700, 3300]], 7), [AREA.x0 - 10, 3300], [AREA.x0 - 10, AREA.y1 + 10], [N + 180, AREA.y1 + 10]],
+  [[N + 180, W + 175], ...snowLine([[-300, W + 175], [-900, W + 1100], [-600, W + 2300], [-1300, W + 3500], [-1000, AREA.y1 + 10]], 7), [N + 180, AREA.y1 + 10]],
+  patch(SNOW_SW, [2800, 2700], 13),
   [[N + 180, E - 175], ...snowLine([[S + 300, E - 175], [S + 100, E - 900], [S + 700, E - 2200], [S + 300, E - 3500], [S + 1000, AREA.y0 - 10]], 11), [N + 180, AREA.y0 - 10]],
 ];
 const snowy = (x: number, y: number) => SNOW.some((p) => inPoly(p, x, y));
@@ -146,7 +162,7 @@ export function buildPalace(quality: { flowers: number }): Town {
       { x: -4000, y: 12200, r: 4200, h: 520 }, { x: 3000, y: 12400, r: 4300, h: 620 }, { x: 10200, y: 11800, r: 4200, h: 780 },
       { x: 13200, y: -4500, r: 4000, h: 700 }, { x: 13000, y: 4800, r: 4200, h: 820 },
       { x: -4800, y: -12000, r: 4000, h: 420 }, { x: 5500, y: -12300, r: 4200, h: 560 }, { x: 10200, y: -11600, r: 4000, h: 680 },
-      { x: S - 3200, y: 10500, r: 3800, h: 380 },
+      { x: -7300, y: 10600, r: 3000, h: 420 },
     ],
     rock: "CliffSnow",
     detail: 9000,
@@ -168,7 +184,7 @@ export function buildPalace(quality: { flowers: number }): Town {
     rect(PARADE.x0, PARADE.y0, PARADE.x1, PARADE.y1),   // the parade ground
     rect(-6500, -5840, -2900, -5200),                   // the stable yard
     rect(-3600, -2260, -2400, -650),                    // the smithy's yard
-    rect(-3300, -1600, IW - 330, 1600),                 // before the inner gate
+    rect(-3100, -1100, IW - 330, 1100),                 // before the inner gate
     // the great court: the axis from the inner gate to the throne hall, the fountain's square,
     // the walks where the kings stand, the hall's and the inner gate's forecourts, and walks out to
     // the chapel, the library, the treasury and the east gate (lawns with flower beds between)
@@ -319,14 +335,14 @@ export function buildPalace(quality: { flowers: number }): Town {
     put("eden:banner_pole", [-2600, s * 1250], FACE.s, { solid: post(30) });
     lamp([-3200, s * 1500]);
   }
-  // the parade ground: training dummies in a row along its north side, banners at its corners,
-  // the barracks along the west wall behind it
+  // the parade ground: training dummies in rows along its west side (before the barracks) and
+  // its south side, banners at its corners, lamps along its north side, benches for those
+  // watching along its east side by the avenue's trees
   put("palace:barracks", BARRACKS, FACE.e);
-  for (let x = PARADE.x0 + 500; x < PARADE.x1 - 300; x += 620) put("palace:training_dummy", [x, PARADE.y1 - 350], FACE.w + (rnd() - 0.5) * 30, { solid: post(36) });
-  for (let y = PARADE.y0 + 900; y < PARADE.y1 - 800; y += 650) put("palace:training_dummy", [PARADE.x0 + 350, y], FACE.n + (rnd() - 0.5) * 30, { solid: post(36) });
-  // lamps along its south side, benches for those watching along its east side
-  for (let y = PARADE.y0 + 700; y < PARADE.y1; y += 900) lamp([PARADE.x1 + 120, y]);
-  for (const y of [PARADE.y0 + 1150, PARADE.y0 + 2050, PARADE.y0 + 2950]) put("eden:park_bench", [PARADE.x1 - 200, y], FACE.n);
+  for (let x = PARADE.x0 + 450; x < PARADE.x1 - 300; x += 620) put("palace:training_dummy", [x, PARADE.y1 - 330], FACE.w + (rnd() - 0.5) * 30, { solid: post(36) });
+  for (let y = PARADE.y0 + 700; y < PARADE.y1 - 800; y += 650) put("palace:training_dummy", [PARADE.x0 + 330, y], FACE.n + (rnd() - 0.5) * 30, { solid: post(36) });
+  for (let y = PARADE.y0 + 500; y < PARADE.y1; y += 900) lamp([PARADE.x1 + 150, y]);
+  for (const x of [PARADE.x0 + 900, PARADE.x0 + 1800]) put("eden:park_bench", [x, PARADE.y0 - 250], FACE.w);
   for (const [x, y] of [[PARADE.x0 + 150, PARADE.y0 + 150], [PARADE.x1 - 150, PARADE.y0 + 150], [PARADE.x0 + 150, PARADE.y1 - 150], [PARADE.x1 - 150, PARADE.y1 - 150]] as XY[]) put("eden:banner_pole", [x, y], FACE.e, { solid: post(30) });
   // the training yard north of the barracks: more dummies, a rack, crates
   for (const [x, y] of [[-3000, 5900], [-2600, 6300], [-3000, 6600]] as XY[]) put("palace:training_dummy", [x, y], FACE.w, { solid: post(36) });
@@ -406,11 +422,11 @@ export function buildPalace(quality: { flowers: number }): Town {
   }
   for (const s of [-1, 1]) put("eden:banner_pole", [S - 700, s * 900], FACE.s, { solid: post(30) });
   put("plains:signpost", [S - 2600, 900], FACE.s);
-  // snow drifts against the walls outside (not in the green south)
+  // snow drifts against the walls outside where the snow lies
   for (let i = 0; i < 40; i++) {
     const side = i % 3, t = rnd();
     const at: XY = side === 0 ? [S + 600 + t * (N - S - 1200), W + 420] : side === 1 ? [S + 600 + t * (N - S - 1200), E - 420] : [N + 420, E + 600 + t * (W - E - 1200)];
-    if (ground.kind(at[0], at[1]) === 0 && Math.abs(at[0] - GATE_E[0]) > 900 && Math.abs(at[1]) > 900) put(rnd() < 0.5 ? "snowland:snow_drift" : "highland:snow_drift", at, side < 2 ? 0 : 90, { solid: "none" });
+    if (ground.kind(at[0], at[1]) === 0 && snowy(at[0], at[1]) && Math.abs(at[0] - GATE_E[0]) > 900 && Math.abs(at[1]) > 900) put(rnd() < 0.5 ? "snowland:snow_drift" : "highland:snow_drift", at, side < 2 ? 0 : 90, { solid: "none" });
   }
   // the ways north and east: trail signs and cairns
   put("snowland:trail_sign", [N + 900, 600], FACE.n, { solid: "none" });
@@ -428,11 +444,12 @@ export function buildPalace(quality: { flowers: number }): Town {
   // the woods: snow pines on the snow, oaks and birches in the green south
   const roadOut = (x: number, y: number) => (Math.abs(y) < 1000 && (x < S || x > N)) || (Math.abs(x - GATE_E[0]) < 1000 && y < E);
   town.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak", "SnowPine"], (x, y) => inside(x, y, 1000) || roadOut(x, y) || !snowy(x, y) || ground.kind(x, y) !== 0, { count: Math.round(320 + 160 * Math.min(1, quality.flowers)), tries: 9000, spacing: 480 });
-  town.woods(area, ["RoundTree", "BigOak", "Birch", "RoundTree", "Pine"], (x, y) => inside(x, y, 1000) || roadOut(x, y) || snowy(x, y) || ground.kind(x, y) !== 0 || (x < S && Math.abs(y) < 1500), { count: 90, tries: 3000, spacing: 520 });
+  town.woods(area, ["RoundTree", "BigOak", "Birch", "RoundTree", "Pine"], (x, y) => inside(x, y, 1000) || roadOut(x, y) || snowy(x, y) || ground.kind(x, y) !== 0 || (x < S && Math.abs(y) < 1500), { count: 170, tries: 5000, spacing: 520 });
 
   // ---- the greens left inside: trees and flower beds wherever there is room ----
   const TREES = ["RoundTree", "SmallTree", "Cherry", "RoundTree", "BigOak"];
   town.greens(ground, { x0: -5700, x1: IW - 300, y0: -2600, y1: -700 }, { trees: TREES, other: "eden:flower_bed", step: 640 });
+  town.greens(ground, { x0: -5900, x1: IW - 300, y0: 700, y1: W - 200 }, { trees: TREES, other: "eden:flower_bed", step: 640, chance: 0.75 });
   town.greens(ground, { x0: IW + 200, x1: 3400, y0: 4150, y1: W - 200 }, { trees: TREES, other: "eden:flower_bed", step: 640 });
   town.greens(ground, { x0: 3500, x1: N - 300, y0: 2750, y1: W - 200 }, { trees: TREES, other: "eden:flower_bed", step: 700, chance: 0.5 });
   town.greens(ground, { x0: 3500, x1: N - 300, y0: E + 200, y1: -2750 }, { trees: TREES, other: "eden:flower_bed", step: 700, chance: 0.5 });
@@ -539,7 +556,7 @@ function palaceNpcs(doors: Record<string, XY>, hall: (l: XY) => XY): NpcSpec[] {
     { id: "palace_king", ...at(king), face: 180, name: "พระเจ้าอาร์เธอร์ที่ห้า", title: "พระราชาแห่งอาณาจักร", role: "talk", look: man("top_warrior_navy", "silver", "bottom_warrior_black", "amber"),
       lines: [
         "ยินดีต้อนรับ นักผจญภัย เรารอคนอย่างเจ้ามานาน",
-        "ทั่วแผ่นดินมีสิ่งชั่วร้ายตื่นขึ้น มังกรฟ้าบนยอดเขา ราชินีหิมะทางเหนือ แม่ทัพอสูรทางตะวันออก และผู้พิทักษ์ต้นไม้แรกทางใต้สุด",
+        "ทั่วแผ่นดินมีสิ่งยิ่งใหญ่ตื่นขึ้น มังกรฟ้าบนยอดเขาหลังวัง ราชินีหิมะทางเหนือสุด แม่ทัพอสูรทางตะวันออก และเทพพิทักษ์ต้นไม้แรกสุดแดนตะวันตกเฉียงใต้",
         "ผู้ใดปราบพวกมันได้ เราจะประทานฉายาและรางวัลให้สมเกียรติ กลับมาหาเราเมื่อพร้อม",
       ] },
     { id: "palace_chancellor", ...at(hall([-200, -1100])), face: 160, name: "เสนาบดีโอลิเวอร์", title: "เสนาบดี", role: "talk", look: man("top_warrior_forest", "silver", "bottom_warrior_black", "blue"),
@@ -549,8 +566,8 @@ function palaceNpcs(doors: Record<string, XY>, hall: (l: XY) => XY): NpcSpec[] {
         "ราชการบ้านเมืองไม่เคยว่าง แต่ถ้าเจ้ามีเรื่องจะทูล ข้าจะช่วยนำความขึ้นกราบทูล",
       ] },
     // the court: the chaplain at the chapel's door, the librarian at the library's, a herald
-    { id: "palace_chaplain", ...at(chapelDoor), face: -90, name: "บาทหลวงอัมโบรส", title: "บาทหลวงหลวง · รักษา บันทึกจุดเกิด", role: "heal", look: man("top_warrior_navy", "silver", "bottom_warrior_black", "teal"),
-      lines: ["ขอแสงศักดิ์สิทธิ์คุ้มครองท่าน โบสถ์นี้สวดถวายพระพรแด่กษัตริย์ทุกพระองค์", "หายเหนื่อยแล้ว ไปผจญภัยต่อได้ หากล้มลงที่ใด ท่านจะกลับมาฟื้นที่นี่"] },
+    { id: "palace_chaplain", ...at(chapelDoor), face: -90, name: "บาทหลวงอัมโบรส", title: "บาทหลวงหลวง · รักษาฟรี", role: "heal", look: man("top_warrior_navy", "silver", "bottom_warrior_black", "teal"),
+      lines: ["ขอแสงศักดิ์สิทธิ์คุ้มครองท่าน โบสถ์นี้สวดถวายพระพรแด่กษัตริย์ทุกพระองค์", "หายเหนื่อยแล้ว ไปผจญภัยต่อได้ หากจะให้วังนี้เป็นที่พักเมื่อล้มลง ไปบอกนายคอกม้าหลวงข้างรถม้าหลวงในลานชั้นนอกเถิด"] },
     { id: "palace_librarian", ...at(libraryDoor), face: 90, name: "บรรณารักษ์เอเลนอร์", title: "บรรณารักษ์หลวง", role: "talk", look: woman("top_lilac", "bottom_navy", "silver", "hime", "violet"),
       lines: [
         "พงศาวดารเล่าว่า เมื่อกษัตริย์องค์แรกรวมเผ่าทั้งหลายได้ มังกรฟ้าก็ลงมาสวมมงกุฎให้บนยอดเขาหลังวังนี้ วันนี้มันยังเฝ้ายอดเขานั้นอยู่",

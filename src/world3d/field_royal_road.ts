@@ -1,9 +1,9 @@
 // ถนนหลวง (the royal road), monsters Lv 10-18: the paved road from Eden's north gate up through
 // the wheat fields to the royal palace, whose great gatehouse stands open just past the north
-// edge, its curtain wall running away along the edge either side: the road's end is the way in to
-// the palace. Before it the road forks: left (west), bending round north to leave at the
-// north-west corner (the snowy foothills touch this map only there, the palace between), to the
-// snowy foothills; right (east) to the pine forest by the river. A soldiers' checkpoint stands across the road; a stream comes in from
+// edge between its curtain walls: the road's end is the way in to the palace. Before it the road
+// forks: left (west), bending round north to leave at the north-west corner (the snowy foothills
+// touch this map only there, the palace between), to the snowy foothills; right (east) to the
+// pine forest by the river. A soldiers' checkpoint stands across the road; a stream comes in from
 // the west to a water mill and its mill pond; a windmill and a watchtower on a hill in the
 // south-east; a lookout with the founding king's statue on a two-step bluff in the north-west.
 //
@@ -133,7 +133,6 @@ const NW: XY[] = smooth([FORK, [3950, 800], [4550, 2000], [4900, 3200], [5100, 4
 const NE: XY[] = smooth([FORK, [3750, -1000], [3550, -2500], [3200, -3900], [3100, -4700], [3000, -8500]]);
 const CHECK: XY = [-1200, 0];
 const GATE_X = 6000; // the palace's great gatehouse, just past the north edge
-const PALACE_W = 4300; // its curtain wall's west corner (the left branch passes outside it)
 const WAY_PALACE: XY = [5150, 0], ARRIVE_PALACE: XY = [4450, 0]; // the road's end: the way to the palace
 
 // the stream from the west to the mill pond, and on out to the south
@@ -214,21 +213,19 @@ export function build(quality: { flowers: number }): Town {
     mark(at[0], at[1], r);
   };
 
-  // ---- the royal palace past the north edge (its own map, town_palace.ts): the great gatehouse
-  // standing open at the road's end, the curtain wall with round towers and long banners along
-  // the edge either side (round the corner north at its west end, inside the left branch), the
-  // servants' houses behind the wall either side of the gate court. The road's end is the way out
-  // to the palace. ----
+  // ---- the royal palace past the north edge (its own map, town_palace.ts): its great gatehouse
+  // standing open at the road's end, the curtain wall with round towers and long banners either
+  // side of it, the gate court behind. The road's end is the way out to the palace. ----
   useKits(PALACE);
   P("palace:great_gatehouse", [GATE_X, 0], 0, 1100, { solid: PALACE_SOLIDS.great_gatehouse });
-  f.wall([GATE_X, AREA.y0 - 600], [GATE_X, PALACE_W], "s", "palace:palace_wall", { gaps: [-(AREA.y0 - 600)], gap: GATE_GAP.great_gatehouse });
-  f.wall([GATE_X, PALACE_W], [AREA.x1 + 400, PALACE_W], "w", "palace:palace_wall");
-  for (const y of [-7600, -3900, PALACE_W]) P("palace:palace_tower", [GATE_X, y], 0, 360, { solid: PALACE_SOLIDS.palace_tower });
-  P("palace:palace_tower", [GATE_X + 3800, PALACE_W], -90, 360, { solid: PALACE_SOLIDS.palace_tower });
-  f.terrace([GATE_X + 860, 1400], [GATE_X + 860, PALACE_W - 400], "n", ["townhouse", "townhouse_narrow", "townhouse"], { kit: "eden", narrow: "townhouse_narrow" });
-  f.terrace([GATE_X + 860, -1400], [GATE_X + 860, -5200], "n", ["inn", "townhouse_narrow", "townhouse"], { kit: "eden", narrow: "townhouse_narrow" });
-  for (const y of [-1100, 1100]) P("eden:banner_pole", [GATE_X - 700, y], 0, 60);
-  for (const [x, y] of [[7900, -2000], [7900, 2000], [9000, -1900], [9000, 1900]] as XY[]) P("flora:RoundTree", [x, y], x, 200, { s: 0.8 });
+  f.wall([GATE_X, -2600], [GATE_X, -GATE_GAP.great_gatehouse / 2], "s", "palace:palace_wall");
+  f.wall([GATE_X, GATE_GAP.great_gatehouse / 2], [GATE_X, 2600], "s", "palace:palace_wall");
+  f.wall([GATE_X, -2600], [AREA.x1 + 400, -2600], "e", "palace:palace_wall");
+  f.wall([GATE_X, 2600], [AREA.x1 + 400, 2600], "w", "palace:palace_wall");
+  for (const y of [-2600, 2600]) P("palace:palace_tower", [GATE_X, y], 0, 360, { solid: PALACE_SOLIDS.palace_tower });
+  for (const y of [-2600, 2600]) P("palace:palace_tower", [GATE_X + 2600, y], y < 0 ? -90 : 90, 360, { solid: PALACE_SOLIDS.palace_tower });
+  for (const y of [-1700, 1700]) P("eden:banner_pole", [GATE_X + 700, y], 180, 60);
+  for (const [x, y] of [[7000, -2000], [7000, 2000], [9000, -1900], [9000, 1900]] as XY[]) P("flora:RoundTree", [x, y], x, 200, { s: 0.8 });
   f.exit("palace", WAY_PALACE, ARRIVE_PALACE);
   // before the gate: banners and lamps where the road ends, a guard post
   for (const s of [-1, 1]) {
@@ -396,7 +393,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the rim: woods and farmland running on ----
   const inside = (x: number, y: number) => x > B.minX - 250 && x < B.maxX + 250 && y > B.minY - 250 && y < B.maxY + 250;
-  const castle = (x: number, y: number) => x > GATE_X - 900 && y < PALACE_W + 900;
+  const castle = (x: number, y: number) => x > GATE_X - 900 && Math.abs(y) < 3100;
   const FARM_RIM: XY[] = [[-7600, -1500], [-7600, -2500], [-6700, -1500], [-6700, -2500], [-7600, 1050], [-6700, 1050]];
   const farm = (x: number, y: number) => FARM_RIM.some(([fx, fy]) => Math.abs(x - fx) < 650 && Math.abs(y - fy) < 550);
   f.woods(AREA, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak", "Birch"], (x, y) =>
