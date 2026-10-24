@@ -1,8 +1,11 @@
 // แม่น้ำเยือกแข็ง (the frozen river), monsters Lv 122-134: the great river between Noa's plains
 // and the snow country, here 25-30 m wide and running east to west across the field. The south
-// bank is still grass, gone pale with cold: birches and pines, reeds frozen into the shore ice,
-// a knoll with an old beacon tower. The north bank is snow and rises out of the river as a cliff
-// in two steps, snow-laden pines climbing both.
+// bank is still Noa's green country, the frost and the lying snow thickening towards the river
+// until the shore is white: birches and pines, a few broadleaf trees out towards Noa, reeds
+// frozen into the shore ice, a knoll with an old beacon tower. The north bank is snow and rises
+// out of the river as a cliff in two steps, snow-laden pines climbing both; only towards the
+// west and east edges, where the karst woods and the meadows lie next door, does the snow thin
+// and the grass show through, green pines among the snowy ones.
 //
 // In the middle the river has frozen right across: a broad stretch of ice you can walk over, the
 // way marked with poles, the ferryman's landing and his ferry frozen fast at its south side,
@@ -22,7 +25,7 @@
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
-import { useKits } from "./town";
+import { useKits, seeded } from "./town";
 import { defineMaterial, material } from "./textures";
 import { KIT as SNOW, densify, smooth, band, blobPoly, inPoly, towards, flatSheet } from "./kits/snowland";
 import type { XY } from "./kits/snowland";
@@ -113,7 +116,8 @@ const N2: XY[] = [[A, -A], [A, A], [4600, A], [4400, 6000], [4000, 4200], [4300,
 const RAMP_TOP = -1500 - (BRIDGE.rampLen / 2 - BRIDGE.rampTop); // where the ramp's slope meets the deck
 const SB: XY[] = [[RAMP_TOP, BY - BW], [GAP0, BY - BW], [GAP0, BY + BW], [RAMP_TOP, BY + BW]];
 const S1: XY[] = [[-5300, 2300], [-3700, 2000], [-3100, 2900], [-3300, 4200], [-4100, 4900], [-5300, 4600]];
-const M1: XY[] = [[6600, -A], [6400, -5000], [6900, -2000], [6600, 200], [8000, 600], [8100, 2000], [6800, 2700], [7000, 4500], [6600, A], [A, A], [A, -A]];
+// (the way on to Highland Hill runs out through the gap in it)
+const M1: XY[] = [[6600, -A], [6400, -5000], [6900, -2000], [6700, -900], [8000, -500], [8100, 900], [6800, 1500], [7000, 4500], [6600, A], [A, A], [A, -A]];
 
 // ramps: top on the edge, bottom out below
 const RN1 = { top: [xn(400) + bay(400), 400] as XY, bottom: [1600, 300] as XY, width: 460 };
@@ -129,6 +133,38 @@ const along = (a: XY, b: XY, d: number): XY => {
 };
 const len = (r: { top: XY; bottom: XY }) => Math.hypot(r.top[0] - r.bottom[0], r.top[1] - r.bottom[1]);
 const dz = (p: XY[]) => densify(p, (x, y) => Math.abs(x) < R + 1500 && Math.abs(y) < R + 1500);
+
+// ---- the snow and the green ----
+// How much of the ground lies under snow (0 green, 1 white): on the south bank a little out by
+// the edge, thickening towards the river; on the north bank all of it, but in a band along the
+// west and east edges it thins out towards the green country next door (least low down by the
+// river, more up towards Highland Hill). The world map's picture of the field reaches 6676 out.
+const snowCover = (x: number, y: number): number =>
+  x < xs(y) ? 0.05 + 0.9 * ss(-4300, xs(y) - 150, x) : 1 - (0.7 - 0.6 * ss(3500, 6676, x)) * ss(3400, 6676, Math.abs(y));
+// Patches where the snow shows through the grass: blobs on a jittered grid, each there with the
+// chance snowCover gives and the bigger the likelier, so they run together where it nears 1
+// (their own seed, so nothing else in the field moves).
+function snowPatches(box: { x0: number; x1: number; y0: number; y1: number }, seed: number, step = 400): XY[][] {
+  const rnd = seeded(seed), out: XY[][] = [];
+  for (let x = box.x0; x < box.x1; x += step)
+    for (let y = box.y0; y < box.y1; y += step) {
+      const cx = x + rnd() * step, cy = y + rnd() * step, k = snowCover(cx, cy), r = step * (0.35 + 0.45 * k) * (0.8 + rnd() * 0.4);
+      // (none needed over the river or the north bank's middle: the grass is cut away there)
+      if (cx > xs(cy) && (cx < xn(cy) || Math.abs(cy) < 3000)) continue;
+      if (rnd() < k) out.push(blobPoly([cx, cy], r * (0.8 + rnd() * 0.5), r * (0.7 + rnd() * 0.4), seed + out.length, 0.22, 16));
+    }
+  return out;
+}
+// the river from bank to bank (with the shore under the north cliff), all snow and ice and water,
+// and a rim of snow along the south bank's edge
+const RIVER_BAND: XY[] = [...SOUTH.map(([x, y]) => [x - 150, y] as XY), ...[...NORTH_EDGE].reverse()];
+// the north bank away from the west and east bands, all snow: its ends ragged
+const SNOW_N: XY[] = (() => {
+  const end = (s: number, x: number) => s * (3500 + 300 * Math.sin(x / 800 + s) + 180 * Math.sin(x / 330 + 2 * s));
+  const up: number[] = [];
+  for (let x = 0; x <= A + 500; x += 250) up.push(x);
+  return [...up.map((x) => [x, end(1, x)] as XY), ...[...up].reverse().map((x) => [x, end(-1, x)] as XY)];
+})();
 
 export function build(_quality: { flowers: number }): Town {
   const f = new FieldBuilder(309, {
@@ -156,7 +192,7 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- tracks: from Noa over the ice and up both steps to the way to Highland Hill; to the
   // bridge from both banks, to the beacon knoll ----
-  const S_EXIT: XY = [-5150, 0], N_EXIT: XY = [5150, 1300];
+  const S_EXIT: XY = [-5150, 0], N_EXIT: XY = [5150, 220];
   const n1in = along(RN1.bottom, RN1.top, -500), n1out = along(RN1.bottom, RN1.top, len(RN1) + 450);
   const n2in = along(RN2.bottom, RN2.top, -380), n2out = along(RN2.bottom, RN2.top, len(RN2) + 450);
   const MAIN: XY[] = [
@@ -164,7 +200,7 @@ export function build(_quality: { flowers: number }): Town {
     RN1.bottom, RN1.top,
     ...smooth([n1out, [3050, 900], n2in]),
     RN2.bottom, RN2.top,
-    ...smooth([n2out, [4700, 1420], N_EXIT, [7600, 1300]]),
+    ...smooth([n2out, [4900, 1250], [5080, 600], N_EXIT, [7600, 200]]),
   ];
   const BRIDGE_S: XY[] = [...smooth([[-3400, -80], [-3150, -1100], [-3250, -2300], [-3350, -3050], [RSB.bottom[0] - 350, BY]]), RSB.bottom, RSB.top, [GAP0 - 150, BY]];
   const BRIDGE_N: XY[] = smooth([[3050, 900], [3000, -500], [2700, -1800], [2300, -2800], [1900, -3300], [1500, BY], [GAP1 + 150, BY]]);
@@ -175,15 +211,16 @@ export function build(_quality: { flowers: number }): Town {
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const ground = f.ground({ area, roads, plazas: [], water: [WATER_W, WATER_E], base: "snow", road: ROAD });
-  // the south bank's grass: a second ground a hair over the snow, cut away north of the bank
-  const NORTH_OF_BANK: XY[] = [...SOUTH, [A + 500, A], [A + 500, -A]];
-  const grass = f.ground({ area: { x0: -A, y0: -A, x1: 0, y1: A }, roads, plazas: [], water: [NORTH_OF_BANK], base: "steppe", road: ROAD, tint: "#e2e6da" });
+  // the green: a second ground a hair over the snow, cut away over the river and the north bank
+  // and in the patches where the snow lies
+  const patches = [...snowPatches({ x0: -A, x1: 0, y0: -A, y1: A }, 3091), ...snowPatches({ x0: 0, x1: A, y0: -A, y1: A }, 3092)];
+  const grass = f.ground({ area, roads, plazas: [], water: [RIVER_BAND, SNOW_N, ...patches], base: "grass", road: ROAD });
   grass.mesh.position.y += 3;
   grass.mesh.renderOrder = 1;
 
   // ---- ways out ----
   f.exit("noa", S_EXIT, [-4400, 80]);
-  f.exit("highland", N_EXIT, [4450, 1360]);
+  f.exit("highland", N_EXIT, [4950, 900]);
 
   // ---- placing things: clear of tracks, water, cliffs and each other ----
   const taken: [number, number, number][] = [];
@@ -202,7 +239,8 @@ export function build(_quality: { flowers: number }): Town {
   const north = (x: number, y: number) => x > xn(y) - 600;
   const treeKind = (x: number, y: number): string => {
     const k = rnd();
-    if (north(x, y)) return k < 0.55 ? "SnowPine" : k < 0.85 ? "SnowPineSmall" : "FrostOak";
+    if (north(x, y) && snowCover(x, y) > 0.85) return k < 0.55 ? "SnowPine" : k < 0.85 ? "SnowPineSmall" : "FrostOak";
+    if (north(x, y)) return k < 0.4 ? "SnowPine" : k < 0.6 ? "SnowPineSmall" : k < 0.85 ? "Pine" : "Birch";
     return k < 0.35 ? "Pine" : k < 0.55 ? "PineSmall" : k < 0.9 ? "Birch" : "SnowPineSmall";
   };
   const grove = (c: XY, r: number, n: number, kinds?: string[]) => {
@@ -349,7 +387,7 @@ export function build(_quality: { flowers: number }): Town {
   prop("snowland:cold_campfire", [2300, 2350], 0, 150, ring(70));
   prop("snowland:log_pile", [3100, 3200], 100, 230);
   for (const at of [[2300, 300], [3050, 1650], [4150, 2400], [4700, 1950], [4600, 600], [2600, -1400], [2200, -2400]] as XY[]) if (free(at[0], at[1], 70)) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
-  prop("snowland:trail_sign", [4900, 950], -90, 80, ring(30, "post"));
+  prop("snowland:trail_sign", [4950, -250], -90, 80, ring(30, "post"));
   prop("snowland:trail_sign", [3050, 450], 160, 80, ring(30, "post"));
   // the way out to Noa: a sign, a milestone
   prop("plains:signpost", [-4950, -420], 90, 80);
@@ -428,12 +466,14 @@ export function build(_quality: { flowers: number }): Town {
   scatter("snowland:dead_branches", [3000, 0], 3000, 6, 120, { ice: false });
   scatter("snowland:snow_drift", [2000, 600], 500, 2, 230, { ice: false });
 
-  // ---- past the edge: woods all round, the river running on east and west ----
+  // ---- past the edge: woods all round, the river running on east and west; broadleaf trees
+  // among the pines towards Noa, green pines among the snowy ones where the north bank thaws ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const wet = (x: number, y: number) => x > xs(y) - 250 && x < xn(y) + 150;
   const onTrack = (x: number, y: number) => [[0, 0], [250, 0], [-250, 0], [0, 250], [0, -250]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
-  f.woods({ x0: -A, x1: 0, y0: -A, y1: A }, ["Pine", "Pine", "PineSmall", "Birch", "Birch"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y) || x > xs(y), { count: 220, spacing: 400, tries: 5000 });
-  f.woods({ x0: 0, x1: A, y0: -A, y1: A }, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y) || x < xn(y) - 200, { count: 300, spacing: 430, tries: 6000 });
+  f.woods({ x0: -A, x1: 0, y0: -A, y1: A }, ["Pine", "Pine", "PineSmall", "Birch", "Birch", "RoundTree"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y) || x > xs(y), { count: 220, spacing: 400, tries: 5000 });
+  f.woods({ x0: 0, x1: A, y0: -A, y1: A }, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y) || x < xn(y) - 200 || snowCover(x, y) < 0.85, { count: 220, spacing: 430, tries: 6000 });
+  f.woods({ x0: 0, x1: A, y0: -A, y1: A }, ["SnowPine", "SnowPineSmall", "Pine", "Pine", "Birch"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y) || x < xn(y) - 200 || snowCover(x, y) >= 0.85, { count: 90, spacing: 430, tries: 4000 });
 
   // ---- monsters ----
   const quiet = (x: number, y: number) => Math.hypot(x - HUT[0], y - HUT[1]) < 1200 || Math.hypot(x - CAMP[0], y - CAMP[1]) < 700 || (Math.abs(y - BY) < 700 && x < -1500 && x > -3500);

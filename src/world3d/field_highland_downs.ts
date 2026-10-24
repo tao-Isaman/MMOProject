@@ -7,14 +7,16 @@
 // run over the hills, cutting the land into pastures; in the north-east the shepherd's bothy and
 // the stone fold of his shaggy highland cattle, the beasts out grazing round it; on a second, lower
 // down in the south-east an old burial cairn. Lone pines stand bent by the wind; heather and gorse
-// grow in the hollows; cairns mark the tracks. High snowy ridges close the north and the west.
+// grow in the hollows; cairns mark the tracks. High snowy ridges close the north and the west,
+// snowy land running up to them. Towards the south edge the snow thins and the grass under it
+// grows greener, birches and broadleaf trees among the pines, down to the karst country.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: east -> highland, south -> karst_peaks
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
-import { useKits } from "./town";
+import { useKits, seeded } from "./town";
 import { material } from "./textures";
 import { KIT as WEST, CIRCLE_STONES } from "./kits/westhills";
 import { KIT as SNOW, smooth, band, blobPoly, inPoly, towards, flatSheet, densify } from "./kits/snowland";
@@ -32,14 +34,15 @@ const A = 9000; // the ground
 // ---- the levels ----
 // D1: the long low down over the north-west (280); D2: the highest down on it (560), the stone
 // circle on top; D3: the lower down in the south-east (320), the burial cairn. N, W, S1, S2:
-// snowy ridges past the edge (scenery).
+// snowy ridges past the edge (scenery), the southern two well back so the thawing ground runs
+// on to the edge.
 const D1: XY[] = [[A, -1300], [A, A], [-300, A], [-200, 6200], [500, 5200], [300, 4300], [900, 3300], [700, 2200], [1500, 1300], [1900, 200], [3200, -600], [5000, -900], [6500, -1400]];
 const D2: XY[] = [[2200, 2000], [3600, 1500], [4800, 2100], [5200, 3400], [4600, 4700], [3200, 5000], [2000, 4300], [1700, 3100]];
 const D3: XY[] = [[-1700, -2300], [-2900, -1700], [-4300, -2200], [-4900, -3400], [-4300, -4700], [-2900, -5000], [-1800, -4300], [-1400, -3200]];
 const MN: XY[] = [[6400, -A], [A, -A], [A, A], [6700, A], [6300, 5000], [6600, 2500], [6200, 0], [6500, -3000]];
 const MW: XY[] = [[-A, 6400], [-3000, 6200], [0, 6600], [3000, 6300], [6000, 6500], [A, 6400], [A, A], [-A, A]];
-const S1: XY[] = [[-A, -A], [-6300, -A], [-6600, -3000], [-6200, 0], [-6500, 600], [-A, 600]];
-const S2: XY[] = [[-A, 3200], [-6400, 3200], [-6200, 4800], [-6600, A], [-A, A]];
+const S1: XY[] = [[-A, -A], [-7100, -A], [-7400, -3000], [-7000, 0], [-7300, 600], [-A, 600]];
+const S2: XY[] = [[-A, 3200], [-7200, 3200], [-7000, 4800], [-7400, A], [-A, A]];
 
 // a ramp off an edge a -> b at t, `len` long, away from the point `inside`
 function rampOn(a: XY, b: XY, t: number, len: number, width: number, inside: XY): { top: XY; bottom: XY; width: number } {
@@ -66,6 +69,34 @@ const rampLen = (r: { top: XY; bottom: XY }) => Math.hypot(r.top[0] - r.bottom[0
 
 // the edges in short pieces near the walkable box
 const dz = (p: XY[]) => densify(p, (x, y) => Math.abs(x) < R + 1500 && Math.abs(y) < R + 1500);
+
+// ---- the thaw to the south ----
+const ss = (a: number, b: number, v: number) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+// Towards the south edge (the world map's picture of the field reaches 6676 out) the snow opens
+// up more and more, and of the grass under it more and more is green rather than winter olive.
+const thaw = (x: number) => 0.68 * ss(-2800, -6676, x);
+const olive = (x: number) => 0.9 - 0.75 * ss(-3600, -6676, x);
+// Patches: blobs on a jittered grid over the south, each there with the chance `p` gives and the
+// bigger the likelier, so they run together where it nears 1 (their own seed, so nothing else
+// in the field moves).
+function patchesOf(p: (x: number) => number, seed: number, step = 400): XY[][] {
+  const rnd = seeded(seed), out: XY[][] = [];
+  for (let x = -A; x < -2800; x += step)
+    for (let y = -A; y < A; y += step) {
+      const cx = x + rnd() * step, cy = y + rnd() * step, k = p(cx), r = step * (0.35 + 0.45 * k) * (0.8 + rnd() * 0.4);
+      if (rnd() < k) out.push(blobPoly([cx, cy], r * (0.8 + rnd() * 0.5), r * (0.7 + rnd() * 0.4), seed + out.length, 0.22, 16));
+    }
+  return out;
+}
+// north of where the green begins (ragged), all winter olive
+const OLIVE: XY[] = (() => {
+  const pts: XY[] = [];
+  for (let y = A + 500; y >= -A - 500; y -= 300) pts.push([-3500 + 180 * Math.sin(y / 650) + 120 * Math.sin(y / 240 + 2), y]);
+  return [[A + 500, A + 500], ...pts, [A + 500, -A - 500]];
+})();
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(306, {
@@ -131,10 +162,15 @@ export function build(quality: { flowers: number }): Town {
   }
   // and a ring of grass round the tarn, where the snow has melted back from the water
   patches.push(blobPoly(TARN_C, 1600, 1300, 43, 0.15));
-  const snow = f.ground({ area, roads, plazas: [], water: [TARN, ...patches], base: "snow", road: ROAD });
-  snow.mesh.position.y += 3;
-  snow.mesh.renderOrder = 1;
-  const grassy = (x: number, y: number) => patches.some((p) => inPoly(p, x, y));
+  // towards the south the green grass a hair over the olive (cut away in olive patches thinning
+  // out to the south), the snow opening up over both
+  const green = f.ground({ area: { x0: -A, y0: -A, x1: -2500, y1: A }, roads, plazas: [], water: [TARN, OLIVE, ...patchesOf(olive, 3061)], base: "grass", road: ROAD });
+  green.mesh.position.y += 3;
+  green.mesh.renderOrder = 1;
+  const snow = f.ground({ area, roads, plazas: [], water: [TARN, ...patches, ...patchesOf(thaw, 3062)], base: "snow", road: ROAD });
+  snow.mesh.position.y += 6;
+  snow.mesh.renderOrder = 2;
+  const grassy = (x: number, y: number) => snow.kind(x, y) === 3 && !inPoly(TARN, x, y);
 
   // ---- ways out ----
   f.exit("highland", E_EXIT, [640, -4450]);
@@ -294,7 +330,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- past the edge: snowy pines and birches on the ridges and hills, lone pines nearer ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const nearTrack = (x: number, y: number) => onTrack(x, y, 200);
-  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "Birch", "FrostOak"], (x, y) => inside(x, y) || nearTrack(x, y), { count: 300, spacing: 480, tries: 6000 });
+  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "Birch", "FrostOak"], (x, y) => inside(x, y) || nearTrack(x, y) || x < -5000, { count: 240, spacing: 480, tries: 6000 });
+  f.woods(area, ["Pine", "Pine", "Birch", "RoundTree", "SnowPineSmall"], (x, y) => inside(x, y) || nearTrack(x, y) || x >= -5000, { count: 60, spacing: 480, tries: 3000 });
   f.woods({ x0: -R - 2200, x1: R + 2200, y0: -R - 2200, y1: R + 2200 }, ["ragged_pine", "heather", "gorse"], (x, y) => inside(x, y) || nearTrack(x, y), { count: 90, spacing: 500, kit: "westhills" });
 
   // ---- monsters ----
@@ -321,7 +358,7 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
-    scenery: [snow.mesh, tarnSheet, ...floes],
+    scenery: [green.mesh, snow.mesh, tarnSheet, ...floes],
     sky: "#c5d0d8",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => grassy(x, y) && ground.kind(x, y) === 0 && !inPoly(TARN, x, y), density: 0.05 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
