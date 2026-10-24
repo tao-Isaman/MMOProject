@@ -1,16 +1,19 @@
-// ที่ราบใต้โนอา (the plain south of Noa), monsters Lv 40-50: the farmland between Noa and Venezia.
-// The old royal road, still paved with its cobbles and lined with milestones and cypresses, comes
-// down from Noa at the middle of the north side, sweeps south-west across the wheat to a
-// humpbacked stone bridge over the river, and leaves by the south side's east end for Venezia.
-// Where a farm road turns off west for the lagoon marsh a wayside shrine stands at the fork. The
-// river crosses the whole plain from east to west on its way to the marsh. Over the east of the
-// plain strides the old aqueduct that fed Noa: a double arcade on the flat, a gap where it has
-// fallen at each end of a long ridge it runs along on a single tier, and a bay straddling the
-// river; a ramp climbs the ridge to walk beside it. In the north-west the land steps up onto a
-// terrace of vineyards, and the farmstead looks out over the road from its edge.
+// ที่ราบใต้โนอา (the plain south of Noa), monsters Lv 40-50: the farmland between Noa and Venezia,
+// down to the shore of Venezia's lagoon. The old royal road, still paved with its cobbles and lined
+// with milestones and cypresses, comes down from Noa at the middle of the north side, sweeps
+// south-west across the wheat to a humpbacked stone bridge over the river, and runs on down to the
+// lagoon's shore and along it out of the south-east corner for Venezia. Where a farm road turns
+// off west for the lagoon marsh a wayside shrine stands at the fork. The river crosses the whole
+// plain from east to west on its way to the marsh. The whole south side is the lagoon's shore: a
+// strip of sand with reeds, the lagoon beyond with its channel markers, and the land comes round
+// to the edge only at the south-east corner, where the road goes. Over the east of the plain
+// strides the old aqueduct that fed Noa: a double arcade on the flat, a gap where it has fallen at
+// each end of a long ridge it runs along on a single tier, and a bay straddling the river; a ramp
+// climbs the ridge to walk beside it. In the north-west the land steps up onto a terrace of
+// vineyards, and the farmstead looks out over the road from its edge.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: north -> noa, south (its east end) -> venezia, west -> lagoon_marsh
+//   ways out: north -> noa, south-east corner -> venezia, west -> lagoon_marsh
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -21,17 +24,18 @@ import { KIT as WESTFARM, BRIDGE, smooth, band, dense, inPoly, toLine, nearestOn
 import type { XY } from "./kits/westfarm";
 import { KIT as PLAINS } from "./kits/plains";
 import { KIT as TRUNRADA } from "./kits/trunrada";
+import { KIT as VENEZIA } from "./kits/venezia";
 import type { NpcSpec } from "../npcs";
 import type { SolidSpec } from "../world";
 
-useKits(WESTFARM, PLAINS, TRUNRADA);
+useKits(WESTFARM, PLAINS, TRUNRADA, VENEZIA);
 
 const R = 5500; // the walkable box
 const A = 9000; // the ground
 
 // ---- the royal road, north to south-east, and the bridge on it ----
 const BR: XY = [-1900, -1450];
-const ROYAL: XY[] = smooth([[A, 300], [7400, 250], [5150, 250], [3700, 500], [2200, 250], [800, -250], [-500, -950], [-1150, -1340], BR, [-2650, -1580], [-3600, -2300], [-4400, -3200], [-5150, -3800], [-7000, -4700], [-A, -5300]]);
+const ROYAL: XY[] = smooth([[A, 300], [7400, 250], [5150, 250], [3700, 500], [2200, 250], [800, -250], [-500, -950], [-1150, -1340], BR, [-2650, -1580], [-3600, -2300], [-4300, -3400], [-4800, -4200], [-5150, -4900], [-5700, -5900], [-6600, -7200], [-A, -8200]]);
 const RW = 560; // its width
 const BRIDGE_DIR = nearestOn(ROYAL, BR).dir;
 // the river, east to west, square to the road at the bridge
@@ -49,6 +53,15 @@ const SR0 = 6700, SR1 = 9950, SRM = (SR0 + SR1) / 2;
 const RIDGE: XY[] = [aqAt(SR0, -260), aqAt(SR0 + 350, -340), aqAt(SRM, -330), aqAt(SR1 - 350, -340), aqAt(SR1, -260), aqAt(SR1 + 120, 300), aqAt(SR1 - 150, 900), aqAt(SRM + 600, 1000), aqAt(SRM - 600, 1000), aqAt(SR0 + 200, 950), aqAt(SR0 - 150, 420)];
 const RR = { top: aqAt(SRM, 1000), bottom: aqAt(SRM, 2250), width: 460 };
 
+// ---- the lagoon: its shore from past the south-east corner (beside the road) along the whole
+// south side and round past the south-west corner; the water south of it ----
+const SHORE: XY[] = [
+  [-A - 400, -8600], [-7300, -6700], [-6600, -6100], [-6100, -5550], [-5650, -4900], [-5300, -4300], [-4900, -3650], [-4500, -3050],
+  [-4350, -2300], [-4450, -1500], [-4300, -500], [-4450, 500], [-4300, 1600], [-4450, 2700], [-4350, 3800], [-4500, 4800],
+  [-4900, 5500], [-5600, 5900], [-6600, 6100], [-A - 400, 6200],
+];
+const SEA: XY[] = [...SHORE, [-A - 400, -A - 400]];
+
 // ---- the vineyard terrace in the north-west, the farmstead on its edge ----
 const VT: XY[] = [[1500, 2200], [3300, 1600], [4800, 2000], [6000, 1800], [A, 2000], [A, A], [3000, A], [2500, 6400], [1600, 4600], [1200, 3300]];
 const RV = { top: [2400, 1900] as XY, bottom: [2154, 1160] as XY, width: 460 };
@@ -61,18 +74,18 @@ const VINE_WAY: XY[] = [...smooth([[2650, 330], [2350, 700], along(RV.bottom, RV
 const RIDGE_WAY: XY[] = [...smooth([[-150, -700], [150, -1050], along(RR.bottom, RR.top, -400)]), RR.bottom, RR.top, ...smooth([along(RR.bottom, RR.top, 1600), aqAt(SRM + 400, 600), aqAt(SRM + 1100, 520)])];
 const TRACKS = [WEST, VINE_WAY, RIDGE_WAY];
 
-const WAY_N: XY = [5150, 250], WAY_S: XY = [-5150, -3800], WAY_W: XY = [-1100, 5150];
+const WAY_N: XY = [5150, 250], WAY_S: XY = [-5150, -4900], WAY_W: XY = [-1100, 5150];
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(302, {
     hills: [
       // the rise the bridge stands on (its deck follows it)
       { x: BR[0], y: BR[1], r: BRIDGE.R, h: BRIDGE.H },
-      { x: 3800, y: -400, r: 1100, h: 90 }, { x: -3800, y: 1500, r: 1300, h: 120 }, { x: -4300, y: 4300, r: 1000, h: 100 },
-      { x: 300, y: 3300, r: 900, h: 70 }, { x: -3700, y: -4700, r: 1000, h: 100 }, { x: 4400, y: -4400, r: 1100, h: 110 },
+      { x: 3800, y: -400, r: 1100, h: 90 }, { x: -3000, y: 1500, r: 1100, h: 110 }, { x: -3300, y: 4300, r: 900, h: 90 },
+      { x: 300, y: 3300, r: 900, h: 70 }, { x: -3500, y: -4700, r: 900, h: 90 }, { x: 4400, y: -4400, r: 1100, h: 110 },
       { x: 600, y: -3800, r: 800, h: -50 },
-      // the land rolling on past the edge
-      { x: -7300, y: 0, r: 2400, h: 260 }, { x: -7200, y: 5000, r: 2000, h: 220 }, { x: 2000, y: -7500, r: 2200, h: 280 }, { x: -1500, y: 7600, r: 1800, h: 200 },
+      // the land rolling on past the edge (the lagoon past the south one)
+      { x: -7800, y: 8400, r: 2000, h: 220 }, { x: 2000, y: -7500, r: 2200, h: 280 }, { x: -1500, y: 7600, r: 1800, h: 200 },
     ],
     plateaus: [
       { poly: dense(VT), h: 240, ramps: [RV] },
@@ -82,7 +95,7 @@ export function build(quality: { flowers: number }): Town {
   });
   const { put, rnd } = f;
   const area = { x0: -A, y0: -A, x1: A, y1: A };
-  const water = [band(RIVER, SW)];
+  const water = [band(RIVER, SW), SEA];
   // the farm roads are earth; the royal road is laid over them on its own ground of cobbles
   // (shown only along the road: the rest of that layer is cut away either side of it)
   const ground = f.ground({ area, roads: [...TRACKS.map((t) => band(t, 400)), band(ROYAL, RW - 160)], plazas: [], water, base: "grass", road: [0.94, 0.87, 0.78] });
@@ -105,7 +118,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- placing things: clear of the roads, the water, the cliffs and each other ----
   const taken: [number, number, number][] = [];
   const nearRoad = (x: number, y: number, d: number) => toLine(x, y, ROYAL) < d + RW / 2 - 200 || TRACKS.some((t) => toLine(x, y, t) < d);
-  const wet = (x: number, y: number, d: number) => toLine(x, y, RIVER) < SW / 2 + d;
+  // (the river, the lagoon, and its beach)
+  const wet = (x: number, y: number, d: number) => toLine(x, y, RIVER) < SW / 2 + d || inPoly(SEA, x, y) || toLine(x, y, SHORE) < d + 450;
   const free = (x: number, y: number, r: number, gap = 0) =>
     !nearRoad(x, y, r + 230) && !wet(x, y, r + 60) && f.level(x, y, Math.min(r, 220)) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + r + gap);
   const prop = (ref: string, at: XY, h = 0, r = 150, o: Parameters<typeof put>[3] = {}) => {
@@ -115,14 +129,50 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the ways out ----
   f.exit("noa", WAY_N, [4450, 330]);
-  f.exit("venezia", WAY_S, [-4620, -3370]);
+  f.exit("venezia", WAY_S, [-4550, -3800]);
   f.exit("lagoon_marsh", WAY_W, [-1050, 4450]);
   prop("plains:signpost", [4700, -230], 0, 80);
-  prop("plains:signpost", [-4295, -3782], 50, 80);
+  prop("plains:signpost", [-4600, -4700], 50, 80);
   prop("plains:signpost", [-650, 4800], -90, 80);
 
+  // ---- the lagoon's shore: sand along it (laid over the grass between the shore and a line a few
+  // metres in), the water closed off, reeds and stones on the sand, channel markers and a moored
+  // gondola out on the water ----
+  const inland = SHORE.map(([x, y], i): XY => {
+    const a = SHORE[Math.max(0, i - 1)], b = SHORE[Math.min(SHORE.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
+    if (inPoly(SEA, x + nx * 150, y + ny * 150)) [nx, ny] = [-nx, -ny];
+    return [nx, ny];
+  });
+  const BEACH_IN: XY[] = SHORE.map(([x, y], i) => {
+    const w = 380 + 150 * Math.sin(i * 2.3);
+    return [x + inland[i][0] * w, y + inland[i][1] * w];
+  });
+  const beach = buildPaved({
+    area: { x0: -A, x1: -2000, y0: -A, y1: A }, roads: [], plazas: [], base: "sand", cell: 100, height: (x, y) => f.h(x, y) + 3,
+    water: [SEA, [...BEACH_IN, [-A - 400, A + 400], [-2000, A + 400], [-2000, -A - 400], [-A - 400, -A - 400]], band(ROYAL, RW)],
+  });
+  beach.mesh.renderOrder = 1;
+  const SHORE_IN = SHORE.filter(([x, y]) => Math.abs(x) < R + 600 && Math.abs(y) < R + 600);
+  f.blockBand(SHORE_IN.map(([x, y]) => {
+    const i = SHORE.findIndex((p) => p[0] === x && p[1] === y);
+    return [x - inland[i][0] * 260, y - inland[i][1] * 260] as XY;
+  }), 520, { kind: "sea" });
+  for (let i = 0; i + 1 < SHORE.length; i++) {
+    const [ax, ay] = SHORE[i], [bx, by] = SHORE[i + 1], n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 420));
+    for (let k = 0; k < n; k++) {
+      const t = (k + rnd()) / n, w = 60 + rnd() * 220, x = ax + (bx - ax) * t + inland[i][0] * w, y = ay + (by - ay) * t + inland[i][1] * w;
+      if (Math.abs(x) > A - 300 || Math.abs(y) > A - 300 || nearRoad(x, y, 120)) continue;
+      const k2 = rnd();
+      put(k2 < 0.55 ? "plains:reeds" : k2 < 0.8 ? "plains:tall_grass" : "plains:flat_rock", [x, y], rnd() * 360, { s: k2 < 0.8 ? 0.9 + rnd() * 0.5 : 0.45 + rnd() * 0.2, solid: "none" });
+    }
+  }
+  for (const at of [[-5900, -2600], [-6200, 400], [-5900, 3200], [-6200, -4200]] as XY[]) put("venezia:mooring_poles", at, rnd() * 360, { solid: "none" });
+  put("venezia:gondola", [-5320, -3850], 58, { z: -14, solid: "none" });
+  put("venezia:mooring_pole", [-4850, -3200], 0, { solid: "none" });
+
   // ---- the river and the bridge ----
-  const scenery: THREE.Object3D[] = [cobbles.mesh, f.waterSheet({ x0: -4000, x1: 1000, y0: -A, y1: A }, -14, "WaterSea")];
+  const scenery: THREE.Object3D[] = [cobbles.mesh, beach.mesh, f.waterSheet({ x0: -A - 2500, x1: 1000, y0: -A - 2500, y1: A + 2500 }, -14, "WaterSea")];
   const cut = 300;
   const parts: XY[][] = [[]];
   for (const p of RIVER) {
@@ -203,7 +253,7 @@ export function build(quality: { flowers: number }): Town {
       // a milestone every other stop, the cypresses in pairs at the rest
       if (k % 2) {
         const at: XY = [bx + nx * side * (RW / 2 + 110), by + ny * side * (RW / 2 + 110)];
-        if (free(at[0], at[1], 40) || Math.abs(bx) > R) prop("plains:milestone", at, towards(-nx * side, -ny * side), 60);
+        if (free(at[0], at[1], 40) || (Math.abs(bx) > R && !wet(at[0], at[1], 0))) prop("plains:milestone", at, towards(-nx * side, -ny * side), 60);
         side = -side;
       } else
         for (const s of [-1, 1]) {
@@ -262,15 +312,15 @@ export function build(quality: { flowers: number }): Town {
   wheat([-1000, 2700], 2, 2);
   wheat([3300, -1400], 2, 2);
   wheat([-3400, -600], 2, 3);
-  wheat([-4300, 1900], 2, 2);
+  wheat([-3600, 1900], 2, 2);
   prop("plains:scarecrow", [1500, -1100], 180, 40);
   prop("plains:scarecrow", [-200, 1900], 0, 40);
   for (const at of [[2400, -2500], [-1500, 2000], [-3200, 300], [600, -2300]] as XY[]) if (free(at[0], at[1], 220)) prop("plains:hay_bales", at, rnd() * 360, 230);
   // the fields' old walls
   const gapAt = (x: number, y: number) => nearRoad(x, y, 330) || wet(x, y, 150) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 120);
   for (const w of [
-    [[-2600, 3600], [-1500, 1300], [-900, -300]], [[300, -4200], [-300, -2000], [600, -1300]], [[-4900, -1600], [-3200, -1100]],
-    [[-4900, 900], [-3000, 2700], [-2700, 5900]], [[3200, -3000], [4900, -2900]], [[700, 2200], [1100, 4500], [600, 5900]],
+    [[-2600, 3600], [-1500, 1300], [-900, -300]], [[300, -4200], [-300, -2000], [600, -1300]], [[-3900, -1700], [-3000, -1100]],
+    [[-3900, 900], [-3000, 2700], [-2700, 5900]], [[3200, -3000], [4900, -2900]], [[700, 2200], [1100, 4500], [600, 5900]],
   ] as XY[][]) wallRun(f, w, { skip: gapAt, broken: 0.2 });
 
   // ---- trees: oaks and cypresses in the corners of the fields, groves by the river ----
@@ -283,15 +333,15 @@ export function build(quality: { flowers: number }): Town {
       made++;
     }
   };
-  grove([-3800, 1500], 900, 5, ["BigOak", "RoundTree"]);
-  grove([-4300, 4300], 900, 6, ["RoundTree", "westfarm:cypress", "BigOak"]);
+  grove([-3500, 1500], 800, 5, ["BigOak", "RoundTree"]);
+  grove([-3500, 4300], 800, 6, ["RoundTree", "westfarm:cypress", "BigOak"]);
   grove([-3000, -3300], 900, 4, ["RoundTree", "Birch"]);
   grove([-500, -4600], 900, 5, ["BigOak", "RoundTree", "Birch"]);
   grove([4400, -4400], 1000, 6, ["BigOak", "RoundTree", "westfarm:cypress"]);
   grove([4500, -800], 700, 3, ["RoundTree", "westfarm:cypress"]);
   grove([-2900, 4600], 700, 4, ["Birch", "RoundTree"]);
   grove([300, 3300], 500, 2, ["BigOak"]);
-  grove([-4600, -1800], 700, 3, ["RoundTree", "BigOak"]);
+  grove([-3800, -1800], 600, 3, ["RoundTree", "BigOak"]);
   grove(aqAt(SRM - 200, 500), 900, 4, ["RoundTree", "westfarm:cypress"]);
   // an orchard in rows below the terrace, a hay rick at its corner
   for (let i = 0; i < 4; i++)
@@ -302,7 +352,7 @@ export function build(quality: { flowers: number }): Town {
   if (free(-250, 3000, 200)) prop("trunrada:haystack", [-250, 3000], 0, 200);
   // rocks and the odd bush
   for (const [ref, at, r] of [
-    ["plains:boulder", [-4800, 2900], 230], ["plains:rock_cluster", [3600, -4500], 260], ["plains:flat_rock", [-4700, -4900], 230], ["plains:boulder", [4900, 1100], 230],
+    ["plains:boulder", [-3800, 2900], 230], ["plains:rock_cluster", [3600, -4500], 260], ["plains:flat_rock", [-4500, -5000], 230], ["plains:boulder", [4900, 1100], 230],
     ["plains:rock_cluster", [-200, 4900], 260], ["plains:boulder", [1900, -4900], 230], ["plains:flat_rock", [2600, -300], 230], ["plains:stump", [-2900, -2300], 100],
   ] as [string, XY, number][]) if (free(at[0], at[1], r)) prop(ref, at, rnd() * 360, r, { s: 0.8 });
   for (let i = 0; i < 170; i++) {
@@ -313,10 +363,10 @@ export function build(quality: { flowers: number }): Town {
     taken.push([x, y, 50]);
   }
 
-  // ---- past the edge: fields and groves running on ----
+  // ---- past the edge: fields and groves running on, the lagoon to the south ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const keepOut = (x: number, y: number) => inside(x, y) || nearRoad(x, y, 380) || wet(x, y, 150) || toLine(x, y, [aqAt(0), aqAt(AQL)]) < 450;
-  for (const at of [[-6800, 2500], [-6800, 3400], [-7500, 2500], [-7500, 3400], [-6800, -1500], [-7500, -1500], [6800, -3800], [7500, -3800], [-6300, 6200], [-6900, 6200]] as XY[])
+  for (const at of [[6800, -3800], [7500, -3800]] as XY[])
     if (!keepOut(at[0], at[1])) put("plains:wheat_field", at, 90, { solid: "none" });
   f.woods(area, ["RoundTree", "BigOak", "westfarm:cypress", "RoundTree", "Birch"].map((k) => k.replace("westfarm:", "")), keepOut, { count: 340, spacing: 520, tries: 5000 });
   f.woods(area, ["cypress", "cypress", "wildflowers"], keepOut, { count: 90, spacing: 600, tries: 2000, kit: "westfarm" });
@@ -367,6 +417,7 @@ export function build(quality: { flowers: number }): Town {
       { x: SHRINE[0], y: SHRINE[1] + 250, text: "ศาลพระริมทาง", kind: "small" },
       { x: 1500, y: -1700, text: "ทุ่งข้าวสาลี", kind: "small" },
       { x: -2300, y: 2300, text: "ลำน้ำสู่บึง", kind: "small" },
+      { x: -4000, y: 800, text: "ชายฝั่งลากูน", kind: "small" },
     ],
   });
 }

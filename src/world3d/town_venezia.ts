@@ -2,11 +2,13 @@
 // city of canals whose ships sail to every port, and where the caravan road sets off north-east
 // across the dry plains to Bahamas. Laid out as if drawn on paper like the player's other towns,
 // in metres on the plan (u east, v south, the piazza's middle near the origin):
-//   - the lagoon on the west (u < 12) and the open bacino of the harbour on the south (v > 160);
-//     the land on the north and east, closed by a brick wall with swallowtail merlons (towers at the
-//     corners and along it) and three open gates: north on the axis of the basilica to the plains
-//     below Noa, and two in the east wall, the north-east one (the caravan road to the dry plains and
-//     Bahamas) and the south-east one (to the ancient plain);
+//   - the open lagoon all along the west (u < 12) out to the edge, channel markers and gondolas on
+//     it, and the open bacino of the harbour on the south (v > 160); the land on the north and east,
+//     closed by a brick wall with swallowtail merlons (towers at the corners and along it) and two
+//     open gates: north on the axis of the basilica, whose road turns west outside the wall and runs
+//     along it and over the strip of land at the lagoon's head to the north-west corner, on to the
+//     plains below Noa; and the north-east one in the east wall, the caravan road to the dry plains
+//     (and from them south to the ancient plain, or on to Bahamas);
 //   - the grand canal, 16 m wide, winding through in a reverse S: in from the lagoon on the west
 //     (v 44), round a bend south past the Rialto, which carries the market street over it, east
 //     round two more bends and south into the bacino; a timber bridge crosses its last reach;
@@ -28,7 +30,7 @@
 //   - the east quarter (Castello): the long calle behind the piazza's arcades down to the gondola
 //     basin, the smith's forge on its quay, the campo by the north-east gate where the caravans
 //     load, houses round the basin, Rio B from the basin down to the bacino with bridges on the
-//     south-east road and the riva, a public garden by the east wall.
+//     street from the piazza to the east wall and on the riva, a public garden by the east wall.
 // Bridges are low decks at street level; the water is cut away on either side of them, never
 // under them, and solids over all the water keep everyone on the streets. The whole town is built
 // at full size and drawn at TOWN_SCALE.
@@ -109,8 +111,14 @@ const PIER_END = 200;
 
 // ---- the land ----
 const NORTH = 0, EAST = 212, WEST = 12, SHORE = 160;
-const GATE_N: UV = [126, NORTH], GATE_NE: UV = [EAST, 34], GATE_SE: UV = [EAST, 110];
+const GATE_N: UV = [126, NORTH], GATE_NE: UV = [EAST, 34];
 const SPAWN: UV = [126, 146];
+// the north road: out of the north gate, west along the outside of the wall and over the strip of
+// land at the lagoon's head to the north-west corner, where it leaves for the plains below Noa
+const NORTH_ROAD: UV[] = [[126, 2], [126, -4], [123, -7.5], [110, -7.5], [60, -7.5], [12, -7.5], [-10, -7.5], [-22, -12], [-40, -27], [-80, -60]];
+const WAY_NW: UV = [-11, -7.5];
+// the lagoon's head: its shore along the foot of that strip, then away north-west past the edge
+const LAGOON: UV[] = [[WEST, -2], [-16, -3], [-28, -12], [-48, -34], [-90, -64], [-300, -70], [-300, 420], [WEST, 420]];
 
 // the distance along a polyline to the point nearest p, and the point at a distance
 function along(pts: UV[], p: UV): number {
@@ -264,13 +272,14 @@ export function buildVenezia(quality: { flowers: number }): Town {
   // ---- ground: streets (cobbles), campi and the piazza (flagstones), the water ----
   const roads: Poly[] = [
     rect(16, 14, 122, 20),     // the lane along the north wall
-    rect(122, -60, 130, 44),   // the north road, from outside the north gate to behind the basilica
+    rect(122, -6, 130, 44),    // the north road, from outside the north gate to behind the basilica
+    band(NORTH_ROAD, 6),       // and on outside the wall to the north-west corner
     rect(130, 30, 260, 38),    // the north-east road, out through the caravan gate
     rect(106, 44, 146, 52),    // the lane round the basilica's apse
     rect(106, 52, 113, 80),    // down its west side
     rect(139, 52, 146, 80),    // and its east side
     rect(70, 76, 108, 84),     // the Merceria, from the Rialto to the piazza
-    rect(144, 106, 260, 114),  // the south-east road, out through its gate
+    rect(144, 106, 209, 114),  // the street from the piazza east to the wall
     rect(164, 38, 171, 106),   // the long calle behind the arcades, down to the basin
   ];
   const PIAZZA = rect(108, 80, 144, 152);
@@ -295,7 +304,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
     ...strips,
   ];
   const water: Poly[] = [
-    rect(-300, -40, WEST, 420),                                            // the lagoon
+    LAGOON.map(([u, v]) => P(u, v)),                                        // the lagoon
     rect(-300, SHORE, ISLE.u0, 420), rect(ISLE.u1, SHORE, 450, 420),      // the bacino round the island
     rect(ISLE.u0, SHORE, ISLE.u1, ISLE.v0), rect(ISLE.u0, ISLE.v1, ISLE.u1, 420),
     rect(BASIN.u0, BASIN.v0, BASIN.u1, BASIN.v1),
@@ -322,7 +331,7 @@ export function buildVenezia(quality: { flowers: number }): Town {
     const [x0, y0] = at(u0, v1), [x1, y1] = at(u1, v0);
     extra.push({ kind: "water", x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: Math.abs(x1 - x0), d: Math.abs(y1 - y0), rot: 0 });
   };
-  box(-60, -40, WEST, SHORE + 80);
+  box(-60, -3, WEST, SHORE + 80);
   {
     let u = -60;
     for (const p of PIERS) {
@@ -354,7 +363,8 @@ export function buildVenezia(quality: { flowers: number }): Town {
           const tw: UV = [(toWater[i][0] + toWater[i + 1][0]) / 2, (toWater[i][1] + toWater[i + 1][1]) / 2];
           quay(line[i], line[i + 1], tw);
         }
-  quay([WEST, 2], [WEST, SHORE], [-1, 0]);
+  quay([WEST, -2], [WEST, SHORE], [-1, 0]);
+  quay([-16, -3], [WEST, -2], [0, 1]);
   quay([WEST, SHORE], [EAST - 4, SHORE], [0, 1]);
   quay([BASIN.u0, BASIN.v0], [BASIN.u1, BASIN.v0], [0, 1]);
   quay([BASIN.u0, BASIN.v1], [BASIN.u1, BASIN.v1], [0, -1]);
@@ -375,18 +385,18 @@ export function buildVenezia(quality: { flowers: number }): Town {
   put("venezia:rialto_bridge", at(62, 80), FACE.s, { solid: [...rails(625, 2500), { kind: "shops", x: -335, y: 0, w: 270, d: 2000, rot: 0 }, { kind: "shops", x: 335, y: 0, w: 270, d: 2000, rot: 0 }] });
   put("venezia:bridge_wooden", at(90, 136), FACE.s, { solid: rails(236, 2300) });
 
-  // ---- the city wall: 8 m lengths between towers, the three gates ----
+  // ---- the city wall: 8 m lengths between towers, the two gates ----
   const run = (a: UV, b: UV, out: Side, gaps: number[] = []) => town.wall(at(...a), at(...b), out, "venezia:city_wall", { gaps: gaps.map((g) => g * 100), gap: 1760 });
   run([WEST + 7, NORTH], [EAST, NORTH], "n", [GATE_N[0] - WEST - 7]);
-  run([EAST, NORTH], [EAST, SHORE - 7], "e", [GATE_NE[1], GATE_SE[1]]);
+  run([EAST, NORTH], [EAST, SHORE - 7], "e", [GATE_NE[1]]);
   const tower = (u: number, v: number) => put("venezia:wall_tower", at(u, v), 0, { solid: [{ kind: "tower", x: 0, y: 0, w: 700, d: 700, rot: 0 }] });
-  for (const [u, v] of [[WEST + 4, NORTH], [64, NORTH], [176, NORTH], [EAST, NORTH], [EAST, 72], [EAST, SHORE - 4]] as UV[]) tower(u, v);
+  // (one closing the street from the piazza where it meets the wall)
+  for (const [u, v] of [[WEST + 4, NORTH], [64, NORTH], [176, NORTH], [EAST, NORTH], [EAST, 72], [EAST, 110], [EAST, SHORE - 4]] as UV[]) tower(u, v);
   // gates: brick towers either side of an open passage along the gate's own X
   const gateSolid: SolidSpec[] = [];
   for (const s of [-1, 1]) gateSolid.push({ kind: "gate", x: 170, y: s * 560, w: 700, d: 660, rot: 0 }, { kind: "gate", x: 0, y: s * 236, w: 300, d: 52, rot: 0 }, { kind: "gate", x: -180, y: s * 340, w: 70, d: 160, rot: 0 });
   put("venezia:city_gate", at(...GATE_N), FACE.n, { solid: gateSolid });
   put("venezia:city_gate", at(...GATE_NE), FACE.e, { solid: gateSolid });
-  put("venezia:city_gate", at(...GATE_SE), FACE.e, { solid: gateSolid });
 
   // ---- the piazza ----
   put("venezia:basilica", at(126, 67.6), FACE.s);
@@ -477,8 +487,11 @@ export function buildVenezia(quality: { flowers: number }): Town {
   // the garden court behind the Merceria: a well, benches, trees
   put("venezia:well_head", at(86, 56), 0, { solid: [{ kind: "well", x: 0, y: 0, r: 130 }] });
   for (const [u, v, h] of [[80, 56, FACE.e], [92, 56, FACE.w]] as const) put("common:bench", at(u, v), h);
-  // channel markers out in the lagoon and the bacino: clusters of piles
+  // channel markers out in the lagoon and the bacino: clusters of piles, two rows down the lagoon;
+  // gondolas out on it
   for (let v = 12; v < 150; v += 18) put("venezia:mooring_poles", at(2 + ((v / 18) % 2) * 3, v), rnd() * 360, { solid: "none" });
+  for (let v = 20; v < 200; v += 24) put("venezia:mooring_poles", at(-14 + ((v / 24) % 2) * 4, v), rnd() * 360, { solid: "none" });
+  for (const [u, v, h] of [[-4, 64, 10], [-8, 128, 170], [0, 182, 30]] as const) put("venezia:gondola", at(u, v), h, { z: WATER_Z });
   for (let u = 18; u < 96; u += 18) put("venezia:mooring_poles", at(u, 170 + ((u / 18) % 2) * 3), rnd() * 360, { solid: "none" });
 
   // ---- gardens: whatever grass is left between the houses ----
@@ -487,11 +500,16 @@ export function buildVenezia(quality: { flowers: number }): Town {
   });
 
   // ---- outside the walls: woods on the land to the north and east ----
+  // (and on the strip at the lagoon's head past the north-west corner, clear of the road)
+  const toNorthRoad = (u: number, v: number) => Math.min(...NORTH_ROAD.slice(1).map((b, i) => {
+    const a = NORTH_ROAD[i], du = b[0] - a[0], dv = b[1] - a[1], t = Math.max(0, Math.min(1, ((u - a[0]) * du + (v - a[1]) * dv) / (du * du + dv * dv)));
+    return Math.hypot(a[0] + du * t - u, a[1] + dv * t - v);
+  }));
   town.woods({ x0: P(0, 150)[0], x1: P(0, -150)[0], y0: P(300, 0)[1], y1: P(-60, 0)[1] }, ["RoundTree", "BigOak", "Pine", "SmallTree", "RoundTree"], (x, y) => {
     const u = 112 - y / 100, v = 100 - x / 100;
     const inside = v > -12 && u < EAST + 12;
-    const road = (Math.abs(u - GATE_N[0]) < 12 && v < 0) || (Math.abs(v - GATE_NE[1]) < 12 && u > EAST) || (Math.abs(v - GATE_SE[1]) < 12 && u > EAST);
-    return inside || road || isWater(u, v) || isWater(u + 8, v) || isWater(u, v + 8) || u < WEST + 6;
+    const road = toNorthRoad(u, v) < 8 || (Math.abs(v - GATE_NE[1]) < 12 && u > EAST);
+    return inside || road || isWater(u, v) || isWater(u + 8, v) || isWater(u, v + 8) || isWater(u - 8, v + 8);
   }, { count: 220, spacing: 520 });
 
   // ---- build ----
@@ -509,10 +527,16 @@ export function buildVenezia(quality: { flowers: number }): Town {
       open: (x, y) => ground.kind(x, y) === 0,
       density: 0.3 * quality.flowers,
     },
-    bounds: { minX: P(0, PIER_END + 2)[0], maxX: P(0, NORTH - 8)[0], minY: P(EAST + 8, 0)[1], maxY: P(WEST - 2, 0)[1] },
+    // (out over the lagoon on the west, to the strip at its head and the road on it on the north)
+    bounds: { minX: P(0, PIER_END + 2)[0], maxX: P(0, NORTH - 12)[0], minY: P(EAST + 8, 0)[1], maxY: P(WEST - 28, 0)[1] },
     spawn: pt(...SPAWN),
     npcs: veneziaNpcs(shopRow ? { x: shopRow.x - 600, y: shopRow.y } : pt(92, 86)),
-    ...waysOut([gateWay(at(...GATE_N), "n", "noa_plains", 480, 420), gateWay(at(...GATE_NE), "e", "dry_plains", 480, 420), gateWay(at(...GATE_SE), "e", "ancient_plain", 480, 420)]),
+    // (the north road's way out at the corner: whoever comes back from the plains arrives a few
+    // metres along the road)
+    ...waysOut([
+      { warp: { ...pt(...WAY_NW), r: 170, to: "noa_plains" }, back: pt(WAY_NW[0] + 9, WAY_NW[1]) },
+      gateWay(at(...GATE_NE), "e", "dry_plains", 480, 420),
+    ]),
     closed: [],
     labels: [
       { ...pt(126, 100), text: "จัตุรัสมหาวิหาร" },
@@ -534,7 +558,8 @@ export function buildVenezia(quality: { flowers: number }): Town {
       { ...pt(125, 210), text: "เกาะโบสถ์", kind: "small" },
       { x: at(...GATE_N)[0] - 300, y: at(...GATE_N)[1], text: "ประตูเหนือ · ที่ราบใต้โนอา", kind: "gate" },
       { x: at(...GATE_NE)[0], y: at(...GATE_NE)[1] + 300, text: "ประตูตะวันออกเฉียงเหนือ · ที่ราบแห้งแล้ง", kind: "gate" },
-      { x: at(...GATE_SE)[0], y: at(...GATE_SE)[1] + 300, text: "ประตูตะวันออกเฉียงใต้ · ที่ราบโบราณ", kind: "gate" },
+      { x: at(...WAY_NW)[0] - 300, y: at(...WAY_NW)[1] - 600, text: "ทางไปที่ราบใต้โนอา", kind: "gate" },
+      { ...pt(-6, 60), text: "ลากูน", kind: "small" },
     ],
   });
 }
@@ -558,7 +583,7 @@ function veneziaNpcs(shop: { x: number; y: number }): NpcSpec[] {
     travelGuide("venezia", P(122, 146), toward(122, 146, 126, 140), "ลูเชีย"),
     { id: "venezia_guide", ...spot(130, 146), face: toward(130, 146, 126, 140), name: "ฟาบิโอ", title: "ผู้นำทาง", role: "talk", look: man("top_warrior_navy", "auburn", "blue"),
       lines: ["ยินดีต้อนรับสู่เวนิชเซีย เมืองแห่งสายน้ำ! ที่นี่คือโมโล ลานริมน้ำหน้าจัตุรัสมหาวิหาร", "มหาวิหารห้าโดมอยู่สุดจัตุรัสทางเหนือ ทำเนียบดอจอยู่ริมน้ำทางตะวันออก ท่าเรือใหญ่อยู่ถัดไปตามริมท่า",
-        "เดินถนนเมอร์เซเรียจากมุมจัตุรัสไปทางตะวันตก จะถึงสะพานริอัลโตกับตลาดริมคลองใหญ่", "ประตูเหนือไปที่ราบใต้โนอา ประตูตะวันออกเฉียงเหนือคือทางคาราวานไปบาฮามัส ประตูตะวันออกเฉียงใต้ไปที่ราบโบราณ"] },
+        "เดินถนนเมอร์เซเรียจากมุมจัตุรัสไปทางตะวันตก จะถึงสะพานริอัลโตกับตลาดริมคลองใหญ่", "ประตูเหนือออกไปเลี้ยวซ้ายเลียบกำแพงไปที่ราบใต้โนอา ประตูตะวันออกเฉียงเหนือคือทางคาราวานข้ามที่ราบแห้งแล้ง แยกลงใต้ไปที่ราบโบราณ ตรงไปถึงบาฮามัส"] },
     // the harbour
     { id: "venezia_captain", ...spot(160.4, 170), face: toward(160.4, 170, 169, 176), name: "กัปตันอันเดรีย", title: "เรือโดยสาร · อีเดน โยเดีย ซูโจว", role: "travel", ports: ["eden", "yodia", "suzhou"],
       look: man("top_warrior_navy", "silver", "blue", "bottom_warrior_black"),
@@ -606,16 +631,17 @@ function veneziaNpcs(shop: { x: number; y: number }): NpcSpec[] {
       lines: ["กองคาราวานของข้าออกประตูตะวันออกเฉียงเหนือ ข้ามที่ราบแห้งแล้งไปบาฮามัส", "ขาไปขนแก้วกับผ้าจากเวนิชเซีย ขากลับขนเครื่องเทศกับอินทผลัมจากทะเลทราย", "ที่ราบแห้งแล้งร้อนจัด พกน้ำให้พอ อย่าเดินหลงออกนอกเส้นทางคาราวาน"] },
     // the gate guards
     { id: "venezia_guard_n1", ...spot(123.4, 8), face: NORTH_FACE, name: "ทหารยามลูก้า", title: "ทหารยามประตูเหนือ", role: "talk", look: man("top_warrior_navy"),
-      lines: ["ออกประตูเหนือไปคือที่ราบใต้โนอา ไร่องุ่นกับทุ่งข้าวสาลีสุดสายตา", "เดินตามถนนหินโบราณขึ้นไปจะถึงโนอา เมืองหลวงเก่าของอาณาจักร"] },
+      lines: ["ออกประตูเหนือแล้วเลี้ยวซ้าย เดินเลียบกำแพงไปจนสุดริมลากูน ถนนจะพาขึ้นไปที่ราบใต้โนอา ไร่องุ่นกับทุ่งข้าวสาลีสุดสายตา", "เดินตามถนนหินโบราณขึ้นไปจะถึงโนอา เมืองหลวงเก่าของอาณาจักร"] },
     { id: "venezia_guard_n2", ...spot(128.6, 8), face: NORTH_FACE, name: "ทหารยามนิโคโล", title: "ทหารยามประตูเหนือ", role: "talk", look: man("top_warrior_navy", "auburn"),
-      lines: ["ถนนเส้นนี้ตรงจากประตูไปถึงหลังมหาวิหารเลย", "ทางตะวันตกของที่ราบมีบึงลากูน ระวังหมอกพิษนะ"] },
+      lines: ["ถนนเส้นนี้ตรงจากประตูไปถึงหลังมหาวิหารเลย", "ถนนนอกกำแพงเลียบหัวลากูนไป ลมทะเลพัดแรง ระวังตกน้ำนะ", "ทางตะวันตกของที่ราบมีบึงลากูน ระวังหมอกพิษนะ"] },
     { id: "venezia_guard_ne1", ...spot(204, 31.5), face: EAST_FACE, name: "ทหารยามเอนริโก", title: "ทหารยามประตูตะวันออกเฉียงเหนือ", role: "talk", look: man("top_warrior"),
-      lines: ["ประตูนี้คือต้นทางคาราวาน ออกไปคือที่ราบแห้งแล้ง ทอดยาวไปถึงบาฮามัส", "พุ่มไม้แห้งกับเนินหินยอดตัด เดินตามรอยล้อเกวียนไว้"] },
+      lines: ["ประตูนี้คือต้นทางคาราวาน ออกไปคือที่ราบแห้งแล้ง ทอดยาวไปถึงบาฮามัส", "จะไปที่ราบโบราณก็ออกประตูนี้ ถึงศาลาพักคาราวานกลางที่ราบแล้วแยกลงใต้", "พุ่มไม้แห้งกับเนินหินยอดตัด เดินตามรอยล้อเกวียนไว้"] },
     { id: "venezia_guard_ne2", ...spot(204, 36.5), face: EAST_FACE, name: "ทหารยามสเตฟาโน", title: "ทหารยามประตูตะวันออกเฉียงเหนือ", role: "talk", look: man("top_warrior", "ink", "teal"),
       lines: ["คาราวานออกทุกเช้าตรู่ก่อนแดดจะแรง", "กลับเข้าเมืองมาเมื่อไร ไปพักที่จัตุรัสก่อน นักบวชรักษาให้ฟรี"] },
-    { id: "venezia_guard_se1", ...spot(204, 107.5), face: EAST_FACE, name: "ทหารยามมาร์ติโน", title: "ทหารยามประตูตะวันออกเฉียงใต้", role: "talk", look: man("top_warrior_forest"),
-      lines: ["ออกประตูนี้ไปคือที่ราบโบราณ ซากเมืองยุคก่อนกับรูปปั้นยักษ์ที่ล้มอยู่", "เลยที่ราบโบราณไปคือสุสานหลวง อย่าไปถ้ายังไม่แกร่งพอ"] },
-    { id: "venezia_guard_se2", ...spot(204, 112.5), face: EAST_FACE, name: "ทหารยามเปาโล", title: "ทหารยามประตูตะวันออกเฉียงใต้", role: "talk", look: man("top_warrior_forest", "amber"),
+    // the watch on the east wall, where the street from the piazza ends at a tower
+    { id: "venezia_guard_se1", ...spot(204, 107.5), face: EAST_FACE, name: "ทหารยามมาร์ติโน", title: "ทหารยามกำแพงตะวันออก", role: "talk", look: man("top_warrior_forest"),
+      lines: ["ประตูตรงนี้ก่อปิดไปแล้ว จะไปที่ราบโบราณต้องออกประตูตะวันออกเฉียงเหนือ ข้ามที่ราบแห้งแล้งแล้วแยกลงใต้", "ที่ราบโบราณมีซากเมืองยุคก่อนกับรูปปั้นยักษ์ที่ล้มอยู่ เลยไปคือสุสานหลวง อย่าไปถ้ายังไม่แกร่งพอ"] },
+    { id: "venezia_guard_se2", ...spot(204, 112.5), face: EAST_FACE, name: "ทหารยามเปาโล", title: "ทหารยามกำแพงตะวันออก", role: "talk", look: man("top_warrior_forest", "amber"),
       lines: ["ที่ราบโบราณเงียบนัก แต่ของที่ซ่อนอยู่ในซากนั้นไม่เคยหลับ", "ถนนเส้นนี้ข้ามสะพานคลองตรงไปถึงจัตุรัส"] },
     // the west island
     { id: "venezia_fisher", ...spot(40, 157), face: SOUTH_FACE, name: "นอนโน่ จิโอวานนี", title: "ชาวประมงลากูน", role: "talk", look: man("top_warrior", "silver", "teal"),

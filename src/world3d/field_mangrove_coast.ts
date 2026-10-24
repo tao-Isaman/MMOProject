@@ -1,6 +1,6 @@
 // ชายฝั่งป่าชายเลน (the mangrove coast), monsters Lv 35-45: the shore east of Yodia where the
-// jungle runs down to the sea. The way in from Yodia's east gate comes through coastal jungle
-// to a fork: south-west a boardwalk winds out over the mangrove lagoon past a fisherman's stilt
+// jungle runs down to the sea. The way in from Yodia's east gate (the north end of the west
+// side, under the ridge's south-west foot) comes down through coastal jungle to a fork: south-west a boardwalk winds out over the mangrove lagoon past a fisherman's stilt
 // house; south-east the track comes down to a beach where a junk lies wrecked in the shallows,
 // salvagers camped beside it; north-east a rocky headland rises in sea cliffs, its tip a higher
 // step with an old beacon tower still smouldering; north-west a jungle ridge with a lookout
@@ -128,7 +128,8 @@ export function build(quality: { flowers: number }): Town {
   // the headland (its sea face a little inside the shore) and its tip, the coastal ridge
   const L1: Poly = bevel([[2500, -4150], [3100, -5050], [4050, -5780], [5200, -6230], [6800, -6030], [7700, -5000], [7500, -2600], [5600, -1800], [3700, -1600], [2300, -2400], [1900, -3500]]);
   const L1b: Poly = bevel([[4400, -5500], [6400, -5700], [7000, -4500], [6000, -3600], [4600, -3900], [4000, -4700]]);
-  const L2: Poly = bevel([[1500, 1800], [3000, 1300], [4800, 1600], [5900, 2600], [6000, 4800], [4600, 6000], [2600, 5800], [1400, 4600], [1100, 3000]]);
+  // (its south-west foot drawn back from the west edge, where the Yodia way comes in under it)
+  const L2: Poly = bevel([[1500, 1800], [3000, 1300], [4800, 1600], [5900, 2600], [6000, 4800], [4600, 6000], [3300, 5900], [2600, 4300], [1800, 3800], [1100, 3000]]);
   const RIM_N: Poly = bevel([[6500, 600], [7600, -1400], [9500, -1000], [9500, 5000], [7000, 5600], [6600, 3200]]);
   const f = new FieldBuilder(116, {
     hills: [
@@ -152,7 +153,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- paths: from the Yodia way down to the beach; branches to the headland, the ridge and both
   // ends of the boardwalk ----
-  const MAIN = smooth([[-600, 5900], [-600, 5150], [-550, 4400], [-300, 3600], [-400, 2600], [-200, 1700], [200, 800], [300, -300], [0, -1400], [-400, -2300], [-700, -2800]]);
+  const MAIN = smooth([[1980, 7200], [1980, 5150], [1850, 4500], [1350, 4150], [600, 3950], [-100, 3800], [-300, 3600], [-400, 2600], [-200, 1700], [200, 800], [300, -300], [0, -1400], [-400, -2300], [-700, -2800]]);
   const HEAD = smooth([[250, 250], [800, -600], [950, -1600], [831, -2488], [1465, -2719], [2100, -2950], [2900, -3050], [3900, -2900], [4700, -2700], [5070, -2674], [5185, -3212], [5300, -3750], [5300, -4300]], 3);
   const RIDGE = smooth([[-300, 2300], [0, 2150], [351, 2084], [825, 2242], [1300, 2400], [1900, 2650], [2400, 2750], [2900, 3250], [3050, 3600]], 3);
   const BWN = smooth([[-350, 3500], [-900, 3650], [-1450, 3680]], 3);
@@ -215,7 +216,7 @@ export function build(quality: { flowers: number }): Town {
   ];
 
   // ---- the way out ----
-  f.exit("yodia", [-600, 5150], [-560, 4450]);
+  f.exit("yodia", [1980, 5150], [1900, 4500]);
 
   // ---- placing: every thing remembered (x, y, r) so the plants keep clear ----
   const taken: [number, number, number][] = [];
@@ -243,10 +244,10 @@ export function build(quality: { flowers: number }): Town {
   put("yodia:fishing_boat", [-1800, -4950], 15, { solid: "none", r: 400, z: -16 });
 
   // the Yodia way: carved posts, torches, a sign
-  put("yodia:guardian_post", [-930, 4950], -90, { r: 80 });
-  put("yodia:guardian_post", [-270, 4950], -90, { r: 80 });
-  for (const x of [-960, -240]) put("yodia:tiki_torch", [x, 4650], 0, { solid: [disc(14, 0, 0, "post")], r: 60 });
-  put("trail_sign", [-130, 4200], -60, { solid: [disc(20, 0, 0, "post")], r: 90 });
+  put("yodia:guardian_post", [1610, 4950], -90, { r: 80 });
+  put("yodia:guardian_post", [2270, 4950], -90, { r: 80 });
+  for (const x of [1520, 2230]) put("yodia:tiki_torch", [x, 4650], 0, { solid: [disc(14, 0, 0, "post")], r: 60 });
+  put("trail_sign", [600, 3650], -60, { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("trail_sign", [650, 700], 120, { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("trail_sign", [560, -2350], 200, { solid: [disc(20, 0, 0, "post")], r: 90 });
 
@@ -382,7 +383,7 @@ export function build(quality: { flowers: number }): Town {
     sky: "#4d7f8f",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && !onBeach(x, y) && distTo(SHORE, x, y) > 300, density: 0.1 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: -530, y: 4150 },
+    spawn: { x: 1860, y: 4400 },
     npcs: [
       {
         id: "mc_fisher", x: fisher[0], y: fisher[1], face: 0, name: "ลุงเทียม", title: "ชาวประมงป่าชายเลน", role: "talk",
@@ -403,7 +404,7 @@ export function build(quality: { flowers: number }): Town {
       },
     ],
     labels: [
-      { x: -600, y: 4900, text: "ทางไปโยเดีย", kind: "gate" },
+      { x: 1980, y: 4900, text: "ทางไปโยเดีย", kind: "gate" },
       { x: bwMid[0], y: bwMid[1], text: "ป่าชายเลน" },
       { x: -600, y: -3150, text: "หาดซากเรือ" },
       { x: 5300, y: -4300, text: "แหลมหอไฟเก่า" },
