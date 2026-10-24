@@ -142,6 +142,7 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     plain: { name: "เสื้อยืดผ้าฝ้าย", body: "plainf", gender: "female", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
     plain_m: { name: "เสื้อยืดผ้าฝ้าย", body: "plainm", gender: "male", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
     swordsman_f: { name: "เสื้อนักดาบ", body: "swordsman_f", gender: "female", note: "ทูนิกสีกรมท่า ผ้าคลุมไหล่ เข็มขัดหนัง ปลอกแขนหนัง", job: true },
+    swordsman_m: { name: "เสื้อนักดาบ", body: "swordsman_m", gender: "male", note: "ทูนิกสีกรมท่า ผ้าคลุมไหล่ เกราะไหล่เหล็ก เข็มขัดและปลอกแขนหนัง", job: true },
   },
   bottom: {
     mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "กางเกงขายาว บูทหนัง ใส่กับเสื้อคลุมจอมเวทมีชายเสื้อคลุมยาวคลุมทับ" },
@@ -151,6 +152,7 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     plain: { name: "กางเกงผ้าฝ้าย", body: "plainf", gender: "female", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
     plain_m: { name: "กางเกงผ้าฝ้าย", body: "plainm", gender: "male", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
     swordsman_f: { name: "กางเกงนักดาบ", body: "swordsman_f", gender: "female", note: "กางเกงสีทราย บูทหนังสูง", job: true },
+    swordsman_m: { name: "กางเกงนักดาบ", body: "swordsman_m", gender: "male", note: "กางเกงสีทราย บูทหนัง", job: true },
   },
 };
 

@@ -9,6 +9,10 @@ as a layer. The game draws the head layer back onto every body frame (src/look.j
       The head above the neck row of the idle frame is tracked through every frame, erased,
       and the headless sheets go to public/assets/chars; head.anchor and head.offsets go into
       public/assets/chars/bodies.json under NAME.
+  python3 tools/char_layers.py head NAME RAW_DIR NECK[,NECK1..NECK7]
+      The same tracking for a body that keeps its own head (the male ones: his hair is told
+      from his clothes by colour above and below the neck line, which follows the head): the
+      sheets go to public/assets/chars as they are, with head.anchor and head.offsets.
   python3 tools/char_layers.py hair NAME REST.png [--drape]
       REST.png is the 8-direction rest sheet of a hairstyle sprite. Writes
       public/assets/chars/hair_NAME.png (column 0: hair that hangs behind the body, column 1: head and
@@ -270,9 +274,9 @@ def drop_crumbs(cell, neck):
     return out
 
 
-def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "shoot", "cast")):
+def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "shoot", "cast"), keep=False):
     """raw_dir holds the untouched sheets NAME_<clip>.png (a clip without one, such as a body with
-    no cast, is left out); writes headless ones to public/assets/chars."""
+    no cast, is left out); writes headless ones to public/assets/chars (keep: the heads stay)."""
     clips = [c for c in clips if os.path.exists(f"{raw_dir}/{name}_{c}.png")]
     idle = cells(f"{raw_dir}/{name}_idle.png")
     tpls = [head_template(idle[d][0], necks[d]) for d in range(8)]
@@ -285,7 +289,8 @@ def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "s
             row = []
             for f, cell in enumerate(grid[d]):
                 off = (0, 0) if clip == "idle" else track(tpls[d], cell)[0]
-                grid[d][f] = drop_crumbs(erase_head_loose(cell, tpls[d], off), necks[d] + off[1])
+                if not keep:
+                    grid[d][f] = drop_crumbs(erase_head_loose(cell, tpls[d], off), necks[d] + off[1])
                 row.append(list(off))
             offsets[clip].append(row)
         save_cells(grid, f"public/assets/chars/{name}_{clip}.png")
@@ -293,17 +298,17 @@ def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "s
     path = "public/assets/chars/bodies.json"
     bodies = json.load(open(path))
     bodies.setdefault(name, {})
-    bodies[name]["hairless"] = True
+    bodies[name]["hairless"] = not keep
     bodies[name]["head"] = {"anchor": anchors, "offsets": offsets}
     json.dump(bodies, open(path, "w"), separators=(",", ":"))
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1:2]
-    if cmd == ["body"]:
+    if cmd in (["body"], ["head"]):
         name, raw = sys.argv[2], sys.argv[3]
         necks = [int(v) for v in sys.argv[4].split(",")]
-        make_body(name, raw, necks if len(necks) == 8 else necks * 8)
+        make_body(name, raw, necks if len(necks) == 8 else necks * 8, keep=cmd == ["head"])
     elif cmd == ["hair"]:
         make_hair(sys.argv[2], sys.argv[3], "--drape" in sys.argv)
     else:

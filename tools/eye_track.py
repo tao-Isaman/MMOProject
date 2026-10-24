@@ -40,9 +40,20 @@ BOXES = {
         [[53, 27, 54, 30]],
         [[47, 28, 49, 31], [57, 28, 58, 30]],
     ],
+    "swordsman_m": [
+        [[41, 28, 44, 29], [50, 28, 54, 29]],
+        [[38, 28, 39, 29], [45, 28, 48, 29]],
+        [[39, 26, 40, 29]],
+        [], [], [],
+        [[54, 27, 56, 29]],
+        [[48, 28, 51, 29], [56, 28, 57, 29]],
+    ],
 }
-NATURAL = {"plainm": "amber", "warrior": "amber"}  # the EYE_COLORS id they are drawn in
-IRIS = {"amber": {"h": [18, 45], "s": [0.6, 1], "l": [0.28, 0.66]}}  # the colour of that iris
+NATURAL = {"plainm": "amber", "warrior": "amber", "swordsman_m": "blue"}  # the EYE_COLORS id they are drawn in
+IRIS = {  # the colour of that iris
+    "amber": {"h": [18, 45], "s": [0.6, 1], "l": [0.28, 0.66]},
+    "blue": {"h": [195, 240], "s": [0.35, 1], "l": [0.15, 0.8]},
+}
 
 
 def patch(boxes):
