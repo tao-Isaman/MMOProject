@@ -44,13 +44,12 @@ export const MAP_LINKS: Record<string, string[]> = {
   "frozen_river",
   "noa_plains",
   "elder_forest",
-  "noa_meadow",
   "west_woods"
  ],
  "suzhou": [
   "west_pass",
   "rice_terraces",
-  "west_cape"
+  "lagoon_marsh"
  ],
  "highland": [
   "frozen_river",
@@ -60,12 +59,12 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "venezia": [
   "noa_plains",
-  "dry_plains",
-  "ancient_plain"
+  "dry_plains"
  ],
  "west_woods": [
   "field",
-  "noa"
+  "noa",
+  "noa_meadow"
  ],
  "royal_road": [
   "eden",
@@ -137,7 +136,7 @@ export const MAP_LINKS: Record<string, string[]> = {
   "sakura_hills"
  ],
  "noa_meadow": [
-  "noa"
+  "west_woods"
  ],
  "noa_plains": [
   "noa",
@@ -146,7 +145,8 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "dry_plains": [
   "venezia",
-  "desert_edge"
+  "desert_edge",
+  "ancient_plain"
  ],
  "elder_forest": [
   "noa",
@@ -154,8 +154,7 @@ export const MAP_LINKS: Record<string, string[]> = {
   "karst_peaks"
  ],
  "rice_terraces": [
-  "suzhou",
-  "lagoon_marsh"
+  "suzhou"
  ],
  "highland_downs": [
   "highland",
@@ -166,7 +165,7 @@ export const MAP_LINKS: Record<string, string[]> = {
   "highland_downs"
  ],
  "ancient_plain": [
-  "venezia",
+  "dry_plains",
   "bahamas",
   "royal_necropolis"
  ],
@@ -176,14 +175,15 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "west_pass": [
   "elder_forest",
-  "suzhou"
+  "suzhou",
+  "west_cape"
  ],
  "tangled_hills": [
   "snow_foothills",
   "highland"
  ],
  "lagoon_marsh": [
-  "rice_terraces",
+  "suzhou",
   "noa_plains"
  ],
  "royal_necropolis": [
@@ -194,7 +194,7 @@ export const MAP_LINKS: Record<string, string[]> = {
   "highland"
  ],
  "west_cape": [
-  "suzhou"
+  "west_pass"
  ]
 };
 
@@ -369,8 +369,8 @@ export const NPC_PLACES: Record<string, string> = {
  "noa:noa_guard_s2": "ประตูใต้",
  "noa:noa_guard_w1": "ประตูตะวันตก",
  "noa:noa_guard_w2": "ประตูตะวันตก",
- "noa:noa_guard_en1": "ประตูตะวันออก",
- "noa:noa_guard_en2": "ประตูตะวันออก",
+ "noa:noa_guard_en1": "ย่านตะวันออก",
+ "noa:noa_guard_en2": "ย่านตะวันออก",
  "noa:noa_guard_es1": "ประตูตะวันออก",
  "noa:noa_guard_es2": "ประตูตะวันออก",
  "noa:noa_travel": "จัตุรัสหอนาฬิกา",
@@ -398,8 +398,8 @@ export const NPC_PLACES: Record<string, string> = {
  "suzhou:suzhou_guard_n2": "ประตูเหนือ",
  "suzhou:suzhou_guard_s1": "ประตูใต้",
  "suzhou:suzhou_guard_s2": "ประตูใต้",
- "suzhou:suzhou_guard_w1": "โรงตีเหล็ก",
- "suzhou:suzhou_guard_w2": "โรงตีเหล็ก",
+ "suzhou:suzhou_guard_e1": "ประตูตะวันออก",
+ "suzhou:suzhou_guard_e2": "ประตูตะวันออก",
  "suzhou:suzhou_pagoda_keeper": "เจดีย์ประภาคาร",
  "suzhou:suzhou_silk": "ตลาดผ้าไหม",
  "suzhou:suzhou_porcelain": "ท่าเรือซูโจว",
@@ -450,8 +450,8 @@ export const NPC_PLACES: Record<string, string> = {
  "venezia:venezia_guard_n2": "ประตูเหนือ",
  "venezia:venezia_guard_ne1": "ประตูตะวันออกเฉียงเหนือ",
  "venezia:venezia_guard_ne2": "ประตูตะวันออกเฉียงเหนือ",
- "venezia:venezia_guard_se1": "ประตูตะวันออกเฉียงใต้",
- "venezia:venezia_guard_se2": "ประตูตะวันออกเฉียงใต้",
+ "venezia:venezia_guard_se1": "สวนสาธารณะ",
+ "venezia:venezia_guard_se2": "สวนสาธารณะ",
  "venezia:venezia_fisher": "โบสถ์ปากคลอง",
  "west_woods:west_woods_hunter": "กระท่อมนายพราน",
  "west_woods:west_woods_keeper": "ศาลเจ้าป่าโบราณ",
@@ -503,7 +503,7 @@ export const NPC_PLACES: Record<string, string> = {
  "karst_peaks:karst_raftsman": "ท่าแพ",
  "karst_peaks:karst_painter": "ศาลาริมผา",
  "ancient_plain:ap_scholar": "ลานกลางเมืองโบราณ",
- "ancient_plain:ap_watch": "ทางไปเวนิชเซีย",
+ "ancient_plain:ap_watch": "ทางไปที่ราบแห้งแล้ง",
  "frozen_river:frozen_river_ferryman": "ท่าแพข้ามฟาก",
  "frozen_river:frozen_river_warden": "สะพานหินเก่า",
  "west_pass:west_pass_veteran": "ด่านชายแดนเก่า",
