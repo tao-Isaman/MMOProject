@@ -729,7 +729,8 @@ export function jobName(p: JobLine): string {
 // else class_<id>.png (null: no class). A third or fourth job not drawn yet has no picture: null,
 // and jobGlyph gives the glyph to draw instead.
 const JOB_ART = new Set<JobId | Job3Id | Job4Id>(["ranger", "swordsman", "wizard", "bishop", "battlemage", "warlord", "thief", "jester", "mercenary", "inventor",
-  "knight", "hunter", "archmage", "assassin", "high_bishop", "monk", "spellblade", "sculptor", "magician", "historian", "shinobi"]);
+  "knight", "hunter", "archmage", "assassin", "high_bishop", "monk", "spellblade", "sculptor", "magician", "historian", "shinobi",
+  "merchant", "high_knight", "sniper", "warlock", "druid", "slayer", "royal_guard", "alchemist", "wuxia", "viking", "samurai", "shaman"]);
 export function jobIcon(p: JobLine): string | null {
   const top = p.job4 ?? p.job3;
   if (top) return JOB_ART.has(top) ? `assets/skills/job_${top}.png` : null;
