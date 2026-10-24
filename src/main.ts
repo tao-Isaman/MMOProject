@@ -619,11 +619,8 @@ async function boot(): Promise<void> {
         if (gained > 0) levelUp(gained);
         else progress.changed();
       } else if (r.points) progress.changed();
-      // the king's quest: past the limit, at level 100 at once
-      if (r.limit && progress.breakLimit()) {
-        floaters.add(player.x, player.y, 225, "ทลายขีดจำกัดแล้ว!", "level");
-        levelUp(1);
-      }
+      // the king's quest: past the limit, at level 100 at once (said over the quest's line)
+      if (r.limit && progress.breakLimit()) levelUp(1, "ทลายขีดจำกัด!", 260);
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 30);
       noteClock = 1.6; // the reward's lines first
     },
@@ -714,14 +711,14 @@ async function boot(): Promise<void> {
   combat.onFalcon = (m) => skills.falconStrike(m);
   combat.onBasicHit = (m) => skills.autocast(m);
 
-  // `gained` levels up to the one now: the points they gave show when past the limit they gave
-  // more than one a level (11 at 100, 3 at 105, 110 ...)
-  function levelUp(gained: number) {
+  // `gained` levels up to the one now, said `z` over the player: the points they gave show under
+  // it when past the limit they gave more than one a level (11 at 100, 3 at 105, 110 ...)
+  function levelUp(gained: number, title = "LEVEL UP!", z = 150) {
     hero.refill();
-    floaters.add(player.x, player.y, 150, `LEVEL UP! Lv ${progress.level}`, "level");
+    floaters.add(player.x, player.y, z, `${title} Lv ${progress.level}`, "level");
     let points = 0;
     for (let lv = progress.level - gained + 1; lv <= progress.level; lv++) points += levelPoints(lv);
-    if (points > gained) floaters.add(player.x, player.y, 135, `แต้มสกิล +${points}`, "level");
+    if (points > gained) floaters.add(player.x, player.y, z - 45, `แต้มสกิล +${points}`, "level");
     skills.ring(player.x, player.y, "#ffe27a", 260, 0.8);
     skills.sparkleUp(player.x, player.y, tex.flash, 40);
   }
