@@ -7,7 +7,8 @@
 //
 // The ways in meet in the middle of the forest: from the karst peaks (east) a track comes in under
 // the limestone towers that stand along the east edge, from the snowy abbey cliffs (north) down
-// between the rock shoulders of the north rim, and from the western pass (south) up through the
+// between the rock shoulders of the north rim, the first snow lying in patches in the woods up
+// there, and from the western pass (south) up through the
 // cleft in the mountain wall that closes the forest's south side, the land falling to the sea
 // beside it. Three heights to climb: in the north-east the ridge of the giants (4.5 m), where the
 // skeleton of a long-necked giant lies turned to stone, a naturalist's camp below its ramp; in the
@@ -144,6 +145,20 @@ export function build(quality: { flowers: number }): Town {
   const dry = f.ground({ area: { x0: -A, x1: -1600, y0: -A, y1: A }, roads, plazas: [], water: [DRY_OFF, SEA, ...dryPatches], base: "steppe", road: [0.66, 0.56, 0.44], tint: "#d8dac6" });
   dry.mesh.position.y += 5;
   dry.mesh.renderOrder = 2;
+  // snow lying on the high woods past the north edge, in patches thinning southward, where the
+  // snowy heights of the abbey begin (its own seed, so nothing else in the field moves)
+  const snowLine: XY[] = [];
+  for (let y = A + 400; y >= -A - 400; y -= 120) snowLine.push([5350 + rag(y + 2000) * 0.9, y]);
+  const SNOW_OFF: XY[] = [...snowLine, [-A - 400, -A - 400], [-A - 400, A + 400]];
+  const srnd = seeded(5151), melt: XY[][] = [];
+  for (let x = 4900; x < A; x += 420)
+    for (let y = -A; y < A; y += 420) {
+      const k = Math.min(1, (x - 4900) / 2600);
+      if (srnd() < 0.62 - 0.5 * k) melt.push(blobPoly([x + srnd() * 420, y + srnd() * 420], 150 + srnd() * 140, 120 + srnd() * 110, 5160 + melt.length, 0.25, 14));
+    }
+  const snow = f.ground({ area: { x0: 4000, x1: A, y0: -A, y1: A }, roads, plazas: [], water: [SNOW_OFF, SEA, ...melt], base: "snow", road: [0.66, 0.56, 0.44], tint: "#eef1f2" });
+  snow.mesh.position.y += 7;
+  snow.mesh.renderOrder = 3;
 
   // ---- the sea, the brook and its spring ----
   const sea = seaSheet(SHORE, [[-A - 400, A + 400], [A + 400, A + 400]], 250, -14, "Oldgrowth_Sea"); // (over the sea only, so the hollows inland stay dry)
@@ -320,7 +335,7 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
-    scenery: [moss.mesh, dry.mesh, sea, brookBed, brook, poolBed, pool],
+    scenery: [moss.mesh, dry.mesh, snow.mesh, sea, brookBed, brook, poolBed, pool],
     sky: "#9db7a8",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && moss.kind(x, y) !== 0 && f.h(x, y) < 120 && !wet(x, y, 200), density: 0.08 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },

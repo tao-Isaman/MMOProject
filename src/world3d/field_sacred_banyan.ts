@@ -5,8 +5,9 @@
 // carried the kings walk the glades, the stone guardians of the shrines with them.
 //
 // The way in from Yodia's forest gate (east) is the old royal avenue: past lantern posts, between
-// two white elephants in gold, to the stairs up the banyan court (3 m), where the sacred banyan
-// stands wound in silk with its offerings, two more banyans hung with cloths by it. From the
+// two white elephants in gold, to the stairs up the banyan court (3 m), at whose back the sacred
+// banyan stands wound in silk, lantern posts and offerings before it, two more banyans hung with
+// cloths in the glade below the court behind it. From the
 // north, out of a gap in the high woods below the royal necropolis, a track comes down to the
 // avenue. North of the court the royal mound (4 m) carries the oldest chedi, a banyan grown out
 // of its bell. West of the court stairs go down to the landing on the river of lanterns, which
@@ -60,7 +61,8 @@ const RM = rampOff([3900, -600], [2900, -300], [3700, 700], 1200, 440);
 const N_RIM_E: XY[] = [[6000, -A], [A, -A], [A, -4300], [7600, -4250], [6100, -4300]];
 const N_RIM_W: XY[] = [[6100, -2500], [7600, -2550], [A, -2500], [A, 6000], [6400, 5800], [6200, 4500], [6000, 2000], [6200, -500]];
 
-const BANYAN: XY = [-200, 200];
+const BANYAN: XY = [720, 230]; // (at the back of the court, its roots closing the way round behind it)
+const FRONT: XY = [-250, 230]; // (the court's open ground before it)
 const MOUND_TOP: XY = [3700, 800];
 const LANDING: XY = [-480, 2620];
 
@@ -86,8 +88,8 @@ export function build(quality: { flowers: number }): Town {
   const AVENUE: XY[] = smooth([[1965, -7600], E_EXIT, [1800, -4500], [1300, -3800], [700, -3200], [520, -2700], RC_E.bottom]);
   const NORTH_WAY: XY[] = smooth([[7600, -3400], N_EXIT, [4300, -3300], [3300, -3100], [2300, -3300], [1500, -3700]]);
   const MOUND_WAY: XY[] = [...smooth([[2300, -3300], [2600, -2600], beyond(RM.top, RM.bottom, 350)]), RM.bottom, RM.top, ...smooth([beyond(RM.bottom, RM.top, 400), [MOUND_TOP[0] - 450, MOUND_TOP[1] - 450]])];
-  const COURT: XY[] = [RC_E.bottom, RC_E.top, ...smooth([[480, -1000], [300, -500], [BANYAN[0] + 600, BANYAN[1] - 400]])];
-  const LANDING_WAY: XY[] = [...smooth([[BANYAN[0] + 200, BANYAN[1] + 700], [-300, 1300], beyond(RC_W.bottom, RC_W.top, 250)]), RC_W.top, RC_W.bottom, LANDING];
+  const COURT: XY[] = [RC_E.bottom, RC_E.top, ...smooth([[300, -1000], [-100, -500], FRONT])];
+  const LANDING_WAY: XY[] = [...smooth([FRONT, [-400, 900], beyond(RC_W.bottom, RC_W.top, 250)]), RC_W.top, RC_W.bottom, LANDING];
   const nb = nearestOn(RIVER, [800, 3360]);
   let bax: XY = [-nb.dir[1], nb.dir[0]];
   if (bax[1] < 0) bax = [-bax[0], -bax[1]]; // (from the south bank to the north)
@@ -123,7 +125,7 @@ export function build(quality: { flowers: number }): Town {
   const sea = seaSheet(SHORE, [[-A - 400, -A - 400], [-A - 400, A + 400], [A + 400, A + 400]], 250, -15, "Oldgrowth_Sea"); // (over the sea only, so the hollows inland stay dry)
   // (the river's own water only as far as the sea, so it never shows over the sea's)
   const RIVER_IN = RIVER.slice(0, RIVER.findIndex(([x, y]) => inPoly(SEA, x, y)) + 1);
-  const riverSheet = sheet(band(RIVER_IN, RW + 100), -13, "Oldgrowth_Stream");
+  const riverSheet = sheet(band(RIVER_IN, RW + 100), -17, "Oldgrowth_Stream"); // (under the sea's, where they meet)
   const riverBed = sheet(band(RIVER_IN, RW + 160), -60, "Oldgrowth_RockDark");
   const pool = sheet(blob(POOL_C, 740, 600, 7, 22), -13, "Oldgrowth_Stream");
   const poolBed = sheet(blob(POOL_C, 780, 640, 7, 22), -60, "Oldgrowth_RockDark");
@@ -190,14 +192,18 @@ export function build(quality: { flowers: number }): Town {
   put("ruins:temple_stairs", [(RC_W.top[0] + RC_W.bottom[0]) / 2, (RC_W.top[1] + RC_W.bottom[1]) / 2], runAlong(RC_W.top[0] - RC_W.bottom[0], RC_W.top[1] - RC_W.bottom[1]), { solid: "none" });
   for (const s of [-1, 1]) prop("ruins:guardian_statue", [RC_E.bottom[0] + s * 330, RC_E.bottom[1] - 200], 90, 120, { s: 0.95 });
 
-  // ---- the banyan court: the sacred banyan, two more hung with cloths, offerings, a spirit house ----
-  prop("oldgrowth:sacred_banyan", BANYAN, 0, 900, { s: 0.75, solid: [{ kind: "tree", x: 0, y: 0, r: 170 }] });
-  prop("oldgrowth:sacred_banyan", [700, 1100], 140, 600, { s: 0.45, solid: [{ kind: "tree", x: 0, y: 0, r: 90 }] });
-  prop("oldgrowth:sacred_banyan", [-1100, -800], 250, 600, { s: 0.45, solid: [{ kind: "tree", x: 0, y: 0, r: 90 }] });
-  prop("oldgrowth:offering_shrine", [BANYAN[0] + 500, BANYAN[1] - 650], 30, 180, { solid: [{ kind: "table", x: 0, y: 0, w: 160, d: 220, rot: 0 }] });
-  prop("oldgrowth:offering_shrine", [BANYAN[0] - 300, BANYAN[1] + 850], 200, 180, { solid: [{ kind: "table", x: 0, y: 0, w: 160, d: 220, rot: 0 }] });
+  // ---- the banyan court: the sacred banyan at its back (its prop roots solid, the court's edge
+  // closed behind it), two more banyans hung with cloths below the court behind it, offerings, a
+  // spirit house, a chedi in the roots ----
+  prop("oldgrowth:sacred_banyan", BANYAN, 0, 900, { s: 0.75, solid: [{ kind: "tree", x: 0, y: 0, r: 720 }] });
+  for (const [at, r] of [[[1100, -250], 250], [[1150, 230], 300], [[1080, 700], 250]] as [XY, number][]) f.blockDisc(at, r);
+  prop("oldgrowth:sacred_banyan", [1750, -800], 140, 600, { s: 0.45, solid: [{ kind: "tree", x: 0, y: 0, r: 520 }] });
+  prop("oldgrowth:sacred_banyan", [1700, 1250], 250, 600, { s: 0.45, solid: [{ kind: "tree", x: 0, y: 0, r: 520 }] });
+  prop("oldgrowth:offering_shrine", [BANYAN[0] - 720, BANYAN[1] - 470], 0, 180, { solid: [{ kind: "table", x: 0, y: 0, w: 160, d: 220, rot: 0 }] });
+  prop("oldgrowth:offering_shrine", [BANYAN[0] - 720, BANYAN[1] + 470], 0, 180, { solid: [{ kind: "table", x: 0, y: 0, w: 160, d: 220, rot: 0 }] });
   prop("yodia:spirit_house", [800, -700], 60, 100, ring(40, "post"));
   prop("oldgrowth:root_chedi", [-1100, 900], 30, 380, { s: 0.6, solid: [{ kind: "chedi", x: 0, y: 0, w: 520, d: 520, rot: 0 }] });
+  for (const [x, y] of [[-750, FRONT[1] - 400], [-750, FRONT[1] + 400], [-1250, FRONT[1] - 400], [-1250, FRONT[1] + 400]] as XY[]) prop("yodia:lantern_post", [x, y], rnd() * 360, 60, ring(18, "post"));
 
   // ---- the royal mound: the old chedi in the roots, offerings ----
   prop("oldgrowth:root_chedi", MOUND_TOP, 10, 500, { solid: [{ kind: "chedi", x: 0, y: 0, w: 520, d: 520, rot: 0 }] });
@@ -208,7 +214,7 @@ export function build(quality: { flowers: number }): Town {
   // sacred pool, the stone bridge ----
   prop("yodia:sala", [LANDING[0] - 500, LANDING[1] - 300], 90, 400, { solid: [{ kind: "sala", x: 0, y: 0, w: 640, d: 440, rot: 0 }] });
   prop("oldgrowth:offering_shrine", [LANDING[0] + 350, LANDING[1] - 350], 90, 150, { s: 0.8, solid: [{ kind: "table", x: 0, y: 0, w: 160, d: 220, rot: 0 }] });
-  for (const g of [[-450, 3100], [400, 3330], [1700, 3280], [-1500, 2970], [-2600, 2820], [-3500, 3050]] as XY[]) put("oldgrowth:lantern_float", nearestOn(RIVER, g).at, rnd() * 360, { z: -13, s: 0.8 + rnd() * 0.3, solid: "none" });
+  for (const g of [[-450, 3100], [400, 3330], [1700, 3280], [-1500, 2970], [-2600, 2820], [-3500, 3050]] as XY[]) put("oldgrowth:lantern_float", nearestOn(RIVER, g).at, rnd() * 360, { z: -16, s: 0.8 + rnd() * 0.3, solid: "none" });
   for (const g of [[2600, 2700], [2900, 3150]] as XY[]) put("oldgrowth:lantern_float", g, rnd() * 360, { z: -13, s: 0.9, solid: "none" });
   put("westmount:slab_bridge", BR.at, runAlong(bax[0], bax[1]), { solid: SLAB_BRIDGE_SOLIDS });
   prop("oldgrowth:banyan", [3500, 3600], 40, 500, { s: 0.8, solid: [{ kind: "tree", x: 0, y: 0, r: 70 }] });
@@ -265,7 +271,7 @@ export function build(quality: { flowers: number }): Town {
   f.woods(area, ["PalmBent", "Palm"], (x, y) => inside(x, y) || atSea(x, y) || toLine([x, y], SHORE) > 900, { count: 60, spacing: 420, tries: 3000 });
 
   // ---- monsters: the glades, the court, the mound ----
-  const KEEPER: XY = [BANYAN[0] + 700, BANYAN[1] + 100], MOURNER: XY = [LANDING[0] + 150, LANDING[1] - 150];
+  const KEEPER: XY = [FRONT[0] - 250, FRONT[1] - 480], MOURNER: XY = [LANDING[0] + 150, LANDING[1] - 150];
   const quiet = (x: number, y: number) => Math.hypot(x - KEEPER[0], y - KEEPER[1]) < 700 || Math.hypot(x - MOURNER[0], y - MOURNER[1]) < 600;
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 820, max: 50, keepOut: quiet });
 

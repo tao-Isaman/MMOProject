@@ -41,6 +41,7 @@ const MATS: Record<string, Recipe> = {
   Oldgrowth_Root: { map: "bark", tint: "#827763", bump: 3 },
   Oldgrowth_Moss: { map: "felt", tint: "#5c8a32", rough: 1, bump: 1.5 },
   Oldgrowth_MossDeep: { map: "felt", tint: "#41692a", rough: 1, bump: 1.5 },
+  Oldgrowth_MossRock: { map: "felt", tint: "#577a3a", rough: 1, bump: 1.5 },
   Oldgrowth_MossThick: { map: "foliage", tint: "#6b9b3b", rough: 1, bump: 2 },
   Oldgrowth_Beard: { map: "felt", tint: "#94a86c", rough: 1 },          // moss hanging in curtains
   Oldgrowth_Canopy: { map: "foliage", tint: "#447a36", rough: 0.95, bump: 1.5 },
@@ -99,6 +100,8 @@ const MATS: Record<string, Recipe> = {
   Oldgrowth_GoldVein: { tint: "#ffd27a", rough: 0.5, glow: "#ff9e1f", glowI: 1.5 },
   Oldgrowth_GoldCore: { map: "foliage", tint: "#e9b84a", rough: 0.9, bump: 1.5, glow: "#d08a10", glowI: 0.75 },
   Oldgrowth_Firefly: { tint: "#fff3a6", rough: 1, glow: "#ffd23f", glowI: 3 },
+  Oldgrowth_MistSea: { tint: "#ffd36b", rough: 1, opacity: 0.42, glow: "#ffb030", glowI: 1 },   // a field's lake of golden mist
+  Oldgrowth_MistBed: { map: "felt", tint: "#2e2a1a", rough: 1 },
 };
 for (const [name, recipe] of Object.entries(MATS)) defineMaterial(name, recipe);
 const WOOD_END = endGrain("#a98962");
@@ -203,7 +206,7 @@ function shroom(at: V3, h: number, cap: number, lean: [number, number], mat: str
 // a mossy rock: the stone with moss over its top
 function mossRock(size: V3, seed: number, at: V3, amount = 0.6, mat = "Oldgrowth_Rock", flat = false): Geo {
   const r = translate(rock(size, 0.45, seed, mat, flat), at);
-  return merge(r, coverTop(r, "Oldgrowth_Moss", { amount, thick: 3, seed, patches: 0.85 }));
+  return merge(r, coverTop(r, "Oldgrowth_MossRock", { amount, thick: 3, seed, patches: 0.62 }));
 }
 // a sheet of falling water: a profile of (x, z) from the lip down, across from y0 to y1 in `cols`
 // columns, rippling a little (its own seed)
@@ -1021,7 +1024,7 @@ function whiteElephant(): Geo {
   }
   // the brow plate, the crown, bells round its neck
   g.push(translate(rotateY(rotateX(box([3, 34, 34], [0, 0, 0], GD), 45), -20), [-212, 0, 322]));
-  g.push(cylinderAt({ rBot: 20, rTop: 2, height: 56, segments: 8, bottom: [-160, 0, 356] }, GD), cylinderAt({ radius: 22, height: 8, segments: 10, bottom: [-160, 0, 352] }, GD));
+  g.push(lathe([[0, 0], [26, 0], [27, 9], [21, 11], [21, 19], [16, 21], [16, 29], [11, 31], [10, 40], [6, 43], [3, 54], [0, 60]], 12, GD, [-160, 0, 350])); // (a crown of three tiers to a point)
   for (let k = 0; k < 11; k++) {
     const a = -Math.PI * 0.85 + (k / 10) * Math.PI * 1.7;
     g.push(sphereCenter(6, [-110 + Math.cos(a) * 8, Math.sin(a) * 76, 262 + Math.cos(a) * 70], GD, 6));
@@ -1131,9 +1134,8 @@ function firstTree(): THREE.Group {
     const a = rnd() * Math.PI * 2, r = 300 + Math.sqrt(rnd()) * 1500, z = 300 + rnd() * 3000;
     glow.push(sphereCenter(3 + rnd() * 4, polar(a, r, z), "Oldgrowth_Firefly", 4));
   }
-  const moss = coverTop(wood.flat().filter((p) => p.mat === GB), "Oldgrowth_MossThick", { amount: 0.22, thick: 4, seed: 570, grain: 80, patches: 0.5 });
   const lights = noShadow(toThree(merge(...glow), material));
-  return group(merge(...wood, moss, can.core), can.mesh, lights, ferns([0, 1, 2, 3, 4].map((i) => ({ at: polar(i * 1.26 + 0.3, R * 1.45, 0), n: 8, len: 140, seed: 580 + i }))));
+  return group(merge(...wood, can.core), can.mesh, lights, ferns([0, 1, 2, 3, 4].map((i) => ({ at: polar(i * 1.26 + 0.3, R * 1.45, 0), n: 8, len: 140, seed: 580 + i }))));
 }
 
 // Golden mist (16 x 7 m, about 2 m deep): soft puffs lying low in a hollow, see-through and
