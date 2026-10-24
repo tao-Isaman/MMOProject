@@ -7,6 +7,10 @@
 // ruins of an old camp. Rock, scrub and fallen stones everywhere; woods and plateaus close the
 // edges.
 //
+// Two more ways out: north up the canyon, the track along the river's west bank going on to the
+// windswept heights; and east over the east plateau, a track leaving the way up to the gate of the
+// sky and running out past the rock spire to the floating rocks.
+//
 // Full size around the origin (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
 import * as THREE from "three";
@@ -75,6 +79,14 @@ const EAST_SIDE: XY[] = smooth([[540, -2062], [0, -2650], [-600, -3150], [-950, 
 const UP_EAST: XY[] = smooth([[-1350, -3640], [-1046, -3696], [627, -4000], [1500, -3950], [2232, -3968], [3050, -3900], [3550, -4000]]);
 const TO_RUINS: XY[] = smooth([[-1150, -3750], [-1300, -4300], [-1450, -4650]]);
 
+// ---- the way north to the windswept heights: the canyon track (TO_CANYON) already runs out over
+// the north edge; its warp where the heights' own way south meets it (e 0.57) ----
+const N_EXIT: XY = [5150, -760], N_BACK: XY = [4450, -760];
+// ---- the way east to the floating rocks: off the track over the east plateau, past the rock
+// spire, out over the east edge (where the floating rocks' own way west meets it, n 0.68) ----
+const EAST_WAY: XY[] = smooth([[1500, -3950], [1800, -4500], [2000, -5150], [2000, -6300], [2000, -AREA - 200]]);
+const E_EXIT: XY = [2000, -5150], E_BACK: XY = [1950, -4450];
+
 // the last build's own check (see fieldReport), for building the field; the game never calls it
 export let REPORT: () => string[] = () => [];
 
@@ -84,7 +96,7 @@ export function build(quality: { flowers: number }): Town {
   const ground = f.ground({
     area: { x0: -AREA, y0: -AREA, x1: AREA, y1: AREA },
     base: "steppe",
-    roads: [band(MAIN, 520), band(TO_HENGE, 380), band(TO_CANYON, 400), band(TO_BRIDGE, 400), band(EAST_SIDE, 420), band(UP_EAST, 420), band(TO_RUINS, 380)],
+    roads: [band(MAIN, 520), band(TO_HENGE, 380), band(TO_CANYON, 400), band(TO_BRIDGE, 400), band(EAST_SIDE, 420), band(UP_EAST, 420), band(TO_RUINS, 380), band(EAST_WAY, 420)],
     plazas: [],
     water: [river],
     road: [0.88, 0.8, 0.7],
@@ -137,6 +149,14 @@ export function build(quality: { flowers: number }): Town {
   put("kradia:supplies", [-4000, 1300], 30, 180);
   put("steppe:signpost", [-3800, -300], 180, 60);
   taken.push([-1000, 5150, 500], [-5150, 300, 500]);
+
+  // ---- the ways north to the windswept heights and east to the floating rocks ----
+  f.exit("windswept_heights", N_EXIT, N_BACK);
+  put("steppe:signpost", [4500, -480], 180, 60);
+  f.exit("floating_rocks", E_EXIT, E_BACK);
+  put("steppe:signpost", [2450, -4800], 90, 60);
+  put("trunrada:cairn", [1550, -5250], 0, 150);
+  taken.push([N_EXIT[0], N_EXIT[1], 500], [E_EXIT[0], E_EXIT[1], 500], [1850, -4500, 300]);
 
   // ---- the henge plateau ----
   put("steppe:great_henge", [3500, 2700], 0, 0);
@@ -221,6 +241,10 @@ export function build(quality: { flowers: number }): Town {
     deco(r < 0.55 ? "steppe:grass_tuft" : r < 0.75 ? "steppe:scrub" : r < 0.9 ? "steppe:boulder" : "steppe:rock_cluster", [x, y], f.rnd() * 360, 0.7 + f.rnd() * 0.6);
   }
 
+  // a boulder fallen from the east wall onto the strip of bank above the canyon's river, on the
+  // way north (the strip is too narrow to walk; nothing should live there)
+  f.put("steppe:boulder", [4830, -2060], 70, { s: 0.8, solid: SHAPES.boulder });
+
   // ---- monsters: the plain, the canyon, both plateaus and the ruins ----
   f.monsterSpots(ground, { x0: -R + 400, x1: R - 400, y0: -R + 400, y1: R - 400 }, {
     step: 880,
@@ -262,6 +286,8 @@ export function build(quality: { flowers: number }): Town {
       { x: -4300, y: 300, text: "ด่านคราเดีย", kind: "small" },
       { x: -1000, y: 4900, text: "ทางไปทรุนราดา", kind: "gate" },
       { x: -4900, y: 300, text: "ทางไปคราเดีย", kind: "gate" },
+      { x: N_EXIT[0] - 250, y: N_EXIT[1], text: "ทางไปที่ราบสูงลมแรง", kind: "gate" },
+      { x: E_EXIT[0], y: E_EXIT[1] + 250, text: "ทางไปทุ่งหินลอย", kind: "gate" },
     ],
   });
 }

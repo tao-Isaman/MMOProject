@@ -11,7 +11,9 @@
 //   - in the east the ground turns black and purple: blight, dead trees, the first dark
 //     crystals and glowing cracks, the way on to the demon lands;
 //   - (v0.4) a track south off the one to the old forward line, over the battlefield's west end
-//     and through a pass in the south wall to the burnt villages.
+//     and through a pass in the south wall to the burnt villages;
+//   - (v0.4) a track leaving the road east of the old line, round the south foot of the bastion
+//     and out through a gorge in the north wall to the floating rocks.
 // Full size, north +X, west +Y; finishField scales it by TOWN_SCALE.
 
 import * as THREE from "three";
@@ -53,6 +55,15 @@ const RAMPS = [R_WLN, R_WLS, R_BASTION, R_FWD, R_FWD2];
 const TOWER: XY = [3150, 0];
 const CHECK: XY = [200, 3900]; // the checkpoint behind the breach
 const WEST_EXIT: XY = [300, 5150], WEST_BACK: XY = [270, 4450];
+
+// ---- the way north to the floating rocks: off the road east of the old line, round the south
+// foot of the bastion, out through a gorge in the north wall (where the floating rocks' own way
+// south meets it, e 0.68). The wall is cut there: NWALL stops at the gorge's west side, NWALL_E
+// goes on from its east side ----
+NWALL.splice(5, NWALL.length - 5, [4900, -1300], [5300, -1450], [A, -1450], [A, A]);
+const NWALL_E: XY[] = [[A, -2550], [5300, -2550], [5150, -2900], [4800, -4500], [4900, -A], [A, -A]];
+const NORTH_WAY: XY[] = chaikin([[50, -1300], [500, -1150], [1200, -1350], [1900, -1650], [2700, -1950], [3450, -2050], [4200, -2050], [5150, -2000], [6300, -2000], [A, -2000]], 3);
+const N_EXIT: XY = [5150, -2000], N_BACK: XY = [4450, -2020];
 const EAST_EXIT: XY = [-200, -5150], EAST_BACK: XY = [-160, -4450];
 
 // ---- v0.4: the way south to the burnt villages, through a pass in the south wall, where the
@@ -83,6 +94,7 @@ export function build(_quality: { flowers: number }): Town {
       { poly: subdiv(BASTION), h: 460, ramps: [R_BASTION] },
       { poly: subdiv(FWD), h: 230, ramps: [R_FWD, R_FWD2] },
       { poly: subdiv(SWALL_E), h: 600 }, // v0.4
+      { poly: subdiv(NWALL_E), h: 650 },
     ],
     rock: "Frontier_CliffEarth",
   });
@@ -108,6 +120,9 @@ export function build(_quality: { flowers: number }): Town {
     ...RAMPS.map((r) => bandPoly([r.bottom, r.top], r.width - 40)),
     bandPoly(TO_VILLAGES, 420, 50),
   ];
+  // (the way north to the floating rocks with them)
+  PATHS.push(NORTH_WAY);
+  roads.push(bandPoly(NORTH_WAY, 440, 40));
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], base: "steppe", road: [0.8, 0.7, 0.6] });
   // trampled, burnt grass: the steppe browned and greyed
   (ground.mesh.material as THREE.MeshStandardMaterial).color.set("#b6a892");
@@ -135,6 +150,10 @@ export function build(_quality: { flowers: number }): Town {
   // v0.4: the way out south to the burnt villages
   f.exit("burnt_villages", SOUTH_EXIT, SOUTH_BACK);
   put("frontier:signpost", [-4650, 1500], 0);
+  // the way north to the floating rocks
+  f.exit("floating_rocks", N_EXIT, N_BACK);
+  put("frontier:signpost", [4500, -1620], 180);
+  put("kradia:banner_pole", [4800, -1620], 180);
 
   // ---- the checkpoint behind the breach ----
   for (const [x, y] of [[-450, 2380], [-450, 2100], [780, 2380], [820, 2100]] as XY[]) put("kradia:barricade", [x, y], 90 + (rnd() - 0.5) * 10);
@@ -264,6 +283,9 @@ export function build(_quality: { flowers: number }): Town {
     put("frontier:scorch_mark", [x, y], rnd() * 360, { s: 1.2 + rnd(), colours: "frontier_blight" });
   }
 
+  // the gorge to the floating rocks kept clear of the rim's trees and rocks
+  f.puts = f.puts.filter((pl) => !(pl.x > R && distToPath(NORTH_WAY, pl.x, pl.y) < 520));
+
   // ---- monsters ----
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, {
     step: 760,
@@ -297,6 +319,7 @@ export function build(_quality: { flowers: number }): Town {
     npcs: [veteran, scout],
     labels: [
       { x: 300, y: 4750, text: "ทางไปคราเดีย", kind: "gate" },
+      { x: N_EXIT[0] - 250, y: N_EXIT[1], text: "ทางไปทุ่งหินลอย", kind: "gate" },
       { x: -180, y: -4750, text: "ทางไปดินแดนอสูร", kind: "gate" },
       { x: SOUTH_EXIT[0] + 250, y: SOUTH_EXIT[1], text: "ทางไปหมู่บ้านร้างชายแดน", kind: "gate" },
       { x: 150, y: 3000, text: "แนวป้องกันคราเดีย" },
