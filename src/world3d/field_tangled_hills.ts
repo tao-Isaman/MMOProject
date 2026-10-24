@@ -2,6 +2,8 @@
 // and the snowy foothills, where the hills crowd so close that the way through is a maze. High
 // walls of mountain close it in on the south and north; between them two great hills stand
 // across the way, each with a summit step on it, and narrow ravines wind between and round them.
+// From the hollow by the miners' camp a narrow gorge cuts north through the north wall, the way
+// up to the frostfang ridge.
 //
 // From the way in from the foothills (east) the ground opens into a ravine running north and
 // south, a knoll in it. Both ways along it look like ways on and both end blind: the south
@@ -20,7 +22,8 @@
 // the green lower slopes of the foothills.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: west -> highland, east -> snow_foothills
+//   ways out: west -> highland, east -> snow_foothills, north (a little east of the middle, up the
+//   gorge from the hollow) -> frostfang_ridge
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
@@ -36,9 +39,10 @@ useKits(SNOW, ICEBERG, NORTHCOLD);
 const R = 5500; // the walkable box
 const A = 9000; // the ground
 
-// ---- the mountain walls, south and north (scenery), each with a spur that closes a ravine ----
+// ---- the mountain walls, south and north (scenery), each with a spur that closes a ravine; the
+// gorge to the frostfang ridge cut through the north one from the hollow ----
 const MS: XY[] = [[-A, -A], [-4200, -A], [-4300, -5500], [-4100, -4500], [-4400, -3500], [-4200, -2600], [-4300, -2200], [-3200, -2000], [-3100, -1200], [-3300, -800], [-3600, -500], [-3700, 300], [-3500, 1000], [-3800, 2000], [-3600, 3000], [-3500, 3800], [-3700, 4800], [-3400, 5600], [-3600, A], [-A, A]];
-const MN: XY[] = [[A, -A], [A, A], [3700, A], [3500, 5600], [3800, 4600], [3600, 3700], [3800, 3000], [3600, 2000], [3900, 1000], [3700, 200], [3900, -600], [3600, -1000], [2700, -1200], [2800, -2300], [3900, -2500], [3500, -3000], [4100, -3500], [3800, -4500], [4000, -5500], [3900, -A]];
+const MN: XY[] = [[A, -A], [A, A], [3700, A], [3500, 5600], [3800, 4600], [3600, 3700], [3800, 3000], [3600, 2000], [3900, 1000], [3700, 200], [3780, -60], [4500, 20], [5300, -100], [6200, 0], [7200, -80], [8100, -80], [8100, -920], [7200, -920], [6200, -840], [5300, -940], [4500, -820], [3850, -900], [3600, -1000], [2700, -1200], [2800, -2300], [3900, -2500], [3500, -3000], [4100, -3500], [3800, -4500], [4000, -5500], [3900, -A]];
 
 // ---- the hills: the east hill (A1 320, its summit A2 620), the west hill (B1 360, its summit B2
 // 700), a knoll in the east ravine (E1 240) ----
@@ -160,8 +164,11 @@ export function build(_quality: { flowers: number }): Town {
   const WEST_HILL: XY[] = [up(RB_E)[0], ...up(RB_E).slice(1), ...smooth([up(RB_E)[3], [1600, 2400], down(RB_W)[0]]), ...down(RB_W).slice(1), ...smooth([down(RB_W)[3], [300, 5000], [-200, 5050], W_EXIT, [-550, 7600]])];
   const SUMMIT_B: XY[] = [...smooth([[1600, 2400], up(RB2, 350)[0]]), ...up(RB2, 350).slice(1), [-900, 2400]];
   const WEST_DALE: XY[] = [...smooth([[100, 5000], [-350, 4800], up(RK2, 350)[0]]), ...up(RK2, 350).slice(1), [-2500, 4750]];
+  // from the hollow by the miners' camp north up the gorge to the frostfang ridge
+  const N_EXIT: XY = [5150, -520];
+  const GORGE_WAY: XY[] = smooth([[2000, 400], [2600, 250], [3200, -250], [3800, -480], [4500, -400], N_EXIT, [7600, -500]]);
   const ROAD: [number, number, number] = [0.7, 0.75, 1.0];
-  const roads = [band(ENTRY, 460), band(SOUTH, 380), band(NORTH, 380), band(KNOLL, 360), band(EAST_HILL, 400), band(SUMMIT_A, 360), band(HOLLOW, 380), band(WEST_HILL, 420), band(SUMMIT_B, 360), band(WEST_DALE, 340), band(KNOLL1, 340), band(KNOLL3, 340)];
+  const roads = [band(ENTRY, 460), band(SOUTH, 380), band(NORTH, 380), band(KNOLL, 360), band(EAST_HILL, 400), band(SUMMIT_A, 360), band(HOLLOW, 380), band(WEST_HILL, 420), band(SUMMIT_B, 360), band(WEST_DALE, 340), band(KNOLL1, 340), band(KNOLL3, 340), band(GORGE_WAY, 400)];
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const ground = f.ground({ area, roads, plazas: [], base: "snow", road: ROAD });
   // over the south wall and in the south-east corner: bare ground and winter grass a hair over the
@@ -178,6 +185,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- ways out ----
   f.exit("snow_foothills", E_EXIT, [-1100, -4450]);
   f.exit("highland", W_EXIT, [-400, 4450]);
+  f.exit("frostfang_ridge", N_EXIT, [4450, -420]);
 
   // ---- placing things ----
   const taken: [number, number, number][] = [];
@@ -215,6 +223,7 @@ export function build(_quality: { flowers: number }): Town {
   prop("snowland:trail_sign", [-1650, -4950], 90, 80, ring(30, "post"));
   prop("snowland:trail_sign", [-150, 5300], -90, 80, ring(30, "post"));
   prop("snowland:cairn", [-950, 5300], 0, 70, ring(45));
+  prop("snowland:trail_sign", [4250, -120], 180, 80, ring(30, "post"));
 
   // ---- the true way: cairns all along it ----
   const TRUE_WAY: XY[] = [[-200, -4300], [300, -4300], [900, -3300], [700, -2900], [300, -2000], [-200, -1300], [-1000, -800 + 1300], [-200, 650], [500, 650], [1200, 1700], [1400, 2200], [1300, 3000], [1250, 4300], [600, 4650], [-100, 4800]];
@@ -362,6 +371,7 @@ export function build(_quality: { flowers: number }): Town {
     labels: [
       { x: E_EXIT[0] + 400, y: E_EXIT[1] + 100, text: "ทางไปเชิงเขาหิมะ", kind: "gate" },
       { x: W_EXIT[0] + 400, y: W_EXIT[1] - 100, text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },
+      { x: N_EXIT[0] - 400, y: N_EXIT[1], text: "ทางไปสันเขาเขี้ยวน้ำแข็ง", kind: "gate" },
       { x: CAVE[0] + 700, y: CAVE[1] - 300, text: "ถ้ำฤๅษี" },
       { x: FALLS[0] - 600, y: FALLS[1] - 500, text: "น้ำตกน้ำแข็ง" },
       { x: 2400, y: 200, text: "ค่ายเหมืองเงินร้าง" },

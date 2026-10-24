@@ -2,12 +2,13 @@
 // hand-drawn map: a palisade along the north, west and south with a gate in the north and one in
 // the south, white roads of packed snow between the log houses, an open square in the upper right,
 // and the whole east side open to the river that runs down to the sea, with the harbour at the
-// head of its reach). Cold all year: log houses under steep roofs heavy with snow, the great
+// head of its reach). A third gate, in the west wall at the end of Cross Street, opens on the way
+// to the west glacier. Cold all year: log houses under steep roofs heavy with snow, the great
 // timber hall with its dragon-headed gables, a frozen fountain, ice drifting past the quays.
 //
 // The streets are laid on a grid: Main Street runs straight from the north gate down to the south
 // gate; Harbour Road runs along under the north palisade from the west wall to the harbour quay;
-// Cross Street runs from the west wall through the crossroads in the middle of the town to the
+// Cross Street runs from the west gate through the crossroads in the middle of the town to the
 // river quay; South Lane runs along above the south palisade to the river quay, in line with the
 // south pier; West Street joins them through the west quarter. The open square sits on the corner
 // of Main Street and Harbour Road, the great hall faces it across Main Street, and the detached
@@ -106,7 +107,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
   const roads: Poly[] = [
     rect(MAIN[0], -80, MAIN[1], 880),                    // Main Street, and on out of both gates
     rect(WEST, HARBOUR_RD[0], HARBOUR_W, HARBOUR_RD[1]), // Harbour Road
-    rect(WEST, CROSS[0], QUAY, CROSS[1]),                // Cross Street
+    rect(-250, CROSS[0], QUAY, CROSS[1]),                // Cross Street, and on out of the west gate
     rect(WEST, S_LANE[0], QUAY, S_LANE[1]),              // South Lane
     rect(W_ST[0], HARBOUR_RD[1], W_ST[1], S_LANE[0]),    // West Street
   ];
@@ -149,13 +150,15 @@ export function buildIceberg(quality: { flowers: number }): Town {
   };
 
   // ---- the palisade: 8 m lengths of sharpened logs between watchtowers, a gate in the north
-  // and one in the south, both on Main Street; the east lies open to the river ----
+  // and one in the south, both on Main Street, and one in the west at the end of Cross Street;
+  // the east lies open to the river ----
   const xN = P(0, NORTH)[0], xS = P(0, SOUTH)[0], yW = P(WEST, 0)[1], yR = P(RIVER, 0)[1], yH = P(HARBOUR_E, 0)[1];
   const GN: [number, number] = [xN, P(GATE_U, 0)[1]];
   const GS: [number, number] = [xS, P(GATE_U, 0)[1]];
+  const GW: [number, number] = [P(0, (CROSS[0] + CROSS[1]) / 2)[0], yW];
   const run = (a: [number, number], b: [number, number], out: Side, gaps: number[] = []) => town.wall(a, b, out, "iceberg:palisade", { gaps, gap: 1040 });
   run([xN, yW], [xN, yH + 150], "n", [yW - GN[1]]);
-  run([xN, yW], [xS, yW], "w");
+  run([xN, yW], [xS, yW], "w", [xN - GW[0]]);
   run([xS, yW], [xS, yR + 150], "s", [yW - GS[1]]);
   const tower = (u: number, v: number, face: Side) => put("iceberg:watch_tower", P(u, v), FACE[face], { solid: [{ kind: "tower", x: 0, y: 0, r: 235 }] });
   tower(WEST, NORTH, "s");
@@ -175,6 +178,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
   ];
   put("iceberg:town_gate", GN, FACE.n, { solid: gateSolid });
   put("iceberg:town_gate", GS, FACE.s, { solid: gateSolid });
+  put("iceberg:town_gate", GW, FACE.w, { solid: gateSolid });
 
   // ---- the houses: each with its front on its row's line, the rows evenly spaced ----
   const placed: { x: number; y: number; h: number; s: number; f: { x0: number; x1: number; y0: number; y1: number }; piece: string }[] = [];
@@ -216,6 +220,9 @@ export function buildIceberg(quality: { flowers: number }): Town {
   // and the south gate: braziers either side inside
   prop("iceberg:brazier", MAIN[0] - 5, SOUTH - 12, 0, 60);
   prop("iceberg:brazier", MAIN[1] + 5, SOUTH - 12, 0, 60);
+  // and the west gate (out to the west glacier): braziers either side inside
+  prop("iceberg:brazier", WEST + 12, CROSS[0] - 5, 0, 60);
+  prop("iceberg:brazier", WEST + 12, CROSS[1] + 5, 0, 60);
 
   // ---- the open square: the frozen fountain in the middle ringed with benches and lanterns, a
   // great pine at its head, fur traders down its east side, ice bears at its mouth on Main
@@ -388,8 +395,8 @@ export function buildIceberg(quality: { flowers: number }): Town {
     // at the crossroads, a step down Main Street from the travel guide
     spawn: pt(CROSSING[0] + 4, CROSSING[1] - 2),
     npcs: icebergNpcs(),
-    // north out onto the icefield by the North Sea, south down the ice pass
-    ...waysOut([gateWay(GN, "n", "north_icefield", 480, 420), gateWay(GS, "s", "ice_pass", 480, 420)]),
+    // north out onto the icefield by the North Sea, south down the ice pass, west to the glacier
+    ...waysOut([gateWay(GN, "n", "north_icefield", 480, 420), gateWay(GS, "s", "ice_pass", 480, 420), gateWay(GW, "w", "west_glacier", 480, 420)]),
     closed: [],
     // names on the map window
     labels: [
@@ -405,6 +412,7 @@ export function buildIceberg(quality: { flowers: number }): Town {
       { ...pt((W_ST[0] + W_ST[1]) / 2, 485), text: "ย่านบ้านซุง", kind: "small" },
       { x: GN[0] - 220, y: GN[1], text: "ประตูเหนือ · ทุ่งน้ำแข็ง", kind: "gate" },
       { x: GS[0] + 220, y: GS[1], text: "ประตูใต้ · ช่องเขาน้ำแข็ง", kind: "gate" },
+      { x: GW[0], y: GW[1] - 220, text: "ประตูตะวันตก · ธารน้ำแข็ง", kind: "gate" },
     ],
   });
 }
