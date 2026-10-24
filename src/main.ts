@@ -6,7 +6,7 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./parti
 import { Player, directionIndex, viewRow } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, SHAPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook } from "./items";
+import { ITEMS, WEAPON_TYPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook } from "./items";
 import type { OffhandArt, Gender } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
@@ -22,6 +22,7 @@ import type { MonsterCtx, Person } from "./monsters";
 import { MONSTERS, MONSTER_BY_ID, PEOPLE, behaviour } from "./bestiary";
 import type { MonsterDef } from "./bestiary";
 import { Looks } from "./look";
+import { dressed } from "./outfits";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
@@ -408,16 +409,18 @@ async function boot(): Promise<void> {
   const fitBag = () => inv.resize(BAG_BASE + hero.stats.bagSlots);
   fitBag();
   const look = loadLook(looks.hairstyles);
-  // Rebuild the player's sheets when the look or the clothes change; a newer change wins
-  // over one still loading.
-  let currentLook = looks.key(look, inv.equipped), lookSeq = 0;
-  const first = await looks.build(look, inv.equipped);
+  // What the player shows: the weapons in hand and the job's outfit (src/outfits.ts); the
+  // armour worn only adds stats. Rebuild the sheets when the look, the hands or the job change;
+  // a newer change wins over one still loading.
+  const wear = () => dressed(inv.equipped, look.gender as Gender, progress);
+  let currentLook = looks.key(look, wear()), lookSeq = 0;
+  const first = await looks.build(look, wear());
   const applyLook = async () => {
-    const key = looks.key(look, inv.equipped);
+    const key = looks.key(look, wear());
     if (key === currentLook) return;
     currentLook = key;
     const seq = ++lookSeq;
-    const built = await looks.build(look, inv.equipped);
+    const built = await looks.build(look, wear());
     if (seq === lookSeq) player.setSheets(built.sheets, built.hands, built.builtin);
   };
 
@@ -567,6 +570,7 @@ async function boot(): Promise<void> {
       floaters.add(player.x, player.y, 200, `เปลี่ยนอาชีพเป็น${JOBS[job].name}!`, "level");
       floaters.add(player.x, player.y, 185, `${TREES[branch].name} · แต้มสกิล +${JOB_POINTS}`, "level");
       hero.recompute();
+      void applyLook(); // the new job's outfit
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 60);
       skills.ring(player.x, player.y, "#ffe27a", 260, 0.9);
       return true;
@@ -577,6 +581,7 @@ async function boot(): Promise<void> {
       floaters.add(player.x, player.y, 200, `เปลี่ยนอาชีพเป็น${JOBS3[job].name}!`, "level");
       floaters.add(player.x, player.y, 185, `${TREES[branch].name} · แต้มสกิล +${JOB_POINTS}`, "level");
       hero.recompute();
+      void applyLook();
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe27a"), 80);
       skills.ring(player.x, player.y, "#ffe27a", 320, 1);
       return true;
@@ -809,15 +814,9 @@ async function boot(): Promise<void> {
     skillUI.render();
     return read.text;
   }, (id) => {
-    // gear of a higher level; clothes whose body has no animations yet, or that are for the
-    // other build
+    // gear of a higher level (armour fits every build: the outfit seen is the job's)
     const item = ITEMS[id];
     if (item.lv && progress.level < item.lv) return `ต้องเลเวล ${item.lv} จึงใส่ได้`;
-    const shape = garmentLook(item, look.gender as Gender).shape;
-    if ((item.kind !== "top" && item.kind !== "bottom") || !shape) return null;
-    const sh = SHAPES[item.kind][shape];
-    if (sh.gender !== look.gender) return `ใส่ได้เฉพาะตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"}`;
-    if (!looks.ready(sh.body)) return `ยังใส่ไม่ได้: ทรง${sh.name}กำลังสร้างท่าเดินและท่าโจมตีใน Oriverse ใส่ได้เมื่อเสร็จ`;
     return null;
   });
 
@@ -830,6 +829,7 @@ async function boot(): Promise<void> {
     Object.assign(progress, { level, xp });
     progress.start(start.tree, start.element, start.mastery);
     hero.refill();
+    void applyLook(); // the class's outfit
     const { weapon } = startGear(start);
     if (inv.equipped.weapon !== weapon) {
       if (!inv.has(weapon)) inv.add(weapon, 1, { silent: true });

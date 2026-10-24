@@ -3,7 +3,7 @@
 // job changes (who, where, what it takes, the branches), the lore (to be told later) and how the
 // towns came to be.
 
-import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, sellPrice } from "./items";
+import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, sellPrice, isFashion } from "./items";
 import type { ItemKind } from "./items";
 import { MONSTERS, statsFor } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
@@ -212,7 +212,7 @@ export class CodexUI {
       });
     }
     const test = kinds.find(([id]) => id === this.kind)![2];
-    const ids = Object.keys(ITEMS).filter((id) => test(ITEMS[id].kind) && (!find || ITEMS[id].name.includes(find)));
+    const ids = Object.keys(ITEMS).filter((id) => test(ITEMS[id].kind) && !isFashion(id) && (!find || ITEMS[id].name.includes(find)));
     for (const id of ids.slice(0, 400)) {
       const from = this.sources.get(id) ?? [];
       const pic = el("span", "inv-cell shop-icon");

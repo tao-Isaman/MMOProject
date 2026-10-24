@@ -483,6 +483,15 @@ export function fitsSlot(id: string | null | undefined, slot: EquipSlot): boolea
   return itemSlot(id) === slot;
 }
 
+// Fashion clothes: tops and bottoms that only change the look (no tier, no stats). Out of the
+// game for now (no way to come by them; what saves held was sold back, src/inventory.ts): the
+// look follows the job (src/outfits.ts). The items stay for the people among the monsters,
+// who are dressed in them.
+export function isFashion(id: string | null | undefined): boolean {
+  const item = id ? ITEMS[id] : undefined;
+  return !!item && (item.kind === "top" || item.kind === "bottom") && !item.tier;
+}
+
 export function isTwoHanded(id: string | null | undefined): boolean {
   const item = id ? ITEMS[id] : undefined;
   return item?.kind === "weapon" && !!WEAPON_TYPES[item.weapon!].twoHanded;
@@ -520,10 +529,9 @@ function describeBase(item: Item): string {
   if (GEAR_WHERE[item.kind]) return `${item.note}<br>${statText(item.stats)}<br>${GEAR_WHERE[item.kind]}`;
   if (item.kind === "potion") return `${item.note}<br>ดับเบิลคลิกเพื่อดื่ม (บอทดื่มเองได้)`;
   if (item.kind === "top" || item.kind === "bottom") {
-    const sh = SHAPES[item.kind][item.shape!];
-    const stats = item.stats && Object.keys(item.stats).length ? `${statText(item.stats)}<br>` : "";
-    const who = item.male ? "ใส่ได้ทั้งตัวละครชายและหญิง (ทรงต่างกัน)" : sh.gender === "male" ? "สำหรับตัวละครชาย" : "สำหรับตัวละครหญิง";
-    return `${stats}${item.male ? item.note : sh.note}<br>${who} · ใส่คู่กับ${item.kind === "top" ? "กางเกงหรือกระโปรง" : "เสื้อ"}ทรงไหนก็ได้`;
+    // armour: stats only, the outfit seen is the job's (src/outfits.ts)
+    if (!item.tier) return `${SHAPES[item.kind][item.shape!].note}<br>ชุดแฟชั่น ยังใช้ไม่ได้`;
+    return `${statText(item.stats)}<br>${item.note ?? ""}<br>เพิ่มค่าสถานะอย่างเดียว ชุดที่เห็นเปลี่ยนตามอาชีพ`;
   }
   return item.note ?? "";
 }

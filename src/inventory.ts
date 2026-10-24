@@ -2,7 +2,7 @@
 // two rings, two trinkets) and gold, saved in the browser. A two-handed weapon in the main hand
 // keeps the off hand empty.
 
-import { ITEMS, itemSlot, stackLimit, sortKey, fitsSlot, isTwoHanded } from "./items";
+import { ITEMS, itemSlot, stackLimit, sortKey, fitsSlot, isTwoHanded, isFashion, sellPrice } from "./items";
 import { saveKey } from "./save";
 import type { EquipSlot } from "./items";
 
@@ -335,6 +335,25 @@ export class Inventory {
     if (isTwoHanded(this.equipped.weapon) && this.equipped.offhand) {
       this.add(this.equipped.offhand, 1, { silent: true });
       this.equipped.offhand = null;
+    }
+    // fashion clothes are out of the game for now (src/items.ts isFashion): what a save holds, in
+    // the bag or worn, is sold back for what the shop pays
+    let refund = 0;
+    for (const [i, s] of this.slots.entries()) {
+      if (s && isFashion(s.id)) {
+        refund += sellPrice(s.id) * s.count;
+        this.slots[i] = null;
+      }
+    }
+    for (const slot of ["top", "bottom"] as const) {
+      if (isFashion(this.equipped[slot])) {
+        refund += sellPrice(this.equipped[slot]!);
+        this.equipped[slot] = null;
+      }
+    }
+    if (refund) {
+      this.gold += refund;
+      this.save();
     }
     return true;
   }

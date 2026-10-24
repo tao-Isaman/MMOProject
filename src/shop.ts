@@ -1,4 +1,4 @@
-// The shop window: buy potions, weapons, off-hand gear and clothes for gold, sell back anything
+// The shop window: buy potions, weapons and off-hand gear for gold, sell back anything
 // in the bag that isn't worn. Any shopkeeper opens it (src/npcs.ts, role "shop"); the
 // merchant's sprite is the first adventurer body generated in Oriverse (8 directions, standing).
 
@@ -11,14 +11,12 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export const MERCHANT = { x: 900, y: 690, name: "มิร่า", title: "ร้านค้า" };
 
-// Only the basics: potions, weapons and off-hand gear, and plain clothes. Books, hats, shoes, rings
-// and trinkets are found in the game.
+// Only the basics: potions, weapons and off-hand gear. Armour, books, hats, shoes, rings and
+// trinkets are found or made in the game; clothes that only change the look aren't in it for now.
 export const STOCK = [
   "potion_red", "potion_red_big", "potion_blue", "potion_blue_big",
   "sword_1h", "sword_2h", "axe", "axe_2h", "mace", "spear_1h", "spear_2h", "dagger", "staff", "bow", "knuckle", "claw",
   "buckler", "kite_shield", "alchemy_flask", "spell_tome", "grimoire",
-  "top_priestess_white", "bottom_priestess_white", "top_adventurer_teal", "bottom_adventurer_sand",
-  "top_mint", "bottom_forest", "top_warrior_navy", "bottom_warrior_cocoa",
 ];
 
 // The wandering merchant's book: a share off what the shop charges (at most 50%) and a share more

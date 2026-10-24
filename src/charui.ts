@@ -219,7 +219,7 @@ export class ProfileUI {
       }
       const txt = el("span", "st-gear-text", row);
       el("small", "", txt).textContent = name;
-      el("b", "", txt).textContent = item?.name ?? (slot === "top" || slot === "bottom" ? "ชุดสีน้ำตาล" : "—");
+      el("b", "", txt).textContent = item?.name ?? "—";
       const what = !item ? "" : item.kind === "weapon"
         ? `ดาเมจ ${WEAPON_TYPES[item.weapon!].damage.join("–")} · ตีทุก ${WEAPON_TYPES[item.weapon!].interval} วิ`
         : statText(item.stats);

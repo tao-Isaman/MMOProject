@@ -1,7 +1,7 @@
 // Title screen: pick one of your characters (up to MAX_CHARACTERS), delete one, or make a new
 // one — name, build, hair and eye colour, then its class, first skill book and first element
-// (src/starter.ts; the weapon mastery is its class's), with a turning preview. Everyone starts in the plain
-// brown clothes with the plain bob; other hairstyles and clothes are found in the game.
+// (src/starter.ts; the weapon mastery is its class's), with a turning preview. Everyone starts in
+// its class's outfit (src/outfits.ts) with the plain bob; other hairstyles are found in the game.
 // Resolves with the id of the character to play.
 
 import { el } from "./ui";
@@ -20,6 +20,7 @@ import {
 } from "./save";
 import type { CharEntry, Roster } from "./save";
 import type { Looks } from "./look";
+import { dressed } from "./outfits";
 import { isTouch, goLandscape } from "./touch";
 
 const CELL = 96;
@@ -95,11 +96,11 @@ export class Title {
       cv.width = cv.height = 192;
       const look = readJson<Look>(saveKey("look.v1", c.id)) ?? { gender: "female", hair: "bob", hairColor: "silver", eyes: "teal" };
       const eq = { ...NO_GEAR, ...readJson<{ equipped?: Equipped }>(saveKey("inventory.v3", c.id))?.equipped };
-      this.portrait(cv, look, eq);
-      el("strong", "", card).textContent = c.name;
       const saved = readJson<{ job?: JobId | null; job3?: Job3Id | null }>(saveKey("character.v1", c.id));
       const job = saved?.job ?? null, job3 = saved?.job3 ?? null;
       const who = { cls: CLASSES[c.cls] ? c.cls : null, job: job && JOBS[job] ? job : null, job3: job3 && JOBS3[job3] ? job3 : null };
+      this.portrait(cv, look, dressed(eq, look.gender as Gender, who)); // in its job's outfit
+      el("strong", "", card).textContent = c.name;
       const line = el("span", "", card);
       line.textContent = `${who.cls ? jobName(who) : "-"} · Lv ${c.level}`;
       const pic = jobIcon(who);
@@ -177,11 +178,11 @@ export class Title {
     const cv = el("canvas", "", left);
     cv.width = cv.height = 288;
     const turnRow = el("div", "wr-turn", left);
-    el("p", "wr-note", left).textContent = "เริ่มด้วยชุดสีน้ำตาลและผมบ็อบ ทรงผมกับชุดอื่นหาได้ในเกม";
+    el("p", "wr-note", left).textContent = "ชุดเปลี่ยนตามอาชีพ เริ่มด้วยผมบ็อบ ทรงผมอื่นหาได้ในเกม";
     const right = el("div", "title-form", body);
 
-    // the preview holds the weapon it will start with
-    const draw = () => this.portrait(cv, look, { ...NO_GEAR, ...startGear(start) }, turn);
+    // the preview holds the weapon it will start with, in its class's outfit
+    const draw = () => this.portrait(cv, look, dressed({ ...NO_GEAR, ...startGear(start) }, look.gender as Gender, { cls: start.cls, job: null }), turn);
     for (const [d, text] of [[1, "◀"], [-1, "▶"]] as const) {
       const b = el("button", "wr-btn", turnRow);
       b.type = "button";

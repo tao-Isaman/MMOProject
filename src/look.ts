@@ -468,6 +468,18 @@ function recolorSided(img: Img, clip: string, regions: Regions, use: Record<stri
   return c;
 }
 
+// The garment in a top or bottom slot: an item's (as the build wears it), or one given as
+// "@shape/dye" (a job's outfit, src/outfits.ts, which no item stands for).
+function garmentIn(id: string | null | undefined, gender: Gender): { shape?: string; dye: string | null } | null {
+  if (!id) return null;
+  if (id.startsWith("@")) {
+    const [shape, dye] = id.slice(1).split("/");
+    return { shape, dye: dye || null };
+  }
+  const item = ITEMS[id];
+  return item ? garmentLook(item, gender) : null;
+}
+
 export class Looks {
   bodies: Record<string, BodyDef>;
   hair: HairData;
@@ -495,8 +507,7 @@ export class Looks {
   // The shape a slot shows: the worn item's, or the build's default when it is empty, made
   // for the other build, or its body isn't ready yet.
   shapeFor(look: Look, equipped: Equipped, slot: "top" | "bottom"): { shape: string; dye: string | null; worn: boolean } {
-    const item = ITEMS[equipped[slot] ?? ""];
-    const g0 = item ? garmentLook(item, look.gender as Gender) : null;
+    const g0 = garmentIn(equipped[slot], look.gender as Gender);
     const sh = g0?.shape ? SHAPES[slot][g0.shape] : undefined;
     if (sh && sh.gender === look.gender && this.ready(sh.body)) return { shape: g0!.shape!, dye: g0!.dye, worn: true };
     const g = look.gender as Gender;
@@ -526,17 +537,16 @@ export class Looks {
   note(look: Look, equipped: Equipped): string {
     const r = this.resolve(look, equipped);
     for (const slot of ["top", "bottom"] as const) {
-      const item = ITEMS[equipped[slot] ?? ""];
-      const shape = item && garmentLook(item, look.gender as Gender).shape;
+      const shape = garmentIn(equipped[slot], look.gender as Gender)?.shape;
       if (!shape || r[slot].worn) continue;
       const sh = SHAPES[slot][shape];
-      if (sh.gender !== look.gender) return `${item.name}สำหรับตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"} จึงใช้ทรงตั้งต้นแทน`;
+      if (sh.gender !== look.gender) return `${sh.name}สำหรับตัวละคร${sh.gender === "male" ? "ชาย" : "หญิง"} จึงใช้ทรงตั้งต้นแทน`;
       return `${sh.name}ยังรอท่าทางจาก Oriverse ให้ครบ ระหว่างนี้ใช้ทรงตั้งต้นแทน`;
     }
     if (!r.def.hairless && look.gender === "male") return "ตัวละครชายใช้ทรงผมของตัวเอง ย้อมสีผมได้";
     if (!r.def.hairless && look.hair !== "twintail") return "เสื้อตัวนี้มาพร้อมผมทวินเทล ทรงผมที่เลือกจะใช้กับเสื้อตัวอื่น";
     if (r.hair && r.hair !== look.hair) return "ทรงผมนี้ยังใช้ไม่ได้";
-    return "เปลี่ยนเสื้อและกางเกงได้จากไอเท็มในกระเป๋า (ปุ่ม I) ทรงไหนใส่คู่กับทรงไหนก็ได้";
+    return "ชุดที่เห็นเปลี่ยนตามอาชีพ เสื้อและกางเกงที่สวมเพิ่มแค่ค่าสถานะ";
   }
 
   key(look: Look, equipped: Equipped): string {
