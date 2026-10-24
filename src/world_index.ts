@@ -423,7 +423,7 @@ export const NPC_PLACES: Record<string, string> = {
  "trunrada:job3_historian": "กระโจมหัวหน้าเผ่า",
  "kradia:kradia_guard_n": "ประตูเหนือ",
  "kradia:kradia_guard_e": "ประตูตะวันออก",
- "kradia:kradia_guard_w": "ประตูตะวันตก (ปิด)",
+ "kradia:kradia_guard_w": "ประตูตะวันตก",
  "kradia:kradia_guard_s": "ประตูใต้",
  "kradia:kradia_travel": "หอคอยจอมเวท",
  "kradia:kradia_healer": "โรงตีเหล็ก",
