@@ -5,11 +5,13 @@
 //   - a way out on an edge that doesn't face the map it leads to (two maps that only touch at a
 //     corner should meet there: the way out near that corner on both sides),
 //   - an edge facing the sea on the grid that shows no water, and one showing water that faces
-//     land (edges facing past the grid's edge are left alone: nothing is drawn there),
+//     land (edges facing past the grid's edge are left alone: nothing is drawn there); a shore
+//     right at the walkable edge is fine when the picture's margin past it is open sea,
 //   - two linked ways out that leave their shared edge at different places (more than 15% of the
 //     edge apart), so their roads don't meet on the world map.
 // What an edge shows is read from the picture's pixels in a strip just inside the map's walkable
-// bounds: water, snow, sand, green, forest, stone, earth or dark.
+// bounds (and, for the sea, in the margin past them out to the picture's edge): water, snow, sand,
+// green, forest, stone, earth or dark.
 //
 //   node tools/world_fit.cjs [--all]      (--all: every edge, not only the problems)
 const { chromium } = require(process.env.PLAYWRIGHT ?? "/opt/node22/lib/node_modules/playwright");
@@ -53,8 +55,9 @@ const all = process.argv.includes("--all");
       // the walkable box in the picture: north up (x from maxX down), west left (y from maxY down)
       const top = ((T.maxX - B.maxX) / L) * P, left = ((T.maxY - B.maxY) / L) * P, H = (w / L) * P, Wd = (h / L) * P, d = 0.07;
       const strip = { N: [left, top, Wd, H * d], S: [left, top + H * (1 - d), Wd, H * d], W: [left, top, Wd * d, H], E: [left + Wd * (1 - d), top, Wd * d, H] };
-      const edges = {};
-      for (const [side, [x0, y0, sw, sh]] of Object.entries(strip)) {
+      // the margin past the walkable box out to the picture's edge, where it meets the next picture
+      const margin = { N: [left, 0, Wd, top], S: [left, top + H, Wd, P - top - H], W: [0, top, left, H], E: [left + Wd, top, P - left - Wd, H] };
+      const read = ([x0, y0, sw, sh]) => {
         const n = {};
         let total = 0;
         for (let y = Math.floor(y0); y < y0 + sh; y++) for (let x = Math.floor(x0); x < x0 + sw; x++) {
@@ -62,10 +65,15 @@ const all = process.argv.includes("--all");
           n[k] = (n[k] ?? 0) + 1;
           total++;
         }
-        edges[side] = Object.fromEntries(Object.entries(n).map(([k, v]) => [k, v / total]).filter(([, v]) => v >= 0.08).sort((a, b) => b[1] - a[1]));
+        return Object.fromEntries(Object.entries(n).map(([k, v]) => [k, v / total]).filter(([, v]) => v >= 0.08).sort((a, b) => b[1] - a[1]));
+      };
+      const edges = {}, past = {};
+      for (const side of ["N", "S", "W", "E"]) {
+        edges[side] = read(strip[side]);
+        past[side] = read(margin[side]);
       }
       const warps = map.warps.map((wp) => ({ to: wp.to, n: (wp.x - B.minX) / w, e: (B.maxY - wp.y) / h }));
-      out[p.id] = { col: p.col, row: p.row, edges, warps };
+      out[p.id] = { col: p.col, row: p.row, edges, past, warps };
     }
     const ground = {};
     for (let r = W.GRID.row0; r < W.GRID.row0 + W.GRID.rows; r++) for (let c = W.GRID.col0; c < W.GRID.col0 + W.GRID.cols; c++) ground[`${c},${r}`] = W.groundAt(c, r);
@@ -92,7 +100,7 @@ const all = process.argv.includes("--all");
       const [dc, dr] = DIR[side], nb = next(m.col + dc, m.row + dr), e = m.edges[side], water = e.water ?? 0;
       if (nb === null) continue;
       if (all) console.log(`  ${side}: ${show(e)}  | next: ${nb}${out[nb] ? ` (${show(out[nb].edges[OPP[side]])})` : ""}`);
-      if (nb === "~" && water < 0.3) say(`${id} ${side}: faces the sea but shows land (${show(e)})`);
+      if (nb === "~" && water < 0.3 && (m.past[side].water ?? 0) < 0.6) say(`${id} ${side}: faces the sea but shows land (${show(e)}; past it ${show(m.past[side])})`);
       if (nb !== "~" && water > 0.4) say(`${id} ${side}: faces land (${nb}) but shows water (${show(e)})`);
     }
     for (const wp of m.warps) {
