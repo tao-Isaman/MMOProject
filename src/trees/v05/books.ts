@@ -195,8 +195,8 @@ export const V05_BOOK_TREES: Record<string, Tree> = {
         stats: (r) => ({ mdefPct: 0.04 * r, statusRes: 0.03 * r }), desc: (r) => `ต้านเวท +${pct(0.04 * r)} ต้านสถานะ +${pct(0.03 * r)}` },
       // a familiar: while she stays near it she has its buff
       { id: "magic_armor_wisp", name: "ภูตมานา", kind: "active", max: 5, pos: [2, 1], req: [["magic_armor_flow", 3]], glyph: "drop",
-        skill: { type: "summon", ally: "familiar", look: "brook_spirit", base: lin(0.2, 0.02), radius: 300, duration: 40, buff: (r) => ({ mpRegen: 1 + r, mdefPct: 0.04 * r }), mp: 20, cd: 40, motion: "cast", color: "#9cd8ff" },
-        desc: (r) => `อัญเชิญภูตมานาตามติดตัว นาน 40 วิ HP ${pct(lin(0.2, 0.02)(r))} ของ HP สูงสุด ขณะอยู่ใกล้ภูตในระยะ 3 ม.: ฟื้น MP +${1 + r}/วิ ต้านเวท +${pct(0.04 * r)}` },
+        skill: { type: "summon", ally: "familiar", look: "brook_spirit", base: lin(0.4, 0.05), radius: 300, duration: 40, buff: (r) => ({ mpRegen: 1 + r, mdefPct: 0.04 * r }), mp: 20, cd: 40, motion: "cast", color: "#9cd8ff" },
+        desc: (r) => `อัญเชิญภูตมานาตามติดตัว นาน 40 วิ HP ${pct(lin(0.4, 0.05)(r))} ของ HP สูงสุด ขณะอยู่ใกล้ภูตในระยะ 3 ม.: ฟื้น MP +${1 + r}/วิ ต้านเวท +${pct(0.04 * r)}` },
       { id: "magic_armor_mirror", name: "กระจกสะท้อนมนตร์", kind: "active", max: 5, pos: [3, 1], req: [["magic_armor_sidestep", 3]], glyph: "star",
         skill: { type: "buff", mp: 20, cd: 30, motion: "cast", duration: 8, buff: (r) => ({ reflect: 0.1 + 0.03 * r, magicDodge: 0.1 + 0.03 * r }), color: "#d0e0ff" },
         desc: (r) => `8 วิ: กระจกเวทล้อมตัว สะท้อนความเสียหาย ${pct(0.1 + 0.03 * r)} กลับใส่ผู้โจมตี หลบเวท +${pct(0.1 + 0.03 * r)}` },
@@ -242,9 +242,9 @@ export const V05_BOOK_TREES: Record<string, Tree> = {
         stats: (r) => ({ healPct: 0.04 * r, defPct: 0.02 * r }), desc: (r) => `สกิลรักษาแรงขึ้น ${pct(0.04 * r)} ป้องกัน +${pct(0.02 * r)}` },
       // a familiar: it follows her, heals her now and then, and wards her while she is near
       { id: "holy_armor_guardian", name: "จิ้งจอกพิทักษ์", kind: "active", max: 5, pos: [2, 2], req: [["holy_armor_ward", 2], ["holy_armor_purge", 1]], glyph: "paw",
-        skill: { type: "summon", ally: "familiar", look: "nine_tail_fox", base: lin(0.3, 0.04), heal: lin(0.01, 0.002), every: 3, radius: 300, duration: 40,
+        skill: { type: "summon", ally: "familiar", look: "nine_tail_fox", base: lin(0.5, 0.05), heal: lin(0.01, 0.002), every: 3, radius: 300, duration: 40,
           buff: (r) => ({ lightDef: 10 + 3 * r, darkDef: 10 + 3 * r, dmgRed: 0.02 + 0.01 * r }), mp: 30, cd: 45, motion: "cast", color: "#fff8e0" },
-        desc: (r) => `อัญเชิญจิ้งจอกเก้าหางศักดิ์สิทธิ์ตามติดตัว นาน 40 วิ HP ${pct(lin(0.3, 0.04)(r))} ของ HP สูงสุด ขณะอยู่ใกล้ในระยะ 3 ม.: ฟื้น HP ${pct(lin(0.01, 0.002)(r))} ของ HP สูงสุดทุก 3 วิ ป้องกันธาตุแสงและธาตุความมืด +${10 + 3 * r} ลดความเสียหาย ${pct(0.02 + 0.01 * r)}` },
+        desc: (r) => `อัญเชิญจิ้งจอกเก้าหางศักดิ์สิทธิ์ตามติดตัว นาน 40 วิ HP ${pct(lin(0.5, 0.05)(r))} ของ HP สูงสุด ขณะอยู่ใกล้ในระยะ 3 ม.: ฟื้น HP ${pct(lin(0.01, 0.002)(r))} ของ HP สูงสุดทุก 3 วิ ป้องกันธาตุแสงและธาตุความมืด +${10 + 3 * r} ลดความเสียหาย ${pct(0.02 + 0.01 * r)}` },
       { id: "holy_armor_avatar", name: "ร่างทรงศักดิ์สิทธิ์", kind: "active", max: 5, pos: [1, 3], req: [["holy_armor_vow", 1], ["holy_armor_guardian", 1]], glyph: "star",
         skill: { type: "buff", mp: 40, cd: 60, motion: "cast", duration: 20, heal: lin(0.1, 0.02), hot: true,
           buff: (r) => ({ dmgRed: 0.06 + 0.02 * r, lightDef: 10 + 4 * r, darkDef: 10 + 4 * r, undeadDmg: 0.1 + 0.03 * r, demonDmg: 0.1 + 0.03 * r }), color: "#fffbe0" },
