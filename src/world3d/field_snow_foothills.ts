@@ -6,10 +6,12 @@
 // knoll above it the ruin of an old border watchtower looking out over everything. A rocky
 // outcrop in the south-east carries a mountain shrine; woodcutters work the edge of the pines.
 // Past the woodcutters' camp a track runs west along the snow line, under the first terrace, out
-// to the tangled hills on the way to Highland Hill.
+// to the tangled hills on the way to Highland Hill. The way in from the royal road is at the
+// south-east corner (the two maps meet only there, the royal castle standing between): the track
+// comes up from it under the outcrop's south face and turns in across the grass.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: south -> royal_road, north -> ice_pass, west -> tangled_hills
+//   ways out: south-east corner -> royal_road, north -> ice_pass, west -> tangled_hills
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -93,18 +95,20 @@ export function build(quality: { flowers: number }): Town {
   const { put, rnd } = f;
 
   // ---- tracks ----
-  const S_EXIT: XY = [-5150, 0], N_EXIT: XY = [5150, 1450];
+  // the way to the royal road at the south-east corner, the track running on past it towards the
+  // road's own corner
+  const S_EXIT: XY = [-5200, -5200], N_EXIT: XY = [5150, 1450];
   const r1in = along(R1.bottom, R1.top, -650), r1out = along(R1.bottom, R1.top, Math.hypot(R1.top[0] - R1.bottom[0], R1.top[1] - R1.bottom[1]) + 450);
   const r2in = along(R2.bottom, R2.top, -600), r2out = along(R2.bottom, R2.top, Math.hypot(R2.top[0] - R2.bottom[0], R2.top[1] - R2.bottom[1]) + 450);
   const MAIN: XY[] = [
-    ...smooth([[-7600, 250], S_EXIT, [-4100, -150], [-3200, 250], [-2300, 450], [-1500, 150], r1in]),
+    ...smooth([[-7600, -7600], S_EXIT, [-4950, -4300], [-5000, -3100], [-4900, -1900], [-4650, -900], [-4100, -150], [-3200, 250], [-2300, 450], [-1500, 150], r1in]),
     R1.bottom, R1.top,
     ...smooth([r1out, [1000, 0], r2in]),
     R2.bottom, R2.top,
     ...smooth([r2out, [3600, 1150], [4400, 1500], N_EXIT, [7600, 1550]]),
   ];
   const reIn = along(RE.bottom, RE.top, -500), reOut = along(RE.bottom, RE.top, 1450);
-  const SHRINE_WAY: XY[] = [...smooth([[-3200, 250], [-3800, -250], reIn]), RE.bottom, RE.top, ...smooth([reOut, [-3300, -2950], [-3150, -3250]])];
+  const SHRINE_WAY: XY[] = [...smooth([[-4150, -200], reIn]), RE.bottom, RE.top, ...smooth([reOut, [-3300, -2950], [-3150, -3250]])];
   const CAMP_WAY: XY[] = smooth([[-1500, 150], [-1300, 900], [-900, 1700], [-450, 2350], [-200, 2700]]);
   // west from the camp's track, past the fallen pine and over the hill, to the tangled hills
   const W_EXIT: XY = [-1200, 5150];
@@ -124,7 +128,7 @@ export function build(quality: { flowers: number }): Town {
   grass.mesh.renderOrder = 1;
 
   // ---- ways out ----
-  f.exit("royal_road", S_EXIT, [-4400, -100]);
+  f.exit("royal_road", S_EXIT, [-4990, -4430]);
   f.exit("ice_pass", N_EXIT, [4450, 1480]);
   f.exit("tangled_hills", W_EXIT, [-1580, 4450]);
 
@@ -179,8 +183,8 @@ export function build(quality: { flowers: number }): Town {
   };
 
   // ---- the ways out: signs and cairns ----
-  prop("snowland:trail_sign", [-4950, -420], 90, 80, ring(30, "post"));
-  prop("snowland:cairn", [-4950, 430], 0, 70, ring(45));
+  prop("snowland:trail_sign", [-4750, -4950], 90, 80, ring(30, "post"));
+  prop("snowland:cairn", [-5400, -4500], 0, 70, ring(45));
   prop("snowland:trail_sign", [4850, 1080], -90, 80, ring(30, "post"));
   prop("snowland:cairn", [4900, 1850], 0, 70, ring(45));
   for (const at of [[-3400, -380], [-1900, 820], [1450, 300], [3200, 1500]] as XY[]) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
@@ -330,10 +334,10 @@ export function build(quality: { flowers: number }): Town {
       density: 0.18 * quality.flowers,
     },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: -4300, y: 60 },
+    spawn: { x: -4880, y: -4050 },
     npcs,
     labels: [
-      { x: S_EXIT[0] + 150, y: S_EXIT[1], text: "ทางไปถนนหลวง", kind: "gate" },
+      { x: S_EXIT[0] + 250, y: S_EXIT[1] + 250, text: "ทางไปถนนหลวง", kind: "gate" },
       { x: N_EXIT[0] - 150, y: N_EXIT[1], text: "ทางไปช่องเขาน้ำแข็ง", kind: "gate" },
       { x: W_EXIT[0], y: W_EXIT[1] - 150, text: "ทางไปเนินเขาวงกต", kind: "gate" },
       { x: -3500, y: 1500, text: "ทุ่งหญ้าเชิงเขา" },

@@ -1,7 +1,8 @@
 // ถนนหลวง (the royal road), monsters Lv 10-18: the paved road from Eden's north gate up through
 // the wheat fields to the royal castle, which stands just past the north edge with its gate
-// shut. Before it the road forks: left (west) to the snowy foothills, right (east) to the pine
-// forest by the river. A soldiers' checkpoint stands across the road; a stream comes in from
+// shut. Before it the road forks: left (west), bending round north to leave at the north-west
+// corner (the snowy foothills touch this map only there, the castle between), to the snowy
+// foothills; right (east) to the pine forest by the river. A soldiers' checkpoint stands across the road; a stream comes in from
 // the west to a water mill and its mill pond; a windmill and a watchtower on a hill in the
 // south-east; a lookout with the founding king's statue on a two-step bluff in the north-west.
 //
@@ -124,7 +125,9 @@ const AREA = { x0: -9000, x1: 9600, y0: -8500, y1: 8500 };
 // the royal road, south to north, and its two branches from the fork
 const FORK: XY = [3200, 0];
 const ROAD: XY[] = smooth([[-9000, 380], [-5600, 260], [-3900, -220], [-2500, 0], [-1200, 0], [-150, 0], [1500, 240], FORK, [4400, 0], [6300, 0]]);
-const NW: XY[] = smooth([FORK, [3950, 800], [4550, 2000], [5150, 3300], [6500, 3700], [9600, 4300]]);
+// (the left branch runs up beside the bluff and out at the north-west corner, on past the
+// castle's west wall)
+const NW: XY[] = smooth([FORK, [3950, 800], [4550, 2000], [4900, 3200], [5100, 4200], [5200, 4700], [5900, 5650], [7500, 7300], [9600, 8800]]);
 const NE: XY[] = smooth([FORK, [3750, -1000], [3550, -2500], [3200, -3900], [3100, -4700], [3000, -8500]]);
 const CHECK: XY = [-1200, 0];
 const GATE_X = 6000; // the castle's gatehouse, just past the north edge
@@ -163,7 +166,7 @@ const T_BLUFF: XY[] = [R2.bottom, R2.top, [2700, 2300], R3.bottom, R3.top, [2200
 const T_MEADOW: XY[] = smooth([[-1350, 1350], [-2300, 1520], [-3200, 1480], off2(-650), C2.at, off2(650), [-4000, 3300], [-3500, 3900]]);
 
 const WAY_EDEN: XY = [-5150, 250], ARRIVE_EDEN: XY = [-4450, 140];
-const WAY_SNOW: XY = [5150, 3290], ARRIVE_SNOW: XY = [4815, 2574];
+const WAY_SNOW: XY = [5200, 4700], ARRIVE_SNOW: XY = [5060, 4000];
 const WAY_PINE: XY = [3110, -4650], ARRIVE_PINE: XY = [3200, -3950];
 
 export function build(quality: { flowers: number }): Town {
@@ -232,7 +235,7 @@ export function build(quality: { flowers: number }): Town {
   P("plains:milestone", [-4600, 650], -90, 60);
   // the other ways out
   f.exit("snow_foothills", WAY_SNOW, ARRIVE_SNOW);
-  P("plains:signpost", [4500, 2950], 160, 80);
+  P("plains:signpost", [4650, 4450], 160, 80);
   f.exit("pine_river", WAY_PINE, ARRIVE_PINE);
   P("plains:signpost", [3650, -4500], -90, 80);
 

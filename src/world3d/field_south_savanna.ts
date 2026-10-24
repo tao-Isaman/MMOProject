@@ -2,8 +2,10 @@
 // gate, where the caravan track runs down towards the desert and Bahamas. Tall golden grass, lone
 // flat-topped acacias, a waystation on the track, a waterhole where the herds drink; on the east
 // a rocky plateau crowned by a giant baobab (with a knoll of boulders on it), on the west a mesa
-// with the ruins of an old shrine of the people whose city lies under the great desert. A mesa
-// wall closes the east, rolling ground and woods of acacias the rest.
+// with the ruins of an old shrine of the people whose city lies under the great desert. The inner
+// sea washes the whole east side: a beach of sand along it, the baobab's plateau standing over the
+// water in cliffs. Towards the north the savanna greens into the grass round Eden; rolling ground
+// and woods of acacias close the west and south.
 //
 // Laid out at full size in centimetres (north +X, east -Y) and scaled by TOWN_SCALE in finish.
 // Ways out: north to Eden's south gate, south to the desert's edge.
@@ -16,10 +18,11 @@ import type { Town } from "./town";
 import { KIT as DESERT } from "./kits/desert";
 import { KIT as BAHAMAS } from "./kits/bahamas";
 import { KIT as TRUNRADA } from "./kits/trunrada";
+import { KIT as PLAINS } from "./kits/plains";
 import type { NpcSpec } from "../npcs";
 import type { MapLabel } from "../maps";
 
-useKits(DESERT, BAHAMAS, TRUNRADA);
+useKits(DESERT, BAHAMAS, TRUNRADA, PLAINS);
 
 type XY = [number, number];
 
@@ -69,6 +72,17 @@ function yAt(path: XY[], x: number): number {
   }
   return path[0][1];
 }
+// a polygon with holes, as one outline: each hole wound the other way and joined to the outline's
+// first point, so the ground's mask leaves it out when it fills the outline
+function withHoles(outer: Poly, holes: Poly[]): Poly {
+  const area = (p: Poly) => p.reduce((t, [x, y], i) => t + x * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * y, 0);
+  const out: Poly = [...outer, outer[0]];
+  for (const h of holes) {
+    const ring = Math.sign(area(h)) === Math.sign(area(outer)) ? [...h].reverse() : h;
+    out.push(...ring, ring[0], outer[0]);
+  }
+  return out;
+}
 const ellipse = (cx: number, cy: number, rx: number, ry: number, n = 20, wob = 0.06): Poly =>
   Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2, k = 1 + wob * Math.sin(a * 3 + 1) + wob * 0.6 * Math.sin(a * 5);
@@ -77,6 +91,27 @@ const ellipse = (cx: number, cy: number, rx: number, ry: number, n = 20, wob = 0
 
 // a ruined wall's masonry (not the sand drifted against it)
 const WALL_SOLID: SolidSpec[] = [{ kind: "wall", x: 0, y: 0, w: 220, d: 600, rot: 0 }];
+
+// the inner sea along the east: its shore from past the north edge (where Eden's harbour lies) to
+// past the south-east corner, out round the cliffs of the baobab's plateau
+const SHORE: XY[] = smooth([
+  [9500, -4300], [7000, -4350], [5800, -4400], [5100, -4400], [4800, -4480], [4300, -4870], [3800, -5300], [3200, -5420], [2400, -5300],
+  [1800, -5100], [1300, -4750], [700, -4350], [0, -4200], [-1000, -4150], [-2200, -4250], [-3300, -4350], [-4300, -4550], [-5000, -4850],
+  [-5500, -5250], [-5800, -5700], [-6000, -6500], [-6100, -9500],
+], 4);
+const SEA: Poly = [...SHORE, [9500, -9500]];
+// the shore's y at x (it runs north to south), and how deep the sand is behind it there (less
+// at the plateau's cliffs)
+function shoreY(x: number): number {
+  for (let i = 1; i < SHORE.length; i++) {
+    const [ax, ay] = SHORE[i - 1], [bx, by] = SHORE[i];
+    if ((x - ax) * (x - bx) <= 0 && ax !== bx) return ay + ((by - ay) * (x - ax)) / (bx - ax);
+  }
+  return SHORE[SHORE.length - 1][1];
+}
+const sandW = (x: number) => 520 - 300 * Math.max(0, 1 - Math.abs(x - 3000) / 1900);
+const SAND_IN: XY[] = SHORE.map(([x, y]) => [x, y + sandW(x)]);
+const onBeach = (x: number, y: number) => y < shoreY(x) + sandW(x);
 
 export function build(_quality: { flowers: number }): Town {
   const R = 5500, A = 9000;
@@ -89,19 +124,19 @@ export function build(_quality: { flowers: number }): Town {
   const RAMP_B = { top: [-2100, 2245] as XY, bottom: [-2030, 945] as XY, width: 480 };
   const f = new FieldBuilder(112, {
     hills: [
-      { x: -600, y: -2800, r: 1700, h: 190 }, { x: -3600, y: -3400, r: 2000, h: 240 }, { x: 4300, y: 4200, r: 1250, h: 160 },
+      // (none reaching the shore: the land runs down level to the sand)
+      { x: -600, y: -2700, r: 1500, h: 190 }, { x: -3300, y: -2600, r: 1700, h: 240 }, { x: 4300, y: 4200, r: 1250, h: 160 },
       { x: 300, y: 4000, r: 1400, h: 130 }, { x: 2000, y: 4700, r: 900, h: 110 }, { x: -3600, y: -1700, r: 900, h: -90 },
-      { x: 400, y: -4700, r: 1000, h: 140 }, { x: -4800, y: 1900, r: 900, h: 120 },
+      { x: 400, y: -3300, r: 900, h: 140 }, { x: -4800, y: 1900, r: 900, h: 120 },
       // the rolling land beyond
-      { x: 7000, y: 4000, r: 2500, h: 350 }, { x: 7600, y: -2700, r: 2200, h: 300 }, { x: -7300, y: 3200, r: 2400, h: 380 },
-      { x: -7000, y: -4200, r: 2500, h: 300 }, { x: 0, y: 7700, r: 2600, h: 320 }, { x: 4500, y: 7300, r: 2000, h: 260 },
+      { x: 7000, y: 4000, r: 2500, h: 350 }, { x: 7600, y: -1300, r: 2200, h: 300 }, { x: -7300, y: 3200, r: 2400, h: 380 },
+      { x: -7600, y: -3300, r: 2500, h: 300 }, { x: 0, y: 7700, r: 2600, h: 320 }, { x: 4500, y: 7300, r: 2000, h: 260 },
     ],
     plateaus: [
       { poly: dense(PLAT_A), h: 350, ramps: [RAMP_A] },
       { poly: dense(KNOLL), h: 620 },
       { poly: dense(PLAT_B), h: 420, ramps: [RAMP_B] },
-      // a mesa wall closing the east, a lower one in the south-west
-      { poly: dense([[-6800, -6300], [-3000, -6650], [500, -6250], [3500, -6750], [6800, -6350], [8700, -8700], [-8700, -8700]]), h: 650 },
+      // a low mesa in the south-west
       { poly: dense([[-6200, 6700], [-2500, 6950], [-300, 6600], [400, 8700], [-6200, 8700]]), h: 480 },
     ],
     rock: "CliffSand",
@@ -115,14 +150,77 @@ export function build(_quality: { flowers: number }): Town {
   const SPUR_W = smooth([[3300, 600], [3150, 1150], [2900, 1650], [2650, 1950]]);
   const YARD: Poly = [[700, -860], [1750, -860], [1800, -420], [650, -560]];
   const POND = ellipse(2600, 2650, 650, 480, 22);
+  const roads = [band(MAIN, 500), band(SPUR_A, 420), band(SPUR_B, 420), band(SPUR_W, 380), YARD];
   const ground = f.ground({
     area: { x0: -A, x1: A, y0: -A, y1: A },
-    roads: [band(MAIN, 500), band(SPUR_A, 420), band(SPUR_B, 420), band(SPUR_W, 380), YARD],
+    roads,
     plazas: [],
-    water: [POND],
+    water: [POND, SEA],
     base: "steppe",
   });
-  const scenery = [f.waterSheet({ x0: 1700, x1: 3500, y0: 1950, y1: 3350 }, -14, "Desert_Water")];
+  // the beach: a second ground a hair over the grass, cut away inland of the sand's line and on
+  // the plateau's top
+  const sand = f.ground({ area: { x0: -A, x1: A, y0: -A, y1: -3500 }, roads: [], plazas: [], water: [SEA, [...SAND_IN, [-9500, 9500], [9500, 9500]], dense(PLAT_A)], base: "sand" });
+  sand.mesh.position.y += 3;
+  sand.mesh.renderOrder = 1;
+  // the green round Eden coming in from the north: a second ground of grass a hair over the
+  // savanna over the last fifth or so: north of a ragged line, patches of it out in the savanna
+  // south of the line and patches of the savanna in it north of the line, both thinning away
+  // from the line
+  const greenLine = (y: number) => 3900 + 250 * Math.sin(y / 1000 + 0.4) + 130 * Math.sin(y / 410 + 1.3);
+  const DRY_SIDE: Poly = [];
+  for (let y = -A - 400; y <= A + 400; y += 200) DRY_SIDE.push([greenLine(y), y]);
+  DRY_SIDE.push([-A - 400, A + 400], [-A - 400, -A - 400]);
+  const greenPatches: { c: XY; r: number; p: Poly }[] = [], dryPatches: { c: XY; r: number; p: Poly }[] = [];
+  {
+    let sd = 5113;
+    const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    const clear = (c: XY, rr: number, list: { c: XY; r: number }[], gap = 60) => list.every((o) => Math.hypot(o.c[0] - c[0], o.c[1] - c[1]) > o.r + rr + gap);
+    for (let i = 0; i < 900 && (greenPatches.length < 70 || dryPatches.length < 70); i++) {
+      const out = i % 2 === 0, y = -A + r() * 2 * A, d = r() * 1300, k = 1 - d / 1300;
+      if (r() > Math.pow(k, 1.4)) continue;
+      const rx = 150 + r() * 430 * k, ry = 170 + r() * 480 * k, rr = Math.max(rx, ry) * 1.1;
+      if (out) {
+        // a patch of grass in the savanna: wholly south of the line, clear of the others
+        const c: XY = [greenLine(y) - d - 40, y];
+        const p = ellipse(c[0], c[1], rx, ry, 14, 0.15);
+        if (greenPatches.length >= 70 || !p.every(([px, py]) => px < greenLine(py) - 30) || !clear(c, rr, greenPatches)) continue;
+        greenPatches.push({ c, r: rr, p });
+      } else {
+        // a patch of the savanna in the grass, clear of the grass's patches south of the line
+        const c: XY = [greenLine(y) + d, y];
+        if (dryPatches.length >= 70 || !clear(c, rr, greenPatches, 40)) continue;
+        dryPatches.push({ c, r: rr, p: ellipse(c[0], c[1], rx, ry, 14, 0.15) });
+      }
+    }
+  }
+  const green = f.ground({
+    area: { x0: 2000, x1: A, y0: -A, y1: A },
+    roads,
+    plazas: [],
+    water: [SEA, POND, withHoles(DRY_SIDE, greenPatches.map((g) => g.p)), ...dryPatches.map((d) => d.p)],
+    base: "grass",
+  });
+  green.mesh.position.y += 3;
+  green.mesh.renderOrder = 1;
+  // how green the land round a point is: nothing a little south of the line, all at the north edge
+  const greenness = (x: number, y: number) => Math.max(0, Math.min(1, (x - greenLine(y) + 800) / 2400));
+  const scenery = [
+    f.waterSheet({ x0: 1700, x1: 3500, y0: 1950, y1: 3350 }, -14, "Desert_Water"),
+    // the sea, out past the ground's end
+    f.waterSheet({ x0: -A, x1: A + 6000, y0: -20000, y1: -4050 }, -14, "WaterSea"),
+    sand.mesh,
+    green.mesh,
+  ];
+  // nobody walks into the sea: a band along the shore's seaward side (it runs north to south,
+  // the sea on its left)
+  {
+    const sea: XY[] = SHORE.map((p, i) => {
+      const a = SHORE[Math.max(0, i - 1)], b = SHORE[Math.min(SHORE.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      return [p[0] - ((b[1] - a[1]) / L) * 280, p[1] + ((b[0] - a[0]) / L) * 280];
+    });
+    f.blockBand(sea.filter(([x, y]) => Math.abs(x) < R + 800 && y > -R - 1500), 520, { kind: "sea" });
+  }
   for (const [x, r] of [[-300, 440], [0, 480], [300, 440]] as XY[]) f.blockDisc([2600 + x, 2650], r);
 
   // ---- the ways out: north to Eden, south to the desert's edge ----
@@ -134,7 +232,7 @@ export function build(_quality: { flowers: number }): Town {
   const taken: [number, number, number][] = [];
   const free = (x: number, y: number, r: number) => taken.every(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) > tr + r);
   const open = (x: number, y: number, r: number) =>
-    [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([dx, dy]) => ground.kind(x + dx, y + dy) === 0) && f.level(x, y, Math.max(60, r * 0.7));
+    [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([dx, dy]) => ground.kind(x + dx, y + dy) === 0) && !onBeach(x, y - r) && f.level(x, y, Math.max(60, r * 0.7));
   const put = (ref: string, at: XY, h: number, r: number, o: { s?: number; solid?: "none" | SolidSpec[] } = {}) => {
     f.put(ref, at, h, { s: o.s ?? 1, ...(o.solid ? { solid: o.solid } : {}) });
     taken.push([at[0], at[1], r]);
@@ -220,21 +318,41 @@ export function build(_quality: { flowers: number }): Town {
   put("trunrada:cart", [-3200, 1700], 140, 160);
   for (const [x, y, h, s] of [[4100, -1100, 20, 1.1], [3300, 2100, 200, 0.9], [-900, 1800, 80, 1.2], [-3000, -1000, 150, 1], [500, 1500, 300, 1.05], [-4200, 2600, 40, 0.9], [4700, 2500, 110, 1], [-1800, -3600, 250, 1.15], [2000, -5000, 10, 0.9], [-4600, -2400, 90, 1]] as [number, number, number, number][])
     if (open(x, y, 200) && free(x, y, 200)) tree("desert:acacia", [x, y], h, s);
-  scatter(["desert:acacia"], 12, IN, 260, { s: [0.75, 1.15], tree: 42, keep: (x, y) => !nearExit(x, y) });
+  scatter(["desert:acacia"], 12, IN, 260, { s: [0.75, 1.15], tree: 42, keep: (x, y) => !nearExit(x, y) && rnd() > greenness(x, y) });
   scatter(["desert:dead_tree"], 6, IN, 200, { s: [0.8, 1.1], tree: 26 });
   scatter(["desert:dry_bush"], 30, IN, 110, { s: [0.7, 1.2] });
   scatter(["desert:rock_cluster", "desert:boulder_flat", "desert:boulder_big"], 12, IN, 250, { s: [0.5, 0.9], keep: (x, y) => !nearExit(x, y) });
   scatter(["desert:stump", "desert:fallen_log"], 6, IN, 170, { s: [0.8, 1.1] });
 
-  // ---- grass: tall golden patches over all the open ground, tufts between ----
-  const grassOk = (x: number, y: number) => !open(x, y, 120) || !free(x, y, 60);
-  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_patch"], grassOk, { count: 620, tries: 9000, spacing: 330, kit: "desert" });
-  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft", "grass_tuft", "dry_bush"], grassOk, { count: 260, tries: 5000, spacing: 260, kit: "desert" });
+  // the green towards Eden: round trees and bushes like those outside its walls
+  scatter(["flora:RoundTree", "flora:SmallTree", "flora:RoundTree", "flora:BigOak"], 9, { ...IN, x0: 3200 }, 240, { s: [0.7, 1], tree: 40, keep: (x, y) => !nearExit(x, y) && rnd() < greenness(x, y) * 1.4 });
+  scatter(["flora:Bush"], 14, { ...IN, x0: 3200 }, 110, { s: [0.8, 1.2], keep: (x, y) => rnd() < greenness(x, y) * 1.5 });
 
-  // ---- the land beyond the edge: acacias and grass on rolling ground, the mesas ----
-  const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) !== 0;
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["acacia", "acacia", "acacia", "dead_tree", "baobab"], rim, { count: 85, tries: 4000, spacing: 950, kit: "desert" });
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["grass_patch", "grass_patch", "grass_patch", "dry_bush", "boulder_flat", "rock_cluster"], rim, { count: 480, tries: 7000, spacing: 320, kit: "desert" });
+  // ---- grass: tall golden patches over the open savanna, tufts between; green tall grass in the
+  // north, thickening towards Eden as the golden thins ----
+  const grassOk = (x: number, y: number) => !open(x, y, 120) || !free(x, y, 60);
+  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_patch"], (x, y) => grassOk(x, y) || rnd() < greenness(x, y) * 1.2, { count: 560, tries: 9000, spacing: 330, kit: "desert" });
+  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft", "grass_tuft", "dry_bush"], (x, y) => grassOk(x, y) || rnd() < greenness(x, y) * 1.2, { count: 240, tries: 5000, spacing: 260, kit: "desert" });
+  f.woods({ x0: 2800, x1: R, y0: -R, y1: R }, ["tall_grass"], (x, y) => grassOk(x, y) || rnd() > greenness(x, y) * 1.3, { count: 150, tries: 4000, spacing: 300, kit: "plains" });
+
+  // ---- the shore: rocks at the cliffs' feet and in the surf, driftwood on the sand ----
+  for (let i = 1; i < SHORE.length - 1; i += 2) {
+    const [x, y] = SHORE[i];
+    if (Math.abs(x) > R + 1500 || rnd() < (x > 1100 && x < 4900 ? 0.15 : 0.7)) continue;
+    const a = SHORE[i - 1], b = SHORE[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, o = -40 + rnd() * 200;
+    f.put(rnd() < 0.5 ? "desert:boulder_flat" : "desert:rock_cluster", [x - ((b[1] - a[1]) / L) * o, y + ((b[0] - a[0]) / L) * o], rnd() * 360, { s: 0.45 + rnd() * 0.4, solid: "none" });
+  }
+  for (const [x, h] of [[-600, 20], [-2600, 140], [5200, 70], [-4200, 100]] as XY[]) put("desert:fallen_log", [x, shoreY(x) + 200], h, 200, { s: 0.8 });
+
+  // ---- the land beyond the edge: acacias and golden grass on rolling ground, the mesa; green
+  // grass and round trees on towards Eden in the north ----
+  const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) !== 0 || onBeach(x, y);
+  const savanna = (x: number, y: number) => rim(x, y) || x > greenLine(y) + 300;
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["acacia", "acacia", "acacia", "dead_tree", "baobab"], savanna, { count: 75, tries: 4000, spacing: 950, kit: "desert" });
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["grass_patch", "grass_patch", "grass_patch", "dry_bush", "boulder_flat", "rock_cluster"], savanna, { count: 430, tries: 7000, spacing: 320, kit: "desert" });
+  const northRim = (x: number, y: number) => rim(x, y) || x < greenLine(y) + 300;
+  f.woods({ x0: R, x1: A, y0: -A, y1: A }, ["RoundTree", "SmallTree", "RoundTree", "BigOak", "Bush"], northRim, { count: 60, tries: 3000, spacing: 650 });
+  f.woods({ x0: R - 500, x1: A, y0: -A, y1: A }, ["tall_grass"], northRim, { count: 120, tries: 3000, spacing: 380, kit: "plains" });
 
   // ---- where the monsters live: the open grass and the plateau tops ----
   f.monsterSpots(ground, { x0: -R + 400, x1: R - 400, y0: -R + 400, y1: R - 400 }, { step: 1050 });
@@ -266,6 +384,7 @@ export function build(_quality: { flowers: number }): Town {
     { x: -2600, y: 3000, text: "ศาลเก่าบนผา" },
     { x: 3800, y: -4300, text: "เนินหินกลางผา", kind: "small" },
     { x: -500, y: -900, text: "ซากเกวียน", kind: "small" },
+    { x: -1000, y: -5000, text: "ทะเลใน" },
     { x: N[0], y: N[1], text: "ทางไปอีเดน", kind: "gate" },
     { x: S[0], y: S[1], text: "ทางไปขอบทะเลทราย", kind: "gate" },
   ];
