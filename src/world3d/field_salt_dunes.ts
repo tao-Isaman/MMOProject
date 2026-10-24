@@ -229,10 +229,10 @@ export function build(_quality: { flowers: number }): Town {
   // salters' shelter (a sail over sacks of salt), a cart to carry it ----
   for (const [x, y, s, h] of [[-1150, -2900, 0.9, 20], [-200, -3500, 0.6, 70], [-1300, -1900, 0.7, 120]] as number[][]) {
     f.put("southsands:salt_flat", [x, y], h, { s, solid: "none" });
-    taken.push([x, y, 640 * s]);
+    taken.push([x, y, 820 * s]);
   }
-  prop("southsands:salt_pans", [650, -3150], 25, 450, { solid: "none" });
-  prop("southsands:salt_pans", [-450, -2250], 70, 450, { solid: "none" });
+  prop("southsands:salt_pans", [650, -3150], 25, 560, { solid: "none" });
+  prop("southsands:salt_pans", [-450, -2250], 70, 560, { solid: "none" });
   prop("southsands:salt_heap", [-100, -1650], 30, 260, ring(150, "heap"));
   prop("southsands:salt_heap", [1150, -3000], 110, 240, { s: 0.85, ...ring(130, "heap") });
   prop("southsands:salt_heap", [-1900, -2500], 200, 220, { s: 0.8, ...ring(120, "heap") });
@@ -299,7 +299,7 @@ export function build(_quality: { flowers: number }): Town {
   // what the sea leaves on the beach: driftwood, timbers off the wreck, skulls the crabs left behind
   scatter(["jungle:wreck_debris", "desert:fallen_log", "southsands:cow_skull"], 14, IN, 160, { s: [0.6, 1], solid: "none", keep: (x, y) => toLine(x, y, SHORE) < 650 });
   // beach grass on the dunes behind the beach, dry tufts everywhere else
-  const grassOut = (x: number, y: number) => nearTrack(x, y, 60) || wet(x, y, 200) || !f.level(x, y, 90) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr * 0.8);
+  const grassOut = (x: number, y: number) => nearTrack(x, y, 60) || wet(x, y, 200) || !f.level(x, y, 90) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < (tr > 500 ? tr : tr * 0.8));
   f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft", "grass_tuft", "grass_patch"], (x, y) => grassOut(x, y) || toLine(x, y, SHORE) > 1600, { count: 160, tries: 4000, spacing: 280, kit: "desert" });
   f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_tuft", "dry_bush", "grass_patch"], grassOut, { count: 170, tries: 5000, spacing: 420, kit: "desert" });
 

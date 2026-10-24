@@ -123,7 +123,7 @@ export function build(_quality: { flowers: number }): Town {
   const GLASS_IN: XY[] = [];
   for (let x = -A; x <= A; x += 150) GLASS_IN.push([x, glassLine(x)]);
   const glass = buildPaved({
-    area: { x0: -A, x1: A, y0: -A, y1: 6000 }, roads, plazas: [], cell: 80, base: "snow", tint: "#e9e2d0", track: true, road: [0.86, 0.82, 0.76],
+    area: { x0: -A, x1: A, y0: -A, y1: 6000 }, roads, plazas: [], cell: 80, base: "snow", tint: "#e9e2d0", track: true, road: [0.8, 0.79, 0.76],
     water: [[...GLASS_IN, [A + 600, A + 600], [-A - 600, A + 600]], SEA],
     height: (x, y) => f.h(x, y) + 3,
     place: (x, y, cell) => {
@@ -261,8 +261,8 @@ export function build(_quality: { flowers: number }): Town {
   }
   scatter(["southsands:glass_shard"], 10, { x0: FOREST[0] - 1300, x1: FOREST[0] + 1300, y0: FOREST[1] - 1600, y1: FOREST[1] + 1600 }, 140, { s: [0.7, 1.1], solid: [{ kind: "crystal", x: 0, y: 0, r: 60 }] });
   scatter(["southsands:glass_spires"], 14, IN, 300, { s: [0.45, 0.85], solid: SPIRES(0.65), keep: (x, y) => !nearExit(x, y) && !inCrater(x, y) && goldW(y) < 0.5 && f.h(x, y) < 300 });
-  scatter(["southsands:glass_shard"], 40, IN, 150, { s: [0.6, 1.1], solid: [{ kind: "crystal", x: 0, y: 0, r: 60 }], keep: (x, y) => !nearExit(x, y) && goldW(y) < 0.7 });
-  scatter(["southsands:glass_crust"], 22, IN, 300, { s: [0.5, 0.95], solid: "none", keep: (_x, y) => goldW(y) < 0.6 });
+  scatter(["southsands:glass_shard"], 70, IN, 120, { s: [0.6, 1.1], solid: [{ kind: "crystal", x: 0, y: 0, r: 60 }], keep: (x, y) => !nearExit(x, y) && goldW(y) < 0.7 });
+  scatter(["southsands:glass_crust"], 20, IN, 240, { s: [0.45, 0.9], solid: "none", keep: (_x, y) => goldW(y) < 0.6 });
   scatter(["southsands:fulgurite"], 10, IN, 160, { s: [0.7, 1], solid: [{ kind: "rock", x: 0, y: 0, r: 100 }], keep: (_x, y) => goldW(y) < 0.6 });
   scatter(["southsands:scorched_rock", "volcanic:obsidian", "southsands:ejecta_rocks"], 16, IN, 180, { s: [0.5, 0.9], solid: [{ kind: "rock", x: 0, y: 0, r: 110 }], keep: (x, y) => !nearExit(x, y) });
   scatter(["southsands:glass_tree"], 4, IN, 200, { s: [0.7, 0.95], solid: [{ kind: "tree", x: 0, y: 0, r: 35 }], keep: (x, y) => !nearExit(x, y) && goldW(y) < 0.3 && !inCrater(x, y) });
@@ -273,7 +273,9 @@ export function build(_quality: { flowers: number }): Town {
   scatter(["desert:bones", "southsands:cow_skull"], 6, IN, 140, { solid: "none" });
   scatter(["desert:dry_bush", "desert:dead_tree"], 10, IN, 110, { s: [0.7, 1.1], keep: (_x, y) => rnd() < goldW(y) + 0.1 });
   const grassOut = (x: number, y: number) => nearTrack(x, y, 60) || wet(x, y, 200) || !f.level(x, y, 90) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr * 0.8);
-  f.woods({ x0: -R, x1: R, y0: 2500, y1: R }, ["grass_tuft", "grass_tuft", "dry_bush"], (x, y) => grassOut(x, y) || rnd() > goldW(y) + 0.15, { count: 70, tries: 2500, spacing: 380, kit: "desert" });
+  f.woods({ x0: -R, x1: R, y0: 2000, y1: R }, ["grass_tuft", "grass_tuft", "dry_bush", "grass_patch"], (x, y) => grassOut(x, y) || rnd() > goldW(y) + 0.2, { count: 130, tries: 4000, spacing: 320, kit: "desert" });
+  // and over the glass sand, glints of glass and black beads of fused sand
+  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["glass_shard", "glass_shard", "glass_crust"], (x, y) => grassOut(x, y) || nearTrack(x, y, 420) || goldW(y) > 0.5 || inCrater(x, y), { count: 50, tries: 3000, spacing: 500, kit: "southsands" });
 
   // ---- past the edges: the desert's dunes, rocks and buttes on the mesa wall and before it, glass
   // and rock out along the coast ----
@@ -284,7 +286,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- monsters: the cape's sand, the crater's floor and rim, the mesa and its summit, the ridge,
   // the tip ----
   const busy = (x: number, y: number) => Math.hypot(x - CAMP[0], y - CAMP[1]) < 800 || Math.hypot(x - CRATER[0], y - CRATER[1]) < 450;
-  f.monsterSpots(ground, IN, { step: 620, keepOut: busy, max: 50 });
+  f.monsterSpots(ground, IN, { step: 520, keepOut: busy, max: 50 });
 
   // ---- people ----
   const npcs: NpcSpec[] = [

@@ -165,7 +165,8 @@ export function build(quality: { flowers: number }): Town {
   f.blockBand(RIVER.filter((p) => Math.abs(p[1]) < R + 700), RW - 60, { gaps: [PLANK], gapR: 200, step: 140 });
   f.blockDisc([-200, -1450], 470);
   for (let i = 0; i < POOL.length; i += 2) f.blockDisc([-200 + (POOL[i][0] + 200) * 0.85, -1450 + (POOL[i][1] + 1450) * 0.85], 160);
-  f.blockBand([[(S_EDGE + N_EDGE) / 2, -2050], [(S_EDGE + N_EDGE) / 2, -3900]], N_EDGE - S_EDGE - 60, { step: 200 });
+  // (the gorge itself needs none past its mouth: its walls are cliffs, and the rope bridge over it is walked)
+  f.blockBand([[S_EDGE + 40, -2250], [N_EDGE - 40, -2250]], 360, { step: 200 });
   for (const [m, c, r] of [[MUD[0], [-4700, 1700], 460], [MUD[1], [-4950, 3500], 380], [MUD[2], [-4300, 4700], 330]] as [Poly, XY, number][]) {
     f.blockDisc(c, r, "mud");
     for (let i = 0; i < m.length; i += 2) f.blockDisc([c[0] + (m[i][0] - c[0]) * 0.86, c[1] + (m[i][1] - c[1]) * 0.86], 150, "mud");
@@ -250,7 +251,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- the pyramid on its step, the court before its stair, stelae and fallen blocks ----
   put("southsands:step_pyramid", PYRAMID, -90, {
     s: 0.75, r: 900,
-    solid: [box(1360, 1360, 0, 0, "temple"), box(300, 260, 0, -820, "temple"), { kind: "statue", x: -175, y: -820, r: 50 }, { kind: "statue", x: 175, y: -820, r: 50 }],
+    // (in its own frame: the tiers, the foot of the stair standing out in front, the serpents' heads)
+    solid: [box(1780, 1780, 0, 0, "temple"), box(280, 540, -1030, 0, "temple"), { kind: "statue", x: -1220, y: -215, r: 60 }, { kind: "statue", x: -1220, y: 215, r: 60 }],
   });
   put("southsands:carved_stela", [PYRAMID[0] - 400, PYRAMID[1] + 1300], -90, { solid: [box(110, 130, 0, 0, "statue")], r: 140 });
   put("southsands:carved_stela", [PYRAMID[0] + 600, PYRAMID[1] + 1300], -90, { solid: [box(110, 130, 0, 0, "statue")], r: 140 });
@@ -267,7 +269,7 @@ export function build(quality: { flowers: number }): Town {
   for (const [dx, dy, s] of [[700, 500, 1], [-500, 650, 0.8], [900, -300, 0.9]] as number[][]) put("southsands:rafflesia_bloom", [STELAE[0] + dx, STELAE[1] + dy], rnd() * 360, { s, solid: [disc(110 * s, 0, 0, "plant")], r: 200 * s });
 
   // ---- the gorge's walls: vines hanging over the edges of the tableland and the headland ----
-  for (const [x, y, h] of [[860, 300, -175], [700, -500, -160], [380, -1250, -160], [N_EDGE + 30, -2500, 180], [N_EDGE + 30, -3400, 180], [S_EDGE - 30, -2500, 0], [S_EDGE - 30, -3400, 0], [960, 1600, -180], [880, 2900, -175]] as [number, number, number][])
+  for (const [x, y, h] of [[860, 300, -175], [700, -500, -160], [460, -1050, -160], [N_EDGE + 30, -2500, 180], [N_EDGE + 30, -3400, 180], [S_EDGE - 30, -2500, 0], [S_EDGE - 30, -3400, 0], [960, 1600, -180], [880, 2900, -175]] as [number, number, number][])
     f.put("southsands:cliff_vines", [x, y], h + 180, { solid: "none" });
 
   // ---- the jungle floor: rafflesias in bloom, fallen logs, stumps, mossy boulders; the mud pools

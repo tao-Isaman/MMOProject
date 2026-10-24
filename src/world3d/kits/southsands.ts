@@ -57,7 +57,7 @@ defineMaterial("Southsands_GlassCore", { tint: "#6fd0d8", rough: 0.1, opacity: 0
 defineMaterial("Southsands_GlassGreen", { tint: "#8fc6a2", rough: 0.08, metal: 0.1, opacity: 0.78 });
 defineMaterial("Southsands_GlassDark", { tint: "#26403c", rough: 0.12, metal: 0.2 });
 defineMaterial("Southsands_GlassLeaf", { tint: "#b9f4ff", rough: 0.05, opacity: 0.7, glow: "#8fe8ff", glowI: 0.5 });
-defineMaterial("Southsands_Fused", { map: "crag", tint: "#c4a77c", bump: 2 });
+defineMaterial("Southsands_Fused", { map: "crag", tint: "#d0c0a0", bump: 2 });
 defineMaterial("Southsands_CliffGlass", { map: "crag", tint: "#a89f90", bump: 4 }); // the glass cape's cliffs (fused sand)
 defineMaterial("Southsands_Meteor", { map: "crag", tint: "#3b302c", bump: 4 });
 defineMaterial("Southsands_Scorch", { map: "crag", tint: "#4c423b", bump: 3 });
@@ -1077,27 +1077,43 @@ function stepPyramid(): Geo {
 // ================================================================== the kit
 
 function sample(put: Put): void {
-  // the inner sea's shore along -Y: the trader wrecked on the sand, a rowing boat drawn up, a
-  // fisherman's hut and his net rack; the salt pans and heaps behind the beach, the spring under
-  // its palms, red dunes; the glass cape's spires and its fallen star at the back
-  put("sail_wreck", [-500, -1700, 0], 20, 0.55);
-  put("beached_boat", [900, -1900, 0], 120);
-  put("fisher_hut", [1200, -700, 0], 0, 0.9);
-  put("net_rack", [400, -800, 0], 10);
-  put("salt_pans", [-900, 300, 0], 0);
-  put("salt_heap", [-1500, 1300, 0], 30);
-  put("salt_flat", [-300, 1200, 0], 0, 0.6);
-  put("cow_skull", [600, 600, 0], 40);
-  put("cow_skull", [-1900, -900, 0], 200, 0.8);
-  put("spring_pool", [1400, 900, 0], 0);
-  for (const [x, y, h] of [[1700, 1250, 20], [1150, 1300, 100], [1750, 600, 200]]) put("flora:Palm", [x, y, 0], h, 0.9);
-  put("red_dune", [-1500, 2000, 0], 200);
-  put("red_dune", [1900, 2000, 0], 160, 0.7);
-  put("glass_spires", [400, 2000, 0], 0, 0.6);
-  put("glass_shard", [1100, 2000, 0], 40);
-  put("meteorite", [-400, 2000, 0], 0, 0.5);
-  put("fulgurite", [-1900, 600, 0], 0);
-  put("glass_crust", [300, 1500, 0], 0, 0.6);
+  // the inner sea's shore along -Y: the trader wrecked on the sand, rowing boats drawn up, two
+  // fishermen's huts and their nets; behind the beach the salt works (pans, flats, heaps), the
+  // spring under its palms, red dunes with skulls and scrub; at the back the glass cape's spires,
+  // its fallen star and lightning tubes
+  put("sail_wreck", [-900, -2000, 0], 20, 0.6);
+  put("beached_boat", [700, -1900, 0], 120);
+  put("beached_boat", [1300, -1750, 0], 150, 0.9);
+  put("fisher_hut", [1300, -700, 0], -90, 0.9);
+  put("fisher_hut", [-200, -800, 0], -100, 0.85);
+  put("net_rack", [550, -1100, 0], 0);
+  put("net_rack", [1900, -1300, 0], 80, 0.85);
+  put("common:crate", [900, -450, 0], 20);
+  put("common:crate", [960, -380, 0], 60);
+  put("salt_pans", [-1200, 500, 0], 10);
+  put("salt_flat", [-300, 700, 0], 30, 0.55);
+  put("salt_heap", [-1700, -300, 0], 30, 0.8);
+  put("salt_heap", [-600, 1250, 0], 160, 0.6);
+  put("cow_skull", [400, 300, 0], 40);
+  put("cow_skull", [-1900, -1300, 0], 200, 0.8);
+  put("cow_skull", [1700, 1000, 0], 120, 0.9);
+  put("spring_pool", [1200, 700, 0], 0);
+  for (const [x, y, h, s] of [[1550, 1050, 20, 0.9], [900, 1100, 100, 0.8], [1600, 350, 200, 0.85], [-700, -1700, 300, 0.8], [1800, -500, 40, 0.75], [100, -1650, 140, 0.8]])
+    put(h > 150 ? "flora:PalmBent" : "flora:Palm", [x, y, 0], h, s);
+  put("red_dune", [-1700, 1900, 0], 200, 0.8);
+  put("red_dune", [1900, 1900, 0], 160, 0.6);
+  put("red_dune", [200, 2100, 0], 190, 0.5);
+  for (const [x, y] of [[-900, -300], [600, 600], [-1900, 1000], [1900, 300], [-300, 1700], [300, -300]]) put("flora:Bush", [x, y, 0], x, 0.5);
+  for (const [x, y] of [[-1500, 1500], [2000, 1400], [700, 1700]]) put("flora:CactusRound", [x, y, 0], y, 0.8);
+  put("glass_spires", [-200, 2100, 0], 0, 0.55);
+  put("glass_shard", [800, 1950, 0], 40);
+  put("glass_shard", [-1100, 2000, 0], 200, 0.8);
+  put("meteorite", [1500, 2050, 0], 0, 0.45);
+  put("fulgurite", [-2000, 400, 0], 0, 0.8);
+  put("glass_crust", [-1000, 1500, 0], 0, 0.5);
+  put("scorched_rock", [2050, 1800, 0], 30, 0.6);
+  put("common:rock_small", [-1300, -1200, 0], 20);
+  put("common:rock_small", [1700, -1100, 0], 80);
 }
 
 export const KIT: Kit = {
