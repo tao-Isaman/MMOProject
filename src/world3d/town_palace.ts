@@ -271,14 +271,15 @@ export function buildPalace(quality: { flowers: number }): Town {
   lawn(-1100, 600, 2850, 4100);
   lawn(1200, 2800, 2850, 4100);
   lawn(850, 1900, -4100, -2850);
+  for (const s of [-1, 1]) lawn(2800, 3400, s * 2850, s * 4100);
   for (const y of [-2500, -1300, 1300, 2500]) put("eden:banner_pole", [3250, y], FACE.s, { solid: post(30) });
-  for (const s of [-1, 1]) for (const x of [-1450, 3250]) put("palace:palace_lamp", [x, s * 3900], 0, { solid: post(28) });
+  for (const s of [-1, 1]) lamp([-1450, s * 3900]);
   // the chapel's garden north of it, the guest house's south of it
   put("eden:pergola", [2400, 5600], FACE.e);
   for (const [x, y] of [[2000, 4700], [2900, 4700], [2000, 6400], [2900, 6400]] as XY[]) put("eden:flower_bed", [x, y], 0, { s: 0.8 });
   for (const [x, y, k] of [[1800, 5550, "Cherry"], [3100, 5550, "Cherry"], [2450, 6550, "RoundTree"], [-1450, 4700, "Cherry"], [-1450, 6500, "RoundTree"], [100, 6550, "Cherry"]] as [number, number, string][]) tree(k, [x, y], 0.75);
   for (const [x, y] of [[2400, 4500]] as XY[]) put("eden:park_bench", [x, y], FACE.e);
-  // the treasury's guards' benches, the library's lamp posts
+  // lamps before the library and the treasury
   for (const x of [1500, 3100]) lamp([x, -4350]);
   for (const x of [-1650, -450]) lamp([x, -4350]);
 
@@ -292,6 +293,14 @@ export function buildPalace(quality: { flowers: number }): Town {
   }
   for (const [x, y, h] of [[-6000, 1900, 20], [-6100, 2150, 70], [-5950, 2250, 40]] as [number, number, number][]) put("common:crate", [x, y], h);
   put("common:market_cart", [-6000, 1450], FACE.e);
+  put("eden:notice_board", [-5950, -1500], FACE.s);
+  // two flower beds on the court either side of the way in, clipped box round them
+  for (const s of [-1, 1]) {
+    put("eden:flower_bed", [-6500, s * 1150], 0);
+    for (const [dx, dy] of [[-260, -260], [-260, 260], [260, -260], [260, 260]]) put("eden:topiary", [-6500 + dx, s * 1150 + dy], 0);
+  }
+  for (const s of [-1, 1]) for (const y of [1500, 2200]) put("eden:flower_planter", [-7080, s * y], FACE.n);
+  for (const s of [-1, 1]) put("eden:park_bench", [-6500, s * 1760], s < 0 ? FACE.w : FACE.e);
   // the servants' houses and the royal kitchens along the south wall, wall to wall, facing the lane
   const ROWS = { kit: "eden", tints: ["", "palace_cream", "", "palace_slate", "palace_cream"], narrow: "townhouse_narrow" };
   // (a gap in each row where a tower of the wall stands behind it)
@@ -314,6 +323,10 @@ export function buildPalace(quality: { flowers: number }): Town {
   // the barracks along the west wall behind it
   put("palace:barracks", BARRACKS, FACE.e);
   for (let x = PARADE.x0 + 500; x < PARADE.x1 - 300; x += 620) put("palace:training_dummy", [x, PARADE.y1 - 350], FACE.w + (rnd() - 0.5) * 30, { solid: post(36) });
+  for (let y = PARADE.y0 + 900; y < PARADE.y1 - 800; y += 650) put("palace:training_dummy", [PARADE.x0 + 350, y], FACE.n + (rnd() - 0.5) * 30, { solid: post(36) });
+  // lamps along its south side, benches for those watching along its east side
+  for (let y = PARADE.y0 + 700; y < PARADE.y1; y += 900) lamp([PARADE.x1 + 120, y]);
+  for (const y of [PARADE.y0 + 1150, PARADE.y0 + 2050, PARADE.y0 + 2950]) put("eden:park_bench", [PARADE.x1 - 200, y], FACE.n);
   for (const [x, y] of [[PARADE.x0 + 150, PARADE.y0 + 150], [PARADE.x1 - 150, PARADE.y0 + 150], [PARADE.x0 + 150, PARADE.y1 - 150], [PARADE.x1 - 150, PARADE.y1 - 150]] as XY[]) put("eden:banner_pole", [x, y], FACE.e, { solid: post(30) });
   // the training yard north of the barracks: more dummies, a rack, crates
   for (const [x, y] of [[-3000, 5900], [-2600, 6300], [-3000, 6600]] as XY[]) put("palace:training_dummy", [x, y], FACE.w, { solid: post(36) });
@@ -387,7 +400,10 @@ export function buildPalace(quality: { flowers: number }): Town {
   for (const [x, y, k] of [[3900, 4800, "Cherry"], [3900, 6000, "RoundTree"], [5200, 6300, "Cherry"], [7700, 3800, "Cherry"], [8000, 5400, "RoundTree"], [3900, -4800, "Cherry"], [3800, -5700, "RoundTree"], [7600, -4300, "Cherry"], [7800, -5300, "BigOak"], [5600, -6300, "Cherry"], [6900, -6400, "RoundTree"], [6800, -2950, "Cherry"], [5400, 1500, "RoundTree"], [5400, -1500, "RoundTree"], [7600, 1200, "Cherry"], [7600, -1200, "Cherry"]] as [number, number, string][]) tree(k, [x, y], 0.7);
 
   // ---- outside: the royal road's approach, snowy slopes and woods, the roads out ----
-  for (let x = S - 900; x > AREA.x0 + 600; x -= 1100) for (const s of [-1, 1]) lamp([x, s * 640]);
+  for (let x = S - 900; x > AREA.x0 + 600; x -= 1100) for (const s of [-1, 1]) {
+    lamp([x, s * 640]);
+    tree(x % 2200 ? "RoundTree" : "BigOak", [x - 550, s * 1150], 0.8, 100);
+  }
   for (const s of [-1, 1]) put("eden:banner_pole", [S - 700, s * 900], FACE.s, { solid: post(30) });
   put("plains:signpost", [S - 2600, 900], FACE.s);
   // snow drifts against the walls outside (not in the green south)
@@ -503,7 +519,7 @@ function palaceNpcs(doors: Record<string, XY>, hall: (l: XY) => XY): NpcSpec[] {
   const libraryDoor = loc(LIBRARY, FACE.w, [-900, 0]);
   return [
     // the stable master by the royal coach: he drives travellers to the other towns
-    { ...travelGuide("palace", [COACH[0] + 100, COACH[1] + 620], 90, "นายคอกม้าฮาโรลด์"), title: "นายคอกม้าหลวง · เดินทางข้ามเมือง", look: man("top_warrior_forest", "auburn", "bottom_warrior_cocoa", "amber"),
+    { ...travelGuide("palace", [COACH[0] + 280, COACH[1] + 600], 100, "นายคอกม้าฮาโรลด์"), title: "นายคอกม้าหลวง · เดินทางข้ามเมือง", look: man("top_warrior_forest", "auburn", "bottom_warrior_cocoa", "amber"),
       lines: ["รถม้าหลวงพร้อมออกเดินทางทุกเมื่อ จะไปเมืองไหนเลือกบนแผนที่ได้เลย", "ม้าขาวคู่นี้เป็นม้าที่เร็วที่สุดในคอกหลวง พาท่านถึงทุกเมืองอย่างปลอดภัย", "ที่นี่จะเป็นจุดพักของท่านด้วยก็ได้ ข้าจดชื่อไว้ให้"] },
     // the quartermaster at his store on the lane
     { id: "palace_quartermaster", x: shop[0], y: shop[1], face: 0, name: "พ่อค้าเบอร์ทรัม", title: "พ่อค้าเสบียงหลวง", role: "shop", sprite: "merchant",

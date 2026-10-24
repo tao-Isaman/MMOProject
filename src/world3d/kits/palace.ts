@@ -599,11 +599,11 @@ function greatGatehouse(): Geo {
   }
   // the king's arms over the arch, windows above, banners from the parapet; a crest at the back
   out.push(translate(arms(90), [-HX, 0, 820]));
-  out.push(translate(rotateZ(crest(60), 180), [HX, 0, 900]));
+  out.push(translate(rotateZ(arms(70), 180), [HX, 0, 860]));
   for (const y of [-330, 330]) {
     out.push(translate(windowGeo(60, 120, { arch: true, frame: "StoneLight" }), [-HX, y, 840]));
     out.push(translate(rotateZ(windowGeo(60, 120, { arch: true, frame: "StoneLight" }), 180), [HX, y, 840]));
-    out.push(translate(longBanner(150, 480), [-HX - 46, y, TOP - 40]));
+    out.push(translate(longBanner(150, 480), [-HX - 46, y, TOP - 40]), translate(rotateZ(longBanner(130, 380), 180), [HX + 46, y, TOP - 40]));
   }
   // machicolations, the parapet and merlons along front and back
   for (const x of [-HX, HX]) {
@@ -747,10 +747,10 @@ function posternGate(): Geo {
       ), [c[0], c[1], 0]));
     }
   for (const f of ["-x", "+x"] as const) {
-    out.push(onFace(arms(54), f, HX, 0, 640), onFace(slitGeo(90), f, HX, -280, 640), onFace(slitGeo(90), f, HX, 280, 640));
+    out.push(onFace(arms(54), f, HX, 0, 640));
     for (const s of [-1, 1]) out.push(onFace(wallLantern(), f, HX, s * 270, 330));
   }
-  out.push(translate(longBanner(120, 360), [-HX - 46, 0, TOP - 50]));
+  for (const y of [-260, 260]) out.push(translate(longBanner(100, 300), [-HX - 46, y, TOP - 50]), translate(rotateZ(longBanner(100, 300), 180), [HX + 46, y, TOP - 50]));
   return merge(...out);
 }
 
@@ -1662,8 +1662,8 @@ function pondPavilion(): Geo {
   return merge(...out);
 }
 
-// ---- the garden bridge (สะพานสวน): white stone, 6 m along X, walked over at deck level, a
-// balustrade both sides, urns on the end posts, a blind arch down each side into the water ----
+// ---- the garden bridge (สะพานสวน): white stone, 6 m along X, walked over at deck level (10 cm
+// up), a balustrade both sides, urns of flowers on the end posts, cutwaters down into the water ----
 function gardenBridge(): Geo {
   const L = 300, W = 150, out: Geo[] = [
     boxBounds([-L, -W, -30], [L, W, 10], "StoneLight", 2),
