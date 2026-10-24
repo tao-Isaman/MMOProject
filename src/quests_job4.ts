@@ -2,9 +2,9 @@
 // (FOURTH_JOB_LEVEL) to whoever holds one of the third jobs it takes (progression.ts JOBS4). Longer
 // than the third jobs': five or six steps across the towns and the lands of level 85-110, a task
 // that fits the job, quest items to bring, people of other towns to see, a place to go, and a
-// strong one (a rare monster or a boss) at the end, before the master lets the player pick a branch
-// at the last hand-in. A job whose branches are still stubs shows here as "not yet"
-// (Progress.job4Block). quests.ts adds these to the quest list.
+// strong foe near the end (a rare monster or a boss, or the thornland's crawlers for the druid),
+// before the master lets the player pick a branch at the last hand-in. A job whose branches are
+// still stubs shows here as "not yet" (Progress.job4Block). quests.ts adds these to the quest list.
 
 import { ITEMS } from "./items";
 import type { MapId } from "./maps";
