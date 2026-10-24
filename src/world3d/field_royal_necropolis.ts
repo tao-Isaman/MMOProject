@@ -8,10 +8,14 @@
 // The east is the jungle's: fig roots gripping fallen stones, vines over the tombs, and a hill
 // where a giant fig has closed round the tombs on its top. The way out to the southern jungle
 // leaves through the trees on the east side. Pale fires burn with no one to tend them, wisps
-// drift over the graves and the mist lies in the hollows.
+// drift over the graves and the mist lies in the hollows. From the jungle track a path turns off
+// south-west under the great terrace's cliff and leaves over the south edge, through a gap in the
+// high woods there, for the sacred banyan woods; and from the west tombs' path another climbs past
+// the north-west obelisk into the ravine between the west ridge and the north-west heights, out over
+// the west edge to the forest of the first tree.
 //
 // Full size in the field's own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finish.
-//   ways out: north -> ancient_plain, east -> south_jungle
+//   ways out: north -> ancient_plain, east -> south_jungle, south -> sacred_banyan, west -> first_tree
 
 import { FieldBuilder } from "./field";
 import { useKits } from "./town";
@@ -36,17 +40,19 @@ const M1: XY[] = [[-1300, -2700], [-1300, 3300], [-3000, 3400], [-6000, 3200], [
 const M2: XY[] = [[-2600, -1100], [-2600, 1900], [-3900, 2000], [-5100, 1800], [-5100, -1100], [-3900, -1200]];
 const E1: XY[] = [[1700, -2700], [3900, -2500], [4500, -3600], [4000, -4800], [2100, -4900], [1400, -3900]];
 const WEST: XY[] = [[3800, 4100], [2500, 3950], [1000, 4100], [-500, 3950], [-1600, 4200], [-6000, 4000], [-6000, A], [3900, A]];
-const RIM_NW: XY[] = [[4100, 4300], [5800, 1300], [A, 1300], [A, A], [4200, A]];
+// (its west side drawn back from the west ridge's: the ravine between them is the way to the first tree)
+const RIM_NW: XY[] = [[4650, 4100], [5800, 1300], [A, 1300], [A, A], [4650, A]];
 const RIM_NE: XY[] = [[5800, -500], [A, -500], [A, -A], [800, -A], [800, -6000], [3000, -5800], [5200, -5900], [6000, -4000]];
 const RIM_SE: XY[] = [[-1200, -6000], [-3500, -5800], [-6000, -6000], [-6000, -A], [-1300, -A]];
-const RIM_S: XY[] = [[-6300, -A], [-6400, -3000], [-6300, 3500], [-6400, A], [-A, A], [-A, -A]];
+// (a gap in it where the way to the sacred banyan woods runs on)
+const RIM_S: XY[] = [[-6300, -A], [-6400, -4300], [-8200, -4250], [-8200, -2550], [-6400, -2500], [-6300, 3500], [-6400, A], [-A, A], [-A, -A]];
 // the terrace's stairs and the upper step's (straight ramps of 9 m rising 3 m), the fig hill's ramp
 const M1_STAIRS = { top: [-1300, 400] as XY, bottom: [-400, 400] as XY, width: 440, straight: true };
 const M2_STAIRS = { top: [-2600, 400] as XY, bottom: [-1700, 400] as XY, width: 440, straight: true };
 const E1_RAMP = rampOff(E1, 1, 0.5, 1000, 440);
 
 // ---- the places ----
-const PLAIN: XY = [5150, 400], JUNGLE_WAY: XY = [-200, -5150];
+const PLAIN: XY = [5150, 400], JUNGLE_WAY: XY = [-200, -5150], BANYAN_WAY: XY = [-5150, -3400], TREE_WAY: XY = [4300, 5150];
 const AV_Y = 400;                    // the avenue's line
 const MAUSOLEUM: XY = [-3800, 400];
 const GATE: XY = [1300, 3800];       // the sealed tomb gate, against the west ridge
@@ -78,12 +84,16 @@ export function build(quality: { flowers: number }): Town {
   const TOMB_E: XY[] = smooth([[4000, 120], [3950, -700], [3400, -1650], [2300, -1720], [1200, -1680]]);
   const FIG_WAY: XY[] = [...smooth([[4600, 150], [4850, -700], [5050, -1600], [E1_RAMP.bottom[0] + 60, E1_RAMP.bottom[1] + 300]]), E1_RAMP.bottom, E1_RAMP.top, ...smooth([[4000, -3200], [3600, -3500], [3350, -3600]])];
   const OUT_WAY: XY[] = smooth([[700, AV_Y - 260], [550, -800], [350, -2000], [100, -3200], [-100, -4300], JUNGLE_WAY, [-300, -7300]]);
-  const roads = [band(IN_WAY, 520), band(TOMB_W, 380), band(GATE_WAY, 380), band(TOMB_E, 380), band(FIG_WAY, 400), band(OUT_WAY, 430)];
+  const SOUTH_WAY: XY[] = smooth([[100, -3200], [-1000, -3450], [-2500, -3500], [-4000, -3450], BANYAN_WAY, [-7600, -3400]]);
+  const WEST_WAY: XY[] = smooth([[3400, 2350], [3850, 3050], [4250, 3800], [4300, 4500], TREE_WAY, [4300, 7600]]);
+  const roads = [band(IN_WAY, 520), band(TOMB_W, 380), band(GATE_WAY, 380), band(TOMB_E, 380), band(FIG_WAY, 400), band(OUT_WAY, 430), band(SOUTH_WAY, 400), band(WEST_WAY, 400)];
   const ground = f.ground({ area: AREA, cell: 60, roads, plazas: [AVENUE, LANDING1, LANDING2], base: "moss", track: false, tint: "#b9bdae", road: [0.82, 0.82, 0.78], plaza: [0.8, 0.8, 0.78] });
 
   // ---- the ways out ----
   f.exit("ancient_plain", PLAIN, [4450, AV_Y]);
   f.exit("south_jungle", JUNGLE_WAY, [-120, -4450]);
+  f.exit("sacred_banyan", BANYAN_WAY, [-4450, -3440]);
+  f.exit("first_tree", TREE_WAY, [4280, 4430]);
 
   // ---- placing: every thing remembered (x, y, r) so the trees keep clear ----
   const taken: [number, number, number][] = [];
@@ -152,6 +162,9 @@ export function build(quality: { flowers: number }): Town {
   put("jungle:trail_sign", [250, -4500], towards(-0.4, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
   for (const s of [-1, 1]) brazier([-120 + s * 420, -4750]);
   put("jungle:trail_sign", [950, 150], towards(1, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  put("jungle:trail_sign", [-4700, -3000], towards(-1, 0.3), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  put("jungle:trail_sign", [4000, 4700], towards(0.3, 1), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  for (const s of [-1, 1]) brazier([4300 + s * 280, 4400]);
 
   // ---- wisps over the graves, mist in the hollows ----
   for (const at of [[2500, 2400], [700, 2900], [-2200, 2650], [2900, -1700], [1700, -1700], [-4000, -1900], [3300, -3900], [-600, -3000]] as XY[]) put("wisp_lights", at, (at[0] * 3) % 360, { solid: "none", r: 60 });
@@ -183,7 +196,7 @@ export function build(quality: { flowers: number }): Town {
       put(rnd() < 0.5 ? "jungle:giant_fern" : rnd() < 0.5 ? "flora:JungleBush" : "jungle:elephant_ear", [px, py], rnd() * 360, { s: 0.75 + rnd() * 0.4, solid: "none", r: 80 });
     }
   // past the edge: jungle to the east and south, dark pines and dead trees to the north and west
-  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) === 1 || distTo(OUT_WAY, x, y) < 450 || distTo(IN_WAY, x, y) < 450;
+  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) === 1 || distTo(OUT_WAY, x, y) < 450 || distTo(IN_WAY, x, y) < 450 || distTo(SOUTH_WAY, x, y) < 450 || distTo(WEST_WAY, x, y) < 450;
   f.woods({ x0: -A, x1: A, y0: -A, y1: -1500 }, ["JungleTree", "JungleTree", "Bamboo", "JungleBush", "PalmTall"], rimOut, { count: 420, spacing: 360, tries: 9000 });
   f.woods({ x0: -A, x1: -R, y0: -1500, y1: A }, ["JungleTree", "Pine", "JungleTree", "JungleBush"], rimOut, { count: 120, spacing: 420, tries: 4000 });
   f.woods({ x0: -R, x1: A, y0: -1500, y1: A }, ["Pine", "PineSmall", "Pine", "BigOak"], rimOut, { count: 260, spacing: 440, tries: 6000 });
@@ -223,6 +236,8 @@ export function build(quality: { flowers: number }): Town {
     labels: [
       { x: PLAIN[0] - 250, y: PLAIN[1], text: "ทางไปที่ราบโบราณ", kind: "gate" },
       { x: JUNGLE_WAY[0], y: JUNGLE_WAY[1] + 250, text: "ทางไปป่าดิบแดนใต้", kind: "gate" },
+      { x: BANYAN_WAY[0] + 250, y: BANYAN_WAY[1], text: "ทางไปป่าไทรศักดิ์สิทธิ์", kind: "gate" },
+      { x: TREE_WAY[0] - 250, y: TREE_WAY[1], text: "ทางไปป่าต้นไม้แรก", kind: "gate" },
       { x: MAUSOLEUM[0], y: MAUSOLEUM[1] - 1100, text: "มหาสุสานหลวง" },
       { x: 1800, y: AV_Y, text: "ถนนทหารหินเฝ้าสุสาน" },
       { x: GATE[0] - 500, y: GATE[1] - 300, text: "ประตูสุสานผนึก" },

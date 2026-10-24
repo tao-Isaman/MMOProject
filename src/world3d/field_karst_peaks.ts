@@ -12,14 +12,16 @@
 // climb it to a red pavilion on its top, looking out over the river. On the east bank a broad
 // tower can be climbed by an earth ramp to a lookout among the peaks, and in the south-east a
 // low terrace with a pillar rising from it, its ramp on the side towards the road. The rest of the
-// towers stand sheer, with no way up.
+// towers stand sheer, with no way up. From the bridge's west end a path leaves the stairs' way and
+// runs north-west through the bamboo, between the pavilion's tower and the sheer ones by it, out
+// over the west edge to the primeval forest.
 //
 // Up towards the north edge, where the snowy downs begin, the snow lies in the grass in patches
 // that thicken northwards and pines stand among the broadleaf trees; along the east edge,
 // towards the frozen river, a little of it too.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
-//   ways out: south -> elder_forest, north -> highland_downs
+//   ways out: south -> elder_forest, north -> highland_downs, west -> primeval_forest
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
@@ -166,7 +168,7 @@ export function build(quality: { flowers: number }): Town {
   const BR2 = na.at;
 
   // ---- the road and the paths ----
-  const S_EXIT: XY = [-5150, -800], N_EXIT: XY = [5150, 1760];
+  const S_EXIT: XY = [-5150, -800], N_EXIT: XY = [5150, 1760], W_EXIT: XY = [700, 5150];
   const ROAD: XY[] = smooth([[-7600, -900], S_EXIT, [-3800, -650], [-2400, -300], [-900, -450], [400, -150], [1700, -600], [3200, -350], [4100, 600], [4700, 1300], N_EXIT, [7600, 1850]]);
   const BRIDGE_WAY: XY[] = [...smooth([[400, -150], [900, 900], [1300, 1700], BR.off(-850)]), ...smooth([BR.off(850), [1300, 3700], beyond(ST1.top, ST1.bottom, 400)])];
   const STAIRS: XY[] = [ST1.bottom, ST1.top, ...smooth([beyond(ST1.bottom, ST1.top, 300), [-950, 3550], [-2000, 3450], [-3000, 3600], [-3400, 4000], beyond(ST2.top, ST2.bottom, 250)]), ST2.bottom, ST2.top, beyond(ST2.bottom, ST2.top, 250)];
@@ -174,7 +176,8 @@ export function build(quality: { flowers: number }): Town {
   const TERRACE_WAY: XY[] = [...smooth([[-2400, -300], [-2650, -800], beyond(R4.top, R4.bottom, 400)]), R4.bottom, R4.top, ...smooth([beyond(R4.bottom, R4.top, 350), [-2650, -3000]])];
   const POND_WAY: XY[] = smooth([[-1800, -400], [-1700, -150], [-1600, 30]]);
   const LANDING_WAY: XY[] = smooth([[4400, 950], [4050, 1800], LANDING]);
-  const TRACKS = [ROAD, BRIDGE_WAY, STAIRS, LOOKOUT_WAY, TERRACE_WAY, POND_WAY, LANDING_WAY];
+  const WEST_WAY: XY[] = smooth([[1300, 3700], [1150, 4300], [850, 4850], W_EXIT, [650, 7600]]);
+  const TRACKS = [ROAD, BRIDGE_WAY, STAIRS, LOOKOUT_WAY, TERRACE_WAY, POND_WAY, LANDING_WAY, WEST_WAY];
   const roads = TRACKS.map((t, i) => band(t, i === 0 ? 460 : i === 2 ? 420 : 380));
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
@@ -209,6 +212,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- ways out ----
   f.exit("elder_forest", S_EXIT, [-4450, -750]);
   f.exit("highland_downs", N_EXIT, [4500, 1080]);
+  f.exit("primeval_forest", W_EXIT, [990, 4560]);
 
   // ---- placing things ----
   const taken: [number, number, number][] = [];
@@ -287,6 +291,8 @@ export function build(quality: { flowers: number }): Town {
   prop("osaki:stone_lantern", [-4900, -400], 0, 70, ring(35, "post"));
   prop("plains:signpost", [4900, 2150], 180, 80, ring(30, "post"));
   prop("osaki:stone_lantern", [5000, 1200], 0, 70, ring(35, "post"));
+  prop("plains:signpost", [1150, 4950], 90, 80, ring(30, "post"));
+  prop("osaki:stone_lantern", [450, 4700], 0, 70, ring(35, "post"));
 
   // ---- bamboo groves on both banks ----
   const bamboo = (c: XY, r: number, n: number) => {
@@ -372,6 +378,7 @@ export function build(quality: { flowers: number }): Town {
     labels: [
       { x: S_EXIT[0] + 200, y: S_EXIT[1], text: "ทางไปป่าโบราณ", kind: "gate" },
       { x: N_EXIT[0] - 200, y: N_EXIT[1], text: "ทางไปที่ราบเนินเขา", kind: "gate" },
+      { x: W_EXIT[0], y: W_EXIT[1] - 250, text: "ทางไปป่าดึกดำบรรพ์", kind: "gate" },
       { x: PAVILION[0] - 500, y: PAVILION[1], text: "ศาลาริมผา" },
       { x: -600, y: 2100, text: "แม่น้ำหยก" },
       { x: POND_C[0] + 300, y: POND_C[1] - 1050, text: "สระบัว", kind: "small" },
