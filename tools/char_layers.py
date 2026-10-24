@@ -20,6 +20,7 @@ Directions are rows in Oriverse order: 0 front, then clockwise seen from above (
 """
 import colorsys
 import json
+import os
 import sys
 import numpy as np
 from PIL import Image
@@ -253,8 +254,26 @@ def erase_head_loose(cell, tpl, off, reach=2, tol=48):
     return out
 
 
+CRUMB = 20  # px: a patch this small left above the neck is a bit of the head the erasing missed
+
+
+def drop_crumbs(cell, neck):
+    """Clear what is left of the head as loose bits above the neck: an ear drawn lighter than in
+    the standing frame, a hair tip, a few outline pixels. A patch apart from the rest of the
+    figure, starting above or on the neck row and smaller than CRUMB, goes (a weapon or a slash up
+    there is bigger, or joined to the hand)."""
+    out = cell.copy()
+    for patch in patches(out[..., 3] > 0):
+        if len(patch) < CRUMB and min(y for _, y in patch) <= neck:
+            for x, y in patch:
+                out[y, x, 3] = 0
+    return out
+
+
 def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "shoot", "cast")):
-    """raw_dir holds the untouched sheets NAME_<clip>.png; writes headless ones to public/assets/chars."""
+    """raw_dir holds the untouched sheets NAME_<clip>.png (a clip without one, such as a body with
+    no cast, is left out); writes headless ones to public/assets/chars."""
+    clips = [c for c in clips if os.path.exists(f"{raw_dir}/{name}_{c}.png")]
     idle = cells(f"{raw_dir}/{name}_idle.png")
     tpls = [head_template(idle[d][0], necks[d]) for d in range(8)]
     anchors = [head_anchor(idle[d][0], necks[d]) for d in range(8)]
@@ -266,7 +285,7 @@ def make_body(name, raw_dir, necks, clips=("idle", "walk", "swing", "thrust", "s
             row = []
             for f, cell in enumerate(grid[d]):
                 off = (0, 0) if clip == "idle" else track(tpls[d], cell)[0]
-                grid[d][f] = erase_head_loose(cell, tpls[d], off)
+                grid[d][f] = drop_crumbs(erase_head_loose(cell, tpls[d], off), necks[d] + off[1])
                 row.append(list(off))
             offsets[clip].append(row)
         save_cells(grid, f"public/assets/chars/{name}_{clip}.png")
