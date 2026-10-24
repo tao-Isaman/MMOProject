@@ -1,19 +1,28 @@
 // ที่ราบโบราณ (the ancient plain), monsters Lv 110-122: the ruins of a city older than the kingdom,
-// gone back to grass south-east of Venezia. The old road comes in from Venezia at the north end of
-// the west side, passes under a triumphal arch whose east end has fallen in, runs between
-// colonnades into the forum, and goes on out east to Bahamas; a second road leaves the forum south
-// for the royal necropolis. North-east of the forum a temple stands on its platform at the top of a
-// flight of marble stairs. In the south-east the colossus's hill rises in two steps: on the lower
-// one the colossus lies where it fell, its helmeted head apart from its body, and up a second stair
-// the upper one keeps its sanctuary, a court of colonnades round the pedestal where its feet still
-// stand. In the south-west the amphitheatre sits sunk in its bank of earth, its mouth to the road;
-// the broken arches of the old aqueduct cross the grass in the north-west; wild olives and stone
-// pines everywhere, and high ground all round past the edge.
+// gone back to grass on the shore of the bay south of Venezia. The old road comes down from the dry
+// plains through a gap in the ridge on the north side and past the temple's stairs into the forum;
+// it goes on out east to Bahamas, round the foot of the colossus's hill, and a second road leaves
+// the forum south for the royal necropolis. The city's harbour road leaves the forum north-west
+// under a triumphal arch whose east end has fallen in and runs down to the old quay, half sunk in
+// the bay, columns standing in the shallows. The whole west side is the bay's shore, a strip of
+// sand between the grass and the sea. North-east of the forum a temple stands on its platform at
+// the top of a flight of marble stairs. In the south-east the colossus's hill rises in two steps:
+// on the lower one the colossus lies where it fell, its helmeted head apart from its body, and up
+// a second stair the upper one keeps its sanctuary, a court of colonnades round the pedestal where
+// its feet still stand. In the south-west the amphitheatre sits sunk in its bank of earth, its mouth
+// to the road, its back to the sea; the broken arches of the old aqueduct cross the grass in the
+// north-west, the last of them out in the water; wild olives and stone pines everywhere. The
+// grass dries towards the north edge, into the dry plains' steppe, and gives way to sand towards
+// the east, the desert round Bahamas; high ground past the north and south edges, open sand past
+// the east.
 //
 // Full size in the field's own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finish.
-//   ways out: west (north end) -> venezia, east -> bahamas, south -> royal_necropolis
+//   ways out: north -> dry_plains, east (south of the middle) -> bahamas, south -> royal_necropolis
 
+import * as THREE from "three";
 import { FieldBuilder } from "./field";
+import { buildPaved } from "./paved";
+import type { Poly } from "./paved";
 import { useKits, colourways } from "./town";
 import type { Town } from "./town";
 import type { SolidSpec } from "../world";
@@ -32,22 +41,34 @@ const A = 9000; // the ground
 const RAD = Math.PI / 180;
 
 // ---- the levels (as drawn; the plateaus get bevelled corners) ----
-// T1: the temple's platform (north-east); C1: the colossus's hill (south-east), C2 its upper step;
-// high ground all round past the edge, with gaps for the three roads
+// T1: the temple's platform (north-east); C1: the colossus's hill (south-east), its north-east
+// corner drawn back for the Bahamas road, C2 its upper step; high ground past the north edge (a gap
+// for the road) and the south edge, a headland in the south-west corner
 const T1: XY[] = [[2700, -1500], [4700, -1300], [5050, -2600], [4700, -3900], [3100, -4000], [2450, -2800]];
-const C1: XY[] = [[-600, -1500], [-550, -3300], [-650, -4900], [-1400, -5300], [-3200, -5250], [-4700, -4900], [-5000, -3500], [-4700, -1900], [-3200, -1300], [-1800, -1200]];
+const C1: XY[] = [[-600, -1500], [-550, -3300], [-700, -4300], [-1600, -4550], [-2600, -4700], [-3200, -5250], [-4700, -4900], [-5000, -3500], [-4700, -1900], [-3200, -1300], [-1800, -1200]];
 const C2: XY[] = [[-2600, -2300], [-2600, -4100], [-3400, -4400], [-4200, -3900], [-4300, -2800], [-3600, -2000]];
-const RIM_N: XY[] = [[5900, -A], [6100, -3000], [5800, 1500], [5900, 4800], [4700, 6000], [4900, A], [A, A], [A, -A]];
-const RIM_E: XY[] = [[1200, -6100], [3500, -5800], [5500, -6000], [5600, -A], [1100, -A]];
-const RIM_SE: XY[] = [[-6000, -1400], [-5800, -3800], [-5900, -5900], [-3500, -5900], [-700, -6100], [-600, -A], [-A, -A], [-A, -1300]];
-const RIM_SW: XY[] = [[-5900, 1000], [-6200, 4000], [-5900, 5900], [-1500, 6200], [1000, 5900], [2900, 6100], [3000, A], [-A, A], [-A, 900]];
+const RIM_NE: XY[] = [[5900, -A], [6100, -3000], [5850, -1100], [6400, -700], [A, -700], [A, -A]];
+const RIM_NW: XY[] = [[A, 700], [6400, 700], [5850, 1100], [5800, 1500], [5900, 3800], [6300, 4900], [A, 5300]];
+const RIM_SE: XY[] = [[-6000, -1400], [-5800, -3800], [-6000, -5800], [-6300, -A], [-A, -A], [-A, -1300]];
+const RIM_SW: XY[] = [[-5900, 1000], [-6200, 4000], [-5900, 5200], [-6500, 6300], [-A, 6600], [-A, 900]];
 // the temple's stairs (a straight ramp of 9 m rising 3 m), the colossus hill's ramp and its stairs
 const T1_STAIRS = rampOff(T1, 0, 0.5, 900, 440, true);
 const C1_RAMP = rampOff(C1, 0, 0.5, 1000, 460);
 const C2_STAIRS = rampOff(C2, 0, 0.5, 900, 440, true);
 
+// ---- the sea: the shore of the bay from past the north-west corner (the old quay jutting out
+// under the harbour road) round the amphitheatre's back to the headland past the south-west
+// corner; the sea west of it ----
+const SHORE: XY[] = [
+  [A + 400, 5700], [6300, 5600], [5500, 5300], [5000, 4900], [4600, 4700], [4580, 5050], [3820, 5050], [3800, 4650], [3200, 4550],
+  [2500, 4500], [1700, 4600], [1100, 4550], [500, 4450], [0, 4500], [-500, 4700], [-1000, 5150], [-1600, 5300], [-2300, 5350],
+  [-3000, 5380], [-3700, 5320], [-4300, 5200], [-4700, 4900], [-5200, 4850], [-5700, 5150], [-6300, 6300], [-7000, 6700], [-A - 400, 6900],
+];
+const SEA: Poly = [...SHORE, [-A - 400, A + 400], [A + 400, A + 400]];
+const QUAY: Poly = [[4580, 4350], [4580, 5050], [3820, 5050], [3820, 4350]];
+
 // ---- the places ----
-const VEN: XY = [3900, 5150], BAH: XY = [300, -5150], NEC: XY = [-5150, -200];
+const NORTH: XY = [5150, 0], BAH: XY = [-1760, -5150], NEC: XY = [-5150, -200];
 const ARCH: XY = [2850, 2800], AD: XY = [-0.586, -0.81]; // the triumphal arch, and the road's way through it
 const AMP: XY = [-2700, 3300];                             // the amphitheatre (its mouth to -Y)
 const FORUM: XY[] = [[2100, -500], [2100, 1300], [500, 1300], [500, -500]];
@@ -56,8 +77,9 @@ const TEMPLE: XY = [3791, -2315];
 const PEDESTAL: XY = [-3400, -3200];
 
 export function build(quality: { flowers: number }): Town {
-  // the amphitheatre's bank: a ring of rises round it, open to the road
-  const bank = [-30, 10, 50, 90, 130, 170, 210].map((d) => ({ x: AMP[0] + Math.cos(d * RAD) * 1750, y: AMP[1] + Math.sin(d * RAD) * 1750, r: 820, h: 240 }));
+  // the amphitheatre's bank: a ring of rises round it, open to the road, low and close behind it
+  // where its back is to the sea (the ground comes down to the shore level)
+  const bank = ([[-30, 1750, 820], [10, 1750, 820], [50, 1650, 700], [130, 1650, 700], [170, 1750, 820], [210, 1750, 820]] as const).map(([d, at, r]) => ({ x: AMP[0] + Math.cos(d * RAD) * at, y: AMP[1] + Math.sin(d * RAD) * at, r, h: 240 }));
   const f = new FieldBuilder(308, {
     hills: [
       ...bank,
@@ -69,7 +91,7 @@ export function build(quality: { flowers: number }): Town {
       { poly: bevel(T1), h: 300, ramps: [T1_STAIRS] },
       { poly: bevel(C1), h: 260, ramps: [C1_RAMP] },
       { poly: bevel(C2), h: 560, ramps: [C2_STAIRS] },
-      { poly: bevel(RIM_N), h: 620 }, { poly: bevel(RIM_E), h: 540 }, { poly: bevel(RIM_SE), h: 520 }, { poly: bevel(RIM_SW), h: 480 },
+      { poly: bevel(RIM_NE), h: 620 }, { poly: bevel(RIM_NW), h: 620 }, { poly: bevel(RIM_SE), h: 520 }, { poly: bevel(RIM_SW), h: 480 },
     ],
     rock: "Ruins_CliffPale",
   });
@@ -77,20 +99,63 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- the roads: the old paving, cracked and grassed over ----
   const A1: XY = [ARCH[0] - AD[0] * 950, ARCH[1] - AD[1] * 950], A2: XY = [ARCH[0] + AD[0] * 950, ARCH[1] + AD[1] * 950];
-  const VIA_W: XY[] = [...smooth([[4100, 7300], VEN, [3780, 4350], A1]), ARCH, ...smooth([A2, [2150, 1450], [1900, 1000]])];
-  const VIA_E: XY[] = smooth([[1350, -300], [1300, -700], [1050, -1500], [750, -2400], [550, -3300], [400, -4300], BAH, [250, -7300]]);
+  const VIA_W: XY[] = [...smooth([[4200, 4600], [3950, 4150], A1]), ARCH, ...smooth([A2, [2150, 1450], [1900, 1000]])];
+  const VIA_N: XY[] = smooth([[2700, -100], [3350, -40], [4300, -10], NORTH, [7300, 0]]);
+  const VIA_E: XY[] = smooth([[1350, -300], [1300, -700], [1050, -1500], [750, -2400], [550, -3300], [350, -4100], [-200, -4650], [-1000, -5000], BAH, [-1850, -6600], [-1900, -A]]);
   const SOUTH: XY[] = smooth([[700, 600], [400, 650], [-400, 700], [-1500, 450], [-2700, 350], [-3700, 100], [-4450, -150], NEC, [-7300, -250]]);
   const T1_WAY: XY[] = smooth([[2000, -350], [2700, -100], [3350, -40], [3580, -220], [T1_STAIRS.bottom[0] - 4, T1_STAIRS.bottom[1] + 60]]);
   const C1_WAY: XY[] = [[760, -2385], C1_RAMP.bottom, C1_RAMP.top, ...smooth([[-800, -2440], [-1200, -2800], [-1500, -3120], [C2_STAIRS.bottom[0] + 50, C2_STAIRS.bottom[1]]])];
   const C2_WAY: XY[] = [[C2_STAIRS.top[0] - 40, C2_STAIRS.top[1]], [-2990, -3200]];
   const AMP_WAY: XY[] = smooth([[-2700, 380], [-2760, 1300], [-2720, 2000], [-2700, 2400]]);
   const AQ_WAY: XY[] = smooth([[3250, 3350], [2700, 3650], [2000, 3700], [1600, 3700]]);
-  const roads = [band(VIA_W, 500), band(VIA_E, 500), band(SOUTH, 460), band(T1_WAY, 400), band(C1_WAY, 400), band(AMP_WAY, 400), band(AQ_WAY, 340), band(C2_WAY, 380)];
-  const ground = f.ground({ area: AREA, cell: 60, roads, plazas: [FORUM, COURT], base: "grass", track: false, road: [0.95, 0.9, 0.8], plaza: [0.9, 0.88, 0.8] });
+  const roads = [band(VIA_W, 500), band(VIA_N, 500), band(VIA_E, 500), band(SOUTH, 460), band(T1_WAY, 400), band(C1_WAY, 400), band(AMP_WAY, 400), band(AQ_WAY, 340), band(C2_WAY, 380)];
+  const ground = f.ground({ area: AREA, cell: 60, roads, plazas: [FORUM, COURT, QUAY], water: [SEA], base: "grass", track: false, road: [0.95, 0.9, 0.8], plaza: [0.9, 0.88, 0.8] });
+
+  // ---- the edges: the grass drying towards the dry plains on the north and going over to the
+  // desert's sand towards Bahamas on the east (a factor on the ground's colour, point by point,
+  // full at the edge and past it; not on the paving), sand laid over the east band and along the
+  // shore ----
+  const band01 = (v: number, from: number, to: number) => {
+    const t = Math.min(1, Math.max(0, (v - from) / (to - from)));
+    return t * t * (3 - 2 * t);
+  };
+  const toDry = (x: number) => band01(x, 3300, 5500), toSand = (y: number) => band01(y, -3300, -5500);
+  {
+    const geo = ground.mesh.geometry, pos = geo.getAttribute("position"), col = new Float32Array(pos.count * 3);
+    const DRY = [2.1, 1.0, 2.0], SAND = [2.4, 1.2, 3.2];
+    for (let i = 0; i < pos.count; i++) {
+      const x = ground.mesh.position.x + pos.getX(i), y = -(ground.mesh.position.z + pos.getZ(i)), paved = ground.kind(x, y) === 1 || ground.kind(x, y) === 2;
+      const n = paved ? 0 : toDry(x), e = paved ? 0 : toSand(y);
+      col.set([0, 1, 2].map((c) => (1 + (DRY[c] - 1) * n) * (1 - e) + SAND[c] * e), i * 3);
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    (ground.mesh.material as THREE.MeshStandardMaterial).vertexColors = true;
+  }
+  // another ground laid a little over this one, shown all over `area` but where `cut` cuts it away
+  // (it follows the cliffs the same way, on the same grid)
+  const over = (area: { x0: number; x1: number; y0: number; y1: number }, base: string, cut: Poly[], lift: number, tint?: string) => {
+    const g = buildPaved({
+      area, roads: [], plazas: [], water: cut, base, cell: 60, ...(tint ? { tint } : {}),
+      height: (x, y) => f.h(x, y) + lift,
+      place: (x, y, cell) => {
+        const [px, py, h, k] = f.terrain.place(x, y, cell);
+        return [px, py, h + lift, k];
+      },
+    });
+    g.mesh.renderOrder = 1;
+    return g;
+  };
+  // the sand's ragged inner edge across the east band, and the beach's along the shore
+  const SAND_IN: XY[] = [];
+  for (let x = -A; x <= A; x += 150) SAND_IN.push([x, -4550 + 380 * Math.sin(x / 640 + 1.1) + 230 * Math.sin(x / 270 + 0.3) + 110 * Math.sin(x / 95)]);
+  const sand = over({ x0: -A, x1: A, y0: -A, y1: -2400 }, "sand", [[...SAND_IN, [A, -2400], [-A, -2400]], ...roads], 4);
+  const BEACH_IN: XY[] = SHORE.map(([x, y], i) => [x, y - 380 - 160 * Math.sin(i * 1.7)]);
+  const onBeach = (x: number, y: number) => !inPoly(SEA, x, y) && inPoly([...SHORE, ...[...BEACH_IN].reverse()], x, y) && !inPoly(QUAY, x, y);
+  const beach = over({ x0: -A, x1: A, y0: 3000, y1: A }, "sand", [SEA, QUAY, [...BEACH_IN, [-A - 400, 3000], [A + 400, 3000]], ...roads], 3);
 
   // ---- the ways out ----
-  f.exit("venezia", VEN, [3800, 4400]);
-  f.exit("bahamas", BAH, [380, -4450]);
+  f.exit("dry_plains", NORTH, [4450, 0]);
+  f.exit("bahamas", BAH, [-1050, -4850]);
   f.exit("royal_necropolis", NEC, [-4450, -150]);
 
   // ---- placing: every thing remembered (x, y, r) so the trees keep clear ----
@@ -115,10 +180,32 @@ export function build(quality: { flowers: number }): Town {
   };
   const travertine = { colours: "ap_travertine" };
 
-  // ---- the Venezia way: broken columns either side of the road, a signpost ----
-  put("desert:ruin_column", [4100, 4700], 20, { ...travertine, r: 120 });
-  put("desert:ruin_column", [3450, 4800], 140, { ...travertine, r: 120 });
-  put("desert:signpost", [3350, 4250], towards(1, -0.3), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  // ---- the sea: the water under the cut-away ground, the shore closed all along, rocks along the
+  // beach, stacks out in the bay ----
+  const SHORE_IN = SHORE.filter(([x, y]) => Math.abs(x) < R + 600 && Math.abs(y) < R + 900);
+  f.blockBand(SHORE_IN.map(([x, y], i) => {
+    // (pushed out to sea, square to the shore there)
+    const a = SHORE_IN[Math.max(0, i - 1)], b = SHORE_IN[Math.min(SHORE_IN.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
+    if (!inPoly(SEA, x + nx * 150, y + ny * 150)) [nx, ny] = [-nx, -ny];
+    return [x + nx * 260, y + ny * 260] as XY;
+  }), 520, { kind: "sea" });
+  const sea = f.waterSheet({ x0: -A - 2500, x1: A + 2500, y0: 3800, y1: A + 2500 }, -14, "WaterSea");
+  for (const [ref, at, h, sc] of [
+    ["steppe:boulder_flat", [5200, 4750], 30, 0.8], ["steppe:rock_cluster", [2900, 4300], 120, 0.7], ["steppe:boulder", [-300, 4300], 200, 0.7],
+    ["steppe:boulder_flat", [-2200, 5000], 60, 0.9], ["steppe:rock_cluster", [-4500, 4800], 10, 0.8], ["steppe:boulder_flat", [-5300, 4500], 150, 0.7],
+  ] as [string, XY, number, number][]) put(ref, at, h, { s: sc, r: 200 });
+  for (const [at, h, sc] of [[[2200, 6300], 40, 0.8], [[-3300, 6250], 160, 1], [[-800, 5900], 250, 0.55]] as [XY, number, number][]) put("steppe:sea_stack", at, h, { s: sc, solid: "none", r: 400 });
+
+  // ---- the old harbour: the harbour road's quay, a broken arch on it, columns of the colonnade
+  // that lined it standing out in the shallows, one fallen in the water ----
+  put("broken_arch", [4200, 4500], 90, { solid: [box(170, 150, 0, -275), box(170, 150, 0, 275)], r: 380 });
+  put("desert:ruin_column", [4450, 4950], 20, { ...travertine, r: 120 });
+  put("desert:ruin_column", [3950, 4950], 140, { ...travertine, r: 120 });
+  put("desert:column_fallen", [4250, 4800], 10, { ...travertine, solid: [box(140, 600, 0, 0, "ruin")], r: 150 });
+  for (const [at, h] of [[[4450, 5550], 60], [[3950, 5600], 200], [[3450, 4900], 140], [[4950, 5250], 300]] as [XY, number][])
+    f.put("desert:ruin_column", at, h, { colours: "ap_travertine", z: -40, solid: "none" });
+  f.put("desert:column_fallen", [4200, 5900], 70, { colours: "ap_travertine", z: -50, solid: "none" });
 
   // ---- the triumphal arch over the road, colonnades from it to the forum ----
   put("triumphal_arch", ARCH, alongDir(AD[0], AD[1]), { solid: [box(600, 260, 0, -390), box(600, 260, 0, 390), box(600, 140, 0, -770), box(700, 520, 0, 780)], r: 1050 });
@@ -153,8 +240,9 @@ export function build(quality: { flowers: number }): Town {
   for (const at of [[4500, -1700], [3000, -1900], [4300, -3300], [3300, -3700]] as XY[]) if (f.level(at[0], at[1], 300)) olive(at, 0.8);
 
   // ---- the colossus's hill: the body and head on the lower step, the court and pedestal above ----
-  put("colossus_body", [-1950, -4550], 25, { r: 650 });
-  put("colossus_head", [-1450, -3850], -40, { r: 330 });
+  // (the body moved back off the corner drawn back for the Bahamas road, the head beyond its neck)
+  put("colossus_body", [-2000, -3900], 0, { r: 650 });
+  put("colossus_head", [-1000, -3700], -40, { r: 330 });
   const c1d: XY = [C2_STAIRS.top[0] - C2_STAIRS.bottom[0], C2_STAIRS.top[1] - C2_STAIRS.bottom[1]];
   put("temple_stairs", [(C2_STAIRS.top[0] + C2_STAIRS.bottom[0]) / 2, (C2_STAIRS.top[1] + C2_STAIRS.bottom[1]) / 2], alongDir(c1d[0], c1d[1]), { solid: "none", r: 480 });
   put("broken_arch", [-2830, -3200], 0, { solid: [box(170, 150, 0, -275), box(170, 150, 0, 275)], r: 380 });
@@ -164,7 +252,7 @@ export function build(quality: { flowers: number }): Town {
   row([-3920, -2800], [-3920, -3600], [1, 0]);
   for (const at of [[-1300, -1800], [-3300, -1700], [-2300, -5000], [-4300, -4400], [-4000, -2300], [-3600, -4100]] as XY[]) if (f.level(at[0], at[1], 300)) olive(at, 0.85);
   put("desert:ruin_wall", [-1100, -2000], 70, { ...travertine, solid: [box(110, 600, 0, 0, "wall")], r: 330 });
-  put("desert:ruin_column", [-900, -4300], 0, { ...travertine, r: 120 });
+  put("desert:ruin_column", [-700, -5250], 0, { ...travertine, r: 120 });
 
   // ---- the amphitheatre in its bank: the tiers solid in wedges, the arena open ----
   const amph: SolidSpec[] = [];
@@ -179,12 +267,15 @@ export function build(quality: { flowers: number }): Town {
   // ---- the aqueduct: its broken arches in a line across the grass ----
   put("broken_arch", [1500, 3150], 0, { solid: [box(170, 150, 0, -275), box(170, 150, 0, 275)], r: 380 });
   put("broken_arch", [1500, 3830], 180, { solid: [box(170, 150, 0, -275), box(170, 150, 0, 275)], r: 380 });
-  put("broken_arch", [1450, 5000], 0, { solid: [box(170, 150, 0, -275), box(170, 150, 0, 275)], r: 380 });
+  // (the last one out in the water)
+  put("broken_arch", [1450, 5000], 0, { solid: "none", r: 380 });
   put("desert:ruin_wall", [1480, 4420], 0, { ...travertine, solid: [box(110, 600, 0, 0, "wall")], r: 330 });
 
   // ---- the Bahamas and necropolis ways: columns and signposts ----
-  for (const at of [[0, -4700], [700, -4800]] as XY[]) put("desert:ruin_column", at, at[0], { ...travertine, r: 120 });
-  put("desert:signpost", [-50, -4300], towards(0.2, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  put("desert:ruin_column", [-2500, -5300], 0, { ...travertine, r: 120 });
+  put("desert:signpost", [-200, -4300], towards(-0.6, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
+  for (const at of [[4900, 480], [4900, -480]] as XY[]) put("desert:ruin_column", at, at[1], { ...travertine, r: 120 });
+  put("desert:signpost", [4250, 500], towards(1, 0), { solid: [disc(20, 0, 0, "post")], r: 90 });
   for (const at of [[-4800, 250], [-4700, -650]] as XY[]) put("desert:ruin_column", at, at[1], { ...travertine, r: 120 });
   put("desert:signpost", [-4200, 300], towards(-1, 0), { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("desert:signpost", [2250, -150], towards(0.4, -1), { solid: [disc(20, 0, 0, "post")], r: 90 });
@@ -202,23 +293,24 @@ export function build(quality: { flowers: number }): Town {
   };
   const HOUSES: [XY, number][] = [
     [[1000, 2250], 15], [[550, 2950], 100], [[2050, 2450], 70], [[-300, 1600], 40], [[-1300, 1350], 120], [[-1500, -650], 10], [[-2700, -550], 80],
-    [[4300, 1300], 30], [[4500, 3600], 60], [[-3700, -900], 160], [[200, 4500], 20], [[-2300, 1250], 200], [[3400, 1300], 120], [[-800, -200], 70],
+    [[4300, 1300], 30], [[4500, 3600], 60], [[-3700, -900], 160], [[400, 3900], 20], [[-2300, 1250], 200], [[3400, 1300], 120], [[-800, -200], 70],
   ];
   HOUSES.forEach(([c, h], k) => house(c, h, k));
   // a colonnade along the south road where it leaves the forum
   row([300, 1220], [-500, 1220], [0, -1]);
 
   // ---- old walls, rocks and rubble over the grass ----
-  const WALLS: [XY, number][] = [[[3300, 1800], 20], [[4200, -600], 80], [[-700, 3600], 30], [[-1800, 1300], 100], [[-4300, 1700], 60], [[2600, 4400], 120], [[-500, -900], 40], [[4800, 3300], 10]];
+  const WALLS: [XY, number][] = [[[3300, 1800], 20], [[4200, -900], 80], [[-700, 3600], 30], [[-1800, 1300], 100], [[-4300, 1700], 60], [[2600, 3900], 120], [[-500, -900], 40], [[4800, 3300], 10]];
   for (const [at, h] of WALLS) if (open(at[0], at[1], 340) && f.level(at[0], at[1], 320) && free(at[0], at[1], 300)) put("desert:ruin_wall", at, h, { ...travertine, solid: [box(110, 600, 0, 0, "wall")], r: 330 });
   const ROCKS: [string, XY][] = [
-    ["steppe:boulder", [4900, -500]], ["steppe:rock_cluster", [3900, 1200]], ["steppe:boulder_flat", [-600, 4800]], ["steppe:rock_cluster", [-4800, 2900]],
-    ["steppe:boulder", [-3800, 5000]], ["steppe:boulder_flat", [2200, -4600]], ["steppe:rock_cluster", [4600, 4300]], ["steppe:boulder", [-5000, -1000]],
-    ["steppe:boulder_flat", [1800, -3500]], ["steppe:rock_cluster", [-200, -4600]], ["steppe:boulder", [2500, 5100]], ["steppe:boulder_flat", [-1600, 5000]],
+    ["steppe:boulder", [4900, -900]], ["steppe:rock_cluster", [3900, 1200]], ["steppe:boulder_flat", [-600, 4100]], ["steppe:rock_cluster", [-4800, 2900]],
+    ["steppe:boulder", [-3800, 4700]], ["steppe:boulder_flat", [2200, -4600]], ["steppe:rock_cluster", [5000, 4200]], ["steppe:boulder", [-5000, -1000]],
+    ["steppe:boulder_flat", [1800, -3500]], ["steppe:rock_cluster", [500, -5000]], ["steppe:boulder", [2500, 4000]], ["steppe:boulder_flat", [-1600, 4800]],
   ];
   for (const [ref, at] of ROCKS) if (open(at[0], at[1], 200) && f.level(at[0], at[1], 200) && free(at[0], at[1], 200)) put(ref, at, at[0] % 360, { r: 220 });
 
-  // ---- trees: olives and stone pines over the plain, thicker toward the edges; feather grass ----
+  // ---- trees: olives and stone pines over the plain, thicker toward the edges (thinner and drier
+  // over the sand on the east, none on the beach); feather grass, dry grass towards the edges ----
   const keepOut = (x: number, y: number) =>
     Math.hypot(x - AMP[0], y - AMP[1]) < 1500 || inPoly(FORUM, x, y) || Math.hypot(x - ARCH[0], y - ARCH[1]) < 1200 || Math.hypot(x - TEMPLE[0], y - TEMPLE[1]) < 1000 ||
     Math.hypot(x - PEDESTAL[0], y - PEDESTAL[1]) < 900 || f.warps.some((w) => Math.hypot(w.x - x, w.y - y) < 700) || distTo([C1_RAMP.top, C1_RAMP.bottom], x, y) < 450 ||
@@ -228,25 +320,32 @@ export function build(quality: { flowers: number }): Town {
     for (let y = -R + 200; y < R; y += 420) {
       const px = x + (rnd() - 0.5) * 320, py = y + (rnd() - 0.5) * 320;
       const edge = Math.min(R - Math.abs(px), R - Math.abs(py));
-      const want = edge < 800 ? 0.55 : edge < 1500 ? 0.3 : 0.13;
-      if (rnd() > want || !open(px, py, 300) || !f.level(px, py, 200) || !free(px, py, 260) || keepOut(px, py)) continue;
+      const e = toSand(py), want = (edge < 800 ? 0.55 : edge < 1500 ? 0.3 : 0.13) * (1 - 0.55 * e);
+      if (rnd() > want || !open(px, py, 300) || !f.level(px, py, 200) || !free(px, py, 260) || keepOut(px, py) || onBeach(px, py)) continue;
       const k = rnd();
-      if (k < 0.5) olive([px, py], 0.75 + rnd() * 0.35);
+      if (rnd() < e * 0.8 || rnd() < toDry(px) * 0.3) put(k < 0.4 ? "desert:acacia" : "desert:dry_bush", [px, py], rnd() * 360, { s: 0.75 + rnd() * 0.35, solid: k < 0.4 ? [disc(34)] : "auto", r: 220 });
+      else if (k < 0.5) olive([px, py], 0.75 + rnd() * 0.35);
       else put(k < 0.75 ? "flora:Pine" : k < 0.9 ? "flora:RoundTree" : "flora:Bush", [px, py], rnd() * 360, { s: 0.75 + rnd() * 0.35, r: 220 });
     }
   for (let x = -R + 150; x < R; x += 260)
     for (let y = -R + 150; y < R; y += 260) {
       const px = x + (rnd() - 0.5) * 220, py = y + (rnd() - 0.5) * 220;
-      if (rnd() > 0.18 || !open(px, py, 120) || !f.level(px, py, 80) || !free(px, py, 70) || inPoly(FORUM, px, py) || Math.hypot(px - AMP[0], py - AMP[1]) < 1450) continue;
-      put("steppe:grass_tuft", [px, py], rnd() * 360, { s: 0.8 + rnd() * 0.4, solid: "none", r: 60 });
+      if (rnd() > 0.18 || !open(px, py, 120) || !f.level(px, py, 80) || !free(px, py, 70) || inPoly(FORUM, px, py) || Math.hypot(px - AMP[0], py - AMP[1]) < 1450 || onBeach(px, py)) continue;
+      const dry = rnd() < Math.max(toSand(py), toDry(px) * 0.7);
+      put(dry ? (rnd() < 0.5 ? "desert:grass_tuft" : "desert:grass_patch") : "steppe:grass_tuft", [px, py], rnd() * 360, { s: 0.8 + rnd() * 0.4, solid: "none", r: 60 });
     }
-  // past the edge: olives and pines all round, on the high ground too
-  const rimOut = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) === 1 || distTo(VIA_W, x, y) < 450 || distTo(VIA_E, x, y) < 450 || distTo(SOUTH, x, y) < 450;
-  f.woods(AREA, ["Pine", "Pine", "RoundTree", "PineSmall", "Bush", "BigOak"], rimOut, { count: 420, spacing: 420, tries: 9000 });
-  f.woods(AREA, ["olive_tree"], rimOut, { count: 160, spacing: 520, tries: 5000, kit: "ruins" });
+  // past the edge: olives and pines on the high ground north and south, the desert's scrub on the
+  // open sand east, nothing on the sea
+  const rimOut = (x: number, y: number) =>
+    (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) === 1 || ground.kind(x, y) === 3 || onBeach(x, y) || [VIA_W, VIA_N, VIA_E, SOUTH].some((r) => distTo(r, x, y) < 450);
+  const GREEN_RIM = { x0: -A, x1: A, y0: -5700, y1: A };
+  f.woods(GREEN_RIM, ["Pine", "Pine", "RoundTree", "PineSmall", "Bush", "BigOak"], rimOut, { count: 300, spacing: 420, tries: 9000 });
+  f.woods(GREEN_RIM, ["olive_tree"], rimOut, { count: 120, spacing: 520, tries: 5000, kit: "ruins" });
+  f.woods({ x0: -A, x1: A, y0: -A, y1: -5700 }, ["dry_bush", "dry_bush", "grass_patch", "grass_tuft", "acacia", "boulder_flat", "rock_cluster"], rimOut, { count: 110, spacing: 500, tries: 4000, kit: "desert" });
+  f.woods({ x0: 5700, x1: A, y0: -A, y1: 5000 }, ["dry_bush", "grass_tuft", "grass_patch"], rimOut, { count: 40, spacing: 480, tries: 1500, kit: "desert" });
 
   // ---- monsters: the grass between the ruins, the platform, the hill, the arena ----
-  const SCHOLAR: XY = [1800, 900], WATCH: XY = [3500, 4500];
+  const SCHOLAR: XY = [1800, 900], WATCH: XY = [4600, 700];
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 840, keepOut: (x, y) => Math.hypot(x - SCHOLAR[0], y - SCHOLAR[1]) < 900 || Math.hypot(x - WATCH[0], y - WATCH[1]) < 700 });
 
   const npcs: NpcSpec[] = [
@@ -260,10 +359,11 @@ export function build(quality: { flowers: number }): Town {
       ],
     },
     {
-      id: "ap_watch", x: WATCH[0], y: WATCH[1], face: -60, name: "เซร์คีโอ", title: "ทหารยามเวนิชเซีย", role: "talk",
+      id: "ap_watch", x: WATCH[0], y: WATCH[1], face: -90, name: "เซร์คีโอ", title: "ทหารยามเวนิชเซีย", role: "talk",
       look: { gender: "male", hair: "", hairColor: "auburn", eyes: "amber", top: "top_warrior_navy", bottom: "bottom_warrior_black" },
       lines: [
-        "เลยจากนี้ไปเป็นที่ราบโบราณ ตามถนนเก่าลอดประตูชัยไปจะถึงลานกลางเมือง",
+        "เลยจากนี้ไปเป็นที่ราบโบราณ ตามถนนเก่าผ่านบันไดวิหารลงไปจะถึงลานกลางเมือง ทางเหนือกลับขึ้นไปที่ราบแห้งแล้ง",
+        "ถนนที่ลอดประตูชัยทางตะวันตกพาลงไปท่าเรือโบราณ ทะเลกลืนท่าไปครึ่งหนึ่งแล้ว เหลือแต่เสาโผล่พ้นน้ำ",
         "ตกค่ำอย่าเข้าไปในโรงละครกลางแจ้ง ได้ยินเสียงปรบมือทั้งที่ไม่มีคนดู",
       ],
     },
@@ -271,13 +371,14 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
+    scenery: [sea, sand.mesh, beach.mesh],
     sky: "#9fb8c8",
-    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && Math.hypot(x - AMP[0], y - AMP[1]) > 700, density: 0.2 * quality.flowers },
+    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && Math.hypot(x - AMP[0], y - AMP[1]) > 700 && !onBeach(x, y) && y > -4200, density: 0.2 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: 3750, y: 4150 },
+    spawn: { x: 4400, y: 100 },
     npcs,
     labels: [
-      { x: VEN[0], y: VEN[1] - 250, text: "ทางไปเวนิชเซีย", kind: "gate" },
+      { x: NORTH[0] - 250, y: NORTH[1], text: "ทางไปที่ราบแห้งแล้ง", kind: "gate" },
       { x: BAH[0], y: BAH[1] + 250, text: "ทางไปบาฮามัส", kind: "gate" },
       { x: NEC[0] + 250, y: NEC[1], text: "ทางไปสุสานหลวงโบราณ", kind: "gate" },
       { x: ARCH[0] + 300, y: ARCH[1] - 300, text: "ประตูชัยพัง" },
@@ -288,6 +389,8 @@ export function build(quality: { flowers: number }): Town {
       { x: AMP[0], y: AMP[1] - 1100, text: "โรงละครกลางแจ้ง" },
       { x: 1500, y: 4000, text: "ซากท่อส่งน้ำโบราณ", kind: "small" },
       { x: 3500, y: 3900, text: "ถนนโบราณ", kind: "small" },
+      { x: 4200, y: 4800, text: "ท่าเรือโบราณ" },
+      { x: -1500, y: 4600, text: "ชายหาดอ่าวเวนิชเซีย", kind: "small" },
     ],
   });
 }
