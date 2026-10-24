@@ -1,8 +1,11 @@
 // The world map (M, then its tab): the world as a grid of squares, one for each map of the
 // game, each square that map's own picture from straight above, north up, laid side by side the
-// way their ways out meet, as Ragnarok draws its world. A map with two ways out on one side
-// (Noa's east wall, Venezia's) or one at a corner meets that neighbour at the corner. The squares
-// no map fills are the sea or land nobody has charted (GROUND).
+// way their ways out meet, as Ragnarok draws its world. Two maps that only touch at a corner (the
+// royal road and the snow foothills, round the castle; the plains south of Noa and Venezia) meet
+// there, their ways out at that corner. The squares no map fills are the sea or land nobody has
+// charted (GROUND), and every map's edges fit what lies next to them: a shore where the next
+// square is sea, the same country where it is land, linked ways out at the same place along their
+// shared edge (tools/world_fit.cjs checks it).
 //
 // The pictures are made ahead of time by tools/world_tiles.cjs (every map loaded in the game and
 // photographed from above, the square tileArea() gives) and kept in
