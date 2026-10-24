@@ -33,6 +33,7 @@ colourways({
   frontier_blight: BLIGHT,
   frontier_dark: DARK_ROCK,
   dm_blackrock: { Eastcoast_Granite: "Demonmarch_Blight", Eastcoast_GranitePink: "Demonmarch_Blight", Eastcoast_GraniteWet: "Demonmarch_BlightSoil", Eastcoast_Weed: "Demonmarch_BlightSoil", Eastcoast_Cushion: "Demonmarch_BlightEdge", Eastcoast_Thrift: "Demonmarch_Crystal", Eastcoast_ThriftDeep: "Demonmarch_Crystal" },
+  dm_hellfire: { Frontier_Flame: "Demonmarch_Hellfire", Frontier_Ember: "Demonmarch_HellCore" },
   // Kradia's racks and stores taken over by the demon army: black iron, dark timber, red cloth
   dm_army: { WoodWarm: "Demonmarch_DarkWood", WoodShade: "Demonmarch_DarkWood", WoodPale: "Demonmarch_DarkWood", IronLight: "Demonmarch_IronBlack", FabricWhite: "Demonmarch_ClothDark", FabricPurple: "Demonmarch_ClothRed", Kradia_Cloth: "Demonmarch_ClothRed", GoldTrim: "Demonmarch_Rust" },
 });
@@ -112,11 +113,11 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the ground: burnt grass in the west going black toward the camp, black under it and along
   // the army's road, dark sand on the shore ----
   const roads = [band(W_ROAD, 480), band(AVENUE, 520), band(N_ROAD, 480), band(TO_RIFT, 420)];
-  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [SEA], base: "steppe", road: [0.6, 0.48, 0.48] });
+  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [SEA], base: "steppe", road: [0.54, 0.42, 0.42] });
   const mix = (a: number[], b: number[], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   // (factors on the steppe's linear colour: burnt grass as the villages' east edge has it, the
   // camp's trodden black earth, dark sand)
-  const BURNT = [0.36, 0.32, 0.56], BLACK = [0.16, 0.12, 0.42], SAND = [0.42, 0.38, 1.3];
+  const BURNT = [0.37, 0.33, 0.9], BLACK = [0.16, 0.12, 0.6], SAND = [0.42, 0.38, 1.3];
   tintGround(ground, (x, y) => mix(mix(BURNT, BLACK, blackAt(x, y)), SAND, (1 - ease(250, 900, distTo(SHORE, x, y))) * 0.9), 0.35);
 
   // ---- the sea, the shore closed ----
@@ -176,13 +177,15 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the avenue: rows of tents, banners and braziers ----
   const TENTS: XY[] = [
     [1100, 900], [-750, 700], [1300, -300], [-850, -350], [1550, -1500], [2200, 300], [2250, -1900], [-1500, 500], [2300, 1400], [-1650, -400],
-    [-1800, -3000], [-900, -3300], [-2000, 1100], [1350, 1600], [2500, -900], [-300, -3500],
+    [1650, 1500], [-1950, 150], [2650, 700], [2700, -1450], [-300, -3450], [-1450, -3250],
   ];
   TENTS.forEach((t, i) => tryPlace("demonmarch:black_tent", t, faceTo(t, [300, t[1] < -1000 ? -1500 : t[1]]) + (i % 3) * 8, 300, { s: 0.85 + (i % 3) * 0.08, solid: TENT }));
   [[-260, 1500], [560, 1450], [-120, 350], [720, 300], [0, -650], [800, -700], [180, -1700], [960, -1650]].forEach(([x, y], i) =>
     tryPlace(i % 4 < 2 ? "demonmarch:demon_banner" : "demonmarch:hell_brazier", [x, y], faceDir(1, 0), 110, { solid: i % 4 < 2 ? BANNER : BRAZIER }));
   for (const [at, h] of [[[1950, 700], 20], [[-500, -1100], 80], [[2600, -800], 40], [[-1300, 1300], 140]] as [XY, number][]) tryPlace("kradia:weapon_rack", at, h, 130, { colours: "dm_army" });
   for (const [at, h] of [[[2000, -400], 10], [[-1100, -1000], 60], [[1900, 1700], 30]] as [XY, number][]) tryPlace("kradia:supplies", at, h, 150, { colours: "dm_army" });
+  // the soldiers' fires between the tents, burning red
+  for (const at of [[-1200, 0], [1800, 600], [1900, -900], [-1500, -2900]] as XY[]) tryPlace("frontier:campfire", at, rnd() * 360, 160, { colours: "dm_hellfire", solid: ring(95, "fire") });
   for (const at of [[2100, -700], [2150, -1000], [-1150, -1250], [1700, 2000]] as XY[]) tryPlace("common:crate", at, rnd() * 90, 70, { colours: "dm_army" });
 
   // ---- the war-drum yard: the drum, the general's tent, the prisoners' cages ----

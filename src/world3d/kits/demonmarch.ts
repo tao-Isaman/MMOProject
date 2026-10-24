@@ -65,7 +65,7 @@ defineMaterial("Demonmarch_CharBark", { map: "bark", tint: "#2c2522", bump: 3 })
 defineMaterial("Demonmarch_Ember", { tint: "#ff8a3a", rough: 1, glow: "#ff4a12", glowI: 1.8 });
 defineMaterial("Demonmarch_EmberDim", { tint: "#a8401a", rough: 1, glow: "#c0300a", glowI: 1.1 });
 defineMaterial("Demonmarch_Soot", { map: "felt", tint: "#2e2a28", rough: 1 });
-defineMaterial("Demonmarch_Ash", { map: "felt", tint: "#7c7770", rough: 1 });
+defineMaterial("Demonmarch_Ash", { map: "felt", tint: "#625d58", rough: 1 });
 defineMaterial("Demonmarch_FieldStone", { map: "stone", tint: "#b8af9f", bump: 2 });
 defineMaterial("Demonmarch_FieldStoneDark", { map: "stone", tint: "#80786e", bump: 2 });
 defineMaterial("Demonmarch_ChapelStone", { map: "stone", tint: "#cdc4b2", bump: 2 });
@@ -1176,48 +1176,45 @@ export const KIT: Kit = {
   sample,
 };
 
-// A corner of the march: a burnt cottage with its well, fence and clawed wall and a field left to
-// die (south-west); the thorns creeping in from the east with a twisted tree, crystals and a
-// cage of thorn; the demon camp's fence and gate across the north with tents, a banner, braziers,
-// a prisoners' cage, the war drum, and the rift standing past them.
+// A corner of the march: a burnt cottage with its well, fence and clawed garden wall, a field left
+// to die and the new graves (south-west); the thorns creeping in from the south-east with a
+// twisted tree, crystals and a cage of thorn; the demon camp's rib fence and gate across the north
+// with tents, banners, braziers, a prisoners' cage, the war drum and a shard of the rift.
 function sample(put: Put): void {
   // the village corner
-  put("burnt_house", [-900, 900, 0], 0);
-  put("burnt_well", [-300, 300, 0], 0);
-  put("claw_wall", [-1550, 0, 0], 0);
-  put("claw_wall", [-1550, -400, 0], 180);
-  put("burnt_fence", [-200, 1500, 0], 0);
-  put("burnt_fence", [-200, 1900, 0], 0);
-  put("dead_crops", [-1300, 1700, 0], 90);
-  put("charred_tree", [-200, 900, 0], 30);
-  put("charred_tree", [-1700, 1500, 0], 200, 0.85);
-  put("fresh_graves", [-1500, -1300, 0], 0);
-  put("burnt_barn", [-500, -1500, 0], 90);
+  put("burnt_house", [-1100, 1100, 0], 0);
+  put("burnt_well", [-300, 400, 0], 30);
+  put("claw_wall", [-1800, 300, 0], 0);
+  put("claw_wall", [-1800, -100, 0], 180);
+  put("burnt_fence", [-350, 1500, 0], 0);
+  put("burnt_fence", [-350, 1900, 0], 0);
+  put("dead_crops", [-1400, 1950, 0], 90, 0.8);
+  put("charred_tree", [-200, 1000, 0], 30);
+  put("charred_tree", [-1900, 1500, 0], 200, 0.85);
+  put("fresh_graves", [-1650, -1650, 0], 0, 0.7);
   // the thorns creeping in
-  put("mutant_tree", [300, -900, 0], 0);
-  put("thorn_cage", [900, -400, 0], 20);
-  put("thorn_thicket", [-100, -600, 0], 0);
-  put("thorn_vines", [400, -200, 0], 40);
-  put("thorn_vines", [-400, -200, 0], 160);
-  put("thorn_vines", [700, -1500, 0], 220);
-  put("crystal_cluster", [1100, -1300, 0], 0);
-  put("crystal_spire", [1600, -1700, 0], 30);
-  put("blight_boulder", [100, -1600, 0], 60);
-  put("black_heart_tree", [-1300, -3200, 0], 0, 0.6);
-  for (const [x, y] of [[0, 400], [200, -300], [-600, -900], [600, 300], [-800, 0], [900, -900], [-100, 1200], [500, -1800], [1300, -600]] as [number, number][]) put("ash_grass", [x, y, 0], x + y);
+  put("mutant_tree", [-500, -1700, 0], 0);
+  put("thorn_cage", [-900, -800, 0], 20);
+  put("thorn_thicket", [-200, -300, 0], 0, 0.8);
+  put("thorn_vines", [100, -1100, 0], 40);
+  put("thorn_vines", [-1500, -600, 0], 160);
+  put("crystal_cluster", [-100, -2000, 0], 0);
+  put("crystal_spire", [-1300, -2150, 0], 30, 0.55);
+  put("blight_boulder", [100, -1600, 0], 60, 0.7);
+  for (const [x, y] of [[0, 400], [200, -300], [-600, -900], [-800, 300], [-200, 1700], [-1000, -1300], [-1500, 700], [-700, 2000]] as [number, number][]) put("ash_grass", [x, y, 0], x + y);
   // the camp
-  for (let y = -1900; y <= 1900; y += 400) if (Math.abs(y) > 400) put("bone_fence", [1700, y, 0], 0);
-  put("bone_gate", [1700, 0, 0], 0);
-  put("black_tent", [2300, 1200, 0], 200);
-  put("black_tent", [2500, -1100, 0], 160);
-  put("demon_banner", [1500, 700, 0], 0);
-  put("demon_banner", [1500, -700, 0], 0);
-  put("hell_brazier", [1300, 400, 0], 0);
-  put("hell_brazier", [1300, -400, 0], 0);
-  put("prisoner_cage", [2500, 0, 0], 270);
-  put("war_drum", [3000, 600, 0], 0, 0.8);
-  put("rift_shard", [3400, -1800, 0], 0, 0.6);
-  put("common:crate", [2100, -400, 0], 20);
+  for (let y = -2000; y <= 2000; y += 400) if (Math.abs(y) > 400) put("bone_fence", [600, y, 0], 0);
+  put("bone_gate", [600, 0, 0], 0);
+  put("black_tent", [1500, 1300, 0], 200);
+  put("black_tent", [1700, -1000, 0], 160, 0.9);
+  put("demon_banner", [350, 750, 0], 0);
+  put("demon_banner", [350, -750, 0], 0);
+  put("hell_brazier", [200, 350, 0], 0);
+  put("hell_brazier", [200, -350, 0], 0);
+  put("prisoner_cage", [1200, 300, 0], 270, 0.8);
+  put("war_drum", [1700, 200, 0], 90, 0.6);
+  put("rift_shard", [1800, -1900, 0], 180, 0.45);
+  put("common:crate", [1100, -500, 0], 20);
 }
 
 // ---- the fields' shared helpers (full-size centimetres, north +X, west +Y) ----

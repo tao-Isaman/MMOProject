@@ -7,10 +7,13 @@
 //   - a road east past the burnt houses to the demon army's camp;
 //   - up a ramp onto the church hill (3.5 m, north-west): the chapel with its roof burnt and fallen
 //     in, its tower still standing, and beside it the new graveyard the priest is still digging;
-//   - up a ramp onto the farm terrace (3 m, north-east): the burnt barn and its fields;
+//   - up a ramp onto the farm terrace (3 m, north-east): the burnt barn, its fields and its
+//     orchard burnt in rows;
+//   - along the east road a farm the demons burnt on their way through;
 //   - down to the fishermen's hamlet on the south shore: three more burnt houses, the jetty
 //     burnt to its posts, boats burnt on the beach.
-// The sea lies all along the south (the shore of grey sand and rocks); the ridge along the north
+// The sea lies all along the south (the shore of grey sand and rocks); the border woods' ward hill
+// ends just inside the west edge, wooded to its cliffs; the ridge along the north
 // carries on into the border line's mountain wall, the pass through it a little west of the
 // middle; the west edge goes on into the border woods, the east into the burnt ground before the
 // demon camp.
@@ -54,6 +57,8 @@ const RIDGE_W: Poly = [[A, A], [4700, A], [4800, 4000], [4600, 2600], [4850, 140
 const RIDGE_E: Poly = [[A, 400], [4800, 400], [4650, -900], [4900, -2400], [4700, -3900], [4850, -A], [A, -A]];
 const CHURCH: Poly = [[3100, 2800], [2900, 4000], [1900, 4500], [800, 4100], [600, 3000], [1000, 2100], [2200, 1900]];
 const FARM: Poly = [[3600, -1700], [3900, -3000], [3500, -4300], [2300, -4600], [1400, -3900], [1300, -2600], [2000, -1700]];
+// the east end of the border woods' ward hill, coming in over the west edge (wooded, no way up)
+const WARD_END: Poly = [[3600, A], [3700, 6200], [3300, 5150], [2200, 5100], [1000, 5150], [-300, 5000], [-1100, 5300], [-1300, 6300], [-1100, A]];
 const R_CHURCH = rampOff([1000, 2100], [2200, 1900], 0.45, 1100, 460, [1950, 3200]);
 const R_FARM = rampOff([1400, -3900], [1300, -2600], 0.5, 1000, 460, [2500, -3100]);
 const RAMPS = [R_CHURCH, R_FARM];
@@ -108,6 +113,7 @@ export function build(_quality: { flowers: number }): Town {
       { poly: subdiv(RIDGE_E), h: 600 },
       { poly: subdiv(CHURCH), h: 350, ramps: [R_CHURCH] },
       { poly: subdiv(FARM), h: 300, ramps: [R_FARM] },
+      { poly: subdiv(WARD_END), h: 300 },
     ],
     rock: "Demonmarch_CliffAsh",
   });
@@ -116,11 +122,11 @@ export function build(_quality: { flowers: number }): Town {
   // ---- the ground: dry grass, warmer under the border woods in the west, burnt black round the
   // houses and along the demons' way, grey sand along the shore ----
   const roads = [band(ROAD_N, 470), band(ROAD_E, 460), band(ROAD_W, 450), band(TO_CHURCH, 410), band(TO_FARM, 400), band(TO_HAMLET, 400)];
-  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [SEA], base: "steppe", road: [0.62, 0.54, 0.5] });
+  const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [SEA], base: "steppe", road: [0.56, 0.47, 0.44] });
   const mix = (a: number[], b: number[], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   // (factors on the steppe's linear colour: trampled dry grass, the border woods' warm leaf-litter
   // floor, burnt black, grey sand)
-  const DRY = [0.52, 0.47, 0.7], WOODS = [0.72, 0.5, 0.45], BURNT = [0.2, 0.17, 0.36], SAND = [0.57, 0.52, 1.7];
+  const DRY = [0.5, 0.46, 1.15], WOODS = [0.74, 0.52, 0.62], BURNT = [0.22, 0.19, 0.6], SAND = [0.57, 0.52, 1.7];
   tintGround(ground, (x, y) => {
     const w = ease(3300, 5200, y), c = mix(mix(DRY, WOODS, w), BURNT, burntAt(x, y) * 0.85);
     return mix(c, SAND, (1 - ease(250, 900, distTo(SHORE, x, y))) * 0.9);
@@ -216,11 +222,8 @@ export function build(_quality: { flowers: number }): Town {
   for (const [at, h] of [[[3100, -1950], 90], [[2500, -4050], 92], [[1950, -2250], 88]] as [XY, number][]) tryPlace("demonmarch:dead_crops", at, h, 380, { solid: "none" });
   for (const [at, h] of [[[3300, -3700], 0], [[1700, -3500], 100]] as [XY, number][]) tryPlace("demonmarch:burnt_fence", at, h, 220, { solid: "none" });
   // the orchard behind the barn, burnt where it stood in its rows; a cart and hay left in the yard
-  for (let i = 0; i < 4; i++)
-    for (let j = 0; j < 4; j++) {
-      const at: XY = [3300 - i * 420 + (rnd() - 0.5) * 80, -3500 - j * 380 + (j % 2) * 160 + (rnd() - 0.5) * 60];
-      if (inPoly(FARM, at[0], at[1])) tryPlace(rnd() < 0.8 ? "demonmarch:charred_tree" : "frontier:stump", at, rnd() * 360, 140, { s: 0.6 + rnd() * 0.2, solid: ring(28, "tree") });
-    }
+  for (const [x, y] of [[3300, -3700], [2950, -3850], [3300, -4050], [2950, -4200], [2600, -4300], [3250, -2350], [3550, -2650], [2900, -2050], [3550, -3300], [2600, -2200]] as XY[])
+    tryPlace(rnd() < 0.8 ? "demonmarch:charred_tree" : "frontier:stump", [x + (rnd() - 0.5) * 80, y + (rnd() - 0.5) * 80], rnd() * 360, 140, { s: 0.6 + rnd() * 0.2, solid: ring(28, "tree") });
   for (const [ref, at, h] of [["eastcoast:broken_wagon", [2100, -2300], 40], ["frontier:scorch_mark", [2900, -2400], 0], ["frontier:scorch_mark", [2300, -3700], 90]] as [string, XY, number][])
     tryPlace(ref, at, h, 200, { colours: ref.includes("wagon") ? "dm_charred" : undefined, solid: ref.includes("wagon") ? "auto" : "none" });
 
