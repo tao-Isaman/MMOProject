@@ -131,9 +131,9 @@ export function build(quality: { flowers: number }): Town {
   const { put, rnd } = f;
 
   // ---- tracks ----
-  const E_EXIT: XY = [600, -5150], S_EXIT: XY = [-5150, 1800];
+  const E_EXIT: XY = [-660, -5150], S_EXIT: XY = [-5150, 1800];
   const J: XY = [-300, -500];
-  const MAIN_E = smooth([[600, -7600], E_EXIT, [700, -4400], [400, -3500], [-100, -2600], [-350, -1600], J]);
+  const MAIN_E = smooth([[-650, -7600], E_EXIT, [-550, -4300], [-300, -3500], [-100, -2600], [-350, -1600], J]);
   const MAIN_S = smooth([J, [-900, 100], [-1700, 600], [-2700, 950], [-3600, 1300], [-4400, 1700], S_EXIT, [-7600, 1900]]);
   const r1in = along(RAMP1.bottom, RAMP1.top, -600), r1out = along(RAMP1.bottom, RAMP1.top, rampLen(RAMP1) + 450);
   const r2in = along(RAMP2.bottom, RAMP2.top, -350), r2out = along(RAMP2.bottom, RAMP2.top, rampLen(RAMP2) + 420);
@@ -144,7 +144,7 @@ export function build(quality: { flowers: number }): Town {
   const DOWN = [...smooth([[-330, -1350], [-900, -900], r3in]), RAMP3.bottom, RAMP3.top, ...smooth([r3out, along(CAIRN, r3out, 420)])];
   const BOTHY: XY = [2550, -2750];
   const FOLD: XY = [3550, -4000];
-  const SHEP = smooth([[400, -3500], [900, -3050], [1500, -2850], [2000, -2850]]);
+  const SHEP = smooth([[-280, -3400], [500, -3050], [1500, -2850], [2000, -2850]]);
   const roads = [band(MAIN_E, 470), band(MAIN_S, 450), band(UP, 420), band(DOWN, 400), band(SHEP, 380)];
   const tracks = [MAIN_E, MAIN_S, UP, DOWN, SHEP];
 
@@ -173,7 +173,7 @@ export function build(quality: { flowers: number }): Town {
   const grassy = (x: number, y: number) => snow.kind(x, y) === 3 && !inPoly(TARN, x, y);
 
   // ---- ways out ----
-  f.exit("highland", E_EXIT, [640, -4450]);
+  f.exit("highland", E_EXIT, [-620, -4450]);
   f.exit("karst_peaks", S_EXIT, [-4450, 1720]);
 
   // ---- the tarn: dark still water, ice along its edges ----
@@ -209,8 +209,8 @@ export function build(quality: { flowers: number }): Town {
   };
 
   // ---- the ways out: a sign and a cairn at each ----
-  prop("snowland:trail_sign", [1000, -4950], 180, 80, ring(30, "post"));
-  prop("snowland:cairn", [180, -4900], 0, 70, ring(45));
+  prop("snowland:trail_sign", [-260, -4950], 180, 80, ring(30, "post"));
+  prop("snowland:cairn", [-1080, -4900], 0, 70, ring(45));
   prop("snowland:trail_sign", [-4900, 1350], 90, 80, ring(30, "post"));
   prop("snowland:cairn", [-4850, 2250], 0, 70, ring(45));
   // cairns along the tracks and where they part
@@ -293,7 +293,7 @@ export function build(quality: { flowers: number }): Town {
   // ---- rocks and drifts ----
   const ROCKS: [string, XY, number][] = [
     ["snow_boulder", [-4300, -1500], 130], ["rock_cluster", [-1800, -1600], 190], ["flat_slabs", [-4200, 2600], 150], ["snow_boulder", [-2900, 4200], 130],
-    ["rock_cluster", [-500, -4200], 190], ["snow_boulder", [-200, 3500], 130], ["flat_slabs", [1300, 300], 150], ["rock_cluster", [4100, -1100], 190],
+    ["rock_cluster", [-1100, -3900], 190], ["snow_boulder", [-200, 3500], 130], ["flat_slabs", [1300, 300], 150], ["rock_cluster", [4100, -1100], 190],
     ["snow_boulder", [2000, -3600], 130], ["flat_slabs", [4900, -2700], 150], ["snow_boulder", [-5000, -4600], 130], ["rock_cluster", [-3800, -2700], 190],
     ["snow_boulder", [3900, 4400], 130], ["flat_slabs", [1600, 3600], 150], ["snow_boulder", [5000, 600], 130], ["rock_cluster", [-4000, 5000], 190],
   ];
@@ -362,7 +362,7 @@ export function build(quality: { flowers: number }): Town {
     sky: "#c5d0d8",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => grassy(x, y) && ground.kind(x, y) === 0 && !inPoly(TARN, x, y), density: 0.05 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: 560, y: -4300 },
+    spawn: { x: -560, y: -4300 },
     npcs,
     labels: [
       { x: E_EXIT[0], y: E_EXIT[1] + 150, text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },

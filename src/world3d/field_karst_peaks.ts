@@ -1,14 +1,18 @@
 // ภูผาหินปูน (the karst peaks), monsters Lv 98-110: limestone country north of the ancient
 // forest, on the way up to the downs. Sheer towers of pale rock stand everywhere out of a green
 // floor, green on their ledges and tops, mist lying round their feet; a jade-green river winds
-// through it from the north-west to the south, bamboo rafts drifting on it.
+// through it from the north-west to the south, bamboo rafts drifting on it. Below the lotus pond
+// an arm of it turns away east, passes under the road by a second slab bridge and winds out
+// between the towers over the east edge, broadening and darkening as it goes: it is the frozen
+// river's head.
 //
 // The road keeps to the east bank from the way in from the forest (south) to the way on to the
 // downs (north), past a lotus pond and the raftsmen's landing. A stone slab bridge crosses to the
 // west bank, where bamboo groves crowd round a tower of two steps: two flights of stone stairs
 // climb it to a red pavilion on its top, looking out over the river. On the east bank a broad
 // tower can be climbed by an earth ramp to a lookout among the peaks, and in the south-east a
-// low terrace with a pillar rising from it. The rest of the towers stand sheer, with no way up.
+// low terrace with a pillar rising from it, its ramp on the side towards the road. The rest of the
+// towers stand sheer, with no way up.
 //
 // Up towards the north edge, where the snowy downs begin, the snow lies in the grass in patches
 // that thicken northwards and pines stand among the broadleaf trees; along the east edge,
@@ -17,6 +21,7 @@
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: south -> elder_forest, north -> highland_downs
 
+import * as THREE from "three";
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
 import { useKits, seeded } from "./town";
@@ -25,10 +30,11 @@ import type { XY } from "./kits/westmount";
 import { blobPoly } from "./kits/snowland";
 import { KIT as PLAINS } from "./kits/plains";
 import { KIT as OSAKI } from "./kits/osaki";
+import { KIT as NORTHCOLD } from "./kits/northcold";
 import type { NpcSpec } from "../npcs";
 import type { SolidSpec } from "../world";
 
-useKits(WESTMOUNT, PLAINS, OSAKI);
+useKits(WESTMOUNT, PLAINS, OSAKI, NORTHCOLD);
 
 const R = 5500; // the walkable box
 const A = 9000; // the ground
@@ -36,6 +42,47 @@ const A = 9000; // the ground
 // ---- the river: in from the north edge, winding south-west, out at the south edge ----
 const RIVER: XY[] = smooth([[A, 3200], [6000, 2600], [4200, 3400], [2600, 2400], [1000, 2900], [-600, 1900], [-2200, 2500], [-3800, 1600], [-5600, 2300], [-A, 1800]], 6);
 const RW = 700;
+const ss = (a: number, b: number, v: number) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+// the arm that turns away east below the pond and goes out over the east edge to become the
+// frozen river: as wide as the jade river where it leaves it, as wide as the frozen river where it
+// meets it at the edge (the world map's picture of the field reaches 6676 out)
+const ARM: XY[] = smooth([[-400, 1950], [-100, 1150], [-200, 300], [-300, -350], [-430, -900], [-750, -1700], [-1000, -2700], [-1150, -3600], [-1500, -4450], [-1350, -5200], [-1110, -6000], [-1077, -6676], [-1077, -7600], [-1077, -9400]], 6);
+const armW = (y: number) => 700 + 711 * ss(-4300, -6676, y);
+// A strip along a polyline, `w` across at each point, as a polygon.
+function bandAlong(pts: XY[], w: (p: XY) => number): XY[] {
+  const left: XY[] = [], right: XY[] = [];
+  pts.forEach((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, h = w(p) / 2;
+    left.push([p[0] - ((b[1] - a[1]) / L) * h, p[1] + ((b[0] - a[0]) / L) * h]);
+    right.push([p[0] + ((b[1] - a[1]) / L) * h, p[1] - ((b[0] - a[0]) / L) * h]);
+  });
+  return [...left, ...right.reverse()];
+}
+// The arm's water, its colour running from the jade river's where it leaves it to the frozen
+// river's dark water out towards the east edge (a sheet in the ground's terms, Y up).
+function armWater(z: number): THREE.Mesh {
+  const jade = new THREE.Color("#4f8f6c"), cold = new THREE.Color("#1d4054"), pos: number[] = [], col: number[] = [], idx: number[] = [];
+  ARM.forEach((p, i) => {
+    const a = ARM[Math.max(0, i - 1)], b = ARM[Math.min(ARM.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, h = (armW(p[1]) + 120) / 2;
+    const c = jade.clone().lerp(cold, ss(-1500, -5500, p[1]));
+    for (const s of [1, -1]) {
+      pos.push(p[0] - ((b[1] - a[1]) / L) * h * s, z, -(p[1] + ((b[0] - a[0]) / L) * h * s));
+      col.push(c.r, c.g, c.b);
+    }
+    if (i > 0) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.06, transparent: true, opacity: 0.92 }));
+  m.receiveShadow = true;
+  return m;
+}
 
 // ---- the towers you can climb ----
 // the pavilion's tower on the west bank: a first step (400) and the top (800), stone stairs up each
@@ -49,14 +96,15 @@ const P3P: XY[] = blob(P3, 1150, 1300, 3, 20);
 const R3 = rampOff(P3P[3], P3P[4], P3, 1400, 440);
 const P4: XY = [-3000, -3300];
 const P4P: XY[] = blob(P4, 1100, 1000, 7, 20);
-const R4 = rampOff(P4P[0], P4P[1], P4, 1050, 440);
+const R4 = rampOff(P4P[4], P4P[5], P4, 1050, 440); // on its west side, towards the road (the arm runs past its north)
 const P4PILLAR: XY[] = blob([-3300, -3500], 450, 420, 9, 16);
-// sheer towers (no way up): in the field and all round past its edge
+// sheer towers (no way up): in the field and all round past its edge (two of them stand aside
+// from the arm's course)
 const TOWERS: [XY, number, number][] = [
-  [[4300, -4300], 900, 2400], [[-500, -4600], 750, 1900], [[400, -3800], 600, 1500], [[2300, 1300], 550, 1700],
+  [[4300, -4300], 900, 2400], [[-2900, -5300], 650, 1900], [[400, -3800], 600, 1500], [[2300, 1300], 550, 1700],
   [[-3500, 450], 550, 1500], [[2800, 4600], 700, 2000], [[4100, 5000], 650, 1800], [[-4800, -1700], 600, 1600],
   [[-6800, -6500], 1200, 2600], [[-7000, -2600], 1000, 2200], [[-7200, 4000], 1300, 2800], [[-6500, 7000], 1000, 2400],
-  [[0, -7200], 1300, 2600], [[3600, -7000], 1000, 2100], [[-3500, -7300], 1100, 2300], [[7000, -4000], 1200, 2800],
+  [[1400, -7400], 900, 2600], [[3600, -7000], 1000, 2100], [[-3500, -7300], 1100, 2300], [[7000, -4000], 1200, 2800],
   [[7400, -1500], 800, 2100], [[7000, 6500], 1100, 2600], [[2500, 7300], 1000, 2300], [[-2500, 7500], 1200, 2500],
   [[6500, 4900], 900, 2200], [[-7600, 700], 700, 1900],
 ];
@@ -69,11 +117,9 @@ const LANDING: XY = [3800, 2350];
 // ---- the snow: how much of the ground lies under it (0 green, 1 white), thickening northwards
 // towards the snowy downs and a little towards the frozen river on the east (the world map's
 // picture of the field reaches 6676 out) ----
-const ss = (a: number, b: number, v: number) => {
-  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
-const snowCover = (x: number, y: number): number => 1 - (1 - 0.62 * ss(3000, 6676, x)) * (1 - 0.25 * ss(-4000, -6676, y));
+// (and more of it on the arm's banks out by the east edge, where the frozen river's shore is white)
+const snowCover = (x: number, y: number): number =>
+  1 - (1 - 0.62 * ss(3000, 6676, x)) * (1 - 0.25 * ss(-4000, -6676, y)) * (1 - 0.7 * ss(-5000, -6676, y) * (1 - ss(800, 1700, Math.abs(x + 1077))));
 // Patches where the snow shows through the grass: blobs on a jittered grid, each there with the
 // chance snowCover gives and the bigger the likelier, so they run together where it nears 1
 // (their own seed, so nothing else in the field moves).
@@ -110,6 +156,11 @@ export function build(quality: { flowers: number }): Town {
   let bax: XY = [-nb.dir[1], nb.dir[0]];
   if (bax[1] < 0) bax = [-bax[0], -bax[1]];
   const BR = { at: nb.at, off: (k: number): XY => [nb.at[0] + bax[0] * k, nb.at[1] + bax[1] * k] };
+  // and the one where the road crosses the arm
+  const na = nearestOn(ARM, [-300, -330]);
+  let aax: XY = [-na.dir[1], na.dir[0]];
+  if (aax[1] < 0) aax = [-aax[0], -aax[1]];
+  const BR2 = na.at;
 
   // ---- the road and the paths ----
   const S_EXIT: XY = [-5150, -800], N_EXIT: XY = [5150, 1760];
@@ -117,29 +168,38 @@ export function build(quality: { flowers: number }): Town {
   const BRIDGE_WAY: XY[] = [...smooth([[400, -150], [900, 900], [1300, 1700], BR.off(-850)]), ...smooth([BR.off(850), [1300, 3700], beyond(ST1.top, ST1.bottom, 400)])];
   const STAIRS: XY[] = [ST1.bottom, ST1.top, ...smooth([beyond(ST1.bottom, ST1.top, 300), [-950, 3550], [-2000, 3450], [-3000, 3600], [-3400, 4000], beyond(ST2.top, ST2.bottom, 250)]), ST2.bottom, ST2.top, beyond(ST2.bottom, ST2.top, 250)];
   const LOOKOUT_WAY: XY[] = [...smooth([[3600, 50], beyond(R3.top, R3.bottom, 400)]), R3.bottom, R3.top, ...smooth([beyond(R3.bottom, R3.top, 400), [P3[0] + 100, P3[1] + 300]])];
-  const TERRACE_WAY: XY[] = [...smooth([[-2400, -300], [-1500, -1200], [-700, -2200], beyond(R4.top, R4.bottom, 400)]), R4.bottom, R4.top, ...smooth([beyond(R4.bottom, R4.top, 350), [-2700, -2900]])];
-  const POND_WAY: XY[] = smooth([[-900, -450], [-600, 150], [-450, 650]]);
+  const TERRACE_WAY: XY[] = [...smooth([[-2400, -300], [-2650, -800], beyond(R4.top, R4.bottom, 400)]), R4.bottom, R4.top, ...smooth([beyond(R4.bottom, R4.top, 350), [-2650, -3000]])];
+  const POND_WAY: XY[] = smooth([[-1800, -400], [-1700, -150], [-1600, 30]]);
   const LANDING_WAY: XY[] = smooth([[4400, 950], [4050, 1800], LANDING]);
   const TRACKS = [ROAD, BRIDGE_WAY, STAIRS, LOOKOUT_WAY, TERRACE_WAY, POND_WAY, LANDING_WAY];
   const roads = TRACKS.map((t, i) => band(t, i === 0 ? 460 : i === 2 ? 420 : 380));
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
-  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND], base: "snow", road: [0.86, 0.78, 0.66] });
+  const armBand = bandAlong(ARM, (p) => armW(p[1]));
+  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), armBand, POND], base: "snow", road: [0.86, 0.78, 0.66] });
   // the grass: a second ground a hair over the snow, cut away in the patches where the snow lies
   const patches = snowPatches({ x0: 2000, x1: A, y0: -A, y1: A }, 3071).concat(snowPatches({ x0: -A, x1: 2000, y0: -A, y1: -3600 }, 3072));
-  const grass = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND, ...patches], base: "grass", road: [0.86, 0.78, 0.66] });
+  const grass = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), armBand, POND, ...patches], base: "grass", road: [0.86, 0.78, 0.66] });
   grass.mesh.position.y += 3;
   grass.mesh.renderOrder = 1;
 
-  // ---- the river and the pond: green water over a dark bed ----
+  // ---- the river, its arm and the pond: green water (darkening down the arm) over a dark bed ----
   const bed = sheet(band(RIVER, RW + 160), -70, "Westmount_CliffMoss");
   const river = sheet(band(RIVER, RW + 120), -14, "Westmount_River");
+  const armBed = sheet(bandAlong(ARM, (p) => armW(p[1]) + 160), -70, "Westmount_CliffMoss");
+  const arm = armWater(-15);
   const pondBed = sheet(blob(POND_C, 950, 750, 5, 22), -60, "Westmount_CliffMoss");
   const pond = sheet(blob(POND_C, 920, 720, 5, 22), -14, "Westmount_River");
   for (const part of pieces(RIVER, [BR.at], 170)) f.blockBand(part, RW + 60, { step: 230 });
+  for (const part of pieces(ARM, [BR2], 170))
+    for (let i = 0; i + 1 < part.length; i++) f.blockBand([part[i], part[i + 1]], armW((part[i][1] + part[i + 1][1]) / 2) + 60, { step: 230 });
   f.blockBand([...POND, POND[0]], 180, { step: 200 });
   f.extra.push({ kind: "water", x: POND_C[0], y: POND_C[1], r: 500 });
   put("westmount:slab_bridge", BR.at, runAlong(bax[0], bax[1]), { solid: SLAB_BRIDGE_SOLIDS });
+  put("westmount:slab_bridge", BR2, runAlong(aax[0], aax[1]), { solid: SLAB_BRIDGE_SOLIDS });
+  // floes come up the arm from the frozen river, as far as the edge of the field
+  for (const [g, h, sc] of [[[-1100, -6400], 40, 0.9], [[-1150, -5900], 200, 0.7], [[-1300, -7200], 120, 1]] as [XY, number, number][])
+    put("northcold:drift_floes", nearestOn(ARM, g).at, h, { z: -14, s: sc, solid: "none" });
 
   // ---- ways out ----
   f.exit("elder_forest", S_EXIT, [-4450, -750]);
@@ -148,7 +208,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- placing things ----
   const taken: [number, number, number][] = [];
   const nearTrack = (x: number, y: number, d: number) => TRACKS.some((t) => toLine([x, y], t) < d);
-  const wet = (x: number, y: number, d: number) => toLine([x, y], RIVER) < RW / 2 + d || inPoly(POND, x, y) || Math.hypot(x - POND_C[0], y - POND_C[1]) < 800 + d;
+  const wet = (x: number, y: number, d: number) =>
+    toLine([x, y], RIVER) < RW / 2 + d || toLine([x, y], ARM) < armW(y) / 2 + d || inPoly(POND, x, y) || Math.hypot(x - POND_C[0], y - POND_C[1]) < 800 + d;
   const free = (x: number, y: number, r: number, gap = 0) =>
     [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([dx, dy]) => ground.kind(x + dx, y + dy) === 0) &&
     !wet(x, y, r * 0.5) && f.level(x, y, r) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + r + gap);
@@ -171,6 +232,7 @@ export function build(quality: { flowers: number }): Town {
   };
   for (const t of TRACKS) for (let i = 0; i < t.length; i += 2) take(t[i][0], t[i][1], 200);
   take(BR.at[0], BR.at[1], 900);
+  take(BR2[0], BR2[1], 900);
 
   // ---- the pavilion's tower: the stairs, the pavilion on the top ----
   for (const st of [ST1, ST2]) put("westmount:stone_stairs", [(st.top[0] + st.bottom[0]) / 2, (st.top[1] + st.bottom[1]) / 2], runAlong(st.top[0] - st.bottom[0], st.top[1] - st.bottom[1]), { solid: "none" });
@@ -251,16 +313,18 @@ export function build(quality: { flowers: number }): Town {
     const n = nearestOn(RIVER, g);
     put("westmount:karst_spire", [n.at[0] + (rnd() - 0.5) * 120, n.at[1] + (rnd() - 0.5) * 120], rnd() * 360, { s: 0.45 + rnd() * 0.2, ...ring(150) });
   }
-  // the reeds and rocks along the banks
-  for (let i = 2; i < RIVER.length - 2; i += 2) {
-    const [ax, ay] = RIVER[i], [bx, by] = RIVER[i + 1], L = Math.hypot(bx - ax, by - ay) || 1;
-    for (const s of [-1, 1]) {
-      if (rnd() < 0.4) continue;
-      const o = RW / 2 + 60 + rnd() * 100, x = ax - ((by - ay) / L) * s * o, y = ay + ((bx - ax) / L) * s * o;
-      if (!inBox(x, y) || nearTrack(x, y, 300) || !f.level(x, y, 100) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 80)) continue;
-      prop(rnd() < 0.6 ? "plains:reeds" : "plains:flat_rock", [x, y], rnd() * 360, 90, { s: 0.6 + rnd() * 0.4, solid: "none" });
+  // the reeds and rocks along the banks of the river and its arm (none out in the other's water)
+  for (const [line, half, other] of [[RIVER, () => RW / 2, ARM], [ARM, (y: number) => armW(y) / 2, RIVER]] as [XY[], (y: number) => number, XY[]][])
+    for (let i = 2; i < line.length - 2; i += 2) {
+      const [ax, ay] = line[i], [bx, by] = line[i + 1], L = Math.hypot(bx - ax, by - ay) || 1;
+      for (const s of [-1, 1]) {
+        if (rnd() < 0.4) continue;
+        const o = half(ay) + 60 + rnd() * 100, x = ax - ((by - ay) / L) * s * o, y = ay + ((bx - ax) / L) * s * o;
+        if (!inBox(x, y) || nearTrack(x, y, 300) || !f.level(x, y, 100) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 80)) continue;
+        if (other === ARM ? toLine([x, y], ARM) < armW(y) / 2 + 40 : toLine([x, y], RIVER) < RW / 2 + 40) continue;
+        prop(rnd() < 0.6 ? "plains:reeds" : "plains:flat_rock", [x, y], rnd() * 360, 90, { s: 0.6 + rnd() * 0.4, solid: "none" });
+      }
     }
-  }
 
   // ---- past the edge: woods and bamboo between the towers (pines among them towards the snowy
   // north), greenery on their tops ----
@@ -282,6 +346,7 @@ export function build(quality: { flowers: number }): Town {
         "แม่น้ำสายนี้เขียวใสเหมือนหยก ไหลมาจากเขาทางเหนือ ข้าถ่อแพอยู่ที่นี่มาทั้งชีวิตแล้ว",
         "เช้า ๆ หมอกจะลอยคลุมโคนผาจนมองไม่เห็นฝั่ง อย่าเดินเข้าใกล้น้ำตอนนั้นนะ",
         "ทางเหนือขึ้นไปเป็นที่ราบเนินเขาของไฮแลนด์ ทางใต้ลงไปก็ป่าโบราณ",
+        "ใต้สระบัวมีแควแยกออกไปทางตะวันออก ยิ่งไหลไปน้ำยิ่งเข้มยิ่งเย็น ออกไปพ้นผาก็กลายเป็นแม่น้ำเยือกแข็ง",
       ] },
     { id: "karst_painter", x: PAVILION[0] - 700, y: PAVILION[1] + 450, face: 30, name: "ซิ่วหลาน", title: "จิตรกรแห่งศาลาริมผา", role: "talk",
       look: { gender: "female", hair: "twintail", hairColor: "rose", eyes: "teal", top: "top_adventurer_teal", bottom: "bottom_adventurer_sand" },
@@ -293,7 +358,7 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
-    scenery: [grass.mesh, bed, river, pondBed, pond],
+    scenery: [grass.mesh, bed, river, armBed, arm, pondBed, pond],
     sky: "#b9c9c4",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && grass.kind(x, y) === 0 && f.h(x, y) < 60 && !wet(x, y, 150), density: 0.14 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
@@ -308,6 +373,7 @@ export function build(quality: { flowers: number }): Town {
       { x: P3[0], y: P3[1] + 300, text: "ยอดผาชมวิว" },
       { x: LANDING[0], y: LANDING[1] - 400, text: "ท่าแพ", kind: "small" },
       { x: BR.at[0] - 500, y: BR.at[1], text: "สะพานแผ่นหิน", kind: "small" },
+      { x: -600, y: -4500, text: "ต้นแม่น้ำเยือกแข็ง", kind: "small" },
       { x: 400, y: 4700, text: "ป่าไผ่", kind: "small" },
       { x: P4[0] + 300, y: P4[1] + 300, text: "ลานผาใต้", kind: "small" },
     ],
