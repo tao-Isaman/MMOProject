@@ -379,12 +379,13 @@ export function build(_quality: { flowers: number }): Town {
   for (let y = -4800; y <= 4800; y += 900) grove([-4900, y], 650, 5);
   for (let x = -4200; x <= 3800; x += 900) if (Math.abs(x) > 600) grove([x, 5000], 550, 4);
   for (let x = -4200; x <= 3800; x += 1100) if (x < -1900 || x > 1900) grove([x, -5000], 500, 3);
+  for (let y = -4600; y <= 4600; y += 800) grove([-4300, y], 500, 3);
 
   // ---- past the edges: pine woods to the south and west and east, bare rock on the coast range
   // and the pinnacles ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const onTrack = (x: number, y: number) => [[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
-  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "PineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || f.h(x, y) > 350 || x > 4000, { count: 300, spacing: 430, tries: 6000 });
+  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "PineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || f.h(x, y) > 350 || x > 4000, { count: 620, spacing: 360, tries: 12000 });
   f.woods(area, ["wind_pine"], (x, y) => onTrack(x, y) || f.h(x, y) < 1000 || inside(x, y) || inPoly(SEA, x, y), { count: 30, spacing: 700, tries: 2000, kit: "westmount" });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["crag_cluster", "peak_boulder", "frost_tor"], (x, y) => onTrack(x, y) || inside(x, y) || inPoly(SEA, x, y) || f.h(x, y) < 1000, { count: 40, spacing: 900, tries: 2000, kit: "skypeaks" });
   // mist lying in the valleys under the ridge

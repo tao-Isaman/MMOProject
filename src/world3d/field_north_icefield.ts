@@ -10,7 +10,7 @@
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: south -> iceberg (its north gate), east -> aurora_field (through the gap in the
-//   glacier wall, n 0.455)
+//   glacier wall, n 0.46)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";

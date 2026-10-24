@@ -285,6 +285,7 @@ export function build(_quality: { flowers: number }): Town {
     [[-4800, 4400], 700, 6], [[-4900, 2400], 700, 6], [[-4900, 400], 700, 6], [[-4800, -1500], 700, 6], [[-4900, -2900], 500, 3],
     [[-3200, 4700], 600, 5], [[-2600, 3300], 500, 3], [[-3500, 1900], 500, 3], [[-3300, -600], 500, 3], [[-3900, -2200], 500, 3],
     [[-2200, 5000], 500, 4], [[2400, 5000], 500, 4], [[3800, 3200], 400, 2], [[2100, 3600], 400, 2],
+    [[-5000, 3400], 500, 4], [[-5000, 1400], 500, 4], [[-5000, -600], 500, 4], [[-4300, 2900], 400, 3], [[-4200, -1700], 400, 3],
   ] as [XY, number, number][]) grove(c, r, n);
   for (const at of [[1100, 4200], [-1100, 2400], [1200, 1700], [3700, -2200], [-800, -1300], [1900, -3900], [4300, -3300], [-1600, -3300]] as XY[])
     if (free(at[0], at[1], 100)) prop("westmount:wind_pine", at, rnd() * 360, 200, { s: 0.6 + rnd() * 0.15, ...ring(36, "tree") });
@@ -292,7 +293,7 @@ export function build(_quality: { flowers: number }): Town {
   // ---- past the edges: pine woods to the south and west, bare rock on the coast range ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const onTrack = (x: number, y: number) => [[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
-  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "PineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || f.h(x, y) > 350 || inPoly(SEA, x, y) || toLine([x, y], SHORE) < 400, { count: 200, spacing: 430, tries: 5000 });
+  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "PineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || f.h(x, y) > 350 || inPoly(SEA, x, y) || toLine([x, y], SHORE) < 400, { count: 420, spacing: 360, tries: 10000 });
   f.woods(area, ["crag_cluster", "peak_boulder", "frost_tor"], (x, y) => onTrack(x, y) || inside(x, y) || inPoly(SEA, x, y) || f.h(x, y) < 400, { count: 30, spacing: 900, tries: 2000, kit: "skypeaks" });
   // mist drifting through the basin and the pocket
   for (const [at, h, s] of [[[-3000, 2600], 30, 0.9], [[-4000, -400], 120, 1], [[-2800, -2900], 60, 0.9], [[-4300, 3900], 200, 0.8], [[3600, 3600], 10, 0.7], [[-1900, 300], 150, 0.7]] as [XY, number, number][])

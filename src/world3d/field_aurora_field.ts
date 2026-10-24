@@ -16,7 +16,7 @@
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   way out: west -> north_icefield (through the gap in the glacier wall, where the ice field's
-//   own way east meets the edge, n 0.455)
+//   own way east meets the edge, n 0.46)
 
 import * as THREE from "three";
 import { FieldBuilder } from "./field";
