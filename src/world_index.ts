@@ -15,17 +15,20 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "iceberg": [
   "north_icefield",
-  "ice_pass"
+  "ice_pass",
+  "west_glacier"
  ],
  "trunrada": [
   "horse_meadow",
   "west_steppe",
-  "stone_plain"
+  "stone_plain",
+  "caravan_road"
  ],
  "kradia": [
   "stone_plain",
   "border_woods",
-  "border_line"
+  "border_line",
+  "caravan_road"
  ],
  "bahamas": [
   "desert_edge",
@@ -35,7 +38,8 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "yodia": [
   "south_jungle",
-  "mangrove_coast"
+  "mangrove_coast",
+  "sacred_banyan"
  ],
  "osaki": [
   "sakura_hills"
@@ -59,79 +63,107 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "venezia": [
   "noa_plains",
-  "dry_plains"
+  "dry_plains",
+  "lavender_hills"
  ],
  "palace": [
-  "old_royal_mine",
   "royal_road",
+  "old_royal_mine",
   "royal_hunt"
  ],
  "west_woods": [
   "field",
   "noa",
-  "noa_meadow"
+  "noa_meadow",
+  "lavender_hills"
  ],
  "royal_road": [
+  "palace",
   "eden",
   "snow_foothills",
-  "pine_river"
+  "pine_river",
+  "flower_fields"
  ],
  "snow_foothills": [
   "royal_road",
   "ice_pass",
-  "tangled_hills"
+  "tangled_hills",
+  "flower_fields"
  ],
  "ice_pass": [
   "snow_foothills",
-  "iceberg"
+  "iceberg",
+  "old_royal_mine"
  ],
  "north_icefield": [
-  "iceberg"
+  "iceberg",
+  "aurora_field"
  ],
  "pine_river": [
   "royal_road",
-  "west_steppe"
+  "west_steppe",
+  "royal_hunt"
  ],
  "west_steppe": [
   "trunrada",
-  "pine_river"
+  "pine_river",
+  "inner_sea_cliffs",
+  "frozen_falls"
  ],
  "horse_meadow": [
-  "trunrada"
+  "trunrada",
+  "frozen_falls",
+  "windswept_heights"
  ],
  "stone_plain": [
   "trunrada",
-  "kradia"
+  "kradia",
+  "windswept_heights",
+  "floating_rocks"
  ],
  "border_woods": [
-  "kradia"
+  "kradia",
+  "golden_maples",
+  "witch_cape",
+  "burnt_villages"
  ],
  "border_line": [
   "kradia",
-  "demon_land"
+  "demon_land",
+  "burnt_villages",
+  "floating_rocks"
  ],
  "demon_land": [
-  "border_line"
+  "border_line",
+  "thornland",
+  "demon_camp"
  ],
  "south_savanna": [
   "eden",
-  "desert_edge"
+  "desert_edge",
+  "windmill_fields"
  ],
  "desert_edge": [
   "south_savanna",
   "bahamas",
-  "dry_plains"
+  "dry_plains",
+  "salt_dunes"
  ],
  "great_desert": [
-  "bahamas"
+  "bahamas",
+  "salt_dunes",
+  "glass_desert",
+  "waterfall_gorge"
  ],
  "south_jungle": [
   "yodia",
   "bahamas",
-  "royal_necropolis"
+  "royal_necropolis",
+  "waterfall_gorge"
  ],
  "mangrove_coast": [
-  "yodia"
+  "yodia",
+  "waterfall_gorge"
  ],
  "sakura_hills": [
   "osaki",
@@ -141,12 +173,14 @@ export const MAP_LINKS: Record<string, string[]> = {
   "sakura_hills"
  ],
  "noa_meadow": [
-  "west_woods"
+  "west_woods",
+  "flower_fields"
  ],
  "noa_plains": [
   "noa",
   "venezia",
-  "lagoon_marsh"
+  "lagoon_marsh",
+  "lavender_hills"
  ],
  "dry_plains": [
   "venezia",
@@ -163,11 +197,14 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "highland_downs": [
   "highland",
-  "karst_peaks"
+  "karst_peaks",
+  "humming_stones",
+  "snow_abbey"
  ],
  "karst_peaks": [
   "elder_forest",
-  "highland_downs"
+  "highland_downs",
+  "primeval_forest"
  ],
  "ancient_plain": [
   "dry_plains",
@@ -181,22 +218,29 @@ export const MAP_LINKS: Record<string, string[]> = {
  "west_pass": [
   "elder_forest",
   "suzhou",
-  "west_cape"
+  "west_cape",
+  "primeval_forest"
  ],
  "tangled_hills": [
   "snow_foothills",
-  "highland"
+  "highland",
+  "frostfang_ridge"
  ],
  "lagoon_marsh": [
   "suzhou",
-  "noa_plains"
+  "noa_plains",
+  "sunken_temple_woods"
  ],
  "royal_necropolis": [
   "ancient_plain",
-  "south_jungle"
+  "south_jungle",
+  "sacred_banyan",
+  "first_tree"
  ],
  "north_cliffs": [
-  "highland"
+  "highland",
+  "frostfang_ridge",
+  "humming_stones"
  ],
  "west_cape": [
   "west_pass"
@@ -206,23 +250,23 @@ export const MAP_LINKS: Record<string, string[]> = {
   "lavender_hills"
  ],
  "flower_fields": [
-  "snow_foothills",
+  "noa_meadow",
   "royal_road",
-  "noa_meadow"
+  "snow_foothills"
  ],
  "royal_hunt": [
-  "pine_river",
+  "palace",
   "frozen_falls",
-  "palace"
+  "pine_river"
  ],
  "salt_dunes": [
-  "great_desert",
-  "desert_edge"
+  "desert_edge",
+  "great_desert"
  ],
  "lavender_hills": [
   "west_woods",
-  "venezia",
   "windmill_fields",
+  "venezia",
   "noa_plains"
  ],
  "inner_sea_cliffs": [
@@ -230,34 +274,34 @@ export const MAP_LINKS: Record<string, string[]> = {
   "caravan_road"
  ],
  "waterfall_gorge": [
+  "south_jungle",
   "great_desert",
-  "mangrove_coast",
-  "south_jungle"
+  "mangrove_coast"
  ],
  "frozen_falls": [
+  "royal_hunt",
   "west_steppe",
-  "horse_meadow",
-  "royal_hunt"
+  "horse_meadow"
  ],
  "caravan_road": [
   "trunrada",
-  "golden_maples",
   "kradia",
+  "golden_maples",
   "inner_sea_cliffs"
  ],
  "windswept_heights": [
+  "horse_meadow",
   "stone_plain",
-  "storm_cape",
-  "horse_meadow"
+  "storm_cape"
  ],
  "old_royal_mine": [
+  "ice_pass",
   "palace",
-  "royal_peaks",
-  "ice_pass"
+  "royal_peaks"
  ],
  "west_glacier": [
-  "ice_queen_hollow",
-  "iceberg"
+  "iceberg",
+  "ice_queen_hollow"
  ],
  "golden_maples": [
   "caravan_road",
@@ -274,35 +318,35 @@ export const MAP_LINKS: Record<string, string[]> = {
  ],
  "floating_rocks": [
   "storm_cape",
-  "border_line",
   "thornland",
+  "border_line",
   "stone_plain"
  ],
  "storm_cape": [
-  "floating_rocks",
-  "windswept_heights"
+  "windswept_heights",
+  "floating_rocks"
  ],
  "burnt_villages": [
   "border_line",
-  "demon_camp",
-  "border_woods"
+  "border_woods",
+  "demon_camp"
  ],
  "thornland": [
-  "demon_land",
-  "floating_rocks"
+  "floating_rocks",
+  "demon_land"
  ],
  "demon_camp": [
-  "demon_land",
-  "burnt_villages"
+  "burnt_villages",
+  "demon_land"
  ],
  "royal_peaks": [
-  "dragon_summit",
-  "old_royal_mine"
+  "old_royal_mine",
+  "dragon_summit"
  ],
  "primeval_forest": [
+  "karst_peaks",
   "snow_abbey",
-  "west_pass",
-  "karst_peaks"
+  "west_pass"
  ],
  "dragon_summit": [
   "royal_peaks"
@@ -326,8 +370,8 @@ export const MAP_LINKS: Record<string, string[]> = {
   "lagoon_marsh"
  ],
  "sacred_banyan": [
-  "royal_necropolis",
-  "yodia"
+  "yodia",
+  "royal_necropolis"
  ],
  "first_tree": [
   "royal_necropolis"
@@ -416,7 +460,7 @@ export const NPC_PLACES: Record<string, string> = {
  "trunrada:trunrada_elder": "ย่านบ้านยาว",
  "trunrada:trunrada_girl": "โอโบกลางเมือง",
  "trunrada:trunrada_tanner": "ย่านช่างหนัง",
- "trunrada:trunrada_saddler": "ย่านช่างหนัง",
+ "trunrada:trunrada_saddler": "ประตูใต้",
  "trunrada:job_ranger": "กระโจมหัวหน้าเผ่า",
  "trunrada:trunrada_chief": "กระโจมหัวหน้าเผ่า",
  "trunrada:job3_hunter": "โถงบ้านยาว",
@@ -589,6 +633,34 @@ export const NPC_PLACES: Record<string, string> = {
  "venezia:venezia_guard_se1": "สวนสาธารณะ",
  "venezia:venezia_guard_se2": "สวนสาธารณะ",
  "venezia:venezia_fisher": "โบสถ์ปากคลอง",
+ "palace:palace_travel": "โรงตีเหล็กหลวง",
+ "palace:palace_quartermaster": "ร้านเสบียงหลวง",
+ "palace:palace_guard_s1": "ประตูใหญ่",
+ "palace:palace_guard_s2": "ประตูใหญ่",
+ "palace:palace_guard_i1": "ประตูชั้นใน",
+ "palace:palace_guard_i2": "ประตูชั้นใน",
+ "palace:palace_guard_e1": "ประตูตะวันออก",
+ "palace:palace_guard_e2": "ประตูตะวันออก",
+ "palace:palace_guard_n1": "ประตูหลัง",
+ "palace:palace_guard_n2": "ประตูหลัง",
+ "palace:palace_guard_t1": "ท้องพระโรง",
+ "palace:palace_guard_t2": "ท้องพระโรง",
+ "palace:palace_king": "ท้องพระโรง",
+ "palace:palace_chancellor": "ท้องพระโรง",
+ "palace:palace_chaplain": "โบสถ์หลวง",
+ "palace:palace_librarian": "หอสมุดหลวง",
+ "palace:palace_herald": "ประตูชั้นใน",
+ "palace:palace_maid": "ลานใหญ่",
+ "palace:palace_captain": "ลานสวนสนาม",
+ "palace:palace_knight1": "ลานสวนสนาม",
+ "palace:palace_knight2": "ลานสวนสนาม",
+ "palace:palace_knight3": "ลานสวนสนาม",
+ "palace:palace_knight4": "ลานสวนสนาม",
+ "palace:palace_smith": "โรงตีเหล็กหลวง",
+ "palace:palace_stableboy": "คอกม้าหลวง",
+ "palace:palace_princess": "ศาลากลางสระ",
+ "palace:palace_gardener": "เขาวงกตพุ่มไม้",
+ "palace:palace_lady": "อุทยานหลวง",
  "west_woods:west_woods_hunter": "กระท่อมนายพราน",
  "west_woods:west_woods_keeper": "ศาลเจ้าป่าโบราณ",
  "royal_road:royal_road_soldier": "ด่านตรวจถนนหลวง",
@@ -653,5 +725,66 @@ export const NPC_PLACES: Record<string, string> = {
  "north_cliffs:north_cliffs_keeper": "ประภาคารร้าง",
  "north_cliffs:north_cliffs_scavenger": "ซากเรือบนหาดกรวด",
  "west_cape:cape_keeper": "ศาลมังกรทะเล",
- "west_cape:cape_sailor": "ซากเรือใหญ่บนแนวหิน"
+ "west_cape:cape_sailor": "ซากเรือใหญ่บนแนวหิน",
+ "windmill_fields:windmill_fields_miller": "กังหันลมใหญ่",
+ "windmill_fields:windmill_fields_farmwife": "บ่อน้ำหมู่บ้าน",
+ "flower_fields:flower_fields_apiarist": "โรงรังผึ้งหลวง",
+ "flower_fields:flower_fields_florist": "โบสถ์น้อยกลางทุ่ง",
+ "royal_hunt:royal_hunt_huntsman": "กระท่อมล่าสัตว์หลวง",
+ "royal_hunt:royal_hunt_warden": "หอดูสัตว์",
+ "salt_dunes:salt_dunes_fisher": "หมู่บ้านชาวประมง",
+ "salt_dunes:salt_dunes_salter": "ลานเกลือขาว",
+ "lavender_hills:lavender_perfumer": "โรงกลั่นน้ำหอม",
+ "lavender_hills:lavender_vintner": "บ้านไร่หิน",
+ "inner_sea_cliffs:isc_fisher": "หมู่บ้านชาวประมงบ้านเสาสูง",
+ "inner_sea_cliffs:isc_keeper": "ประภาคารเล็ก",
+ "waterfall_gorge:waterfall_gorge_scholar": "พีระมิดใต้เถาวัลย์",
+ "waterfall_gorge:waterfall_gorge_hunter": "สะพานเชือกข้ามหุบ",
+ "frozen_falls:frozen_falls_hermit": "กระท่อมหินของฤๅษี",
+ "frozen_falls:frozen_falls_fisher": "ทะเลสาบน้ำแข็ง",
+ "caravan_road:cr_caravan": "ค่ายคาราวาน",
+ "caravan_road:cr_tollkeeper": "สะพานเก็บค่าผ่านทาง",
+ "windswept_heights:wh_herder": "ค่ายคนเลี้ยงจามรี",
+ "windswept_heights:wh_shrine_keeper": "ศาลกองหินเร่ร่อน",
+ "old_royal_mine:old_royal_mine_miner": "โรงหลอมพัง",
+ "old_royal_mine:old_royal_mine_guard": "ปากอุโมงค์หลวงที่ถูกปิด",
+ "west_glacier:west_glacier_whaler": "ค่ายนักล่าวาฬ",
+ "west_glacier:west_glacier_scholar": "แมมมอธในน้ำแข็ง",
+ "golden_maples:gm_woodcutter": "ค่ายคนตัดไม้",
+ "golden_maples:gm_seeker": "หินภูต",
+ "glass_desert:glass_desert_mage": "ค่ายนักเวทเฝ้าดาวตก",
+ "glass_desert:glass_desert_gatherer": "ทะเลทรายแก้ว",
+ "aurora_field:aurora_apprentice": "ซากหอดูดาว",
+ "aurora_field:aurora_trapper": "ค่ายพรานไอซ์เบิร์ก",
+ "witch_cape:wc_witch": "กระท่อมแม่มด",
+ "witch_cape:wc_mage": "วงหินริมทะเล",
+ "floating_rocks:fr_mage": "ค่ายนักเวทคราเดีย",
+ "floating_rocks:fr_guard": "ช่องเขาชายแดน",
+ "storm_cape:sc_storm_mage": "หอส่งสัญญาณพัง",
+ "storm_cape:sc_castaway": "อ่าวเรือแตก",
+ "burnt_villages:burnt_villages_priest": "สุสานที่ขุดไม่เสร็จ",
+ "burnt_villages:burnt_villages_survivor": "ท่าเรือไหม้",
+ "thornland:thornland_ranger": "ค่ายพรานคราเดีย",
+ "thornland:thornland_botanist": "ทุ่งกรงหนาม",
+ "demon_camp:demon_camp_spy": "ด่านหน้าค่าย",
+ "demon_camp:demon_camp_escapee": "ด่านหน้าค่าย",
+ "royal_peaks:royal_peaks_warden": "ศาลาพักทางขึ้นเขา",
+ "royal_peaks:royal_peaks_pilgrim": "เสาหินหลักเขตอาณาจักร",
+ "primeval_forest:primeval_naturalist": "ค่ายนักธรรมชาติวิทยา",
+ "primeval_forest:primeval_fisher": "อ่าวน้ำตก",
+ "dragon_summit:dragon_summit_sage": "เพิงฤๅษี",
+ "dragon_summit:dragon_summit_seeker": "รังมังกร",
+ "ice_queen_hollow:ice_queen_hollow_knight": "ทางไปธารน้ำแข็งตะวันตก",
+ "snow_abbey:snow_abbey_brother": "อารามร้างบนผา",
+ "snow_abbey:snow_abbey_pilgrim": "ศาลาระฆัง",
+ "humming_stones:humming_poet": "อาศรมกวีเฒ่า",
+ "humming_stones:humming_minstrel": "ดงหินร้องเพลง",
+ "frostfang_ridge:frostfang_ranger": "หอเฝ้าระวังชายแดนร้าง",
+ "frostfang_ridge:frostfang_scavenger": "ดาบยักษ์หัก",
+ "sunken_temple_woods:sunken_monk": "ลานวิหารจมน้ำ",
+ "sunken_temple_woods:sunken_diver": "เรือหินโบราณ",
+ "sacred_banyan:banyan_keeper": "ลานไทรศักดิ์สิทธิ์",
+ "sacred_banyan:banyan_mourner": "ท่าลอยโคม",
+ "first_tree:first_tree_druid": "ป่าไม้เฒ่า",
+ "first_tree:first_tree_poet": "ผาชมทะเลหมอก"
 };
