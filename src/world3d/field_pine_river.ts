@@ -1,9 +1,12 @@
 // ป่าสนริมแม่น้ำ (the pine forest by the river), monsters Lv 20-30: a river comes off the
 // mountains in the north over a 5 m waterfall, foams through rapids and winds south through a
-// pine forest. The way in from the royal road is on the west side; a track runs down past an
-// old ridge with a fire lookout, over the river on a long plank bridge and out the east side
-// toward the steppe, where the pines thin into dry grass and old standing stones crown a
-// two-step rise. Lumberjacks work the west bank below the falls, their logs piled by the water.
+// pine forest to the inner sea, which runs along the whole south of the map: the cliffs of an old
+// ridge (west) and of a rise of standing stones (east) stand over the water, and between them the
+// river runs out across a sandy bay. The way in from the royal road is high on the west side,
+// above the lumberjacks' camp on the west bank below the falls (their logs piled by the water);
+// the track comes down past the camp, by the ridge with its fire lookout, over the river on a
+// long plank bridge and out the east side toward the steppe, where the pines thin and the ground
+// dries into the steppe's yellow grass.
 //
 // Full size in its own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
@@ -14,10 +17,12 @@ import { useKits } from "./town";
 import type { Town } from "./town";
 import { KIT as PLAINS } from "./kits/plains";
 import { KIT as TRUNRADA } from "./kits/trunrada";
+import { KIT as STEPPE } from "./kits/steppe";
+import { KIT as EDEN } from "./kits/eden";
 import type { NpcSpec } from "../npcs";
 import type { SolidSpec } from "../world";
 
-useKits(PLAINS, TRUNRADA);
+useKits(PLAINS, TRUNRADA, STEPPE, EDEN);
 
 type XY = [number, number];
 
@@ -104,6 +109,17 @@ function nearest(line: XY[], guess: XY): { at: XY; dir: XY } {
   return { at: best.at, dir: best.dir };
 }
 const deg = (v: XY) => (Math.atan2(v[1], v[0]) * 180) / Math.PI;
+// a polygon with holes, as one outline: each hole wound the other way and joined to the outline's
+// first point, so the ground's mask leaves it out when it fills the outline
+function withHoles(outer: Poly, holes: Poly[]): Poly {
+  const area = (p: Poly) => p.reduce((t, [x, y], i) => t + x * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * y, 0);
+  const out: Poly = [...outer, outer[0]];
+  for (const h of holes) {
+    const ring = Math.sign(area(h)) === Math.sign(area(outer)) ? [...h].reverse() : h;
+    out.push(...ring, ring[0], outer[0]);
+  }
+  return out;
+}
 function blob(c: XY, rx: number, ry: number, seed: number, n = 18): Poly {
   let s = seed;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -117,6 +133,28 @@ function blob(c: XY, rx: number, ry: number, seed: number, n = 18): Poly {
 const B = { minX: -5500, maxX: 5000, minY: -5500, maxY: 5500 };
 const AREA = { x0: -9000, x1: 8500, y0: -9000, y1: 9000 };
 
+// the inner sea along the south: its shore from past the west edge to past the east, under the
+// ridge's cliffs, round the bay where the river runs out, under the rise's cliffs (it reaches
+// the edges near the corners: Eden's harbour lies south-west, the sea goes on south)
+const SHORE: XY[] = smooth([
+  [-5250, 9500], [-5200, 7000], [-5150, 5800], [-5250, 4700], [-5150, 3600], [-5100, 2500], [-5000, 1800], [-4750, 1150], [-4450, 550], [-4350, -50],
+  [-4450, -600], [-4750, -1050], [-5000, -1500], [-5100, -2400], [-5050, -3400], [-5150, -4400], [-5100, -5300], [-5200, -6500], [-5250, -9500],
+], 4);
+const SEA: Poly = [...SHORE, [-9400, -9500], [-9400, 9500]];
+// the shore's x at y (it runs west to east), and how deep the sand is behind it there: the bay's
+// beach, a strip at the cliffs' feet
+function shoreX(y: number): number {
+  for (let i = 1; i < SHORE.length; i++) {
+    const [ax, ay] = SHORE[i - 1], [bx, by] = SHORE[i];
+    if ((y - ay) * (y - by) <= 0 && ay !== by) return ax + ((bx - ax) * (y - ay)) / (by - ay);
+  }
+  return SHORE[0][0];
+}
+const sandW = (y: number) => 260 + 460 * Math.max(0, 1 - Math.abs(y - 250) / 1500);
+const SAND_IN: XY[] = SHORE.map(([x, y]) => [x + sandW(y), y]);
+const BEACH: Poly = [...SHORE, ...[...SAND_IN].reverse()];
+const onBeach = (x: number, y: number) => x < shoreX(y) + sandW(y);
+
 // the mountains' edge in the north (a 5 m cliff, no way up) and the falls off it
 const PN: Poly = [[4500, -9000], [4400, -3000], [4250, -1200], [4300, 1800], [4600, 4000], [4400, 9000], [8500, 9000], [8500, -9000]];
 const FALLS_Y = 300;
@@ -125,7 +163,7 @@ const FALLS: XY = [LIP_X - 150, FALLS_Y];
 // the river from the falls' pool south, and the pool
 const POOL_C: XY = [3700, 320];
 const POOL: Poly = blob(POOL_C, 470, 680, 5);
-const RIVER: XY[] = smooth([[3900, 320], [3300, 520], [2300, 100], [1000, -500], [-300, -350], [-1500, 250], [-2800, 350], [-4100, -350], [-5600, -150], [-9000, 150]], 5);
+const RIVER: XY[] = smooth([[3900, 320], [3300, 520], [2300, 100], [1000, -500], [-300, -350], [-1500, 250], [-2800, 350], [-3800, -150], [-4600, -250], [-5600, -200]], 5);
 const RW = 760;
 // the bridge
 function crossing(line: XY[], guess: XY): { at: XY; ax: XY; h: number } {
@@ -148,15 +186,17 @@ const PE2: Poly = [[-4400, -2400], [-2900, -2300], [-2800, -4300], [-4500, -4300
 const RE2 = { top: [-3650, -2350] as XY, bottom: [-3650, -1400] as XY, width: 440 };
 const CIRCLE: XY = [-3650, -3350];
 
-// the tracks: west to east over the bridge, up to the lookout, to the lumber camp and the falls,
-// a loop over the dry hill in the east, up to the stones
-const T1: XY[] = smooth([[0, 5900], [-100, 5000], [-500, 3700], [-1400, 2550], [-1300, 1300], off(900), C.at, off(-900), [-500, -1500], RE1.bottom, [-1000, -3900], [-900, -4700], [-850, -5900]]);
-const T_RIDGE: XY[] = [RW1.bottom, RW1.top, [-3100, 2700], [-3600, 3000]];
-const T_CAMP: XY[] = smooth([[-1320, 1600], [0, 1700], [1300, 1850], [2100, 1750], [3000, 1450], [3450, 1150]]);
+// the tracks: from the way in high on the west side down past the lumber camp, over the bridge and
+// out east; up to the lookout, on to the camp and the falls, a loop over the dry hill in the east,
+// up to the stones
+const T1: XY[] = smooth([[2800, 5900], [2690, 5150], [2400, 4350], [1800, 3650], [1050, 3050], [700, 2250], [100, 1700], [-700, 1550], [-1300, 1250], off(900), C.at, off(-900), [-500, -1500], RE1.bottom, [-1000, -3900], [-900, -4700], [-850, -5900]]);
+const T_RIDGE: XY[] = [...smooth([[-450, 1580], [-700, 2150], [-1050, 2430], RW1.bottom], 4), RW1.top, [-3100, 2700], [-3600, 3000]];
+const T_CAMP: XY[] = smooth([[100, 1700], [1300, 1850], [2100, 1750], [3000, 1450], [3450, 1150]]);
 const T_EAST: XY[] = smooth([[-500, -1500], [800, -2300], [2000, -3150], [1300, -4300], [-1000, -3900]]);
 const T_STONES: XY[] = [RE1.bottom, RE1.top, [-2900, -2000], RE2.bottom, RE2.top, [-3650, -2650]];
 
-const WAY_W: XY = [-85, 5150], ARRIVE_W: XY = [-270, 4450];
+// the way to the royal road where the road's own way out meets this edge (n 0.78)
+const WAY_W: XY = [2690, 5150], ARRIVE_W: XY = [2470, 4500];
 const WAY_E: XY = [-881, -5150], ARRIVE_E: XY = [-931, -4450];
 const CAMP: XY = [2000, 1750];
 const LOOKOUT: XY = [-3800, 3200];
@@ -186,22 +226,74 @@ export function build(quality: { flowers: number }): Town {
     area: AREA,
     roads: tracks.map((t, i) => band(t, i === 0 ? 480 : 400)),
     plazas: [],
-    water: [band(RIVER, RW), POOL],
+    water: [band(RIVER, RW), POOL, SEA],
     base: "grass",
   });
+  // the sand along the shore: a second ground a hair over the grass, cut away inland of the sand's
+  // line and on the cliffs' tops
+  const sand = f.ground({ area: { ...AREA, x1: -3300 }, roads: [], plazas: [], water: [SEA, [...SAND_IN, [9400, -9500], [9400, 9500]], band(RIVER, RW), dense(PW), dense(PE)], base: "sand" });
+  sand.mesh.position.y += 3;
+  sand.mesh.renderOrder = 1;
+  // the steppe coming in from the east: its own dry ground, a second ground a hair over the grass,
+  // over the last fifth or so: east of a ragged line, patches of it out in the grass west of the
+  // line and patches of grass in it east of the line, both thinning away from the line
+  const dryLine = (x: number) => -4100 + 260 * Math.sin(x / 1100 + 0.7) + 130 * Math.sin(x / 430 + 2);
+  const WET_SIDE: Poly = [];
+  for (let x = AREA.x0 - 400; x <= AREA.x1 + 400; x += 200) WET_SIDE.push([x, dryLine(x)]);
+  WET_SIDE.push([AREA.x1 + 400, AREA.y1 + 400], [AREA.x0 - 400, AREA.y1 + 400]);
+  const dryPatches: { c: XY; r: number; p: Poly }[] = [], greenPatches: { c: XY; r: number; p: Poly }[] = [];
+  {
+    let s = 4111;
+    const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    const clear = (c: XY, rr: number, list: { c: XY; r: number }[], gap = 60) => list.every((o) => dist(o.c, c) > o.r + rr + gap);
+    for (let i = 0; i < 900 && (dryPatches.length < 70 || greenPatches.length < 70); i++) {
+      const out = i % 2 === 0, x = AREA.x0 + r() * (AREA.x1 - AREA.x0), d = r() * 1300, k = 1 - d / 1300;
+      if (r() > Math.pow(k, 1.4)) continue;
+      const rx = 170 + r() * 480 * k, ry = 150 + r() * 430 * k, rr = Math.max(rx, ry) * 1.05;
+      if (out) {
+        // a patch of steppe in the grass: wholly west of the line, clear of the others
+        const c: XY = [x, dryLine(x) + d + 40];
+        const p = blob(c, rx, ry, 1 + i);
+        if (dryPatches.length >= 70 || !p.every(([px, py]) => py > dryLine(px) + 30) || !clear(c, rr, dryPatches)) continue;
+        dryPatches.push({ c, r: rr, p });
+      } else {
+        // a patch of grass in the steppe, clear of the steppe's patches west of the line
+        const c: XY = [x, dryLine(x) - d];
+        if (greenPatches.length >= 70 || !clear(c, rr, dryPatches, 40)) continue;
+        greenPatches.push({ c, r: rr, p: blob(c, rx, ry, 1 + i) });
+      }
+    }
+  }
+  const dryGround = f.ground({
+    area: { ...AREA, y1: -2400 },
+    roads: tracks.map((t, i) => band(t, i === 0 ? 480 : 400)),
+    plazas: [],
+    water: [SEA, BEACH, withHoles(WET_SIDE, dryPatches.map((d) => d.p)), ...greenPatches.map((g) => g.p)],
+    base: "steppe",
+  });
+  dryGround.mesh.position.y += 3;
+  dryGround.mesh.renderOrder = 1;
+  // where the steppe's ground shows
+  const dry = (x: number, y: number) => y < -2400 && dryGround.kind(x, y) !== 3;
 
   const taken: { x: number; y: number; r: number }[] = [];
   const mark = (x: number, y: number, r: number) => taken.push({ x, y, r });
   const free = (x: number, y: number, r: number) => taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
   const nearTrack = (x: number, y: number, d: number) => tracks.some((t) => toLine([x, y], t) < d);
-  const wet = (x: number, y: number, d: number) => toLine([x, y], RIVER) < RW / 2 + d || dist([x, y], POOL_C) < 700 + d;
+  const wet = (x: number, y: number, d: number) => toLine([x, y], RIVER) < RW / 2 + d || dist([x, y], POOL_C) < 700 + d || x < shoreX(y) + d;
   const P = (ref: string, at: XY, h = 0, r = 200, o: Parameters<typeof put>[3] = {}) => {
     put(ref, at, h, o);
     mark(at[0], at[1], r);
   };
 
   // ---- the river: water, the falls, rapids, the bridge ----
-  const scenery: THREE.Object3D[] = [f.waterSheet({ x0: AREA.x0, x1: 4300, y0: -1400, y1: 1600 }, -14, "WaterSea")];
+  const scenery: THREE.Object3D[] = [
+    f.waterSheet({ x0: -4300, x1: 4300, y0: -1400, y1: 1600 }, -14, "WaterSea"),
+    // the sea, out past the ground's end
+    f.waterSheet({ x0: -20000, x1: -4250, y0: AREA.y0, y1: AREA.y1 }, -14, "WaterSea"),
+    sand.mesh,
+    dryGround.mesh,
+  ];
   for (const part of pieces(RIVER, [C.at], 190 * BRIDGE_S + 10)) f.blockBand(part, RW + 60, { step: 220 });
   f.blockBand([...POOL, POOL[0]], 200, { step: 200 });
   f.extra.push({ kind: "water", x: POOL_C[0], y: POOL_C[1], r: 380 });
@@ -222,19 +314,42 @@ export function build(quality: { flowers: number }): Town {
       if (rnd() < 0.35) continue;
       const t = rnd(), o = RW / 2 + 70 + rnd() * 120;
       const x = ax + (bx - ax) * t - ((by - ay) / L) * s * o, y = ay + (by - ay) * t + ((bx - ax) / L) * s * o;
-      if (dist([x, y], C.at) < 900 || nearTrack(x, y, 300) || !f.level(x, y, 110) || !free(x, y, 90) || x > 4000) continue;
+      if (dist([x, y], C.at) < 900 || nearTrack(x, y, 300) || !f.level(x, y, 110) || !free(x, y, 90) || x > 4000 || x < shoreX(y) + 120) continue;
       const k = rnd();
       if (k < 0.45) P("plains:reeds", [x, y], rnd() * 360, 80);
       else if (k < 0.65) P("plains:flat_rock", [x, y], rnd() * 360, 200, { s: 0.55 + rnd() * 0.3 });
-      else if (k < 0.85) P("flora:Birch", [x, y], rnd() * 360, 180, { s: 0.8 + rnd() * 0.3 });
+      else if (k < 0.85 && !onBeach(x, y)) P("flora:Birch", [x, y], rnd() * 360, 180, { s: 0.8 + rnd() * 0.3 });
       else P("plains:tall_grass", [x, y], rnd() * 360, 70);
     }
   }
 
+  // ---- the sea: the shore closed, rocks at the cliffs' feet, the river's mouth ----
+  // (the shore's seaward side: it runs west to east, so the sea is on its right)
+  const seaward = (i: number, d: number): XY => {
+    const a = SHORE[Math.max(0, i - 1)], b = SHORE[Math.min(SHORE.length - 1, i + 1)], L = dist(a, b) || 1;
+    return [SHORE[i][0] + ((b[1] - a[1]) / L) * d, SHORE[i][1] - ((b[0] - a[0]) / L) * d];
+  };
+  f.blockBand(SHORE.map((_, i) => seaward(i, 280)).filter(([x, y]) => x > B.minX - 1200 && Math.abs(y) < B.maxY + 800), 520, { kind: "sea" });
+  for (let i = 1; i < SHORE.length - 1; i++) {
+    const y = SHORE[i][1];
+    if (Math.abs(y) > 7500 || (y < 1500 && y > -1300) || rnd() < 0.45) continue;
+    const at = seaward(i, -60 + rnd() * 170), k = rnd();
+    put(k < 0.5 ? "plains:boulder" : k < 0.8 ? "plains:rock_cluster" : "plains:flat_rock", at, rnd() * 360, { solid: "none", s: 0.5 + rnd() * 0.5 });
+  }
+  // the bay: driftwood and a rowboat drawn up on the sand, reeds at the river's mouth
+  P("plains:fallen_log", [-4050, 1150], 70, 330, { s: 0.9 });
+  P("plains:fallen_log", [-4150, -950], 120, 330, { s: 0.8 });
+  P("eden:rowboat", [-4000, 700], 160, 260);
+  P("plains:flat_rock", [-4300, -700], 30, 200, { s: 0.6 });
+  for (const g of [[-3900, 450], [-3700, 600], [-3900, -650], [-3650, -800], [-3400, 520], [-3300, -650]] as XY[]) {
+    const n = nearest(RIVER, g), side: XY = [g[0] - n.at[0], g[1] - n.at[1]], L = Math.hypot(side[0], side[1]) || 1;
+    P("plains:reeds", [n.at[0] + (side[0] / L) * (RW / 2 + 90), n.at[1] + (side[1] / L) * (RW / 2 + 90)], rnd() * 360, 80);
+  }
+
   // ---- the ways out ----
   f.exit("royal_road", WAY_W, ARRIVE_W);
-  P("plains:signpost", [350, 4950], 180, 80);
-  P("plains:milestone", [-500, 5000], 0, 60);
+  P("plains:signpost", [3100, 4950], 180, 80);
+  P("plains:milestone", [2250, 5000], 0, 60);
   f.exit("west_steppe", WAY_E, ARRIVE_E);
   P("plains:signpost", [-1350, -5000], 0, 80);
   P("trunrada:standing_stone", [-400, -5050], 20, 90);
@@ -293,29 +408,31 @@ export function build(quality: { flowers: number }): Town {
       // west of the river thick; east of it thinning out toward the steppe
       const east = Math.max(0, Math.min(1, (-py - 500) / 4500));
       if (rnd() < 0.15 + east * 0.72) continue;
-      if (inGlade(px, py) || nearTrack(px, py, 400) || wet(px, py, 170) || !f.level(px, py, 170) || !free(px, py, 170)) continue;
+      if (inGlade(px, py) || nearTrack(px, py, 400) || wet(px, py, 170) || onBeach(px, py) || (dry(px, py) && rnd() < 0.5) || !f.level(px, py, 170) || !free(px, py, 170)) continue;
       const kinds = east > 0.5 ? ["PineSmall", "Birch", "PineSmall"] : ["Pine", "Pine", "PineSmall", "Pine", "Birch"];
       const onTop = f.h(px, py) > 450;
       P(`flora:${kinds[Math.floor(rnd() * kinds.length)]}`, [px, py], rnd() * 360, 180, { s: 0.85 + rnd() * 0.45, ...(onTop ? { solid: "none" as const } : {}) });
     }
-  for (let i = 0; i < 520; i++) {
+  for (let i = 0; i < 560; i++) {
     const px = B.minX + rnd() * (B.maxX - B.minX), py = B.minY + rnd() * (B.maxY - B.minY);
-    if (nearTrack(px, py, 260) || wet(px, py, 50) || !f.level(px, py, 90) || !free(px, py, 70) || inGlade(px, py, 0.5)) continue;
+    if (nearTrack(px, py, 260) || wet(px, py, 50) || onBeach(px, py) || !f.level(px, py, 90) || !free(px, py, 70) || inGlade(px, py, 0.5)) continue;
     const east = Math.max(0, Math.min(1, (-py - 500) / 4500));
     const k = rnd();
-    if (k < 0.4 - east * 0.3) P("plains:fern_clump", [px, py], rnd() * 360, 70, { s: 0.8 + rnd() * 0.3 });
+    if (dry(px, py)) P(k < 0.8 ? "steppe:grass_tuft" : "steppe:scrub", [px, py], rnd() * 360, 60, { solid: "none", s: 0.8 + rnd() * 0.5 });
+    else if (k < 0.4 - east * 0.3) P("plains:fern_clump", [px, py], rnd() * 360, 70, { s: 0.8 + rnd() * 0.3 });
     else if (k < 0.85) P("plains:tall_grass", [px, py], rnd() * 360, 60, { s: 0.9 + east * 0.4 });
     else P("flora:Bush", [px, py], rnd() * 360, 60, { solid: "none", s: 1.1 });
   }
 
   // ---- the rim: pines all round, thinning to the steppe in the east; the mountains' top ----
   const inside = (x: number, y: number) => x > B.minX - 250 && x < B.maxX + 250 && y > B.minY - 250 && y < B.maxY + 250;
-  f.woods(AREA, ["Pine", "Pine", "PineSmall", "Pine", "Birch"], (x, y) => inside(x, y) || y < -6200 || wet(x, y, 120) || toLine([x, y], T1) < 320 || (x > 4200 && Math.abs(y - FALLS_Y) < 500 && x < 5400), { count: 820, tries: 9000, spacing: 400 });
-  f.woods({ ...AREA, y1: -5800 }, ["PineSmall", "Birch", "Bush", "Bush"], (x, y) => inside(x, y) || toLine([x, y], T1) < 320 || wet(x, y, 120), { count: 120, tries: 2000, spacing: 700 });
-  for (let i = 0; i < 70; i++) {
+  f.woods(AREA, ["Pine", "Pine", "PineSmall", "Pine", "Birch"], (x, y) => inside(x, y) || y < -5700 || wet(x, y, 120) || onBeach(x, y) || toLine([x, y], T1) < 320 || (x > 4200 && Math.abs(y - FALLS_Y) < 500 && x < 5400), { count: 820, tries: 9000, spacing: 400 });
+  f.woods({ ...AREA, y1: -5800 }, ["PineSmall", "Birch", "Bush", "Bush"], (x, y) => inside(x, y) || toLine([x, y], T1) < 320 || wet(x, y, 120) || onBeach(x, y), { count: 120, tries: 2000, spacing: 700 });
+  for (let i = 0; i < 110; i++) {
     const x = AREA.x0 + rnd() * (AREA.x1 - AREA.x0), y = AREA.y0 + rnd() * (-5800 - AREA.y0);
-    if (inside(x, y) || toLine([x, y], T1) < 300 || wet(x, y, 80)) continue;
-    put(rnd() < 0.85 ? "plains:tall_grass" : "trunrada:standing_stone", [x, y], rnd() * 360, { solid: "none", s: 1.2 });
+    if (inside(x, y) || toLine([x, y], T1) < 300 || wet(x, y, 80) || onBeach(x, y)) continue;
+    const k = rnd();
+    put(k < 0.6 ? "steppe:grass_tuft" : k < 0.85 ? "steppe:scrub" : "trunrada:standing_stone", [x, y], rnd() * 360, { solid: "none", s: 1.2 });
   }
 
   // ---- monsters ----
@@ -340,9 +457,9 @@ export function build(quality: { flowers: number }): Town {
     ground,
     scenery,
     sky: "#3a5631",
-    flowers: { box: { x: B.minX, y: B.minY, w: B.maxX - B.minX, h: B.maxY - B.minY }, open: (x, y) => ground.kind(x, y) === 0 && y > -3000, density: 0.2 * quality.flowers },
+    flowers: { box: { x: B.minX, y: B.minY, w: B.maxX - B.minX, h: B.maxY - B.minY }, open: (x, y) => ground.kind(x, y) === 0 && y > -3000 && !onBeach(x, y), density: 0.2 * quality.flowers },
     bounds: B,
-    spawn: { x: -330, y: 4250 },
+    spawn: { x: 2330, y: 4250 },
     npcs,
     labels: [
       { x: 3350, y: 1250, text: "น้ำตกผาสน" },
@@ -353,6 +470,8 @@ export function build(quality: { flowers: number }): Town {
       { x: -3650, y: -2700, text: "เนินหินตั้ง" },
       { x: 2000, y: -3150, text: "เนินหญ้าแห้ง", kind: "small" },
       { x: -3000, y: 1000, text: "แม่น้ำสน", kind: "small" },
+      { x: -3850, y: 1000, text: "ปากแม่น้ำ", kind: "small" },
+      { x: -5000, y: 200, text: "ทะเลใน" },
       { x: WAY_W[0], y: WAY_W[1] - 250, text: "ทางไปถนนหลวง", kind: "gate" },
       { x: WAY_E[0], y: WAY_E[1] + 250, text: "ทางไปสเตปป์ตะวันตก", kind: "gate" },
     ],

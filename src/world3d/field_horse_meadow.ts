@@ -3,8 +3,9 @@
 // the middle-west stands the abandoned ranch: its barn with the roof fallen in, a paddock, a
 // round pen, troughs and a well sweep round a trampled yard, the stone walls of the
 // rancher's house. Wild horses graze the hills. To the north the land rises to grassy bluffs
-// that end in cliffs over the North Sea, with sea stacks out in the surf; on a headland step
-// above the bluffs burns the old beacon tower. A low mesa in the south-east keeps a horse
+// that end in cliffs over the North Sea, which fills the whole north of the map past them, sea
+// stacks out in the surf; on a headland step jutting out from the bluffs burns the old beacon
+// tower. A low mesa in the south-east keeps a horse
 // shrine. Woods close the east, west and south.
 //
 // Full size around the origin (north +X, east -Y), scaled by TOWN_SCALE in finishField.
@@ -26,14 +27,18 @@ const R = 5500;
 const AREA = 9300;
 
 // ---- the ground's heights: the bluffs along the coast, the headland step, the shrine mesa ----
-const COAST: XY[] = [[5000, -9800], [4800, -7600], [5200, -6000], [4900, -4400], [5300, -2900], [4800, -1500], [5100, 0], [4700, 1400], [5200, 2800], [4900, 4300], [5300, 5800], [4900, 7400], [5100, 9800]];
-const BLUFF_S: XY[] = [[3300, 9800], [3500, 7000], [3100, 5200], [3600, 3600], [3200, 2200], [3700, 600], [3400, -900], [3900, -2400], [3300, -3800], [3600, -5300], [3300, -7200], [3500, -9800]];
+// (the cliffs' top edge, east to west: a narrow bluff over a broad sea, the headland jutting out)
+const COAST: XY[] = [
+  [4250, -9800], [4100, -7600], [4200, -6000], [4500, -4600], [4850, -3800], [5050, -2900], [4750, -2000], [4700, -1300], [4600, -500],
+  [4600, 300], [4450, 1200], [4450, 2200], [4250, 2900], [4400, 3600], [4200, 4300], [4100, 5200], [4300, 5800], [4150, 7400], [4250, 9800],
+];
+const BLUFF_S: XY[] = [[3300, 9800], [3500, 7000], [3100, 5200], [3600, 3600], [3200, 2200], [3700, 600], [3400, -900], [3450, -2400], [3300, -3800], [3600, -5300], [3300, -7200], [3500, -9800]];
 const BLUFF: XY[] = [...BLUFF_S, ...COAST];
-const HEADLAND: XY[] = [[4150, -1900], [4000, -3000], [4400, -3850], [4950, -3650], [5080, -2900], [4600, -1900]];
+const HEADLAND: XY[] = [[3850, -1900], [3700, -3000], [4100, -3850], [4650, -3650], [4780, -2900], [4300, -1900]];
 const MESA: XY[] = [[-1900, -2700], [-2700, -2400], [-3700, -2700], [-4100, -3600], [-3800, -4600], [-2800, -4900], [-2000, -4500], [-1700, -3600]];
 const RAMP_W = { top: [3400, 2900] as XY, bottom: [2150, 3257] as XY, width: 460 };
 const RAMP_E = { top: [3550, -150] as XY, bottom: [2276, 105] as XY, width: 460 };
-const RAMP_HEAD = { top: [4375, -1900] as XY, bottom: [4375, -1100] as XY, width: 400 };
+const RAMP_HEAD = { top: [4075, -1900] as XY, bottom: [4075, -1100] as XY, width: 400 };
 const RAMP_MESA = { top: [-1800, -3150] as XY, bottom: [-800, -3150] as XY, width: 440 };
 // the rim: hills and woods east, west and south, a low mesa among them
 const RIM_S: XY[] = [[-6300, -3800], [-6000, -2200], [-6600, -1300], [-7800, -1500], [-8800, -2600], [-8400, -3900], [-7200, -4500]];
@@ -68,7 +73,8 @@ const TERRAIN = {
 
 // ---- the tracks ----
 const MAIN: XY[] = smooth([[-AREA - 200, -350], [-6200, -320], [-5150, -300], [-4300, -150], [-3300, 300], [-2400, 1200], [-1900, 2200], [-1500, 3150]]);
-const TO_BLUFF_W: XY[] = smooth([[-1700, 2550], [-700, 2200], [300, 2000], [1200, 2550], [2150, 3257], [3400, 2900], [3950, 2300], [4150, 1200], [4050, 300], [4000, -500], [4200, -900], [4375, -1100], [4375, -1900], [4450, -2500]]);
+// (along the bluff's top it keeps near the landward edge, clear of the drop to the sea)
+const TO_BLUFF_W: XY[] = smooth([[-1700, 2550], [-700, 2200], [300, 2000], [1200, 2550], [2150, 3257], [3400, 2900], [3700, 2300], [3920, 1200], [4050, 300], [3900, -500], [3950, -850], [4075, -1100], [4075, -1900], [4150, -2500]]);
 const TO_BLUFF_E: XY[] = smooth([[-2950, 600], [-1700, 900], [-300, 650], [1000, 250], [2276, 105], [3550, -150], [3950, -300]]);
 const TO_MESA: XY[] = smooth([[-3900, 0], [-2900, -700], [-1700, -1900], [-800, -3150], [-1800, -3150], [-2450, -3300]]);
 const YARD: Poly = ellipse([-1800, 3050], 700, 650, 22, 0.08, 2);
@@ -176,17 +182,17 @@ export function build(quality: { flowers: number }): Town {
   put("steppe:hay_bales", [HX + 900, HY + 200], 80, 200);
 
   // ---- the bluffs, the headland and the beacon ----
-  put("steppe:beacon_tower", [4500, -2850], -90, 0);
-  taken.push([4500, -2850, 420], [4860, -2850, 200], [4180, -2810, 120]);
-  put("steppe:signpost", [3900, -1100], 90, 60);
-  put("trunrada:cairn", [4500, 3300], 0, 150);
-  put("steppe:stone_idol", [4400, 4700], 160, 70);
-  put("steppe:stone_idol", [4300, 2150], 200, 70);
-  put("steppe:rock_cluster", [4300, -4500], 30, 230);
-  put("steppe:boulder", [3950, 4150], 70, 160);
-  put("steppe:dead_tree", [4600, 700], 250, 120);
-  put("steppe:bones", [4400, -700], 60, 120);
-  put("trunrada:standing_stone", [4300, -3500], 20, 80);
+  put("steppe:beacon_tower", [4200, -2850], -90, 0);
+  taken.push([4200, -2850, 420], [4560, -2850, 200], [3880, -2810, 120]);
+  put("steppe:signpost", [3700, -1150], 90, 60);
+  put("trunrada:cairn", [3950, 3350], 0, 150);
+  put("steppe:stone_idol", [3750, 4650], 160, 70);
+  put("steppe:stone_idol", [4200, 2100], 200, 70);
+  put("steppe:rock_cluster", [4050, -4550], 30, 230);
+  put("steppe:boulder", [3700, 4000], 70, 160);
+  put("steppe:dead_tree", [4300, 600], 250, 120);
+  put("steppe:bones", [4250, -650], 60, 120);
+  put("trunrada:standing_stone", [4000, -3500], 20, 80);
 
   // ---- the horse shrine on the mesa ----
   put("trunrada:cairn", [-3150, -3350], 0, 160);
@@ -238,7 +244,8 @@ export function build(quality: { flowers: number }): Town {
       deco(f.rnd() < 0.6 ? "steppe:boulder" : "steppe:rock_cluster", [x, y], f.rnd() * 360, 0.45 + f.rnd() * 0.45);
     }
   }
-  for (const [x, y, s] of [[6600, -3400, 1.1], [7600, -900, 1.4], [6900, 1800, 0.9], [8200, 3600, 1.5], [6500, 4900, 0.8], [7300, -6000, 1.2], [8600, -2600, 1], [6200, 7600, 1.1], [7400, 6400, 0.7]] as [number, number, number][])
+  for (const [x, y, s] of [[6600, -3400, 1.1], [7600, -900, 1.4], [6900, 1800, 0.9], [8200, 3600, 1.5], [6500, 4900, 0.8], [7300, -6000, 1.2], [8600, -2600, 1], [6200, 7600, 1.1], [7400, 6400, 0.7],
+    [5400, 3800, 0.8], [5700, -700, 1], [5300, -6300, 0.9], [5500, 1500, 0.6], [5900, -4600, 0.7]] as [number, number, number][])
     deco("steppe:sea_stack", [x, y], f.rnd() * 360, s);
 
   // ---- the rim: woods east, west and south ----
@@ -256,7 +263,7 @@ export function build(quality: { flowers: number }): Town {
     keepOut: (x, y) => Math.hypot(x + 1800, y - 3050) < 1000,
   });
 
-  const water = f.waterSheet({ x0: 4600, x1: AREA + 400, y0: -AREA - 600, y1: AREA + 600 });
+  const water = f.waterSheet({ x0: 4000, x1: AREA + 400, y0: -AREA - 600, y1: AREA + 600 });
   const npcs: NpcSpec[] = [
     { id: "horse_meadow_rancher", x: -1600, y: 2750, face: 180, name: "ผู้เฒ่าทูเมน", title: "เจ้าของคอกม้าเก่า", role: "talk",
       look: { gender: "male", hair: "", hairColor: "silver", eyes: "amber", top: "top_warrior", bottom: "bottom_warrior_cocoa" },
@@ -265,7 +272,7 @@ export function build(quality: { flowers: number }): Town {
         "ม้าที่เคยเลี้ยงไว้กลายเป็นม้าป่าไปหมดแล้ว ยังวิ่งอยู่บนเนินพวกนั้น",
         "ขึ้นไปบนผาริมทะเลจะเห็นหอไฟสัญญาณ ไฟนั้นไม่เคยดับมาร้อยปี",
       ] },
-    { id: "horse_meadow_keeper", x: 4300, y: -2400, face: 90, name: "เอนค์", title: "คนเฝ้าหอไฟ", role: "talk",
+    { id: "horse_meadow_keeper", x: 4000, y: -2400, face: 90, name: "เอนค์", title: "คนเฝ้าหอไฟ", role: "talk",
       look: { gender: "female", hair: "hime", hairColor: "silver", eyes: "blue", top: "top_adventurer_navy", bottom: "bottom_adventurer_black" },
       lines: [
         "ไฟบนหอนี้บอกเรือในทะเลเหนือว่าตรงนี้มีหน้าผา",
@@ -286,7 +293,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -1700, y: 3000, text: "คอกม้าร้าง" },
       { x: -1200, y: 3200, text: "โรงนาร้าง", kind: "small" },
       { x: -3300, y: 2300, text: "คอกกลม", kind: "small" },
-      { x: 4350, y: -2300, text: "หอไฟสัญญาณ" },
+      { x: 4050, y: -2300, text: "หอไฟสัญญาณ" },
       { x: 4050, y: 2400, text: "หน้าผาทะเลเหนือ" },
       { x: -2600, y: -3500, text: "ศาลเจ้าม้า", kind: "small" },
       { x: -4900, y: -300, text: "ทางไปทรุนราดา", kind: "gate" },
