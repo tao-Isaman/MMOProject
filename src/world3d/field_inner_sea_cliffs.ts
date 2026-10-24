@@ -240,9 +240,16 @@ export function build(quality: { flowers: number }): Town {
     tryPlace(ref, at, h, 240, { solid: ring(150) });
   for (const [c, r, n] of [[[4100, -4300], 700, 5], [[3700, 1500], 500, 3], [[-800, -4500], 600, 4], [[2300, -3800], 500, 3], [[-1400, 1200], 400, 2], [[4900, -2000], 500, 3]] as [XY, number, number][])
     scatter({ x0: c[0] - r, x1: c[0] + r, y0: c[1] - r, y1: c[1] + r }, n, ["flora:Pine", "flora:PineSmall", "flora:Birch", "flora:PineSmall"], 190, (x, y) => meadow(x, y) && !onTrack(x, y, 400), { s: [0.8, 1.1] });
+  // the shepherds of the coast: their fold and hut on the meadow north-east, the flock out on the
+  // grass; a wayside shrine where the ways meet
+  const FOLD: XY = [3300, -2900];
+  place("westfarm:sheepfold", FOLD, faceTo(FOLD, [2500, -2000]), 520);
+  tryPlace("westfarm:shepherd_hut", [4100, -2300], faceTo([4100, -2300], [3300, -1800]), 320);
+  for (const [x, y, h] of [[2600, -3600, 30], [2300, -2700, 200]] as number[][]) tryPlace("westfarm:sheep_flock", [x, y], h, 260, { solid: "none" });
+  tryPlace("westfarm:wayside_shrine", [1050, -150], faceTo([1050, -150], J), 120);
   // a fish cart left by the track down to the bay, horses from the steppe grazing the north end
   tryPlace("trunrada:cart", [-1500, 1100], faceDir(-1, 0.4), 220);
-  for (const [x, y, h] of [[3900, -2900, 30], [4300, -3300, 200], [3500, -3600, 120]] as number[][]) tryPlace("trunrada:horse_grazing", [x, y], h, 150, { solid: "none" });
+  for (const [x, y, h] of [[4600, 1200, 30], [4300, 1500, 200], [4800, 1600, 120]] as number[][]) tryPlace("trunrada:horse_grazing", [x, y], h, 150, { solid: "none" });
   scatter({ x0: -R, x1: R, y0: -R, y1: R }, 12, ["steppe:boulder", "steppe:boulder_flat", "steppe:rock_cluster"], 200, meadow, { s: [0.6, 1], solid: 140 });
   scatter({ x0: -R, x1: R, y0: -R, y1: R }, 30, ["steppe:scrub", "eastcoast:sea_pinks"], 100, meadow, { s: [0.7, 1.2], solid: "none" });
   scatter({ x0: -R, x1: R, y0: -R, y1: R }, 220, ["steppe:grass_tuft"], 60, (x, y) => meadow(x, y) || onW1(x, y) || inPoly(S1, x, y), { s: [0.7, 1.4], solid: "none", tries: 9000 });
@@ -257,7 +264,7 @@ export function build(quality: { flowers: number }): Town {
   // doorstep or the lighthouse's) ----
   f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, {
     step: 760, max: 52,
-    keepOut: (x, y) => Math.hypot(x - LIGHT[0], y - LIGHT[1]) < 700 || Math.hypot(x + 2350, y - 1000) < 650,
+    keepOut: (x, y) => Math.hypot(x - LIGHT[0], y - LIGHT[1]) < 700 || Math.hypot(x + 2350, y - 1000) < 650 || Math.hypot(x - 3500, y + 2700) < 900,
   });
 
   // ---- people ----
@@ -300,6 +307,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -3300, y: -4000, text: "เนินนางนวล" },
       { x: -2900, y: -2300, text: "ผาริมทะเลใต้", kind: "small" },
       { x: 2200, y: -1800, text: "ทุ่งหญ้าริมผา", kind: "small" },
+      { x: 3300, y: -2300, text: "คอกแกะริมทุ่ง", kind: "small" },
     ],
   });
 }

@@ -194,6 +194,14 @@ export function build(_quality: { flowers: number }): Town {
     if (onBeach(x, y)) tryPlace(i % 3 ? "eastcoast:shore_rocks" : "frontier:fallen_log", [x, y], rnd() * 360, 220, { s: 0.6 + rnd() * 0.3, solid: ring(120) });
   }
   tryPlace("eastcoast:rowboat", [-4050, 1500], 40, 220, { solid: [{ kind: "boat", x: 0, y: 0, w: 380, d: 140, rot: 0 }] });
+  // driftwood, rocks and a few gold bushes where the sand meets the wood; a fire of driftwood
+  for (const [ref, at, h, sc] of [
+    ["frontier:fallen_log", [-4100, 2300], 70, 0.8], ["eastcoast:shore_rocks", [-4300, -1100], 20, 0.7], ["eastcoast:shore_rocks", [-3900, 2700], 150, 0.6],
+    ["frontier:fallen_log", [-4150, -600], 120, 0.7], ["eastcoast:shore_rocks", [-4250, 900], 260, 0.5], ["frontier:flat_rocks", [-3950, -1400], 30, 0.8],
+    ["eastcoast:golden_bush", [-3550, 2150], 0, 0.7], ["eastcoast:golden_bush", [-3650, -800], 90, 0.6], ["eastcoast:golden_bush", [-3500, 1200], 200, 0.55],
+  ] as [string, XY, number, number][])
+    tryPlace(ref, at, h, 200 * sc, { s: sc, solid: ref.endsWith("bush") ? "none" : ref.endsWith("log") ? [{ kind: "log", x: 0, y: 0, w: 100, d: 520, rot: 0 }] : ring(130 * sc) });
+  tryPlace("frontier:campfire", [-3950, 1950], 0, 140, { s: 0.8, solid: ring(80, "fire") });
   // reeds, flat rocks and ferns along the stream's banks
   for (const { p, d } of every(STREAM, 330, 150)) {
     if (!inBox(p[0], p[1], 200) || Math.hypot(p[0] - BRIDGE[0], p[1] - BRIDGE[1]) < 800 || p[0] < -3400) continue;

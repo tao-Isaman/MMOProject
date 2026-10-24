@@ -293,6 +293,14 @@ export function build(quality: { flowers: number }): Town {
   const low = (x: number, y: number) => inBox(x, y, 250) && ![Q1, RIDGE].some((p) => inPoly(p, x, y));
   for (const [ref, at, h] of [["trunrada:standing_stone", [4600, 3200], 20], ["steppe:stone_idol", [3900, 300], 120], ["steppe:fallen_menhir", [-600, 2500], 60], ["trunrada:cairn", [1200, 4300], 0], ["steppe:dead_tree", [-1200, -3500], 30], ["steppe:bones", [1300, -3600], 100]] as [string, XY, number][])
     tryPlace(ref, at, h, 220, { solid: ref.endsWith("bones") ? "none" : ring(120) });
+  // the caravan drivers' graves on a rise by the north road: cairns, a stone, a dead tree, a
+  // broken cart wheel left on one
+  const GRAVES: XY = [3700, 3500];
+  for (const [dx, dy, h] of [[0, 0, 0], [350, 280, 40], [-300, 350, 80], [250, -350, 20], [-350, -250, 60]] as number[][])
+    tryPlace("trunrada:cairn", [GRAVES[0] + dx, GRAVES[1] + dy], h, 120, { s: 0.8, solid: ring(70) });
+  tryPlace("trunrada:standing_stone", [GRAVES[0] - 650, GRAVES[1] + 100], 15, 90, { solid: ring(50) });
+  tryPlace("steppe:dead_tree", [GRAVES[0] + 600, GRAVES[1] - 50], 40, 140, { solid: ring(40, "tree") });
+  tryPlace("trunrada:banner_pole", [GRAVES[0] + 100, GRAVES[1] + 650], 30, 60, { solid: ring(20, "post") });
   // copses: birch and pine in the north, golden maples coming in from the south, pine and autumn
   // trees toward Kradia
   for (const [c, r, n, kinds] of [
@@ -371,6 +379,7 @@ export function build(quality: { flowers: number }): Town {
       { x: POOL[0] - 600, y: POOL[1], text: "บ่อต้นลำธาร", kind: "small" },
       { x: TOWER[0] + 700, y: TOWER[1], text: "เนินหอเฝ้าทางเก่า" },
       { x: -2000, y: -3300, text: "ทุ่งหญ้าริมลำธาร", kind: "small" },
+      { x: GRAVES[0] - 500, y: GRAVES[1], text: "เนินหลุมศพคนคาราวาน", kind: "small" },
     ],
   });
 }

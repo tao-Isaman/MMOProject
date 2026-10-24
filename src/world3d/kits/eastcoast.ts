@@ -112,7 +112,7 @@ defineMaterial("Eastcoast_Gravel", { map: "cobble", tint: "#a59f93", bump: 1.5 }
 defineMaterial("Eastcoast_Ember", { tint: "#ff8a3a", rough: 1, glow: "#ff4a12", glowI: 1.8 });
 defineMaterial("Eastcoast_Flame", { tint: "#ffb04a", rough: 1, glow: "#ff6a1a", glowI: 2 });
 defineMaterial("Eastcoast_Soot", { map: "felt", tint: "#2e2a28", rough: 1 });
-defineMaterial("Eastcoast_BlackWater", { tint: "#1c2827", rough: 0.06, opacity: 0.95 });
+defineMaterial("Eastcoast_BlackWater", { tint: "#2c4842", rough: 0.06, opacity: 0.93 });
 // cliff faces for the fields: the coast's granite, the witch's cape's dark rock
 defineMaterial("Eastcoast_CliffGranite", { map: "crag", tint: "#a0968a", bump: 4 });
 defineMaterial("Eastcoast_CliffDark", { map: "crag", tint: "#6e6a6c", bump: 4 });
@@ -1202,7 +1202,7 @@ function lowFog(): THREE.Group {
     parts.push(ellipsoid([rx, ry, 30 + rnd() * 30], [x, y, 18 + rnd() * 50], "fog", 12));
   }
   for (let i = 0; i < 3; i++) parts.push(ellipsoid([260 + rnd() * 140, 170 + rnd() * 70, 22], [(rnd() - 0.5) * 800, (rnd() - 0.5) * 260, 100 + rnd() * 30], "fog", 10));
-  const mat = new THREE.MeshStandardMaterial({ color: "#d9e2dc", transparent: true, opacity: 0.17, roughness: 1, depthWrite: false, emissive: new THREE.Color("#8f9e95"), emissiveIntensity: 0.4 });
+  const mat = new THREE.MeshStandardMaterial({ color: "#cdd8d2", transparent: true, opacity: 0.12, roughness: 1, depthWrite: false, emissive: new THREE.Color("#7f8f86"), emissiveIntensity: 0.25 });
   const g = toThree(merge(...parts), () => mat);
   g.traverse((o) => {
     o.castShadow = false;
