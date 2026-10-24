@@ -39,16 +39,19 @@ useKits(WESTMOUNT, PLAINS, OSAKI, NORTHCOLD);
 const R = 5500; // the walkable box
 const A = 9000; // the ground
 
-// ---- the river: in from the north edge, winding south-west, out at the south edge ----
-const RIVER: XY[] = smooth([[A, 3200], [6000, 2600], [4200, 3400], [2600, 2400], [1000, 2900], [-600, 1900], [-2200, 2500], [-3800, 1600], [-5600, 2300], [-A, 1800]], 6);
+// ---- the river: in from the north edge, winding south-west, out at the south edge where the
+// ancient forest's stream comes in (narrowing to its width there; the world map's picture of the
+// field reaches 6676 out) ----
+const RIVER: XY[] = smooth([[A, 3200], [6000, 2600], [4200, 3400], [2600, 2400], [1000, 2900], [-600, 1900], [-2200, 2500], [-3700, 1850], [-4700, 1200], [-5800, 450], [-6676, 354], [-A, 320]], 6);
 const RW = 700;
 const ss = (a: number, b: number, v: number) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
+const rw = (x: number) => RW - 180 * ss(-4800, -6676, x);
 // the arm that turns away east below the pond and goes out over the east edge to become the
 // frozen river: as wide as the jade river where it leaves it, as wide as the frozen river where it
-// meets it at the edge (the world map's picture of the field reaches 6676 out)
+// meets it at the edge
 const ARM: XY[] = smooth([[-400, 1950], [-100, 1150], [-200, 300], [-300, -350], [-430, -900], [-750, -1700], [-1000, -2700], [-1150, -3600], [-1500, -4450], [-1350, -5200], [-1110, -6000], [-1077, -6676], [-1077, -7600], [-1077, -9400]], 6);
 const armW = (y: number) => 700 + 711 * ss(-4300, -6676, y);
 // A strip along a polyline, `w` across at each point, as a polygon.
@@ -106,7 +109,7 @@ const TOWERS: [XY, number, number][] = [
   [[-6800, -6500], 1200, 2600], [[-7000, -2600], 1000, 2200], [[-7200, 4000], 1300, 2800], [[-6500, 7000], 1000, 2400],
   [[1400, -7400], 900, 2600], [[3600, -7000], 1000, 2100], [[-3500, -7300], 1100, 2300], [[7000, -4000], 1200, 2800],
   [[7400, -1500], 800, 2100], [[7000, 6500], 1100, 2600], [[2500, 7300], 1000, 2300], [[-2500, 7500], 1200, 2500],
-  [[6500, 4900], 900, 2200], [[-7600, 700], 700, 1900],
+  [[6500, 4900], 900, 2200], [[-7600, 1900], 700, 1900],
 ];
 
 const PAVILION: XY = [-1700, 4600];
@@ -176,21 +179,23 @@ export function build(quality: { flowers: number }): Town {
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const armBand = bandAlong(ARM, (p) => armW(p[1]));
-  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), armBand, POND], base: "snow", road: [0.86, 0.78, 0.66] });
+  const riverBand = bandAlong(RIVER, (p) => rw(p[0]));
+  const ground = f.ground({ area, roads, plazas: [], water: [riverBand, armBand, POND], base: "snow", road: [0.86, 0.78, 0.66] });
   // the grass: a second ground a hair over the snow, cut away in the patches where the snow lies
   const patches = snowPatches({ x0: 2000, x1: A, y0: -A, y1: A }, 3071).concat(snowPatches({ x0: -A, x1: 2000, y0: -A, y1: -3600 }, 3072));
-  const grass = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), armBand, POND, ...patches], base: "grass", road: [0.86, 0.78, 0.66] });
+  const grass = f.ground({ area, roads, plazas: [], water: [riverBand, armBand, POND, ...patches], base: "grass", road: [0.86, 0.78, 0.66] });
   grass.mesh.position.y += 3;
   grass.mesh.renderOrder = 1;
 
   // ---- the river, its arm and the pond: green water (darkening down the arm) over a dark bed ----
-  const bed = sheet(band(RIVER, RW + 160), -70, "Westmount_CliffMoss");
-  const river = sheet(band(RIVER, RW + 120), -14, "Westmount_River");
+  const bed = sheet(bandAlong(RIVER, (p) => rw(p[0]) + 160), -70, "Westmount_CliffMoss");
+  const river = sheet(bandAlong(RIVER, (p) => rw(p[0]) + 120), -14, "Westmount_River");
   const armBed = sheet(bandAlong(ARM, (p) => armW(p[1]) + 160), -70, "Westmount_CliffMoss");
   const arm = armWater(-15);
   const pondBed = sheet(blob(POND_C, 950, 750, 5, 22), -60, "Westmount_CliffMoss");
   const pond = sheet(blob(POND_C, 920, 720, 5, 22), -14, "Westmount_River");
-  for (const part of pieces(RIVER, [BR.at], 170)) f.blockBand(part, RW + 60, { step: 230 });
+  for (const part of pieces(RIVER, [BR.at], 170))
+    for (let i = 0; i + 1 < part.length; i++) f.blockBand([part[i], part[i + 1]], rw((part[i][0] + part[i + 1][0]) / 2) + 60, { step: 230 });
   for (const part of pieces(ARM, [BR2], 170))
     for (let i = 0; i + 1 < part.length; i++) f.blockBand([part[i], part[i + 1]], armW((part[i][1] + part[i + 1][1]) / 2) + 60, { step: 230 });
   f.blockBand([...POND, POND[0]], 180, { step: 200 });
@@ -209,7 +214,7 @@ export function build(quality: { flowers: number }): Town {
   const taken: [number, number, number][] = [];
   const nearTrack = (x: number, y: number, d: number) => TRACKS.some((t) => toLine([x, y], t) < d);
   const wet = (x: number, y: number, d: number) =>
-    toLine([x, y], RIVER) < RW / 2 + d || toLine([x, y], ARM) < armW(y) / 2 + d || inPoly(POND, x, y) || Math.hypot(x - POND_C[0], y - POND_C[1]) < 800 + d;
+    toLine([x, y], RIVER) < rw(x) / 2 + d || toLine([x, y], ARM) < armW(y) / 2 + d || inPoly(POND, x, y) || Math.hypot(x - POND_C[0], y - POND_C[1]) < 800 + d;
   const free = (x: number, y: number, r: number, gap = 0) =>
     [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([dx, dy]) => ground.kind(x + dx, y + dy) === 0) &&
     !wet(x, y, r * 0.5) && f.level(x, y, r) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + r + gap);
@@ -314,14 +319,14 @@ export function build(quality: { flowers: number }): Town {
     put("westmount:karst_spire", [n.at[0] + (rnd() - 0.5) * 120, n.at[1] + (rnd() - 0.5) * 120], rnd() * 360, { s: 0.45 + rnd() * 0.2, ...ring(150) });
   }
   // the reeds and rocks along the banks of the river and its arm (none out in the other's water)
-  for (const [line, half, other] of [[RIVER, () => RW / 2, ARM], [ARM, (y: number) => armW(y) / 2, RIVER]] as [XY[], (y: number) => number, XY[]][])
+  for (const [line, half, other] of [[RIVER, (p: XY) => rw(p[0]) / 2, ARM], [ARM, (p: XY) => armW(p[1]) / 2, RIVER]] as [XY[], (p: XY) => number, XY[]][])
     for (let i = 2; i < line.length - 2; i += 2) {
       const [ax, ay] = line[i], [bx, by] = line[i + 1], L = Math.hypot(bx - ax, by - ay) || 1;
       for (const s of [-1, 1]) {
         if (rnd() < 0.4) continue;
-        const o = half(ay) + 60 + rnd() * 100, x = ax - ((by - ay) / L) * s * o, y = ay + ((bx - ax) / L) * s * o;
+        const o = half([ax, ay]) + 60 + rnd() * 100, x = ax - ((by - ay) / L) * s * o, y = ay + ((bx - ax) / L) * s * o;
         if (!inBox(x, y) || nearTrack(x, y, 300) || !f.level(x, y, 100) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 80)) continue;
-        if (other === ARM ? toLine([x, y], ARM) < armW(y) / 2 + 40 : toLine([x, y], RIVER) < RW / 2 + 40) continue;
+        if (other === ARM ? toLine([x, y], ARM) < armW(y) / 2 + 40 : toLine([x, y], RIVER) < rw(x) / 2 + 40) continue;
         prop(rnd() < 0.6 ? "plains:reeds" : "plains:flat_rock", [x, y], rnd() * 360, 90, { s: 0.6 + rnd() * 0.4, solid: "none" });
       }
     }
