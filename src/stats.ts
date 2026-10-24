@@ -288,14 +288,15 @@ export function skillDamage(stats: Stats, elements: Record<string, number>, skil
 
 // What a monster's bite does to it: a physical blow by the same rules (a crit lands, +50% and
 // through half the player's armour; any other bite can miss); a bite in an element swings with
-// its attack in it too and adds what that attack has over the player's defence in it. null when
-// it misses.
+// its attack in it too and adds what that attack has over the player's defence in it. A magical
+// monster's attack (a caster's, or a spell it shoots: Monster.magical) is turned by her magic
+// defence instead of her armour. null when it misses.
 export const MONSTER_CRIT_DMG = 0.5;
-export function monsterDamage(m: { power: number; accuracy: number; crit: number; element?: ElementId; eleAtk: number }, stats: Stats): { dmg: number; crit: boolean } | null {
+export function monsterDamage(m: { power: number; accuracy: number; crit: number; element?: ElementId; eleAtk: number; magical?: boolean }, stats: Stats): { dmg: number; crit: boolean } | null {
   const crit = Math.random() < m.crit / luckFactor(stats);
   if (!crit && Math.random() >= hitChance(m.accuracy, stats.flee)) return null;
   const swing = m.element ? ELEMENT_SWING * m.eleAtk : 0;
-  let hit = mitigate((m.power + swing) * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), stats.def, crit ? CRIT_PIERCE : 0);
+  let hit = mitigate((m.power + swing) * rand(0.85, 1.15) * (crit ? 1 + MONSTER_CRIT_DMG : 1), m.magical ? stats.mdef : stats.def, crit ? CRIT_PIERCE : 0);
   if (m.element) hit += Math.max(0, m.eleAtk - stats[`${m.element}Def`]);
   return { dmg: Math.max(1, Math.round(hit * (1 - stats.dmgRed))), crit };
 }

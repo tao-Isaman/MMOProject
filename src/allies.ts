@@ -654,10 +654,11 @@ export class Allies {
     return null;
   }
 
-  // A monster's blow lands on an ally: it dodges by its evasion, its defence takes some off.
+  // A monster's blow lands on an ally: it dodges by its evasion, its defence takes some off (of
+  // spells too: an ally has the one defence).
   hurt(a: Ally, m: Monster): void {
     if (!a.alive) return;
-    const st = { ...this.d.hero.stats, def: a.def, flee: a.flee, dmgRed: a.kind === "wall" ? 0.2 : 0 } as Stats;
+    const st = { ...this.d.hero.stats, def: a.def, mdef: a.def, flee: a.flee, dmgRed: a.kind === "wall" ? 0.2 : 0 } as Stats;
     const r = monsterDamage(m, st);
     if (!r) return void this.d.floaters.add(a.x, a.y, 110, "พลาด", "miss");
     a.hp -= r.dmg;
