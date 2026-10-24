@@ -1,15 +1,19 @@
 // เนินซากุระและป่าไผ่ (sakura_hills): the hills of Osaki's island beyond its mountain gate, on
-// the way up to the volcano. The track comes in from Osaki on the west, between stone lanterns
-// and cherry trees, past a still pond and a meadow of silver grass, through a bamboo forest (a
-// sacred rock bound with rope in a hollow at its heart) and on north to the volcano. To the
-// south-east the hillside rises in terraces of cherry trees (a ramp up), and on the top terrace,
-// up stone steps under an old torii, the shrine nobody tends any more. To the north-east a ridge
-// looks out toward the volcano; a torii lies fallen up there.
+// the way up to the volcano, the sea along their east and south. The track comes in from Osaki
+// on the west, between stone lanterns and cherry trees, past a still pond and a meadow of silver
+// grass (a beach below it on the south), through a bamboo forest (a sacred rock bound with rope in
+// a hollow at its heart) and on north to the volcano. To the south-east the hillside rises in
+// terraces of cherry trees (a ramp up) that end in cliffs over the sea, and on the top terrace, up
+// stone steps under an old torii, the shrine nobody tends any more. To the north-east a ridge looks
+// out toward the volcano, the mountain above it falling sheer into the sea; a torii lies fallen up
+// there. Between the terraces and the ridge the valley runs down to a cove of sand.
 //
 // Laid out at full size in centimetres around the origin (north +X, west +Y); finishField
 // scales it by TOWN_SCALE.
 
+import * as THREE from "three";
 import { FieldBuilder } from "./field";
+import { material } from "./textures";
 import { useKits } from "./town";
 import type { Town } from "./town";
 import type { Poly } from "./paved";
@@ -25,16 +29,29 @@ type XY = [number, number];
 // ---- the lie of the land ----
 const R = 5500; // the walkable bounds, +-R
 const A = 9000; // the ground's area, +-A
+// the shore, from past the west edge (where Osaki's south shore comes along) east along the south,
+// round the south-east and north up the east (on up the volcano's east side): the land on its left
+const SHORE: XY[] = smooth([
+  [-4880, 9500], [-4870, 7600], [-4920, 6600], [-5020, 5600], [-5120, 4500], [-5050, 3400], [-5150, 2300], [-5100, 1200], [-5220, 100],
+  [-5380, -1000], [-5520, -2100], [-5600, -3200], [-5560, -4300], [-5380, -5150], [-4750, -5560], [-3700, -5620], [-2600, -5560],
+  [-1700, -5350], [-900, -5150], [0, -5050], [800, -5150], [1500, -5300], [2400, -5420], [3400, -5440], [4400, -5400], [5400, -5370],
+  [6600, -5380], [7600, -5420], [9500, -5450],
+], 4);
+// and the bay past the north-west corner, where the sea north of Osaki comes round under the volcano
+const NW_SHORE: XY[] = smooth([[9500, 5850], [7600, 5800], [6600, 5740], [6000, 5850], [5500, 6100], [5050, 6450], [4870, 6750], [4800, 7600], [4780, 9500]], 4);
+const SEA: Poly = [...SHORE, [9500, -9500], [-9500, -9500], [-9500, 9500]];
+const NW_BAY: Poly = [...NW_SHORE, [9500, 9500]];
+// the sea cliffs this far in from the shore (and the mountain's above the ridge's, twice as far)
+const CLIFF1 = inland(SHORE, 380), CLIFF2 = inland(SHORE, 760);
 // the terraces of cherry trees (south-east), the shrine's terrace on top of them
-const T1: Poly = [[-600, -1400], [-1200, -800], [-2600, -700], [-3900, -900], [-4900, -1400], [-6400, -1700], [-9500, -1700], [-9500, -9500], [-1800, -9500], [-1400, -6400], [-1000, -4800], [-500, -3600], [-300, -2400]];
-const T2: Poly = [[-2500, -2700], [-3500, -2500], [-4500, -2900], [-4900, -3800], [-4600, -4700], [-3600, -5000], [-2600, -4700], [-2200, -3700]];
-// the mountain behind the shrine (scenery)
-const SE: Poly = [[-3900, -6000], [-5900, -5300], [-9500, -4900], [-9500, -9500], [-2400, -9500], [-2700, -6700]];
+const T1: Poly = [...stretch(CLIFF1, [-4950, -1500], [-1050, -4850]), [-500, -3600], [-300, -2400], [-600, -1400], [-1200, -800], [-2600, -700], [-3900, -900]];
+const T2: Poly = [[-2500, -2700], [-3500, -2500], [-4500, -2900], [-4700, -3800], [-4400, -4500], [-3600, -4750], [-2700, -4500], [-2200, -3700]];
 // the ridge looking out to the volcano (north-east), and the mountain wall above it
-const D: Poly = [[1500, -1500], [2600, -1200], [3700, -1500], [4700, -1700], [9500, -1700], [9500, -9500], [1600, -9500], [1200, -6000], [1000, -3800], [1100, -2400]];
-const D2: Poly = [[4000, -2700], [9500, -2700], [9500, -9500], [2600, -9500], [2400, -6500], [3000, -4200]];
-// the volcano's lower slopes along the north edge, a pass left open where the track goes on
-const N1: Poly = [[5800, 1100], [6400, 2600], [5900, 5000], [6300, 9500], [9500, 9500], [9500, 1100]];
+const D: Poly = [...stretch(CLIFF1, [1150, -4850], [9500, -4950]), [9500, -1700], [4700, -1700], [3700, -1500], [2600, -1200], [1500, -1500], [1100, -2400], [1000, -3800]];
+const D2: Poly = [...stretch(CLIFF2, [2550, -4600], [9500, -4600]), [9500, -2700], [4000, -2700], [3000, -4200]];
+// the volcano's lower slopes along the north edge, a pass left open where the track goes on (the
+// west one stopping short of the bay)
+const N1: Poly = [[5800, 1100], [6400, 2600], [5900, 4500], [6200, 5300], [9500, 5450], [9500, 1100]];
 const N2: Poly = [[6100, -300], [9500, -300], [9500, -1700], [6400, -1700]];
 
 // the ramps: a ramp's top on its plateau's edge, its foot out on the ground below
@@ -85,9 +102,34 @@ function every(pts: XY[], step: number, from = 0): { p: XY; d: XY }[] {
 // the heading that turns a piece's front (-X) toward the world direction (dx, dy)
 const faceDir = (dx: number, dy: number) => (Math.atan2(-dy, -dx) * 180) / Math.PI;
 const faceTo = (from: XY, to: XY) => faceDir(to[0] - from[0], to[1] - from[1]);
+// a line `d` in from a line on its left (out on its right for d < 0)
+function inland(line: XY[], d: number): XY[] {
+  return line.map((p, i): XY => {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    return [p[0] - (dy / l) * d, p[1] + (dx / l) * d];
+  });
+}
+// the nearest point of a polyline to (x, y): the segment it is on, and how far it is
+function nearestOn(pts: XY[], x: number, y: number): { i: number; q: XY; d: number } {
+  let best = { i: 0, q: pts[0], d: Infinity };
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], dx = bx - ax, dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const q: XY = [ax + dx * t, ay + dy * t], d = Math.hypot(q[0] - x, q[1] - y);
+    if (d < best.d) best = { i, q, d };
+  }
+  return best;
+}
+const distTo = (pts: XY[], x: number, y: number) => nearestOn(pts, x, y).d;
+// the stretch of a line between the points on it nearest `a` and `b` (in the line's own order)
+function stretch(line: XY[], a: XY, b: XY): XY[] {
+  const A = nearestOn(line, a[0], a[1]), B = nearestOn(line, b[0], b[1]);
+  return [A.q, ...line.slice(A.i + 1, B.i + 1), B.q];
+}
 
 // the main track: in from Osaki (west), through the bamboo, out north to the volcano
-const MAIN = smooth([[-1300, 9000], [-1100, 6500], [-1000, 5150], [-900, 4300], [-1300, 3300], [-900, 2300], [-200, 1500], [500, 900], [1500, 700], [2600, 300], [3600, 500], [4500, 250], [5150, 300], [5900, 400], [7000, 300], [9000, 500]]);
+const MAIN = smooth([[-2000, 9000], [-2000, 6500], [-1980, 5150], [-1750, 4300], [-1450, 3300], [-900, 2300], [-200, 1500], [500, 900], [1500, 700], [2600, 300], [3600, 500], [4500, 250], [5150, 300], [5900, 400], [7000, 300], [9000, 500]]);
 // up the terraces to the shrine
 const TERRACE = smooth([[500, 900], [-400, 700], [-1200, 650], [-1690, 560], [-1696, 138], [-1760, -760], [-1880, -1120], [-2350, -1360], [-2720, -1470], [-2823, -1717], [-3000, -2600], [-3160, -2950], [-3420, -3230]], 4);
 // the spur into the bamboo to the sacred rock, and up onto the ridge
@@ -117,15 +159,12 @@ export function build(quality: { flowers: number }): Town {
       { x: -3900, y: 600, r: 1100, h: 130 },
       { x: 4300, y: -800, r: 800, h: 90 },
       { x: 300, y: -2700, r: 1100, h: 140 },
-      { x: -2400, y: 7600, r: 2200, h: 320 },  // the wooded hills past the edges
+      { x: -2400, y: 7600, r: 2200, h: 320 },  // the wooded hills past the west edge
       { x: 2600, y: 7600, r: 2600, h: 380 },
-      { x: -7400, y: 2600, r: 2600, h: 300 },
-      { x: -7200, y: 6800, r: 2200, h: 260 },
     ],
     plateaus: [
       { poly: T1, h: 300, ramps: [RAMP_T1] },
       { poly: T2, h: 600, ramps: [RAMP_T2] },
-      { poly: SE, h: 950 },
       { poly: D, h: 400, ramps: [RAMP_D] },
       { poly: D2, h: 760 },
       { poly: N1, h: 650 },
@@ -135,7 +174,7 @@ export function build(quality: { flowers: number }): Town {
   });
   const { put, rnd } = f;
 
-  // ---- the ground: tracks of bare earth, the pond ----
+  // ---- the ground: tracks of bare earth, the pond, the sea ----
   const pondPoly: Poly = Array.from({ length: 24 }, (_, k): XY => {
     const a = (k / 24) * Math.PI * 2, r = 560 + Math.sin(k * 1.7) * 40;
     return [POND[0] + Math.cos(a) * r * 1.15, POND[1] + Math.sin(a) * r];
@@ -144,11 +183,23 @@ export function build(quality: { flowers: number }): Town {
     area: { x0: -A, y0: -A, x1: A, y1: A },
     roads: [band(MAIN, 470), band(TERRACE, 420), band(GROVE, 380), band(RIDGE, 400)],
     plazas: [],
-    water: [pondPoly],
+    water: [pondPoly, SEA, NW_BAY],
     road: [0.9, 0.82, 0.74],
   });
   f.blockDisc(POND, 600);
   for (const s of [-1, 1]) f.blockDisc([POND[0] + s * 330, POND[1]], 420);
+  // the sea: a band along the water's edge keeps everyone out of it (under the sea cliffs too);
+  // the water sheets from a little under the shore out past the horizon
+  f.blockBand(inland(SHORE.filter(([x, y]) => Math.abs(x) < R + 1000 && Math.abs(y) < R + 1000), -280), 520, { kind: "sea" });
+  const sheet = (pts: XY[]) => {
+    const shape = new THREE.Shape();
+    pts.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(shape).applyMatrix4(new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1)), material("WaterSea"));
+    m.position.y = -14;
+    m.receiveShadow = true;
+    return m;
+  };
+  const seas = [sheet([...inland(SHORE, 200), [9500, -30000], [-30000, -30000], [-30000, 9500]]), sheet([...inland(NW_SHORE, 200), [4780, 30000], [30000, 30000], [30000, 5850]])];
 
   // ---- placing things clear of each other, the tracks and the cliffs ----
   const taken: [number, number, number][] = [];
@@ -197,13 +248,13 @@ export function build(quality: { flowers: number }): Town {
   const toriiSolid: SolidSpec[] = [{ kind: "post", x: 0, y: -245, r: 34 }, { kind: "post", x: 0, y: 245, r: 34 }];
 
   // ---- the ways out ----
-  const WEST: XY = [-1000, 5150], WEST_BACK: XY = [-930, 4420];
+  const WEST: XY = [-1980, 5150], WEST_BACK: XY = [-1880, 4420];
   const NORTH: XY = [5150, 300], NORTH_BACK: XY = [4420, 270];
   f.exit("osaki", WEST, WEST_BACK);
   f.exit("volcano", NORTH, NORTH_BACK);
   // the west way: an old torii over the track where Osaki's road comes in, a signpost, lanterns
-  place("volcanic:torii_old", [-960, 4780], faceDir(0, 1), 300, { solid: toriiSolid });
-  place("volcanic:waymarker", [-1430, 4600], faceDir(0.3, -1), 70);
+  place("volcanic:torii_old", [-1950, 4780], faceDir(0.1, 1), 300, { solid: toriiSolid });
+  place("volcanic:waymarker", [-2430, 4600], faceDir(0.3, -1), 70);
   lanterns(MAIN, 800, 330, 0, (p) => p[1] < 4500 && p[1] > 2300);
   // the north way: a signpost and the first lava rocks of the volcano
   place("volcanic:waymarker", [4700, 720], faceDir(-1, 0), 70);
@@ -236,10 +287,10 @@ export function build(quality: { flowers: number }): Town {
   tryPlace("osaki:stone_lantern", toward(1300, -320), 0, 80);
   tryPlace("osaki:stone_lantern", toward(1300, 320), 0, 80);
   place("volcanic:petal_carpet", toward(700, 0), rnd() * 360, 1, { solid: "none" });
-  place("volcanic:petal_carpet", toward(-300, 700), rnd() * 360, 1, { solid: "none" });
+  place("volcanic:petal_carpet", toward(-200, 600), rnd() * 360, 1, { solid: "none" });
   place("volcanic:jizo_group", toward(400, -720), shrineH + 90, 110);
-  tryPlace("volcanic:boulder_moss", [-4500, -4300], 70, 170);
-  tryPlace("volcanic:stump", [-3000, -4500], 20, 100);
+  tryPlace("volcanic:boulder_moss", [-4250, -4150], 70, 170);
+  tryPlace("volcanic:stump", [-3000, -4250], 20, 100);
   // cherry trees over both terraces, maples among them, petals beneath
   scatter({ x0: -5400, x1: -500, y0: -5400, y1: -800 }, 70, ["flora:Cherry", "flora:Cherry", "flora:Cherry", "flora:AutumnTree", "flora:Cherry"], 330, (x, y) => inPoly(T1, x, y) && inside(x, y, 300) && !onTrack(x, y, 380), { s: [0.85, 1.15] });
   scatter({ x0: -5400, x1: -500, y0: -5400, y1: -800 }, 26, ["volcanic:petal_carpet"], 170, (x, y) => inPoly(T1, x, y) && inside(x, y, 300), { solid: "none" });
@@ -273,28 +324,39 @@ export function build(quality: { flowers: number }): Town {
     const a = (k / 16) * Math.PI * 2 + 0.2, r = 720 + rnd() * 120;
     tryPlace(k % 3 ? "volcanic:susuki_grass" : "volcanic:boulder_moss", [POND[0] + Math.cos(a) * r * 1.15, POND[1] + Math.sin(a) * r], rnd() * 360, 90, k % 3 ? { solid: "none" } : { s: 0.45 });
   }
-  place("volcanic:jizo_group", [-1650, 3700], faceDir(1, -0.3), 110);
-  place("volcanic:stump", [-2300, 4300], 0, 100);
+  place("volcanic:jizo_group", [-2250, 3650], faceDir(0.3, -1), 110);
+  place("volcanic:stump", [-2700, 4150], 0, 100);
   tryPlace("volcanic:torii_fallen", [-4300, 4300], 70, 420);
-  scatter({ x0: -R, x1: 0, y0: -600, y1: R }, 34, ["flora:Cherry", "flora:Cherry", "flora:Pine", "flora:Cherry"], 360, (x, y) => inside(x, y, 300) && !inPoly(T1, x, y) && !onTrack(x, y, 420) && Math.hypot(x - POND[0], y - POND[1]) > 950, { s: [0.85, 1.2] });
-  scatter({ x0: -R, x1: 0, y0: -600, y1: R }, 30, ["volcanic:susuki_grass", "volcanic:susuki_grass", "volcanic:sasa_bush"], 120, (x, y) => inside(x, y, 300) && !inPoly(T1, x, y) && Math.hypot(x - POND[0], y - POND[1]) > 800, { solid: "none" });
-  scatter({ x0: -R, x1: 0, y0: -600, y1: R }, 12, ["volcanic:petal_carpet"], 170, (x, y) => inside(x, y, 300) && !inPoly(T1, x, y) && Math.hypot(x - POND[0], y - POND[1]) > 800, { solid: "none" });
+  const shore = (x: number, y: number, d: number) => distTo(SHORE, x, y) < d;
+  scatter({ x0: -R, x1: 0, y0: -600, y1: R }, 34, ["flora:Cherry", "flora:Cherry", "flora:Pine", "flora:Cherry"], 360, (x, y) => inside(x, y, 300) && !inPoly(T1, x, y) && !onTrack(x, y, 420) && Math.hypot(x - POND[0], y - POND[1]) > 950 && !shore(x, y, 650), { s: [0.85, 1.2] });
+  scatter({ x0: -R, x1: 0, y0: -600, y1: R }, 30, ["volcanic:susuki_grass", "volcanic:susuki_grass", "volcanic:sasa_bush"], 120, (x, y) => inside(x, y, 300) && !inPoly(T1, x, y) && Math.hypot(x - POND[0], y - POND[1]) > 800 && !shore(x, y, 450), { solid: "none" });
+  scatter({ x0: -R, x1: 0, y0: -600, y1: R }, 12, ["volcanic:petal_carpet"], 170, (x, y) => inside(x, y, 300) && !inPoly(T1, x, y) && Math.hypot(x - POND[0], y - POND[1]) > 800 && !shore(x, y, 450), { solid: "none" });
 
   // ---- the open middle and the north: pines, boulders, grass ----
   scatter({ x0: -400, x1: R, y0: -1500, y1: 1300 }, 26, ["flora:Pine", "flora:PineSmall", "flora:Cherry", "flora:Bamboo"], 380, (x, y) => inside(x, y, 300) && !inPoly(D, x, y) && !onTrack(x, y, 420), { s: [0.85, 1.15] });
   scatter({ x0: -400, x1: R, y0: -5300, y1: 1300 }, 12, ["volcanic:boulder_moss", "volcanic:boulder_moss", "volcanic:stump"], 200, (x, y) => inside(x, y, 300) && !inPoly(D, x, y) && !inPoly(T1, x, y), { s: [0.7, 1.1] });
   scatter({ x0: -400, x1: R, y0: -5300, y1: 1300 }, 22, ["volcanic:susuki_grass", "volcanic:sasa_bush"], 120, (x, y) => inside(x, y, 300) && !inPoly(D, x, y) && !inPoly(T1, x, y), { solid: "none" });
   // the valley between the terraces and the ridge
-  scatter({ x0: -1000, x1: 1400, y0: -5300, y1: -1500 }, 16, ["flora:Bamboo", "flora:Cherry", "flora:Pine"], 380, (x, y) => inside(x, y, 300) && !inPoly(D, x, y) && !inPoly(T1, x, y), { s: [0.9, 1.15] });
+  scatter({ x0: -1000, x1: 1400, y0: -5300, y1: -1500 }, 16, ["flora:Bamboo", "flora:Cherry", "flora:Pine"], 380, (x, y) => inside(x, y, 300) && !inPoly(D, x, y) && !inPoly(T1, x, y) && !shore(x, y, 650), { s: [0.9, 1.15] });
 
   // the mountain above the ridge (no way up): woods on it
   scatter({ x0: 2400, x1: R, y0: -R, y1: -2700 }, 30, ["flora:Pine", "flora:Pine", "flora:AutumnTree", "flora:Cherry"], 330, (x, y) => inPoly(D2, x, y), { solid: "none", s: [0.9, 1.2] });
 
-  // ---- the rim: thick woods all round (on the plateaus too), nobody gets there ----
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["Bamboo", "Pine", "Cherry", "Pine", "PineSmall", "AutumnTree", "Cherry", "Bamboo"], (x, y) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) !== 0 || Math.abs(x) > A - 200 || Math.abs(y) > A - 200, { count: 520, spacing: 400, tries: 9000 });
+  // ---- the shore (Osaki's own pieces): sand where the meadow and the valley come down to the sea,
+  // rocks along the feet of the sea cliffs and round the bay past the north-west corner ----
+  const lowGround = (x: number, y: number) => ![T1, D].some((p) => inPoly(p, x, y));
+  // (the sea on the line's right; a piece's front to the sea)
+  const near = (p: XY) => Math.abs(p[0]) < R + 1100 && Math.abs(p[1]) < R + 1100, landward = (p: XY, d: XY, k: number): XY => [p[0] - d[1] * k, p[1] + d[0] * k];
+  for (const { p, d } of every(SHORE, 590)) if (near(p) && lowGround(...landward(p, d, 500))) put("osaki:beach", p, faceDir(d[1], -d[0]), { solid: "none" });
+  for (const { p, d } of every(SHORE, 330))
+    if (near(p) && !lowGround(...landward(p, d, 500)) && rnd() < 0.85) put("osaki:shore_rocks", landward(p, d, -40), faceDir(d[1], -d[0]) + rnd() * 30 - 15, { s: 0.85 + rnd() * 0.4, solid: "none" });
+  for (const { p, d } of every(NW_SHORE, 380)) if (Math.abs(p[0]) < R + 1300 && Math.abs(p[1]) < R + 1300) put("osaki:shore_rocks", p, faceDir(d[1], -d[0]) + rnd() * 30 - 15, { s: 0.8 + rnd() * 0.4, solid: "none" });
+
+  // ---- the rim: thick woods all round on the land (on the plateaus too), nobody gets there ----
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["Bamboo", "Pine", "Cherry", "Pine", "PineSmall", "AutumnTree", "Cherry", "Bamboo"], (x, y) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || ground.kind(x, y) !== 0 || distTo(SHORE, x, y) < 400 || distTo(NW_SHORE, x, y) < 400 || Math.abs(x) > A - 200 || Math.abs(y) > A - 200, { count: 520, spacing: 400, tries: 9000 });
 
   // ---- monsters: over the open ground, the terraces, the shrine's terrace and the ridge ----
-  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 820, keepOut: (x, y) => [D2, SE, N1, N2].some((p) => inPoly(p, x, y)) });
+  f.monsterSpots(ground, { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 }, { step: 820, keepOut: (x, y) => [D2, N1, N2].some((p) => inPoly(p, x, y)) });
 
   // ---- people ----
   const npcs: NpcSpec[] = [
@@ -312,11 +374,11 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
-    scenery: [f.waterSheet({ x0: POND[0] - 900, x1: POND[0] + 900, y0: POND[1] - 800, y1: POND[1] + 800 }, -14, "WaterSea")],
+    scenery: [f.waterSheet({ x0: POND[0] - 900, x1: POND[0] + 900, y0: POND[1] - 800, y1: POND[1] + 800 }, -14, "WaterSea"), ...seas],
     sky: "#4f6e45",
     flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0, density: 0.3 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: -960, y: 4150 },
+    spawn: { x: -1800, y: 4150 },
     npcs,
     labels: [
       { x: WEST[0], y: WEST[1] - 250, text: "ทางไปโอซากิ", kind: "gate" },
@@ -329,7 +391,9 @@ export function build(quality: { flowers: number }): Town {
       { x: POND[0] + 800, y: POND[1], text: "บึงน้ำนิ่ง", kind: "small" },
       { x: -3700, y: 3900, text: "ทุ่งหญ้าซูซูกิ", kind: "small" },
       { x: 3000, y: -2500, text: "สันเขาชมภูเขาไฟ" },
-      { x: -1650, y: 3400, text: "จิโซริมทาง", kind: "small" },
+      { x: -2250, y: 3350, text: "จิโซริมทาง", kind: "small" },
+      { x: -4500, y: 3000, text: "หาดริมทุ่งซูซูกิ", kind: "small" },
+      { x: -100, y: -4500, text: "อ่าวทรายในหุบ", kind: "small" },
     ],
   });
 }
