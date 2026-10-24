@@ -7,6 +7,9 @@
 // dry hollow with bleaching bones in the middle. Mesas wall the north and south; birch and
 // pine woods close the west and east past the ways out.
 //
+// The way north to the frozen falls: a track leaves the main one below the burial mound's mesa,
+// runs east of it over the rise and out through a pass broken in the north wall.
+//
 // Full size around the origin (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
 import * as THREE from "three";
@@ -69,6 +72,20 @@ const TERRAIN = {
   ],
 };
 
+// ---- the way north to the frozen falls: a pass through the north wall where a track runs out
+// over the north edge (where the frozen falls' own way south meets it, e 0.47); the wall in two
+// either side of the pass ----
+const NORTH_WAY: XY[] = smooth([[150, 400], [1000, 720], [1900, 720], [2900, 620], [3900, 450], [4600, 340], [5150, 300], [6300, 300], [AREA + 200, 300]]);
+const N_EXIT: XY = [5150, 300], N_BACK: XY = [4450, 330];
+{
+  const wall = TERRAIN.plateaus.findIndex((p) => p.h === 680);
+  TERRAIN.plateaus.splice(wall, 1,
+    { poly: densify([[5900, -9800], [6300, -7400], [5800, -5900], [6400, -4300], [6000, -2700], [6500, -1000], [6250, -450], [9800, -450], [9800, -9800]]), h: 680 },
+    { poly: densify([[6150, 1050], [6300, 2300], [5800, 3900], [6400, 5600], [6000, 7300], [6200, 9800], [9800, 9800], [9800, 1050]]), h: 680 });
+}
+// its track joins the ground's others
+const withNorthWay = <T extends { roads: XY[][] }>(spec: T): T => ({ ...spec, roads: [...spec.roads, band(NORTH_WAY, 420)] });
+
 // ---- the tracks ----
 const MAIN: XY[] = smooth([[350, AREA + 200], [250, 6200], [250, 5150], [-200, 4300], [-800, 3250], [-750, 2050], [-100, 1000], [400, -300], [150, -1500], [500, -2700], [250, -3900], [-300, -4700], [-300, -5150], [-250, -6200], [-150, -AREA - 200]]);
 const TO_KURGAN: XY[] = smooth([[-780, 2700], [-300, 2960], [50, 3000], [1350, 2950], [1900, 2900], [2350, 2900]]);
@@ -82,14 +99,14 @@ export let REPORT: () => string[] = () => [];
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(106, TERRAIN);
   const pond = ellipse([-3700, 1150], 650, 480, 28, 0.07, 3);
-  const ground = f.ground({
+  const ground = f.ground(withNorthWay({
     area: { x0: -AREA, y0: -AREA, x1: AREA, y1: AREA },
     base: "steppe",
     roads: [band(MAIN, 520), band(TO_KURGAN, 420), band(TO_LOOKOUT, 420), band(TO_CAMP, 400), band(TO_HAY, 380)],
     plazas: [],
     water: [pond],
     road: [0.9, 0.82, 0.7],
-  });
+  }));
   f.blockDisc([-3700, 1150], 470);
   for (const [x, y] of [[-3700, 1500], [-3700, 800], [-3350, 1150], [-4050, 1150]] as XY[]) f.blockDisc([x, y], 330);
 
@@ -135,6 +152,12 @@ export function build(quality: { flowers: number }): Town {
   put("steppe:signpost", [800, 4700], -90, 60);
   put("trunrada:cairn", [-500, 4950], 0, 150);
   taken.push([-300, -5150, 500], [250, 5150, 500]);
+
+  // ---- the way north to the frozen falls: the warp in the pass, a signpost and a cairn ----
+  f.exit("frozen_falls", N_EXIT, N_BACK);
+  put("steppe:signpost", [4700, 760], 180, 60);
+  put("trunrada:cairn", [4800, -200], 20, 150);
+  taken.push([N_EXIT[0], N_EXIT[1], 500]);
 
   // ---- mesa A: the kurgan and its idols ----
   put("steppe:kurgan", [3150, 2900], 0, 700);
@@ -248,7 +271,7 @@ export function build(quality: { flowers: number }): Town {
   const rim = (x: number, y: number) => Math.abs(x) < R + 300 && Math.abs(y) < R + 300;
   f.woods({ x0: -AREA, x1: AREA, y0: R - 200, y1: AREA }, ["Pine", "Pine", "PineSmall", "Birch"], (x, y) => rim(x, y) || ground.kind(x, y) !== 0 || ground.kind(x + 250, y) !== 0 || ground.kind(x - 250, y) !== 0, { count: 170, spacing: 420 });
   f.woods({ x0: -AREA, x1: AREA, y0: -AREA, y1: -R + 200 }, ["Birch", "Birch", "PineSmall", "Pine", "AutumnTree"], (x, y) => rim(x, y) || ground.kind(x, y) !== 0 || ground.kind(x + 250, y) !== 0 || ground.kind(x - 250, y) !== 0, { count: 150, spacing: 440 });
-  f.woods({ x0: R + 200, x1: AREA, y0: -AREA, y1: AREA }, ["PineSmall", "Birch"], rim, { count: 40, spacing: 700 });
+  f.woods({ x0: R + 200, x1: AREA, y0: -AREA, y1: AREA }, ["PineSmall", "Birch"], (x, y) => rim(x, y) || ground.kind(x, y) !== 0, { count: 40, spacing: 700 });
   f.woods({ x0: -AREA, x1: -R - 200, y0: -AREA, y1: AREA }, ["PineSmall", "Birch", "AutumnTree"], rim, { count: 40, spacing: 700 });
   for (let i = 0; i < 260; i++) {
     const x = (f.rnd() * 2 - 1) * AREA, y = (f.rnd() * 2 - 1) * AREA;
@@ -294,6 +317,7 @@ export function build(quality: { flowers: number }): Town {
     spawn: { x: -260, y: -4300 },
     npcs,
     labels: [
+      { x: N_EXIT[0] - 250, y: N_EXIT[1] + 250, text: "ทางไปหุบน้ำตกเยือกแข็ง", kind: "gate" },
       { x: 2200, y: 2900, text: "เนินสุสานโบราณ" },
       { x: -2300, y: 2600, text: "ค่ายคนเลี้ยงม้า" },
       { x: -2300, y: -3000, text: "ผาหินตั้ง" },

@@ -8,6 +8,9 @@
 // tower. A low mesa in the south-east keeps a horse
 // shrine. Woods close the east, west and south.
 //
+// The way west to the frozen falls: a track leaves the one up to the bluffs and runs west over
+// the hill north of the paddock and out through the woods.
+//
 // Full size around the origin (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
 import * as THREE from "three";
@@ -79,6 +82,13 @@ const TO_BLUFF_E: XY[] = smooth([[-2950, 600], [-1700, 900], [-300, 650], [1000,
 const TO_MESA: XY[] = smooth([[-3900, 0], [-2900, -700], [-1700, -1900], [-800, -3150], [-1800, -3150], [-2450, -3300]]);
 const YARD: Poly = ellipse([-1800, 3050], 700, 650, 22, 0.08, 2);
 
+// ---- the way west to the frozen falls: off the track up to the bluffs, west over the hill north
+// of the paddock, out over the west edge (where the frozen falls' own way east meets it, n 0.61) ----
+const WEST_WAY: XY[] = smooth([[1200, 2550], [1180, 3400], [1150, 4400], [1150, 5150], [1150, 6400], [1150, AREA + 200]]);
+const W_EXIT: XY = [1150, 5150], W_BACK: XY = [1150, 4450];
+// its track joins the ground's others
+const withWestWay = <T extends { roads: Poly[] }>(spec: T): T => ({ ...spec, roads: [...spec.roads, band(WEST_WAY, 420)] });
+
 // the last build's own check (see fieldReport), for building the field; the game never calls it
 export let REPORT: () => string[] = () => [];
 
@@ -86,14 +96,14 @@ export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(107, TERRAIN);
   // the sea: from a strip of stony shore under the cliffs out past the edge
   const sea: Poly = [...COAST.map(([x, y]) => [x + 260, y] as XY).reverse(), [AREA + 400, -AREA - 600], [AREA + 400, AREA + 600]].reverse() as Poly;
-  const ground = f.ground({
+  const ground = f.ground(withWestWay({
     area: { x0: -AREA, y0: -AREA, x1: AREA, y1: AREA },
     base: "steppe",
     roads: [band(MAIN, 520), band(TO_BLUFF_W, 420), band(TO_BLUFF_E, 420), band(TO_MESA, 400), YARD],
     plazas: [],
     water: [sea],
     road: [0.9, 0.82, 0.7],
-  });
+  }));
 
   // ---- placing, with a record of what stands where ----
   const taken: [number, number, number][] = [];
@@ -180,6 +190,12 @@ export function build(quality: { flowers: number }): Town {
   put("trunrada:campfire", [HX, HY], 20, 0);
   put("common:crate", [HX + 180, HY - 250], 10, 0);
   put("steppe:hay_bales", [HX + 900, HY + 200], 80, 200);
+
+  // ---- the way west to the frozen falls: the warp, a signpost and a cairn ----
+  f.exit("frozen_falls", W_EXIT, W_BACK);
+  put("steppe:signpost", [750, 4800], -90, 60);
+  put("trunrada:cairn", [1650, 4950], 0, 150);
+  lineTaken([1150, 2900], [1150, 5300], 260);
 
   // ---- the bluffs, the headland and the beacon ----
   put("steppe:beacon_tower", [4200, -2850], -90, 0);
@@ -290,6 +306,7 @@ export function build(quality: { flowers: number }): Town {
     spawn: { x: -4200, y: -150 },
     npcs,
     labels: [
+      { x: W_EXIT[0] + 250, y: W_EXIT[1] - 250, text: "ทางไปหุบน้ำตกเยือกแข็ง", kind: "gate" },
       { x: -1700, y: 3000, text: "คอกม้าร้าง" },
       { x: -1200, y: 3200, text: "โรงนาร้าง", kind: "small" },
       { x: -3300, y: 2300, text: "คอกกลม", kind: "small" },
