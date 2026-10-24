@@ -5,10 +5,13 @@
 // a giant beast lie (a smaller arch, a "window in the rock", on its lower step); bandits camp on
 // the east mesa above the track; Bahamas keeps a checkpoint by the south way out, and just before
 // it a track turns off west past the red rock tower, out through a cut in the west mesa wall to
-// the dry plains. Taller mesas wall the east and west, dunes roll away to the south.
+// the dry plains. North of the arch another track turns off east over the dunes and out through a
+// cut in the east mesa wall to the red dunes on the inner sea. Taller mesas wall the east and
+// west, dunes roll away to the south.
 //
 // Laid out at full size in centimetres (north +X, east -Y) and scaled by TOWN_SCALE in finish.
-// Ways out: north to the southern savanna, south to Bahamas' north gate, west to the dry plains.
+// Ways out: north to the southern savanna, south to Bahamas' north gate, west to the dry plains,
+// east (a little north of the middle) to the salt dunes.
 
 import { FieldBuilder } from "./field";
 import type { Poly } from "./paved";
@@ -110,8 +113,8 @@ export function build(_quality: { flowers: number }): Town {
       { poly: dense(M1B), h: 800, ramps: [RAMP_M1B] },
       { poly: dense(M2), h: 400, ramps: [RAMP_M2] },
       { poly: dense(TOWER), h: 680 },
-      // mesa walls east and west
-      { poly: dense([[6000, -6200], [3000, -6650], [0, -6250], [-3500, -6700], [-6500, -6250], [-8700, -8700], [8700, -8700]]), h: 850 },
+      // mesa walls east and west (a cut through the east one where the track to the salt dunes goes on)
+      { poly: dense([[6000, -6200], [3000, -6650], [1400, -6420], [1350, -8100], [650, -8100], [600, -6340], [0, -6250], [-3500, -6700], [-6500, -6250], [-8700, -8700], [8700, -8700]]), h: 850 },
       // (a cut through it where the track to the dry plains goes on west)
       { poly: dense([[-6000, 6450], [-4500, 6550], [-4350, 8100], [-3050, 8100], [-2950, 6680], [-2000, 6750], [1500, 6300], [5200, 6700], [8700, 8700], [-8700, 8700]]), h: 760 },
     ],
@@ -125,18 +128,22 @@ export function build(_quality: { flowers: number }): Town {
   const SPUR_M2 = smooth([[-1100, 130], [-1040, -230], [-1005, -514], [-1203, -1110], [-1400, -1700], [-1700, -2200], [-2000, -2650]]);
   const YARD: Poly = [[-3700, 250], [-3700, 1250], [-4700, 1250], [-4800, 450]];
   const WEST_WAY = smooth([[-2900, -250], [-3150, 900], [-3350, 2000], [-3650, 3000], [-3800, 3700], [-3720, 4450], [-3700, 5150], [-3700, 7900]]);
+  // east from the caravan road north of the arch, over the dunes to the salt dunes
+  const EAST_WAY = smooth([[1900, -700], [1850, -1600], [1650, -2500], [1650, -3400], [1400, -4300], [1000, -5150], [1000, -7900]]);
   const ground = f.ground({
     area: { x0: -A, x1: A, y0: -A, y1: A },
-    roads: [band(MAIN, 500), band(SPUR_M1, 420), band(SPUR_M2, 420), YARD, band(WEST_WAY, 440)],
+    roads: [band(MAIN, 500), band(SPUR_M1, 420), band(SPUR_M2, 420), YARD, band(WEST_WAY, 440), band(EAST_WAY, 420)],
     plazas: [],
     base: "sand",
   });
 
-  // ---- the ways out: north to the savanna, south to Bahamas, west to the dry plains ----
-  const N: XY = [5150, yAt(MAIN, 5150)], S: XY = [-5150, yAt(MAIN, -5150)], W: XY = [-3700, 5150];
+  // ---- the ways out: north to the savanna, south to Bahamas, west to the dry plains, east to the
+  // salt dunes ----
+  const N: XY = [5150, yAt(MAIN, 5150)], S: XY = [-5150, yAt(MAIN, -5150)], W: XY = [-3700, 5150], E: XY = [1000, -5150];
   f.exit("south_savanna", N, [4450, yAt(MAIN, 4450)]);
   f.exit("bahamas", S, [-4450, yAt(MAIN, -4450)]);
   f.exit("dry_plains", W, [-3720, 4450]);
+  f.exit("salt_dunes", E, [1300, -4450]);
 
   const taken: [number, number, number][] = [];
   const free = (x: number, y: number, r: number) => taken.every(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) > tr + r);
@@ -162,7 +169,7 @@ export function build(_quality: { flowers: number }): Town {
       left--;
     }
   };
-  const nearExit = (x: number, y: number) => Math.hypot(x - N[0], y - N[1]) < 900 || Math.hypot(x - S[0], y - S[1]) < 900 || Math.hypot(x - W[0], y - W[1]) < 900;
+  const nearExit = (x: number, y: number) => [N, S, W, E].some((p) => Math.hypot(x - p[0], y - p[1]) < 900);
   const IN = { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 };
 
   // ---- the ways out: a signpost and rocks at the north, Bahamas' checkpoint at the south ----
@@ -184,6 +191,10 @@ export function build(_quality: { flowers: number }): Town {
   put("desert:signpost", [-3330, 4800], -90, 80);
   put("desert:boulder_big", [-4250, 5000], 60, 260, { s: 0.6 });
   put("trunrada:cairn", [-3250, 4250], 0, 90);
+  // the track east: a signpost where it leaves the road and another at the way out
+  put("desert:signpost", [2350, -1050], 90, 80);
+  put("desert:signpost", [1450, -4950], 90, 80);
+  put("desert:rock_cluster", [500, -4800], 30, 200, { s: 0.6 });
 
   // ---- the great arch over the track, a painter's easel of rocks beside it ----
   const ARCH: XY = [1100, yAt(MAIN, 1100)];
@@ -272,6 +283,7 @@ export function build(_quality: { flowers: number }): Town {
     { x: N[0], y: N[1], text: "ทางไปทุ่งสะวันนาใต้", kind: "gate" },
     { x: S[0], y: S[1], text: "ทางไปบาฮามัส", kind: "gate" },
     { x: W[0], y: W[1] - 250, text: "ทางไปที่ราบแห้งแล้ง", kind: "gate" },
+    { x: E[0], y: E[1] + 250, text: "ทางไปเนินทรายริมทะเลใน", kind: "gate" },
   ];
 
   return f.finishField({

@@ -4,7 +4,9 @@
 // house; south-east the track comes down to a beach where a junk lies wrecked in the shallows,
 // salvagers camped beside it; north-east a rocky headland rises in sea cliffs, its tip a higher
 // step with an old beacon tower still smouldering; north-west a jungle ridge with a lookout
-// tower and a hilltop pavilion. The sea runs along the east and the south.
+// tower and a hilltop pavilion. From the fork a track also runs north through the jungle, between
+// the headland and the rim of the hills, to the way out to the waterfall gorge (the middle of the
+// north side). The sea runs along the east and the south.
 //
 // Full size in the field's own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finish.
 
@@ -158,7 +160,10 @@ export function build(quality: { flowers: number }): Town {
   const RIDGE = smooth([[-300, 2300], [0, 2150], [351, 2084], [825, 2242], [1300, 2400], [1900, 2650], [2400, 2750], [2900, 3250], [3050, 3600]], 3);
   const BWN = smooth([[-350, 3500], [-900, 3650], [-1450, 3680]], 3);
   const BWS = smooth([[-1700, 640], [-1100, 380], [-400, 100], [250, 0]], 3);
-  const roads: Poly[] = [band(MAIN, 440), band(HEAD, 400), band(RIDGE, 380), band(BWN, 300), band(BWS, 320)];
+  // north off the headland track to the waterfall gorge, out through the gap between the headland
+  // and the hills' rim
+  const GORGE = smooth([[800, -600], [1900, -450], [3100, -350], [4200, -500], [5150, -600], [6200, -900], [7400, -1900], [9000, -2000]], 4);
+  const roads: Poly[] = [band(MAIN, 440), band(HEAD, 400), band(RIDGE, 380), band(BWN, 300), band(BWS, 320), band(GORGE, 400)];
   const ground = f.ground({ area: AREA, cell: 60, roads, plazas: [], water: [SEA, LA, LB], base: "jungle", road: [0.62, 0.5, 0.4] });
 
   // ---- the beach: a lens of sand between the shore and the jungle, laid over the ground (a layer
@@ -215,8 +220,9 @@ export function build(quality: { flowers: number }): Town {
     sand.mesh,
   ];
 
-  // ---- the way out ----
+  // ---- the ways out ----
   f.exit("yodia", [1980, 5150], [1900, 4500]);
+  f.exit("waterfall_gorge", [5150, -600], [4450, -520]);
 
   // ---- placing: every thing remembered (x, y, r) so the plants keep clear ----
   const taken: [number, number, number][] = [];
@@ -250,6 +256,9 @@ export function build(quality: { flowers: number }): Town {
   put("trail_sign", [600, 3650], -60, { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("trail_sign", [650, 700], 120, { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("trail_sign", [560, -2350], 200, { solid: [disc(20, 0, 0, "post")], r: 90 });
+  // the waterfall gorge way: a sign where it leaves the headland track, torches at the way out
+  put("trail_sign", [1300, -150], 160, { solid: [disc(20, 0, 0, "post")], r: 90 });
+  for (const y of [-950, -250]) put("yodia:tiki_torch", [4850, y], 0, { solid: [disc(14, 0, 0, "post")], r: 60 });
 
   // the beach: the wreck in the shallows, the salvagers' camp, flotsam, canoes drawn up, palms
   put("shipwreck", [-600, -3750], -90, { solid: [box(560, 1700, -60, 0, "wreck")], r: 900 });
@@ -405,6 +414,7 @@ export function build(quality: { flowers: number }): Town {
     ],
     labels: [
       { x: 1980, y: 4900, text: "ทางไปโยเดีย", kind: "gate" },
+      { x: 4900, y: -600, text: "ทางไปหุบผาน้ำตก", kind: "gate" },
       { x: bwMid[0], y: bwMid[1], text: "ป่าชายเลน" },
       { x: -600, y: -3150, text: "หาดซากเรือ" },
       { x: 5300, y: -4300, text: "แหลมหอไฟเก่า" },
