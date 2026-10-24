@@ -5,6 +5,8 @@
 // foothills; right (east) to the pine forest by the river. A soldiers' checkpoint stands across the road; a stream comes in from
 // the west to a water mill and its mill pond; a windmill and a watchtower on a hill in the
 // south-east; a lookout with the founding king's statue on a two-step bluff in the north-west.
+// The mill's lane runs on past it, north of the stream, out of the middle of the west side to the
+// royal flower fields (n 0.44, where their east way out is).
 //
 // Full size in its own centimetres (north +X, east -Y), scaled by TOWN_SCALE in finishField.
 
@@ -168,6 +170,10 @@ const T_MEADOW: XY[] = smooth([[-1350, 1350], [-2300, 1520], [-3200, 1480], off2
 const WAY_EDEN: XY = [-5150, 250], ARRIVE_EDEN: XY = [-4450, 140];
 const WAY_SNOW: XY = [5200, 4700], ARRIVE_SNOW: XY = [5060, 4000];
 const WAY_PINE: XY = [3110, -4650], ARRIVE_PINE: XY = [3200, -3950];
+// ---- (v0.4) the way west to the royal flower fields: the mill's lane on past the mill, north of
+// the stream, out of the middle of the west side ----
+const WAY_FLOWER: XY = [-720, 4650], ARRIVE_FLOWER: XY = [-740, 3980];
+const T_FLOWER: XY[] = smooth([[-700, 3880], [-760, 4300], WAY_FLOWER, [-680, 5400], [-640, 7000], [-600, 8500]]);
 
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(223, {
@@ -187,7 +193,7 @@ export function build(quality: { flowers: number }): Town {
     rock: "CliffRock",
   });
   const { put, rnd } = f;
-  const tracks = [T_HILL, T_HILL_TOP, T_FARM, T_MILL, T_BLUFF, T_MEADOW];
+  const tracks = [T_HILL, T_HILL_TOP, T_FARM, T_MILL, T_BLUFF, T_MEADOW, T_FLOWER];
   const roads = [ROAD, NW, NE];
   // the castle's courtyard inside its walls, paved
   const COURT: Poly = [[GATE_X + 150, -2600], [AREA.x1, -2600], [AREA.x1, 2600], [GATE_X + 150, 2600]];
@@ -238,6 +244,9 @@ export function build(quality: { flowers: number }): Town {
   P("plains:signpost", [4650, 4450], 160, 80);
   f.exit("pine_river", WAY_PINE, ARRIVE_PINE);
   P("plains:signpost", [3650, -4500], -90, 80);
+  // (v0.4) the way to the flower fields
+  f.exit("flower_fields", WAY_FLOWER, ARRIVE_FLOWER);
+  P("plains:signpost", [-1150, 4450], 180, 80);
 
   // ---- the checkpoint across the road, a soldier at it ----
   const cpSolid: SolidSpec[] = [
@@ -391,7 +400,7 @@ export function build(quality: { flowers: number }): Town {
   const FARM_RIM: XY[] = [[-7600, -1500], [-7600, -2500], [-6700, -1500], [-6700, -2500], [-7600, 1050], [-6700, 1050]];
   const farm = (x: number, y: number) => FARM_RIM.some(([fx, fy]) => Math.abs(x - fx) < 650 && Math.abs(y - fy) < 550);
   f.woods(AREA, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak", "Birch"], (x, y) =>
-    inside(x, y) || castle(x, y) || farm(x, y) || wet(x, y, 120) || roads.some((r) => toLine([x, y], r) < 520), { count: 760, tries: 8000, spacing: 430 });
+    inside(x, y) || castle(x, y) || farm(x, y) || wet(x, y, 120) || roads.some((r) => toLine([x, y], r) < 520) || toLine([x, y], T_FLOWER) < 420, { count: 760, tries: 8000, spacing: 430 });
   // farmland on past the edge, south-west and south-east
   for (const at of FARM_RIM) put("plains:wheat_field", at, 0);
 
@@ -448,6 +457,7 @@ export function build(quality: { flowers: number }): Town {
       { x: WAY_EDEN[0], y: WAY_EDEN[1], text: "ทางไปอีเดน", kind: "gate" },
       { x: WAY_SNOW[0], y: WAY_SNOW[1], text: "ทางไปเชิงเขาหิมะ", kind: "gate" },
       { x: WAY_PINE[0], y: WAY_PINE[1], text: "ทางไปป่าสนริมแม่น้ำ", kind: "gate" },
+      { x: WAY_FLOWER[0], y: WAY_FLOWER[1], text: "ทางไปทุ่งดอกไม้หลวง", kind: "gate" },
     ],
   });
 }
