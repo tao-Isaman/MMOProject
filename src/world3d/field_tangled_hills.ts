@@ -8,19 +8,24 @@
 // ravine at a crag where a hermit lives in a cave, the north one under a frozen waterfall. The
 // true way climbs the east hill, crosses it and comes down into the hollow between the two
 // hills, where the old silver miners left their camp at the foot of the north wall; then up the
-// west hill and down again to the way out to Highland Hill. Cairns mark the true way, for those
-// who know to look for them.
+// west hill and down again into the west dale, where the way out to Highland Hill is, a knoll
+// beside it. Cairns mark the true way, for those who know to look for them.
 //
 // Every hill is one plateau with its ramps (none touches another); where a hill closes a
 // ravine it runs into the mountain wall, which stands higher.
+//
+// The snow lies deep in the ravines, but over the top of the south wall it thins towards the
+// green meadows beyond, to bare ground and winter grass and then green grass with snow in
+// patches, pines and birches among the snowy pines; so too in the south-east corner, towards
+// the green lower slopes of the foothills.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: west -> highland, east -> snow_foothills
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
-import { useKits } from "./town";
-import { KIT as SNOW, densify, smooth, band, inPoly } from "./kits/snowland";
+import { useKits, seeded } from "./town";
+import { KIT as SNOW, densify, smooth, band, inPoly, blobPoly } from "./kits/snowland";
 import type { XY } from "./kits/snowland";
 import { KIT as ICEBERG } from "./kits/iceberg";
 import { KIT as NORTHCOLD } from "./kits/northcold";
@@ -56,7 +61,7 @@ const RB_W = { top: [750, 3450] as XY, bottom: [956, 4479] as XY, width: 440 }; 
 const RB2 = { top: [-100, 2650] as XY, bottom: [862, 2925] as XY, width: 420 };     // up to the west summit
 const RE1 = { top: [1850, -4750] as XY, bottom: [1100, -4700] as XY, width: 420 };  // up the knoll
 const RK1 = { top: [-1719, 380] as XY, bottom: [-1029, 587] as XY, width: 400 };
-const RK2 = { top: [-1750, 4900] as XY, bottom: [-950, 5000] as XY, width: 400 };
+const RK2 = { top: [-1725, 4700] as XY, bottom: [-950, 4800] as XY, width: 400 };
 const RK3 = { top: [-2400, -4850] as XY, bottom: [-1950, -4250] as XY, width: 400 };
 
 // the frozen waterfall at the head of the north ravine, the hermit's cave at the end of the south
@@ -72,6 +77,46 @@ const dz = (p: XY[]) => densify(p, (x, y) => Math.abs(x) < R + 1500 && Math.abs(
 // up a ramp: the way to its foot, its foot and top, and on past it
 const up = (r: { top: XY; bottom: XY }, inn = 450, out = 400): XY[] => [along(r.bottom, r.top, -inn), r.bottom, r.top, along(r.bottom, r.top, len(r) + out)];
 const down = (r: { top: XY; bottom: XY }, inn = 400, out = 450): XY[] => up(r, out, inn).reverse();
+
+// ---- the thaw to the south ----
+const ss = (a: number, b: number, v: number) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+// How much of the ground lies under snow (0 none, 1 all): all of it but over the south wall,
+// thinning towards the south edge, and in the south-east corner towards the foothills' grass
+// (the world map's picture of the field reaches 6676 out).
+const snowCover = (x: number, y: number): number => (1 - 0.8 * ss(-3600, -6900, x)) * (1 - 0.75 * ss(-1300, -3000, x) * ss(-4000, -6676, y));
+// Where the ground clear of the snow is still bare earth and winter grass (north of a ragged
+// line, but for the south-east corner), and south of it how much of it in patches, fewer
+// towards the south edge.
+const bareLine = (y: number) => -5000 + 3700 * ss(-3500, -4800, y) + 200 * Math.sin(y / 650) + 120 * Math.sin(y / 240 + 2);
+const bareCover = (x: number, y: number): number => (0.85 - 0.65 * ss(-5000, -6676, x)) * (1 - ss(-3500, -4800, y)) + 0.2 * ss(-3500, -4800, y);
+// Patches over the ground: blobs on a jittered grid, each there with the chance `p` gives and the
+// bigger the likelier, so they run together where it nears 1 (their own seed, so nothing else
+// in the field moves).
+function patchesOf(p: (x: number, y: number) => number, seed: number, step = 400, where = (_x: number, _y: number) => true): XY[][] {
+  const rnd = seeded(seed), out: XY[][] = [];
+  for (let x = -A; x < -1300; x += step)
+    for (let y = -A; y < A; y += step) {
+      const cx = x + rnd() * step, cy = y + rnd() * step, k = p(cx, cy), r = step * (0.35 + 0.45 * k) * (0.8 + rnd() * 0.4);
+      if (rnd() < k && !inPoly(SNOWFIELD, cx, cy) && where(cx, cy)) out.push(blobPoly([cx, cy], r * (0.8 + rnd() * 0.5), r * (0.7 + rnd() * 0.4), seed + out.length, 0.22, 16));
+    }
+  return out;
+}
+// where it is all snow: the ravines and the hills, its south edge ragged along the top of the
+// south wall, and back to the east of the south-east corner; where it is all bare ground, the
+// green beginning south of it
+const SNOWFIELD: XY[] = (() => {
+  const pts: XY[] = [];
+  for (let y = A + 500; y >= -3700; y -= 300) pts.push([-3650 + 150 * Math.sin(y / 700) + 100 * Math.sin(y / 260 + 1), y]);
+  return [[A + 500, A + 500], ...pts, [-1300, -4000], [-1300, -A - 500], [A + 500, -A - 500]];
+})();
+const BARE: XY[] = (() => {
+  const pts: XY[] = [];
+  for (let y = A + 500; y >= -A - 500; y -= 300) pts.push([bareLine(y), y]);
+  return [[A + 500, A + 500], ...pts, [A + 500, -A - 500]];
+})();
 
 export function build(_quality: { flowers: number }): Town {
   const f = new FieldBuilder(311, {
@@ -101,7 +146,7 @@ export function build(_quality: { flowers: number }): Town {
   const { put, rnd } = f;
 
   // ---- tracks: as many ways as there are, so the tracks do not give the true way away ----
-  const E_EXIT: XY = [-1200, -5150], W_EXIT: XY = [2000, 5150];
+  const E_EXIT: XY = [-1200, -5150], W_EXIT: XY = [-500, 5150];
   const JE: XY = [-300, -4700]; // where the east ravine's ways part
   const ENTRY: XY[] = smooth([[-1250, -7600], E_EXIT, [-1050, -4700], JE]);
   const SOUTH: XY[] = smooth([JE, [-2200, -4400], [-3300, -4000], [-3800, -3200], [-3800, -2500]]);
@@ -112,17 +157,27 @@ export function build(_quality: { flowers: number }): Town {
   const HOLLOW: XY[] = smooth([down(RA_W)[3], [200, 350], up(RB_E)[0], [2000, 400], [2900, 600], [3300, 300]]);
   const KNOLL1: XY[] = [...smooth([down(RA_W)[3], [-800, 650], up(RK1, 350)[0]]), ...up(RK1, 350).slice(1), [-2400, 300]];
   const KNOLL3: XY[] = [...smooth([[-1200, -4500], up(RK3, 350)[0]]), ...up(RK3, 350).slice(1), [-2900, -5200]];
-  const WEST_HILL: XY[] = [up(RB_E)[0], ...up(RB_E).slice(1), ...smooth([up(RB_E)[3], [1600, 2400], down(RB_W)[0]]), ...down(RB_W).slice(1), ...smooth([down(RB_W)[3], [1500, 4800], W_EXIT, [2050, 7600]])];
+  const WEST_HILL: XY[] = [up(RB_E)[0], ...up(RB_E).slice(1), ...smooth([up(RB_E)[3], [1600, 2400], down(RB_W)[0]]), ...down(RB_W).slice(1), ...smooth([down(RB_W)[3], [300, 5000], [-200, 5050], W_EXIT, [-550, 7600]])];
   const SUMMIT_B: XY[] = [...smooth([[1600, 2400], up(RB2, 350)[0]]), ...up(RB2, 350).slice(1), [-900, 2400]];
-  const WEST_DALE: XY[] = [...smooth([[1000, 4700], [-200, 4750], up(RK2, 350)[0]]), ...up(RK2, 350).slice(1), [-2500, 4800]];
+  const WEST_DALE: XY[] = [...smooth([[100, 5000], [-350, 4800], up(RK2, 350)[0]]), ...up(RK2, 350).slice(1), [-2500, 4750]];
   const ROAD: [number, number, number] = [0.7, 0.75, 1.0];
   const roads = [band(ENTRY, 460), band(SOUTH, 380), band(NORTH, 380), band(KNOLL, 360), band(EAST_HILL, 400), band(SUMMIT_A, 360), band(HOLLOW, 380), band(WEST_HILL, 420), band(SUMMIT_B, 360), band(WEST_DALE, 340), band(KNOLL1, 340), band(KNOLL3, 340)];
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const ground = f.ground({ area, roads, plazas: [], base: "snow", road: ROAD });
+  // over the south wall and in the south-east corner: bare ground and winter grass a hair over the
+  // snow, green grass a hair over that, each cut away where the one below shows through
+  const snowP = patchesOf(snowCover, 3111, 340), bareP = patchesOf(bareCover, 3112, 400, (x, y) => x < bareLine(y) + 400);
+  const band0 = { x0: -A, y0: -A, x1: -1300, y1: A };
+  const bare = f.ground({ area: band0, roads, plazas: [], water: [SNOWFIELD, ...snowP], base: "moss", road: ROAD, tint: "#d2c6a4" });
+  bare.mesh.position.y += 3;
+  bare.mesh.renderOrder = 1;
+  const grass = f.ground({ area: band0, roads, plazas: [], water: [SNOWFIELD, BARE, ...snowP, ...bareP], base: "grass", road: ROAD });
+  grass.mesh.position.y += 6;
+  grass.mesh.renderOrder = 2;
 
   // ---- ways out ----
   f.exit("snow_foothills", E_EXIT, [-1100, -4450]);
-  f.exit("highland", W_EXIT, [1900, 4450]);
+  f.exit("highland", W_EXIT, [-400, 4450]);
 
   // ---- placing things ----
   const taken: [number, number, number][] = [];
@@ -158,11 +213,11 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- the ways out: signs ----
   prop("snowland:trail_sign", [-1650, -4950], 90, 80, ring(30, "post"));
-  prop("snowland:trail_sign", [2450, 4950], -90, 80, ring(30, "post"));
-  prop("snowland:cairn", [1550, 5050], 0, 70, ring(45));
+  prop("snowland:trail_sign", [-150, 5300], -90, 80, ring(30, "post"));
+  prop("snowland:cairn", [-950, 5300], 0, 70, ring(45));
 
   // ---- the true way: cairns all along it ----
-  const TRUE_WAY: XY[] = [[-200, -4300], [300, -4300], [900, -3300], [700, -2900], [300, -2000], [-200, -1300], [-1000, -800 + 1300], [-200, 650], [500, 650], [1200, 1700], [1400, 2200], [1300, 3000], [1250, 4300], [1700, 4600]];
+  const TRUE_WAY: XY[] = [[-200, -4300], [300, -4300], [900, -3300], [700, -2900], [300, -2000], [-200, -1300], [-1000, -800 + 1300], [-200, 650], [500, 650], [1200, 1700], [1400, 2200], [1300, 3000], [1250, 4300], [600, 4650], [-100, 4800]];
   for (const [x, y] of TRUE_WAY) {
     // beside the track, on whichever side is clear
     for (const d of [280, -280, 380, -380]) {
@@ -264,12 +319,16 @@ export function build(_quality: { flowers: number }): Town {
   scatter("northcold:flattened_grass", [0, -2000], 2500, 4, 170);
   scatter("northcold:flattened_grass", [0, 2500], 2500, 4, 170);
 
-  // ---- past the edge: pines along the tops of the mountain walls, down the way to each side ----
+  // ---- past the edge: pines along the tops of the mountain walls, down the way to each side
+  // (pines and birches without their snow where it thins to the south) ----
   const inside = (x: number, y: number) => Math.abs(x) < R + 250 && Math.abs(y) < R + 250;
   const onTrack = (x: number, y: number) => [[0, 0], [250, 0], [-250, 0], [0, 250], [0, -250]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
-  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak"], (x, y) => inside(x, y) || onTrack(x, y), { count: 360, spacing: 430, tries: 6000 });
+  const thawed = (x: number, y: number) => snowCover(x, y) < 0.6;
+  f.woods(area, ["SnowPine", "SnowPine", "SnowPineSmall", "FrostOak"], (x, y) => inside(x, y) || onTrack(x, y) || thawed(x, y), { count: 300, spacing: 430, tries: 6000 });
+  f.woods(area, ["Pine", "Pine", "PineSmall", "Birch", "SnowPineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || !thawed(x, y), { count: 70, spacing: 430, tries: 3000 });
   // and on the walls' tops inside the box, where nobody walks
-  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["SnowPine", "SnowPineSmall"], (x, y) => f.h(x, y) < 900 || onTrack(x, y), { count: 90, spacing: 480, tries: 3000 });
+  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["SnowPine", "SnowPineSmall"], (x, y) => f.h(x, y) < 900 || onTrack(x, y) || thawed(x, y), { count: 80, spacing: 480, tries: 3000 });
+  f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["Pine", "PineSmall", "Birch"], (x, y) => f.h(x, y) < 900 || onTrack(x, y) || !thawed(x, y), { count: 15, spacing: 480, tries: 1500 });
 
   // ---- monsters ----
   const quiet = (x: number, y: number) => Math.hypot(x - CAVE[0], y - CAVE[1]) < 900 || Math.hypot(x - 2900, y - 300) < 1100;
@@ -295,13 +354,14 @@ export function build(_quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
+    scenery: [bare.mesh, grass.mesh],
     sky: "#b8c6d4",
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: -1150, y: -4300 },
     npcs,
     labels: [
       { x: E_EXIT[0] + 400, y: E_EXIT[1] + 100, text: "ทางไปเชิงเขาหิมะ", kind: "gate" },
-      { x: W_EXIT[0] - 400, y: W_EXIT[1] - 100, text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },
+      { x: W_EXIT[0] + 400, y: W_EXIT[1] - 100, text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },
       { x: CAVE[0] + 700, y: CAVE[1] - 300, text: "ถ้ำฤๅษี" },
       { x: FALLS[0] - 600, y: FALLS[1] - 500, text: "น้ำตกน้ำแข็ง" },
       { x: 2400, y: 200, text: "ค่ายเหมืองเงินร้าง" },
@@ -311,7 +371,7 @@ export function build(_quality: { flowers: number }): Town {
       { x: -2600, y: -3700, text: "หุบแคบใต้", kind: "small" },
       { x: 3200, y: -4000, text: "หุบแคบเหนือ", kind: "small" },
       { x: 2400, y: -4800, text: "เนินหินเล็ก", kind: "small" },
-      { x: -400, y: 4600, text: "หุบตะวันตก", kind: "small" },
+      { x: 1700, y: 4700, text: "หุบตะวันตก", kind: "small" },
       { x: -2500, y: 250, text: "เนินกลางแอ่ง", kind: "small" },
       { x: -2700, y: 4800, text: "เนินตะวันตก", kind: "small" },
       { x: -2900, y: -5100, text: "เนินหินใต้", kind: "small" },

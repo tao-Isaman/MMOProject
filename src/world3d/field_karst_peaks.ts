@@ -10,14 +10,19 @@
 // tower can be climbed by an earth ramp to a lookout among the peaks, and in the south-east a
 // low terrace with a pillar rising from it. The rest of the towers stand sheer, with no way up.
 //
+// Up towards the north edge, where the snowy downs begin, the snow lies in the grass in patches
+// that thicken northwards and pines stand among the broadleaf trees; along the east edge,
+// towards the frozen river, a little of it too.
+//
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   ways out: south -> elder_forest, north -> highland_downs
 
 import { FieldBuilder } from "./field";
 import type { Town } from "./town";
-import { useKits } from "./town";
+import { useKits, seeded } from "./town";
 import { KIT as WESTMOUNT, SLAB_BRIDGE_SOLIDS, smooth, band, sheet, blob, inPoly, toLine, nearestOn, pieces, dense, towards, runAlong, rampOff, beyond } from "./kits/westmount";
 import type { XY } from "./kits/westmount";
+import { blobPoly } from "./kits/snowland";
 import { KIT as PLAINS } from "./kits/plains";
 import { KIT as OSAKI } from "./kits/osaki";
 import type { NpcSpec } from "../npcs";
@@ -61,6 +66,27 @@ const POND_C: XY = [-1500, 800];
 const POND = blob(POND_C, 850, 650, 5, 22);
 const LANDING: XY = [3800, 2350];
 
+// ---- the snow: how much of the ground lies under it (0 green, 1 white), thickening northwards
+// towards the snowy downs and a little towards the frozen river on the east (the world map's
+// picture of the field reaches 6676 out) ----
+const ss = (a: number, b: number, v: number) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+const snowCover = (x: number, y: number): number => 1 - (1 - 0.62 * ss(3000, 6676, x)) * (1 - 0.25 * ss(-4000, -6676, y));
+// Patches where the snow shows through the grass: blobs on a jittered grid, each there with the
+// chance snowCover gives and the bigger the likelier, so they run together where it nears 1
+// (their own seed, so nothing else in the field moves).
+function snowPatches(box: { x0: number; x1: number; y0: number; y1: number }, seed: number, step = 400): XY[][] {
+  const rnd = seeded(seed), out: XY[][] = [];
+  for (let x = box.x0; x < box.x1; x += step)
+    for (let y = box.y0; y < box.y1; y += step) {
+      const cx = x + rnd() * step, cy = y + rnd() * step, k = snowCover(cx, cy), r = step * (0.35 + 0.45 * k) * (0.8 + rnd() * 0.4);
+      if (k > 0.01 && rnd() < k) out.push(blobPoly([cx, cy], r * (0.8 + rnd() * 0.5), r * (0.7 + rnd() * 0.4), seed + out.length, 0.22, 16));
+    }
+  return out;
+}
+
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(307, {
     hills: [
@@ -86,19 +112,24 @@ export function build(quality: { flowers: number }): Town {
   const BR = { at: nb.at, off: (k: number): XY => [nb.at[0] + bax[0] * k, nb.at[1] + bax[1] * k] };
 
   // ---- the road and the paths ----
-  const S_EXIT: XY = [-5150, -800], N_EXIT: XY = [5150, 600];
-  const ROAD: XY[] = smooth([[-7600, -900], S_EXIT, [-3800, -650], [-2400, -300], [-900, -450], [400, -150], [1700, -600], [3200, -350], [4300, 450], N_EXIT, [7600, 650]]);
+  const S_EXIT: XY = [-5150, -800], N_EXIT: XY = [5150, 1760];
+  const ROAD: XY[] = smooth([[-7600, -900], S_EXIT, [-3800, -650], [-2400, -300], [-900, -450], [400, -150], [1700, -600], [3200, -350], [4100, 600], [4700, 1300], N_EXIT, [7600, 1850]]);
   const BRIDGE_WAY: XY[] = [...smooth([[400, -150], [900, 900], [1300, 1700], BR.off(-850)]), ...smooth([BR.off(850), [1300, 3700], beyond(ST1.top, ST1.bottom, 400)])];
   const STAIRS: XY[] = [ST1.bottom, ST1.top, ...smooth([beyond(ST1.bottom, ST1.top, 300), [-950, 3550], [-2000, 3450], [-3000, 3600], [-3400, 4000], beyond(ST2.top, ST2.bottom, 250)]), ST2.bottom, ST2.top, beyond(ST2.bottom, ST2.top, 250)];
-  const LOOKOUT_WAY: XY[] = [...smooth([[3650, -80], beyond(R3.top, R3.bottom, 400)]), R3.bottom, R3.top, ...smooth([beyond(R3.bottom, R3.top, 400), [P3[0] + 100, P3[1] + 300]])];
+  const LOOKOUT_WAY: XY[] = [...smooth([[3600, 50], beyond(R3.top, R3.bottom, 400)]), R3.bottom, R3.top, ...smooth([beyond(R3.bottom, R3.top, 400), [P3[0] + 100, P3[1] + 300]])];
   const TERRACE_WAY: XY[] = [...smooth([[-2400, -300], [-1500, -1200], [-700, -2200], beyond(R4.top, R4.bottom, 400)]), R4.bottom, R4.top, ...smooth([beyond(R4.bottom, R4.top, 350), [-2700, -2900]])];
   const POND_WAY: XY[] = smooth([[-900, -450], [-600, 150], [-450, 650]]);
-  const LANDING_WAY: XY[] = smooth([[3200, -350], [3500, 900], [3700, 1700], LANDING]);
+  const LANDING_WAY: XY[] = smooth([[4400, 950], [4050, 1800], LANDING]);
   const TRACKS = [ROAD, BRIDGE_WAY, STAIRS, LOOKOUT_WAY, TERRACE_WAY, POND_WAY, LANDING_WAY];
   const roads = TRACKS.map((t, i) => band(t, i === 0 ? 460 : i === 2 ? 420 : 380));
 
   const area = { x0: -A, y0: -A, x1: A, y1: A };
-  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND], base: "grass", road: [0.86, 0.78, 0.66] });
+  const ground = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND], base: "snow", road: [0.86, 0.78, 0.66] });
+  // the grass: a second ground a hair over the snow, cut away in the patches where the snow lies
+  const patches = snowPatches({ x0: 2000, x1: A, y0: -A, y1: A }, 3071).concat(snowPatches({ x0: -A, x1: 2000, y0: -A, y1: -3600 }, 3072));
+  const grass = f.ground({ area, roads, plazas: [], water: [band(RIVER, RW), POND, ...patches], base: "grass", road: [0.86, 0.78, 0.66] });
+  grass.mesh.position.y += 3;
+  grass.mesh.renderOrder = 1;
 
   // ---- the river and the pond: green water over a dark bed ----
   const bed = sheet(band(RIVER, RW + 160), -70, "Westmount_CliffMoss");
@@ -112,7 +143,7 @@ export function build(quality: { flowers: number }): Town {
 
   // ---- ways out ----
   f.exit("elder_forest", S_EXIT, [-4450, -750]);
-  f.exit("highland_downs", N_EXIT, [4450, 500]);
+  f.exit("highland_downs", N_EXIT, [4500, 1080]);
 
   // ---- placing things ----
   const taken: [number, number, number][] = [];
@@ -187,8 +218,8 @@ export function build(quality: { flowers: number }): Town {
   // ---- the ways out ----
   prop("plains:signpost", [-4850, -1150], 0, 80, ring(30, "post"));
   prop("osaki:stone_lantern", [-4900, -400], 0, 70, ring(35, "post"));
-  prop("plains:signpost", [4900, 950], 180, 80, ring(30, "post"));
-  prop("osaki:stone_lantern", [4950, 200], 0, 70, ring(35, "post"));
+  prop("plains:signpost", [4900, 2150], 180, 80, ring(30, "post"));
+  prop("osaki:stone_lantern", [5000, 1200], 0, 70, ring(35, "post"));
 
   // ---- bamboo groves on both banks ----
   const bamboo = (c: XY, r: number, n: number) => {
@@ -231,10 +262,12 @@ export function build(quality: { flowers: number }): Town {
     }
   }
 
-  // ---- past the edge: woods and bamboo between the towers, greenery on their tops ----
+  // ---- past the edge: woods and bamboo between the towers (pines among them towards the snowy
+  // north), greenery on their tops ----
   const onTrack = (x: number, y: number) => [[0, 0], [300, 0], [-300, 0], [0, 300], [0, -300]].some(([dx, dy]) => ground.kind(x + dx, y + dy) !== 0);
   const inside = (x: number, y: number) => Math.abs(x) < R + 300 && Math.abs(y) < R + 300;
-  f.woods(area, ["RoundTree", "SmallTree", "Bamboo", "Bamboo", "JungleTree"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y, 150) || f.h(x, y) > 100, { count: 320, spacing: 450, tries: 5000 });
+  f.woods(area, ["RoundTree", "SmallTree", "Bamboo", "Bamboo", "JungleTree"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y, 150) || f.h(x, y) > 100 || snowCover(x, y) > 0.3, { count: 270, spacing: 450, tries: 5000 });
+  f.woods(area, ["RoundTree", "SmallTree", "Pine", "Pine", "SnowPineSmall"], (x, y) => inside(x, y) || onTrack(x, y) || wet(x, y, 150) || f.h(x, y) > 100 || snowCover(x, y) <= 0.3, { count: 70, spacing: 450, tries: 3000 });
   f.woods(area, ["wind_pine"], (x, y) => onTrack(x, y) || f.h(x, y) < 1300 || inPoly(P2, x, y), { count: 60, spacing: 600, tries: 3000, kit: "westmount" });
   f.woods(area, ["Bush", "SmallTree", "RoundTree"], (x, y) => onTrack(x, y) || f.h(x, y) < 1300, { count: 120, spacing: 380, tries: 4000 });
 
@@ -260,9 +293,9 @@ export function build(quality: { flowers: number }): Town {
 
   return f.finishField({
     ground,
-    scenery: [bed, river, pondBed, pond],
+    scenery: [grass.mesh, bed, river, pondBed, pond],
     sky: "#b9c9c4",
-    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && f.h(x, y) < 60 && !wet(x, y, 150), density: 0.14 * quality.flowers },
+    flowers: { box: { x: -R, y: -R, w: 2 * R, h: 2 * R }, open: (x, y) => ground.kind(x, y) === 0 && grass.kind(x, y) === 0 && f.h(x, y) < 60 && !wet(x, y, 150), density: 0.14 * quality.flowers },
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
     spawn: { x: -4300, y: -600 },
     npcs,

@@ -1,11 +1,12 @@
 // หน้าผาทะเลเหนือ (the north sea cliffs), monsters Lv 182-192: the end of the land north of
-// Highland Hill, where it breaks off in cliffs over the icy northern sea. From the way in on the
-// south a moor of grass flattened under the snow runs north between two headlands and down into a
-// cove. The west headland climbs in three steps from the moor to its tip, the highest of them
-// carrying the ruined lighthouse that once warned ships off this coast; the east headland climbs
-// in two to the cliffs where the seabirds nest. Down in the cove, on a beach of shingle under the
-// cliffs, lies the wreck of a trader the lighthouse could not save. Out in the sea stand stacks of
-// dark stone, ice round their feet. There is no way on from here: the land ends.
+// Highland Hill, where it breaks off in cliffs over the icy northern sea. From the way in at the
+// south-west a moor of grass flattened under the snow runs north-east and north between two
+// headlands and down into a cove. The west headland climbs in three steps from the moor to its
+// tip, the highest of them carrying the ruined lighthouse that once warned ships off this coast,
+// and runs on west into the snowy mountains; the east headland climbs in two to the cliffs where
+// the seabirds nest. Down in the cove, on a beach of shingle under the cliffs, lies the wreck of
+// a trader the lighthouse could not save. Out in the sea stand stacks of dark stone, ice round
+// their feet. There is no way on from here: the land ends, the sea only to the north.
 //
 // Laid out at full size (north +X, west +Y) and scaled by TOWN_SCALE in finishField.
 //   way out: south -> highland
@@ -39,13 +40,14 @@ const BEACH: XY[] = [[1450, -1950], [3300, -1750], [3300, 1750], [1600, 1950], [
 
 // ---- the levels ----
 // HW: the west headland (400), HW2 its second step (750), HW3 the lighthouse's top (1050);
-// HE: the east headland (450), HE2 the seabird cliffs (750). Past the edge to the south: hills.
+// HE: the east headland (450), HE2 the seabird cliffs (750). Past the edge to the south: hills,
+// a gap in them where the way runs on to Highland Hill, and round to the west a snowy ridge.
 const HW: XY[] = [[-3500, A], [-3400, 5000], [-2800, 3600], [-1600, 2800], [0, 2400], [1200, 2000], [1900, 2150], [2600, 1900], [3300, 2050], [3900, 1900], [4500, 2600], [4700, 3800], [4400, 5200], [4600, A]];
 const HW2: XY[] = [[-1800, A], [-1600, 5600], [-200, 5000], [900, 4600], [1500, 4100], [2300, 3500], [3500, 3000], [4000, 3300], [4200, 4100], [3900, 5400], [4000, A]];
 const HW3: XY[] = [[2800, 3800], [3750, 3850], [3850, 4600], [3600, 5300], [2800, 5300]];
 const HE: XY[] = [[-3200, -A], [-3000, -4600], [-2200, -3400], [-1000, -2600], [600, -2200], [2000, -1900], [2800, -2080], [3600, -1900], [4400, -2500], [4500, -3800], [4200, -5000], [4400, -A]];
 const HE2: XY[] = [[1200, -3000], [2400, -2700], [3700, -2900], [4000, -3700], [3800, -4700], [2600, -5200], [1300, -4400]];
-const MS: XY[] = [[-A, -A], [-6200, -A], [-6400, -4000], [-6100, -2300], [-7700, -1600], [-7800, 300], [-6400, 1000], [-6600, 2500], [-6100, 4500], [-6300, A], [-A, A]];
+const MS: XY[] = [[-A, -A], [-6200, -A], [-6400, -4000], [-6100, -2300], [-6500, -500], [-6300, 1500], [-7700, 2300], [-7800, 4100], [-6400, 4700], [-6000, 5600], [-5000, 6300], [-4300, 6400], [-4200, A], [-A, A]];
 
 // ramps: top on the edge, bottom out below
 const RHW = { top: [600, 2200] as XY, bottom: [205, 1014] as XY, width: 460 };
@@ -89,10 +91,10 @@ export function build(_quality: { flowers: number }): Town {
 
   // ---- tracks: north over the moor from the way in; west up the headland's three steps to the
   // lighthouse, east up two to the seabird cliffs, down into the cove to the wreck ----
-  const S_EXIT: XY = [-5150, -600];
-  const MOOR: XY[] = smooth([[-7600, -650], S_EXIT, [-4300, -560], [-3300, -250], [-2200, 150], [-1100, 350], [0, 300], [900, 100], [1700, 200], [2300, 450]]);
+  const S_EXIT: XY = [-5150, 3190];
+  const MOOR: XY[] = smooth([[-7600, 3250], S_EXIT, [-4400, 3000], [-3400, 2300], [-2400, 1400], [-1100, 350], [0, 300], [900, 100], [1700, 200], [2300, 450]]);
   const WEST: XY[] = [...smooth([[-1100, 350], [-300, 600], climb(RHW)[0]]), ...climb(RHW).slice(1), ...smooth([climb(RHW)[3], [900, 2700], climb(RHW2, 400)[0]]), ...climb(RHW2, 400).slice(1), ...smooth([climb(RHW2)[3], [1700, 4300], climb(RHW3, 350)[0]]), ...climb(RHW3, 350).slice(1), [3250, 4500]];
-  const EAST: XY[] = [...smooth([[-2200, 150], [-1100, -400], climb(RHE)[0]]), ...climb(RHE).slice(1), ...smooth([climb(RHE)[3], [-400, -3300], climb(RHE2)[0]]), ...climb(RHE2).slice(1), ...smooth([climb(RHE2)[3], [2400, -3900], [3200, -3800]])];
+  const EAST: XY[] = [...smooth([[-1700, 850], [-1000, -250], climb(RHE)[0]]), ...climb(RHE).slice(1), ...smooth([climb(RHE)[3], [-400, -3300], climb(RHE2)[0]]), ...climb(RHE2).slice(1), ...smooth([climb(RHE2)[3], [2400, -3900], [3200, -3800]])];
   const roads = [band(MOOR, 460), band(WEST, 400), band(EAST, 400)];
   const area = { x0: -A, y0: -A, x1: A, y1: A };
   const ROAD: [number, number, number] = [0.72, 0.74, 0.84];
@@ -107,7 +109,7 @@ export function build(_quality: { flowers: number }): Town {
   shingle.mesh.renderOrder = 1;
 
   // ---- the way out ----
-  f.exit("highland", S_EXIT, [-4400, -560]);
+  f.exit("highland", S_EXIT, [-4400, 3000]);
 
   // ---- the sea: cold dark water, the shore closed, floes and stacks out on it ----
   const sea = f.waterSheet({ x0: 2400, x1: A + 2500, y0: -A - 2500, y1: A + 2500 }, -14, "Northcold_NorthSea");
@@ -184,9 +186,9 @@ export function build(_quality: { flowers: number }): Town {
   for (const [x, y] of [[4000, -2700], [4100, -4400], [3900, -2200]] as XY[]) if (free(x, y, 150)) prop("northcold:iced_rocks", [x, y], rnd() * 360, 200, { s: 0.7, solid: [{ kind: "rock", x: 0, y: 0, r: 140 }] });
 
   // ---- the moor: an old memorial cairn for the drowned, the way marked, rocks ----
-  prop("snowland:trail_sign", [-4950, -1000], 90, 80, ring(30, "post"));
-  prop("snowland:cairn", [-4950, -150], 0, 70, ring(45));
-  for (const at of [[-3300, 250], [-2100, -350], [-600, 800], [700, -250], [100, 1500], [-900, -1700], [1300, 3300], [1400, -3300]] as XY[]) if (free(at[0], at[1], 70)) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
+  prop("snowland:trail_sign", [-4950, 2700], 90, 80, ring(30, "post"));
+  prop("snowland:cairn", [-4950, 3700], 0, 70, ring(45));
+  for (const at of [[-3500, 2750], [-2200, 1700], [-600, 800], [700, -250], [100, 1500], [-900, -1700], [1300, 3300], [1400, -3300]] as XY[]) if (free(at[0], at[1], 70)) prop("snowland:cairn", at, rnd() * 90, 70, ring(45));
   const ROCKS: [string, XY, number][] = [
     ["northcold:iced_rocks", [-4200, 1300], 170], ["snowland:snow_boulder", [-2700, -1900], 130], ["snowland:flat_slabs", [-3800, -3300], 150], ["northcold:iced_rocks", [-1500, 1800], 170],
     ["snowland:rock_cluster", [-500, -1400], 190], ["snowland:snow_boulder", [-4500, 3800], 130], ["snowland:flat_slabs", [400, 900], 150], ["northcold:iced_rocks", [1100, -1200], 170],
@@ -263,7 +265,7 @@ export function build(_quality: { flowers: number }): Town {
     scenery: [shingle.mesh, sea, ...floes],
     sky: "#a9b9c8",
     bounds: { minX: -R, maxX: R, minY: -R, maxY: R },
-    spawn: { x: -4300, y: -540 },
+    spawn: { x: -4300, y: 2960 },
     npcs,
     labels: [
       { x: S_EXIT[0] + 150, y: S_EXIT[1], text: "ทางไปไฮแลนด์ ฮิล", kind: "gate" },
