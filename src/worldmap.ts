@@ -87,7 +87,7 @@ export const PLACES: Place[] = [
   { id: "volcano", name: "ยอดภูเขาไฟ", region: "กลางเกาะโอซากิ · Lv 60-75", kind: "field", open: true, col: 4, row: 4,
     desc: "หินลาวาดำ บ่อน้ำร้อน ควันกำมะถัน และปล่องภูเขาไฟเรืองแดง" },
   // ---- the west lands (docs/west_lands.md) ----
-  { id: "noa_meadow", name: "ทุ่งหญ้าโนอา", region: "ตะวันออกเฉียงเหนือของโนอา · Lv 30-40", kind: "field", open: true, col: -2, row: -1,
+  { id: "noa_meadow", name: "ทุ่งหญ้าโนอา", region: "เหนือป่าใหญ่ตะวันตก · Lv 30-40", kind: "field", open: true, col: -2, row: -1,
     desc: "ทุ่งหญ้ากว้างลมแรง ดอกไม้ป่า กำแพงหินเตี้ย กังหันลม และฝูงแกะ" },
   { id: "noa_plains", name: "ที่ราบใต้โนอา", region: "ระหว่างโนอากับเวนิชเซีย · Lv 40-50", kind: "field", open: true, col: -3, row: 1,
     desc: "ไร่องุ่นกับทุ่งข้าวสาลี ถนนหินโบราณ หลักไมล์ และซากท่อส่งน้ำ" },
@@ -101,7 +101,7 @@ export const PLACES: Place[] = [
     desc: "เนินลอนคลื่นหิมะบาง กองหินบอกทาง กำแพงหินแห้ง และวงหินโบราณ" },
   { id: "karst_peaks", name: "ภูผาหินปูน", region: "ระหว่างที่ราบเนินเขากับป่าโบราณ · Lv 98-110", kind: "field", open: true, col: -4, row: -1,
     desc: "ยอดเขาหินปูนเป็นแท่ง หมอกลอย ลำธาร และศาลาบนผา" },
-  { id: "ancient_plain", name: "ที่ราบโบราณ", region: "ระหว่างเวนิชเซียกับบาฮามัส · Lv 110-122", kind: "field", open: true, col: -1, row: 3,
+  { id: "ancient_plain", name: "ที่ราบโบราณ", region: "ระหว่างที่ราบแห้งแล้งกับบาฮามัส · Lv 110-122", kind: "field", open: true, col: -1, row: 3,
     desc: "ซากเมืองยุคก่อน รูปปั้นยักษ์ล้ม แนวเสา และประตูชัยพัง" },
   { id: "frozen_river", name: "แม่น้ำเยือกแข็ง", region: "ระหว่างโนอากับไฮแลนด์ ฮิล · Lv 122-134", kind: "field", open: true, col: -3, row: -1,
     desc: "แม่น้ำกว้างที่แข็งเป็นน้ำแข็ง สะพานหินเก่าครึ่งพัง ฝั่งเหนือหิมะเริ่มตก" },
@@ -109,13 +109,13 @@ export const PLACES: Place[] = [
     desc: "ทางคดเคี้ยวผ่านหน้าผา ด่านเก่า และสะพานเชือก" },
   { id: "tangled_hills", name: "เนินเขาวงกต", region: "ตะวันออกของไฮแลนด์ ฮิล · Lv 146-158", kind: "field", open: true, col: -2, row: -2,
     desc: "เนินและหุบแคบซ้อนกันเหมือนเขาวงกต ไต่ขึ้นลงหลายชั้น" },
-  { id: "lagoon_marsh", name: "บึงลากูน", region: "ระหว่างนาขั้นบันไดกับที่ราบใต้โนอา · Lv 158-170", kind: "field", open: true, col: -4, row: 1,
+  { id: "lagoon_marsh", name: "บึงลากูน", region: "ระหว่างซูโจวกับที่ราบใต้โนอา · Lv 158-170", kind: "field", open: true, col: -4, row: 1,
     desc: "บึงกว้าง กกสูง ทางเดินไม้ ซากบ้านใต้ถุนสูง และหมอกพิษ" },
   { id: "royal_necropolis", name: "สุสานหลวงโบราณ", region: "ระหว่างที่ราบโบราณกับป่าดิบแดนใต้ · Lv 170-182", kind: "field", open: true, col: -1, row: 4,
     desc: "สุสานกษัตริย์ยุคแรก หลุมศพหิน รูปปั้นเฝ้าสุสาน ที่ป่าแดนใต้เริ่มกลืน" },
   { id: "north_cliffs", name: "หน้าผาทะเลเหนือ", region: "เหนือไฮแลนด์ ฮิล · Lv 182-192", kind: "field", open: true, col: -3, row: -3,
     desc: "หน้าผาริมทะเลน้ำแข็ง แท่งหินกลางทะเล และประภาคารร้าง" },
-  { id: "west_cape", name: "แหลมทะเลตะวันตก", region: "ตะวันตกสุดของทวีป · Lv 188-200", kind: "field", open: true, col: -6, row: 1,
+  { id: "west_cape", name: "แหลมทะเลตะวันตก", region: "ตะวันตกสุดของทวีป ปลายช่องเขาตะวันตก · Lv 188-200", kind: "field", open: true, col: -6, row: 0,
     desc: "แหลมสุดทวีป ทะเลคลั่ง ซากเรือ และศาลมังกรทะเล" },
 ];
 
@@ -125,15 +125,15 @@ export const PLACES: Place[] = [
 export const GRID = { col0: -6, row0: -5, cols: 13, rows: 11 };
 const GROUND = [
   "~~~~^M^~~~~~~", // -5
-  "~~~~^M^~~~~~~", // -4
-  "~~~M^M^^^~~~~", // -3
+  "~~~~^M~~~~~~~", // -4
+  "~~^M^M^^^~~~~", // -3
   "~^MMMM^^^M##~", // -2
   "~%MMM#MMMMM##", // -1
-  "~MMMMMM~~~MMM", // 0
-  "MMMM##M~~~M##", // 1
-  "~M~~MMM:~~%~~", // 2
+  "MMMMMMM~##MMM", // 0
+  "~MMM##M~~%M##", // 1
+  "~M%~MMM:~~%~~", // 2
   "~~~~~MMM:~~~~", // 3
-  "~~~~~MM%~~M~~", // 4
+  "~~~~%MM%~~M~~", // 4
   "~~~~~%MM~MM~~", // 5
 ];
 export type Ground = "~" | "^" | "#" | "%" | ":" | "M";
@@ -145,7 +145,7 @@ export function groundAt(col: number, row: number): Ground {
 // col + 0.5, row + 0.5)
 export const SEAS: { x: number; y: number; text: string }[] = [
   { x: 2.5, y: -3.6, text: "ทะเลเหนือ" },
-  { x: 2.5, y: 1, text: "ทะเลใน" },
+  { x: 1.8, y: 1.4, text: "ทะเลใน" },
   { x: -4, y: 3.6, text: "ทะเลตะวันตก" },
   { x: 3, y: 4, text: "มหาสมุทรใต้" },
 ];
