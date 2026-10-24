@@ -9,6 +9,7 @@
 //     right at the walkable edge is fine when the picture's margin past it is open sea,
 //   - two linked ways out that leave their shared edge at different places (more than 15% of the
 //     edge apart), so their roads don't meet on the world map.
+// A map with no picture yet has only its ways out checked.
 // What an edge shows is read from the picture's pixels in a strip just inside the map's walkable
 // bounds (and, for the sea, in the margin past them out to the picture's edge): water, snow, sand,
 // green, forest, stone, earth or dark.
@@ -46,7 +47,12 @@ const all = process.argv.includes("--all");
       const T = W.tileArea(B), L = T.maxX - T.minX;
       const img = new Image();
       img.src = `/assets/worldmap/${p.id}.webp`;
-      await img.decode();
+      const warps = map.warps.map((wp) => ({ to: wp.to, n: (wp.x - B.minX) / w, e: (B.maxY - wp.y) / h }));
+      // a map not photographed yet: only its ways out are checked
+      if (!(await img.decode().then(() => true, () => false))) {
+        out[p.id] = { col: p.col, row: p.row, edges: null, past: null, warps };
+        continue;
+      }
       const c = document.createElement("canvas");
       c.width = c.height = img.width;
       const g = c.getContext("2d");
@@ -72,7 +78,6 @@ const all = process.argv.includes("--all");
         edges[side] = read(strip[side]);
         past[side] = read(margin[side]);
       }
-      const warps = map.warps.map((wp) => ({ to: wp.to, n: (wp.x - B.minX) / w, e: (B.maxY - wp.y) / h }));
       out[p.id] = { col: p.col, row: p.row, edges, past, warps };
     }
     const ground = {};
@@ -95,11 +100,11 @@ const all = process.argv.includes("--all");
   let problems = 0;
   const say = (s) => { problems++; console.log(s); };
   for (const [id, m] of Object.entries(out).sort((a, b) => a[1].row - b[1].row || a[1].col - b[1].col)) {
-    if (all) console.log(`== ${id} (${m.col},${m.row})`);
-    for (const side of ["N", "E", "S", "W"]) {
+    if (all) console.log(`== ${id} (${m.col},${m.row})${m.edges ? "" : ": no picture yet (tools/world_tiles.cjs)"}`);
+    for (const side of m.edges ? ["N", "E", "S", "W"] : []) {
       const [dc, dr] = DIR[side], nb = next(m.col + dc, m.row + dr), e = m.edges[side], water = e.water ?? 0;
       if (nb === null) continue;
-      if (all) console.log(`  ${side}: ${show(e)}  | next: ${nb}${out[nb] ? ` (${show(out[nb].edges[OPP[side]])})` : ""}`);
+      if (all) console.log(`  ${side}: ${show(e)}  | next: ${nb}${out[nb]?.edges ? ` (${show(out[nb].edges[OPP[side]])})` : ""}`);
       if (nb === "~" && water < 0.3 && (m.past[side].water ?? 0) < 0.6) say(`${id} ${side}: faces the sea but shows land (${show(e)}; past it ${show(m.past[side])})`);
       if (nb !== "~" && water > 0.4) say(`${id} ${side}: faces land (${nb}) but shows water (${show(e)})`);
     }
