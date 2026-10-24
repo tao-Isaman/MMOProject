@@ -468,7 +468,7 @@ export const NPC_PLACES: Record<string, string> = {
  "yodia:yodia_shop": "แนวโกดัง",
  "yodia:yodia_guard_n1": "ประตูเหนือ",
  "yodia:yodia_guard_n2": "ประตูเหนือ",
- "yodia:yodia_guard_w": "ประตูป่า (ปิด)",
+ "yodia:yodia_guard_w": "ประตูป่า",
  "yodia:yodia_guard_e": "ประตูตะวันออก",
  "yodia:job_thief": "ตลาดปลา",
  "yodia:yodia_fishwife": "ตลาดปลา",
