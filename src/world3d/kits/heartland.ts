@@ -95,10 +95,12 @@ const MATS: Record<string, Recipe> = {
   Heartland_Lavender: { map: "felt", tint: "#8c6cbc", rough: 0.9, bump: 1.2 },
   Heartland_LavenderDark: { map: "felt", tint: "#634890", rough: 0.9, bump: 1.2 },
   Heartland_LavStem: { map: "felt", tint: "#8a9476", rough: 0.9 },
-  Heartland_LavCore: { map: "foliage", tint: "#6b785f", rough: 1, bump: 1.5 },
-  Heartland_LavDark: { card: "tuft", tint: "#66745d", rough: 0.9 },
-  Heartland_LavMid: { card: "tuft", tint: "#8c997b", rough: 0.85 },
-  Heartland_LavLight: { card: "tuft", tint: "#b2bc9b", rough: 0.8 },
+  // (a bush in flower: the silver-green leaves under a haze of purple spikes)
+  Heartland_LavCore: { map: "foliage", tint: "#8a78b4", rough: 1, bump: 1.5 },
+  Heartland_LavDark: { card: "tuft", tint: "#8070a8", rough: 0.9 },
+  Heartland_LavMid: { card: "tuft", tint: "#a592d4", rough: 0.85 },
+  Heartland_LavLight: { card: "tuft", tint: "#c8b8f0", rough: 0.8 },
+  Heartland_LavLeaf: { card: "tuft", tint: "#8f9a7e", rough: 0.85 },
   // the flower beds' leaves, and the meadow's tufts
   Heartland_BedCore: { map: "foliage", tint: "#4c7a33", rough: 1, bump: 1.5 },
   Heartland_BedDark: { card: "leaves", tint: "#447231", rough: 0.85 },
@@ -521,8 +523,11 @@ const whiteBed = (): Geo => bed(121, [F.daisy, F.daisy, F.blossom], 210, 18, 38)
 function lavenderRow(): Geo {
   const rnd = seeded(131), out: Geo[] = [translate(scale(cylinderBetween([0, -400, 0], [0, 400, 0], 55, 8, "Heartland_SoilDry"), [1, 1, 0.25]), [0, 0, 0])];
   const lobes: Lobe[] = [];
-  for (let y = -360; y <= 360; y += 80) lobes.push([(rnd() - 0.5) * 8, y + (rnd() - 0.5) * 8, 34, 46 + rnd() * 6, 42 + rnd() * 4, 34 + rnd() * 6]);
-  out.push(shrub({ seed: 133, leaf: 15, look: LAV, core: 0.85, coreDetail: 0, ragged: 0.5, density: 0.36, lobes, flowers: { cells: [F.lavender, F.lavender, F.lavender, F.wisteria], n: 340, size: 24, up: 0.95 } }));
+  // (cushion run into cushion, as the rows grow when they are old)
+  for (let y = -370; y <= 370; y += 67) lobes.push([(rnd() - 0.5) * 8, y + (rnd() - 0.5) * 6, 36, 54 + rnd() * 6, 50 + rnd() * 4, 36 + rnd() * 6]);
+  out.push(shrub({ seed: 133, leaf: 16, look: LAV, core: 0.92, coreDetail: 0, ragged: 0.35, density: 0.4, lobes, flowers: { cells: [F.lavender, F.wisteria, F.wisteria], n: 340, size: 24, up: 0.95 } }));
+  // silver-green leaves showing at the cushions' feet
+  out.push(shrub({ seed: 137, leaf: 14, look: { core: "Heartland_LavCore", dark: "Heartland_LavLeaf", mid: "Heartland_LavLeaf", light: "Heartland_LavLeaf" }, core: 0, ragged: 0.8, density: 0.25, lobes: lobes.map(([x, y, , rx, ry]) => [x, y, 10, rx * 1.08, ry, 12] as Lobe) }));
   return merge(...out);
 }
 
@@ -1117,7 +1122,7 @@ function sample(put: Put): void {
   for (let i = 0; i < 4; i++) put("wattle_fence", [-650, -500 + i * 400, 0], 0);
   put("wheat_stooks", [1700, -100, 0], 0);
   // the lavender and its distillery on the east side
-  for (let i = 0; i < 5; i++) put("lavender_row", [2000, -1300 + i * 130, 0], 90, 0.75);
+  for (let i = 0; i < 6; i++) put("lavender_row", [2300, -1950 - i * 130, 0], 90, 0.75);
   put("distillery", [2000, 900, 0], 180, 0.8);
   put("drying_rack", [1400, 150, 0], 90);
   put("flower_cart", [900, -100, 0], -60);

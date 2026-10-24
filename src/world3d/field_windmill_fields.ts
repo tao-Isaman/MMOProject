@@ -6,9 +6,10 @@
 // The windmill down rises north-east of the village: a ramp up its south-west side, another up
 // its higher step, where the great windmill turns its sails over the whole field, the miller's
 // sacks round its door. Round the crossroads: the stone granary, the well, a farmhouse and its
-// hen house, haystacks, the sheep's hurdle pen. Wheat stands in blocks on every side, and some of
+// hen house, haystacks; up the lane north-west the sheep's round stone fold by the woods. Wheat stands in blocks on every side, and some of
 // it is cut, stooked on the stubble. To the south-west a ridge carries two wooden post mills, a
-// ramp up its north side. The stream that turned the old water mill has dried: its bed winds across
+// ramp up its north side; a third stands out in the wheat south-east of the village, at the end of
+// a lane from the granary. The stream that turned the old water mill has dried: its bed winds across
 // the south, cracked mud in the hollows, the mill standing idle beside it at the end of a lane, and
 // the land dries towards the south edge into the dry plains' grass. East and south-east the
 // savanna's golden grass comes in, north the first meadow's woods.
@@ -55,7 +56,7 @@ const RPW = rampOff(PW, 0, 0.4, 800, 440);
 const J: XY = [-150, 0]; // the crossroads
 const MILL: XY = [3300, -800];
 const OLD_MILL: XY = [-3150, -300];
-const POSTS: XY[] = [[-2300, 3750], [-3250, 3050]];
+const POSTS: XY[] = [[-2300, 3750], [-3250, 3050], [-2100, -2700]];
 
 // ---- the dry stream: a chain of shallow hollows across the south ----
 const WASH: XY[] = smooth([[-3000, -A], [-3100, -4500], [-3700, -3200], [-3450, -1800], [-3850, -650], [-4400, 600], [-5000, 1400], [-6000, 1800], [-A, 2000]], 700);
@@ -70,9 +71,12 @@ const MILL_WAY: XY[] = [
 const POST_WAY: XY[] = [...smooth([[120, 3000], along(RPW.bottom, RPW.top, -320)]), RPW.bottom, RPW.top, ...smooth([along(RPW.bottom, RPW.top, 1100), [-2350, 3200], [-2900, 3350]])];
 // the lane past the granary to the idle water mill by the dry stream
 const MILL_LANE: XY[] = smooth([J, [-1300, -200], [-2300, -250], [OLD_MILL[0] + 400, OLD_MILL[1] - 100]]);
-// the lane north-west to the hay fields and the sheep's pen
-const PEN_LANE: XY[] = smooth([[-180, 1500], [800, 2100], [1700, 2500], [2600, 2600]]);
-const TRACKS = [MAIN, MILL_WAY, POST_WAY, MILL_LANE, PEN_LANE];
+// the lane from the granary out to the third post mill in the wheat
+const POST_LANE: XY[] = smooth([[-1500, -250], [-1950, -1100], [-2050, -2150]]);
+// the lane north-west through the wheat to the sheep's fold by the woods
+const FOLD: XY = [4050, 3950];
+const PEN_LANE: XY[] = smooth([[-180, 1500], [800, 2100], [1700, 2500], [2600, 2700], [3300, 3200], [3550, 3600]]);
+const TRACKS = [MAIN, MILL_WAY, POST_WAY, MILL_LANE, POST_LANE, PEN_LANE];
 
 // ---- what lies next door ----
 const ss = (a: number, b: number, v: number) => {
@@ -82,8 +86,8 @@ const ss = (a: number, b: number, v: number) => {
 // south: the dry plains' grass, from a wavering line across the south (it falls back past the
 // south-west corner, where the dry plains green again towards Venezia); east: the savanna's gold,
 // from a line down the east side (it falls back past the north-east corner, green towards Eden)
-const SOUTH_LINE = (y: number) => -3700 + 260 * Math.sin(y / 700) + 150 * Math.sin(y / 260 + 1) - Math.max(0, y - 2400) * 1.3;
-const EAST_LINE = (x: number) => -3900 + 240 * Math.sin(x / 650 + 2) + 130 * Math.sin(x / 230 + 2) - Math.max(0, x - 2300) * 1.3;
+const SOUTH_LINE = (y: number) => -3950 + 260 * Math.sin(y / 700) + 150 * Math.sin(y / 260 + 1) - Math.max(0, y - 2400) * 1.3;
+const EAST_LINE = (x: number) => -4350 + 240 * Math.sin(x / 650 + 2) + 130 * Math.sin(x / 230 + 2) - Math.max(0, x - 2300) * 1.3;
 const dryS = (x: number, y: number) => ss(SOUTH_LINE(y) + 500, SOUTH_LINE(y) - 500, x);
 const goldE = (x: number, y: number) => ss(EAST_LINE(x) + 500, EAST_LINE(x) - 500, y);
 const dry = (x: number, y: number) => Math.max(dryS(x, y), goldE(x, y));
@@ -106,7 +110,6 @@ export function build(quality: { flowers: number }): Town {
       // the dry stream's bed
       ...WASH.filter((_, i) => i % 2 === 0).map(([x, y], i) => ({ x, y, r: 560 + (i % 2) * 120, h: -60 - (i % 3) * 10 })),
       // rolling ground
-      { x: 1500, y: 3600, r: 1000, h: 90 }, { x: -1600, y: -3400, r: 900, h: 80 }, { x: 4600, y: 3300, r: 900, h: 100 },
       { x: -4600, y: 3900, r: 700, h: 70 }, { x: 3600, y: -4300, r: 900, h: 90 },
       // past the edge
       { x: 7600, y: 2600, r: 2200, h: 240 }, { x: 7400, y: -2500, r: 2000, h: 220 }, { x: -7600, y: -3800, r: 2000, h: 180 },
@@ -122,7 +125,7 @@ export function build(quality: { flowers: number }): Town {
   const { put, rnd } = f;
 
   // ---- the ground: green over the fields, drying to the south and to gold on the east ----
-  const roads = [band(MAIN, 470), band(MILL_WAY, 420), band(POST_WAY, 400), band(MILL_LANE, 360), band(PEN_LANE, 340)];
+  const roads = [band(MAIN, 470), band(MILL_WAY, 420), band(POST_WAY, 400), band(MILL_LANE, 360), band(POST_LANE, 320), band(PEN_LANE, 340)];
   const ROAD: [number, number, number] = [0.96, 0.88, 0.74];
   const ground = f.ground({ area: { x0: -A, y0: -A, x1: A, y1: A }, roads, plazas: [], water: [], base: "steppe", tint: "#ecdcaa", road: ROAD });
   // another ground a little over this one, on the same grid, following the cliffs the same way
@@ -220,9 +223,9 @@ export function build(quality: { flowers: number }): Town {
   // ---- the post mills on the south-west ridge ----
   prop("heartland:post_mill", POSTS[0], towards(-1, -0.2), 380, { solid: [{ kind: "mill", x: 0, y: 0, w: 520, d: 520, rot: 0 }, { kind: "post", x: 400, y: 0, r: 60 }] });
   prop("heartland:post_mill", POSTS[1], towards(-1, 0.3), 380, { solid: [{ kind: "mill", x: 0, y: 0, w: 520, d: 520, rot: 0 }, { kind: "post", x: 400, y: 0, r: 60 }] });
-  prop("plains:hay_bales", [-2900, 4400], 20, 240);
-  prop("trunrada:haystack", [-3700, 3800], 0, 200);
-  tree("RoundTree", [-1700, 4300], 0.9, 40);
+  // and one out in the wheat south-east of the village, its own lane to it
+  prop("heartland:post_mill", POSTS[2], towards(-1, -0.5), 380, { solid: [{ kind: "mill", x: 0, y: 0, w: 520, d: 520, rot: 0 }, { kind: "post", x: 400, y: 0, r: 60 }] });
+  prop("trunrada:haystack", [-3750, 3900], 0, 200);
 
   // ---- the village round the crossroads: the granary, the well, the farmhouse and its hens, hay ----
   prop("heartland:stone_granary", [-1250, -1050], 180, 520, { solid: [{ kind: "building", x: 0, y: 0, w: 560, d: 820, rot: 0 }, { kind: "building", x: -150, y: 0, w: 260, d: 160, rot: 0 }] });
@@ -233,20 +236,26 @@ export function build(quality: { flowers: number }): Town {
   prop("heartland:chicken_coop", [-900, 1500], towards(1, -0.6), 300, { solid: [{ kind: "coop", x: 0, y: 0, w: 470, d: 300, rot: 0 }] });
   prop("trunrada:haystack", [-1650, 800], 0, 200);
   prop("trunrada:haystack", [-1700, 1350], 0, 200);
-  prop("plains:hay_bales", [-1950, -500], 70, 240);
+  prop("plains:hay_bales", [-2550, -1000], 70, 240);
   prop("trunrada:cart", [-600, -1700], 120, 230);
   prop("heartland:flower_cart", [500, 1700], 200, 230);
   for (const at of [[-1300, -1900], [-1500, -1950]] as XY[]) prop("common:crate", at, rnd() * 90, 60);
   prop("eden:park_bench", [-300, -450], 90, 100);
   tree("RoundTree", [-900, -400], 1, 40);
   tree("Cherry", [700, -300], 0.9, 36);
-  // the sheep's pen of hurdles by the lane, a flock in it
-  const PEN: XY = [2300, 3300];
-  hurdles([[PEN[0] - 700, PEN[1] - 900], [PEN[0] + 700, PEN[1] - 900], [PEN[0] + 700, PEN[1] + 900], [PEN[0] - 700, PEN[1] + 900]], true);
-  for (const at of [[PEN[0] - 250, PEN[1] - 300], [PEN[0] + 250, PEN[1] + 350]] as XY[]) put("westfarm:sheep_flock", at, rnd() * 360, { solid: "none" });
-  prop("steppe:water_trough", [PEN[0] + 400, PEN[1] - 600], 0, 140);
-  taken.push([PEN[0], PEN[1], 1000]);
-  prop("westfarm:shepherd_hut", [PEN[0] + 1300, PEN[1] + 200], towards(-1, -0.2), 420);
+  // the sheep's round stone fold at the end of the lane, by the woods: the flock out on the grass
+  // round it, the trough, the shepherd's hut, hurdles penning the lambs
+  const foldSolid: SolidSpec[] = [];
+  for (let k = 0; k < 22; k++) {
+    const a = Math.PI + 0.3 + (k / 21) * (Math.PI * 2 - 0.6);
+    foldSolid.push({ kind: "wall", x: Math.cos(a) * 420, y: Math.sin(a) * 420, r: 62 });
+  }
+  prop("westfarm:sheepfold", FOLD, towards(-1, -0.7), 520, { solid: foldSolid });
+  for (const at of [[FOLD[0] - 1000, FOLD[1] + 350], [FOLD[0] - 300, FOLD[1] - 950]] as XY[]) prop("westfarm:sheep_flock", at, rnd() * 360, 330, { solid: "none" });
+  prop("steppe:water_trough", [FOLD[0] - 700, FOLD[1] - 250], 30, 140);
+  prop("westfarm:shepherd_hut", [FOLD[0] - 250, FOLD[1] + 1150], towards(-1, -0.2), 420);
+  hurdles([[FOLD[0] + 500, FOLD[1] - 700], [FOLD[0] + 100, FOLD[1] - 1450], [FOLD[0] - 500, FOLD[1] - 1700]]);
+  taken.push([FOLD[0] - 100, FOLD[1] - 1100, 450]);
 
   // ---- the dry stream: cracked mud in its bed, dead reeds, the idle water mill by it ----
   prop("plains:water_mill", OLD_MILL, 90, 620);
@@ -271,31 +280,47 @@ export function build(quality: { flowers: number }): Town {
   prop("desert:dead_tree", [-4500, 1100], 140, 150, ring(26, "tree"));
 
   // ---- the wheat: fields of it in blocks wherever they lie level, a few cut and stooked ----
-  const fieldAt = (x: number, y: number) => {
-    for (const [dx, dy] of [[0, 0], [290, 390], [-290, 390], [290, -390], [-290, -390]]) {
+  // whether a field (hx across it, north-south; 400 along it, east-west, each way) lies whole there
+  const laid: [number, number, number][] = [];
+  const fieldAt = (x: number, y: number, hx: number) => {
+    if (Math.hypot(x - J[0], y - J[1]) < 950) return false;
+    if (laid.some(([lx, ly, lh]) => Math.abs(lx - x) < lh + hx + 20 && Math.abs(ly - y) < 820)) return false;
+    for (const [dx, dy] of [[0, 0], [hx, 400], [-hx, 400], [hx, -400], [-hx, -400], [0, 400], [0, -400]]) {
       const px = x + dx, py = y + dy;
-      if (!inside(px, py, 250) || !f.level(px, py, 150) || nearTrack(px, py, 290) || Math.abs(f.h(px, py) - f.h(x, y)) > 14 || dry(px, py) > 0.5) return false;
-      if (taken.some(([tx, ty, tr]) => Math.hypot(tx - px, ty - py) < tr + 40)) return false;
+      if (!inside(px, py, 200) || !f.level(px, py, 120) || nearTrack(px, py, 235) || Math.abs(f.h(px, py) - f.h(x, y)) > 30 || dry(px, py) > 0.6) return false;
+      if (taken.some(([tx, ty, tr]) => Math.hypot(tx - px, ty - py) < tr)) return false;
     }
-    return Math.hypot(x - J[0], y - J[1]) > 1200;
+    return true;
   };
   // the land in blocks of 4 x 3 fields (8 x 6 m each, end to end): standing wheat, wheat cut and
-  // stooked on the stubble, or left to meadow
-  const laid: XY[] = [];
-  for (let bx = -5100; bx + 4 * 640 < R; bx += 4 * 640)
-    for (let by = -5100; by + 3 * 840 < R; by += 3 * 840) {
-      const k = rnd(), kind = k < 0.66 ? "wheat" : k < 0.86 ? "cut" : "meadow";
-      if (kind === "meadow") continue;
-      for (let i = 0; i < 4; i++)
+  // stooked on the stubble, or (seldom) left to meadow; along each row of a block the fields
+  // shift to fit round whatever is in the way, and narrow strips of wheat (3 m) fill the gaps after
+  const kinds: string[] = [];
+  for (let k = 0; k < 25; k++) {
+    const r = rnd();
+    kinds.push(r < 0.66 ? "wheat" : r < 0.94 ? "cut" : "meadow");
+  }
+  const kindAt = (x: number, y: number) => kinds[Math.min(4, Math.max(0, Math.floor((x + 5120) / 2560))) * 5 + Math.min(4, Math.max(0, Math.floor((y + 5040) / 2520)))];
+  for (const hx of [300, 150])
+    for (let bx = -5120; bx < R; bx += 4 * 640)
+      for (let by = -5040; by < R; by += 3 * 840) {
+        const kind = kindAt(bx + 1, by + 1);
+        if (kind === "meadow") continue;
         for (let j = 0; j < 3; j++) {
-          const x = bx + 320 + i * 640, y = by + 420 + j * 840;
-          if (!fieldAt(x, y)) continue;
-          if (kind === "cut") put("heartland:wheat_stooks", [x, y], rnd() < 0.5 ? 90 : -90, { solid: "none" });
-          else put("plains:wheat_field", [x, y], 90, { solid: "none" });
-          laid.push([x, y]);
+          const y = by + 420 + j * 840;
+          for (let x = bx + 20 + hx; x <= bx + 4 * 640 - 20 - hx; ) {
+            if (!fieldAt(x, y, hx)) {
+              x += 80;
+              continue;
+            }
+            if (kind === "cut" && hx === 300) put("heartland:wheat_stooks", [x, y], rnd() < 0.5 ? 90 : -90, { solid: "none" });
+            else put("plains:wheat_field", [x, y], 90, { solid: "none", sy: hx / 300 });
+            laid.push([x, y, hx]);
+            x += 2 * hx + 40;
+          }
         }
-    }
-  for (const [x, y] of laid) taken.push([x, y, 360]);
+      }
+  for (const [x, y, hx] of laid) for (const o of [-250, 250]) taken.push([x, y + o, hx + 60]);
   for (const at of [[3300, 1900], [-400, -3700], [-1900, 1100], [2600, -4000]] as XY[]) if (free(at[0], at[1], 40)) prop("plains:scarecrow", at, rnd() * 360, 40);
 
   // ---- trees, rocks and the meadow's growth; the savanna's acacias and gold coming in ----
@@ -312,11 +337,21 @@ export function build(quality: { flowers: number }): Town {
   f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["grass_patch", "grass_tuft", "grass_patch"], (x, y) => grassOut(x, y) || dry(x, y) < 0.45, { count: 150, tries: 4000, spacing: 380, kit: "desert" });
 
   // ---- past the edge: the first meadow's woods north, the savanna east, the dry plains south,
-  // more fields west towards the lavender ----
-  const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330);
+  // the lavender's rows west ----
+  // the lavender hills' rows over the west edge
+  const rimRows: XY[] = [];
+  for (let x = -2600; x <= 2600; x += 220)
+    for (let y = 5900; y + 800 <= 7900; y += 800) {
+      const m: XY = [x, y + 400];
+      if (nearTrack(m[0], m[1], 560) || Math.abs(f.h(x, y) - f.h(x, y + 800)) > 18) continue;
+      put("heartland:lavender_row", m, lengthwise(0, 1), { solid: "none" });
+      rimRows.push(m);
+    }
+  const rim = (x: number, y: number) =>
+    (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || rimRows.some(([px, py]) => Math.abs(px - x) < 260 && Math.abs(py - y) < 560);
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "RoundTree", "SmallTree", "BigOak"], (x, y) => rim(x, y) || dry(x, y) > 0.45, { count: 380, tries: 7000, spacing: 480 });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["acacia", "acacia", "grass_patch", "grass_patch", "dry_bush", "grass_patch"], (x, y) => rim(x, y) || dry(x, y) < 0.45, { count: 260, tries: 6000, spacing: 420, kit: "desert" });
-  for (const at of [[-6800, -1500], [-6800, -2400], [6600, 3500], [6600, 2700], [-1800, 6700], [-1000, 6700]] as XY[]) put("plains:wheat_field", at, 90, { solid: "none" });
+  for (const at of [[-6800, -1500], [-6800, -2400], [6600, 3500], [6600, 2700]] as XY[]) put("plains:wheat_field", at, 90, { solid: "none" });
 
   // ---- monsters: the fields, the farmyards, the down and the ridge ----
   const busy = (x: number, y: number) => Math.hypot(x - J[0], y - J[1]) < 1100 || Math.hypot(x - MILL[0], y - MILL[1]) < 600 || Math.hypot(x - OLD_MILL[0], y - OLD_MILL[1]) < 700;
@@ -363,7 +398,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -650, y: 750, text: "บ่อน้ำหมู่บ้าน", kind: "small" },
       { x: OLD_MILL[0] + 600, y: OLD_MILL[1], text: "โรงสีน้ำร้าง", kind: "small" },
       { x: -3500, y: -1800, text: "ลำธารแห้ง", kind: "small" },
-      { x: PEN[0], y: PEN[1], text: "คอกแกะ", kind: "small" },
+      { x: FOLD[0] - 650, y: FOLD[1], text: "คอกแกะหิน", kind: "small" },
       { x: -1800, y: -3600, text: "ทุ่งข้าวสาลี" },
     ],
   });

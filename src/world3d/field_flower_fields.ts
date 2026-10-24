@@ -38,12 +38,12 @@ import type { SolidSpec } from "../world";
 useKits(HEART, WESTFARM, PLAINS, SNOW, EDEN);
 // the hives in their colours
 colourways({
-  hive_blue: { Heartland_Hive: "Heartland_HiveBlue" },
-  hive_yellow: { Heartland_Hive: "Heartland_HiveYellow" },
-  hive_green: { Heartland_Hive: "Heartland_HiveGreen" },
-  hive_rose: { Heartland_Hive: "Heartland_HiveRose" },
+  heartland_hive_blue: { Heartland_Hive: "Heartland_HiveBlue" },
+  heartland_hive_yellow: { Heartland_Hive: "Heartland_HiveYellow" },
+  heartland_hive_green: { Heartland_Hive: "Heartland_HiveGreen" },
+  heartland_hive_rose: { Heartland_Hive: "Heartland_HiveRose" },
 });
-const HIVES = ["", "hive_blue", "hive_yellow", "hive_green", "hive_rose", "hive_blue"];
+const HIVES = ["", "heartland_hive_blue", "heartland_hive_yellow", "heartland_hive_green", "heartland_hive_rose", "heartland_hive_blue"];
 
 const R = 5500; // the walkable box
 const A = 9000; // the ground
@@ -112,9 +112,10 @@ const VILLAGE_C: XY = [300, -2700];
 const RB1: XY[] = [[600, 900], [3600, 700], [3700, 1950], [2700, 2150], [1800, 1850], [1100, 2000], [600, 1700]];
 const RB2: XY[] = [[700, -100], [3150, -100], [3150, -700], [2200, -850], [1200, -950], [700, -800]];
 const RB3N: XY[] = [[-850, 0], [-850, 1250], [-1900, 1250], [-1900, 0]];
-const RB3W: XY[] = [[-2150, 50], [-4600, 50], [-4600, 650], [-4100, 700], [-2900, 650], [-2150, 1000]];
-const RB3S: XY[] = [[-850, -550], [-4700, -550], [-4700, -2000], [-2600, -2100], [-1900, -2450], [-1300, -1950], [-850, -1500]];
-const RBW: XY[] = [[2500, 3300], [3700, 3600], [4000, 5100], [2600, 5100]];
+const RB3E: XY[] = [[-750, 1400], [-750, 2750], [-1850, 2750], [-1850, 1400]];
+const RB3W: XY[] = [[-2150, 50], [-5000, 50], [-5000, 750], [-4100, 750], [-2900, 700], [-2150, 1000]];
+const RB3S: XY[] = [[-850, -550], [-5000, -550], [-5000, -2000], [-2600, -2100], [-1900, -2450], [-1300, -1950], [-850, -1500]];
+const RBW: XY[] = [[2300, 2800], [3500, 3000], [4300, 3700], [4500, 5300], [2100, 5300], [2300, 4300]];
 const RB4: XY[] = [[-2650, -2350], [-2750, -3000], [-2550, -4300], [-2650, -5300], [-5300, -5300], [-5300, -2350]];
 
 // ---- what lies next door: snow coming on towards the north edge ----
@@ -127,8 +128,8 @@ const snowy = (x: number, y: number) => Math.max(0.55 * ss(3500, 6400, x), inPol
 export function build(quality: { flowers: number }): Town {
   const f = new FieldBuilder(511, {
     hills: [
-      // rolling ground: under the south woods, by the west edge south of the road, in the north
-      { x: -4700, y: -1400, r: 900, h: 90 }, { x: -1600, y: 5200, r: 1100, h: 110 }, { x: 4200, y: 1700, r: 800, h: 70 },
+      // rolling ground: by the west edge south of the road, in the north
+      { x: -1600, y: 5200, r: 1100, h: 110 }, { x: 4200, y: 1700, r: 800, h: 70 },
       { x: 2200, y: -4600, r: 700, h: -60 }, { x: 300, y: 2600, r: 600, h: 60 }, { x: 4900, y: -1000, r: 700, h: 80 },
       // the land rolling on past the edge (not where the road, the track and the stream go on)
       { x: -7600, y: 2500, r: 2200, h: 260 }, { x: -7400, y: -3800, r: 2000, h: 220 }, { x: 7600, y: 3600, r: 2000, h: 240 },
@@ -291,7 +292,7 @@ export function build(quality: { flowers: number }): Town {
   prop("heartland:village_well", [100, -2300], 20, 200, { solid: [{ kind: "well", x: 0, y: 0, r: 100 }, { kind: "box", x: 0, y: 180, w: 130, d: 90, rot: 0 }] });
   prop("heartland:honey_stall", [-80, -3050], towards(-0.4, 1), 200, { solid: [{ kind: "market", x: 0, y: 0, w: 120, d: 280, rot: 0 }] });
   prop("heartland:flower_cart", [-250, -2100], 120, 230);
-  for (const at of [[1150, -2750], [1050, -3050], [900, -3650]] as XY[]) prop("heartland:beehive", at, 90, 60, { colours: "hive_blue", solid: hiveSolid });
+  for (const at of [[1150, -2750], [1050, -3050], [900, -3650]] as XY[]) prop("heartland:beehive", at, 90, 60, { colours: "heartland_hive_blue", solid: hiveSolid });
   hurdles([[1250, -2500], [1150, -3300], [850, -3950]]);
   tree("Cherry", [-150, -3650], 0.85, 36);
   tree("RoundTree", [1000, -1900], 0.9, 40);
@@ -336,14 +337,15 @@ export function build(quality: { flowers: number }): Town {
   const SUN = () => "sunflower_row";
   // north of the road between the north track and the down: sunflowers, rows running north
   fillRows(RB1, 0, 150, SUN);
-  // up on the down beyond the chapel: the cathedral's white flowers
-  fillRows(RBW, 0, 300, () => "white_bed");
+  // up on the down beyond the chapel: the cathedral's white flowers, poppies between
+  fillRows(RBW, 0, 300, (r) => (r % 4 === 2 ? "poppy_bed" : "white_bed"));
   // between the north track and the stream: poppies and the cathedral's white flowers
   fillRows(RB2, 0, 300, (r) => (r % 3 === 1 ? "white_bed" : "poppy_bed"));
   // south of the road: beds by the road, sunflowers under the apiary, beds and sunflowers in
   // turn down to the stream
   fillRows(RB3N, 90, 300, (r) => ["poppy_bed", "white_bed", "poppy_bed"][r % 3]);
-  fillRows(RB3W, 90, 150, SUN);
+  fillRows(RB3E, 90, 300, (r) => ["sunflower_row", "poppy_bed", "poppy_bed", "white_bed"][r % 4]);
+  fillRows(RB3W, 0, 150, SUN);
   fillRows(RB3S, 90, 300, (r) => (r % 4 === 3 ? "white_bed" : r % 4 === 1 ? "poppy_bed" : "sunflower_row"));
   // the south-east corner, past the stream: sunflowers to the woods' edge
   fillRows(RB4, 0, 150, SUN);

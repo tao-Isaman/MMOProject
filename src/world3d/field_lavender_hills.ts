@@ -9,8 +9,8 @@
 // road runs on to the windmill fields (the middle of the east side), and from it a road branches
 // south-west to Venezia's north gate (on the south side, where the gate is); by the bridge stands
 // the perfume distillery, its copper still under a lean-to. In the south-east the lavender climbs
-// two terraces, a ramp off the Venezia road to the first and another to the second, where a
-// wayside shrine looks out over the purple; the stone farmhouse keeps the east with its vineyard
+// two terraces, a lane west over the road from the farm up a ramp to the first and on up another
+// to the second, where a wayside shrine looks out over the purple; the stone farmhouse keeps the east with its vineyard
 // (the grapes draw the wasps). In the south-west corner the old aqueduct of the plain below Noa
 // comes in over the edge and ends at the spring that fed it.
 //
@@ -65,7 +65,7 @@ const NWH: XY[] = [[3300, 2100], [4200, 1600], [4900, 1700], [5000, 3300], [4500
 const LT1: XY[] = [[-1800, -2600], [-1700, -4200], [-2400, -5000], [-3800, -5300], [-4700, -4600], [-4800, -3000], [-4100, -2200], [-2900, -2100]];
 const LT2: XY[] = [[-3100, -3400], [-3200, -4400], [-3800, -4600], [-4300, -4100], [-4200, -3300], [-3700, -3100]];
 const RNWH = rampOff(NWH, 6, 0.5, 850, 440);
-const RLT1 = rampOff(LT1, 6, 0.5, 850, 460);
+const RLT1 = rampOff(LT1, 0, 0.5, 850, 460);
 const RLT2 = rampOff(LT2, 0, 0.5, 700, 420);
 
 // ---- the tracks ----
@@ -76,8 +76,8 @@ const WEST: XY[] = smooth([X2, [1600, 3300], [2500, 4200], W_EXIT, [4000, 6500],
 const SOUTH: XY[] = smooth([X1, [-1600, -1350], [-2800, -1150], [-3900, -1080], S_EXIT, [-6500, -1150], [-A, -1150]]);
 const HILL_WAY: XY[] = [...smooth([[2000, 2050], [2150, 2350], along(RNWH.bottom, RNWH.top, -250)]), RNWH.bottom, RNWH.top, ...smooth([along(RNWH.bottom, RNWH.top, 1150), [3800, 2950], [4250, 3300]])];
 const TERRACE_WAY: XY[] = [
-  along(RLT1.bottom, RLT1.top, -250), RLT1.bottom, RLT1.top,
-  ...smooth([along(RLT1.bottom, RLT1.top, 1100), [-2700, -2700], [-2250, -3400], along(RLT2.bottom, RLT2.top, -300)]), RLT2.bottom, RLT2.top,
+  [-250, RLT1.bottom[1] + 20], along(RLT1.bottom, RLT1.top, -250), RLT1.bottom, RLT1.top,
+  ...smooth([along(RLT1.bottom, RLT1.top, 1050), along(RLT2.bottom, RLT2.top, -300)]), RLT2.bottom, RLT2.top,
   ...smooth([along(RLT2.bottom, RLT2.top, 1000), [-3650, -3880]]),
 ];
 const FARM_LANE: XY[] = smooth([[-220, -3400], [700, -3350], [1450, -3150]]);
@@ -107,9 +107,9 @@ export function build(quality: { flowers: number }): Town {
     hills: [
       // the rise the bridge stands on (its deck follows it)
       { x: BR[0], y: BR[1], r: BRIDGE.R, h: BRIDGE.H },
-      // rolling ground, clear of the river
-      { x: 1700, y: -1900, r: 900, h: 100 }, { x: 4300, y: -1700, r: 800, h: 100 }, { x: -1100, y: -3800, r: 800, h: 70 },
-      { x: 1900, y: 4300, r: 900, h: 100 }, { x: -3800, y: 1200, r: 1000, h: 90 }, { x: -4200, y: 3600, r: 700, h: 60 },
+      // the long low swells the rows run over, clear of the river and the houses
+      { x: 3300, y: -1300, r: 1800, h: 70 }, { x: 700, y: -4300, r: 1500, h: 60 }, { x: 900, y: 3900, r: 1600, h: 80 },
+      { x: -3200, y: -200, r: 1500, h: 70 }, { x: -4000, y: 3500, r: 1300, h: 60 },
       // past the edge
       { x: 7600, y: 3200, r: 2200, h: 260 }, { x: 7400, y: -3400, r: 2000, h: 240 }, { x: -7600, y: -3600, r: 2000, h: 200 },
       { x: 2600, y: -7600, r: 1800, h: 180 },
@@ -249,6 +249,8 @@ export function build(quality: { flowers: number }): Town {
   prop("westfarm:aqueduct", aqAt(AQ_BAY(-2)), ah, 450, { solid: tallSolid });
   prop("westfarm:aqueduct_ruin", aqAt(AQ_BAY(-3)), ah, 450, { solid: ruinSolid });
   prop("westfarm:aqueduct", aqAt(AQ_BAY(-4)), ah, 450, { solid: tallSolid });
+  // and the next two on past the edge, the first over the river (the plain below Noa has them too)
+  for (const k of [0, 1]) put("westfarm:aqueduct", aqAt(AQ_BAY(k)), ah, { solid: tallSolid });
   f.blockDisc(SPRING, 320);
   for (let k = 0; k < 10; k++) {
     const a = (k / 10) * Math.PI * 2, at: XY = [SPRING[0] + Math.cos(a) * 400, SPRING[1] + Math.sin(a) * 360];
@@ -256,15 +258,30 @@ export function build(quality: { flowers: number }): Town {
   }
   taken.push([SPRING[0], SPRING[1], 600]);
 
+  // ---- stone walls between the fields: laid first, so the rows stop short of them ----
+  const gapAt = (x: number, y: number) => nearTrack(x, y, 330) || wet(x, y, 120) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 60);
+  for (const w of [
+    [[200, -2500], [2600, -2450]], [[-700, -1850], [-1650, -1950]], [[-2800, -800], [-2900, 1500], [-2700, 2300]],
+    [[-3000, 2700], [-5000, 2550]], [[-300, 2200], [-900, 3700], [-1300, 5300]], [[1300, 2700], [2900, 3300]],
+  ] as XY[][]) {
+    wallRun(f, w, { skip: gapAt, broken: 0.2 });
+    for (let i = 0; i + 1 < w.length; i++)
+      for (let t = 0; t <= 1; t += 0.05) taken.push([w[i][0] + (w[i + 1][0] - w[i][0]) * t, w[i][1] + (w[i + 1][1] - w[i][1]) * t, 60]);
+  }
+
   // ---- the lavender: each block a region filled with rows of 8 m pieces end to end along `dir`
-  // (degrees), `gap` apart; a piece only where it lies whole on level open ground ----
-  const fits = (a: XY, b: XY, region: XY[]) => {
-    for (let t = 0.02; t <= 0.99; t += 0.24) {
+  // (degrees), `gap` apart; a piece where it lies whole on open ground, gently sloping at most
+  // (sunk to its low end), a 4 m piece where 8 m will not lie ----
+  const rise = (a: XY, b: XY, region: XY[]) => {
+    let lo = Infinity, hi = -Infinity;
+    for (let t = 0.02; t <= 0.99; t += 0.16) {
       const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t;
-      if (!inPoly(region, x, y) || !inside(x, y, 250) || !f.level(x, y, 150) || nearTrack(x, y, 340) || wet(x, y, 150) || Math.abs(f.h(x, y) - f.h(a[0], a[1])) > 10) return false;
-      if (taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 100)) return false;
+      if (!inPoly(region, x, y) || !inside(x, y, 250) || !f.level(x, y, 120) || nearTrack(x, y, 330) || wet(x, y, 150)) return Infinity;
+      if (taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 60)) return Infinity;
+      const z = f.h(x, y);
+      lo = Math.min(lo, z), hi = Math.max(hi, z);
     }
-    return true;
+    return hi - lo;
   };
   const fillRows = (region: XY[], dir: number, gap: number) => {
     const ux = Math.cos((dir * Math.PI) / 180), uy = Math.sin((dir * Math.PI) / 180), vx = -uy, vy = ux;
@@ -274,16 +291,22 @@ export function build(quality: { flowers: number }): Town {
       [a0, a1, c0, c1] = [Math.min(a0, a), Math.max(a1, a), Math.min(c0, c), Math.max(c1, c)];
     }
     const laid: XY[][] = [];
+    const lay = (p0: XY, p1: XY, sy: number) => {
+      const m: XY = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
+      const low = Math.min(f.h(p0[0], p0[1]), f.h(p1[0], p1[1]), f.h(m[0], m[1]));
+      put("heartland:lavender_row", m, lengthwise(ux, uy), { solid: "none", sy, z: low - f.h(m[0], m[1]) - 3 });
+      laid.push([p0, p1]);
+    };
     for (let c = c0 + gap / 2; c < c1; c += gap)
-      for (let a = a0; a + 800 <= a1; ) {
-        const p0: XY = [ux * a + vx * c, uy * a + vy * c], p1: XY = [ux * (a + 800) + vx * c, uy * (a + 800) + vy * c];
-        if (!fits(p0, p1, region)) {
-          a += 100;
-          continue;
-        }
-        put("heartland:lavender_row", [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], lengthwise(ux, uy), { solid: "none" });
-        laid.push([p0, p1]);
-        a += 800;
+      for (let a = a0; a + 400 <= a1; ) {
+        const at = (d: number): XY => [ux * d + vx * c, uy * d + vy * c];
+        if (a + 800 <= a1 && rise(at(a), at(a + 800), region) <= 18) {
+          lay(at(a), at(a + 800), 1);
+          a += 800;
+        } else if (rise(at(a), at(a + 400), region) <= 16) {
+          lay(at(a), at(a + 400), 0.5);
+          a += 400;
+        } else a += 100;
       }
     for (const [p0, p1] of laid) for (let t = 0.1; t < 1; t += 0.2) taken.push([p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t, 100]);
   };
@@ -291,16 +314,23 @@ export function build(quality: { flowers: number }): Town {
   fillRows(LT2, 0, 220);
   fillRows(LT1, 90, 220);
   fillRows(NWH, 20, 220);
-  // north of the river: between the north road and the river; round the west road
-  fillRows([[1300, 1300], [3000, 300], [4500, -300], [4600, 900], [3200, 1300], [2100, 1900]], 70, 220);
-  fillRows([[700, 2200], [2900, 2800], [3000, 3400], [2300, 5300], [700, 5300], [500, 3200]], 0, 220);
-  // south of the river: the strip by the river's bend, the east beyond the farm, by the roads
-  fillRows([[-800, -900], [-2900, -800], [-3200, 1900], [-2200, 1700], [-800, 600]], 90, 220);
-  fillRows([[-3000, 2900], [-4800, 2900], [-4800, 4700], [-3000, 4700]], 0, 220);
-  fillRows([[700, -1000], [4300, -900], [5000, -1600], [5000, -5000], [700, -5000]], 0, 220);
-  fillRows([[-700, -1900], [-1650, -2400], [-1650, -5100], [-700, -5100]], 90, 220);
+  // north of the river: the strip between the north road and the river, between the two roads,
+  // and the broad slope from the west road down to the river (two fields, a wall between)
+  fillRows([[1100, 1300], [1900, 800], [3100, 250], [4300, -150], [4300, 500], [3800, 800], [2900, 1500], [1900, 2100], [1100, 2350]], -25, 220);
+  fillRows([[1300, 2700], [2000, 2400], [3000, 1800], [3200, 3200], [2600, 3900], [1900, 3300]], 45, 220);
+  fillRows([[-300, 2200], [300, 2300], [1400, 3200], [2300, 4200], [3000, 5300], [-1300, 5300], [-900, 3700]], 0, 220);
+  fillRows([[-300, 2200], [-900, 3700], [-1300, 5300], [-2100, 5300], [-2500, 4000], [-2300, 2600], [-1300, 1900]], 90, 220);
+  // south of the river: the slope east of the road (the farm in it, the vines), the strip south
+  // of the farm lane, the field between the road and the terraces, the land round the distillery
+  // (a wall between its two halves) and the corner the river's hook leaves
+  fillRows([[200, -700], [1200, -100], [2400, 300], [3500, -200], [4400, -600], [4400, -2450], [200, -2450]], 0, 220);
+  fillRows([[200, -2550], [4400, -2550], [4400, -5300], [200, -5300]], 90, 220);
+  fillRows([[-700, -1950], [-1650, -2400], [-1650, -5100], [-700, -5100]], 90, 220);
+  fillRows([[-700, -800], [-700, 700], [-1000, 1500], [-1900, 1800], [-2700, 2300], [-2900, 1500], [-2800, -800]], 90, 220);
+  fillRows([[-2800, -800], [-2900, 1500], [-2700, 2300], [-3100, 2600], [-4800, 2500], [-4800, -700]], 0, 220);
+  fillRows([[-3000, 2700], [-4800, 2600], [-4800, 4900], [-2700, 5300], [-2300, 4400], [-2700, 3600]], 0, 220);
 
-  // ---- cypresses along the roads, stone walls between the fields ----
+  // ---- cypresses along the roads ----
   for (const line of [WEST, SOUTH, NORTH])
     for (let i = 3; i < line.length - 3; i += 6) {
       const [ax, ay] = line[i], [bx, by] = line[i + 1], L = Math.hypot(bx - ax, by - ay) || 1;
@@ -309,11 +339,6 @@ export function build(quality: { flowers: number }): Town {
         if (inside(at[0], at[1], 250) && f.level(at[0], at[1], 90) && !wet(at[0], at[1], 120) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - at[0], ty - at[1]) < tr + 60)) cypress(at, 0.9 + rnd() * 0.25);
       }
     }
-  const gapAt = (x: number, y: number) => nearTrack(x, y, 330) || wet(x, y, 120) || taken.some(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) < tr + 60);
-  for (const w of [
-    [[600, -1100], [600, -5300]], [[2600, -1000], [2600, -2700]], [[-700, -1900], [-1700, -1900]], [[1200, 2300], [2900, 2900]],
-    [[-3000, 2800], [-4900, 2800]], [[-800, -800], [-2900, -700]], [[600, 5300], [600, 2200]],
-  ] as XY[][]) wallRun(f, w, { skip: gapAt, broken: 0.2 });
 
   // ---- trees, rocks and the meadow's growth ----
   scatter(["flora:BigOak", "flora:RoundTree", "westfarm:cypress", "flora:RoundTree"], 18, IN, 220, { s: [0.85, 1.15], solid: [{ kind: "tree", x: 0, y: 0, r: 44 }], gap: 250 });
@@ -328,8 +353,22 @@ export function build(quality: { flowers: number }): Town {
   f.woods({ x0: -R, x1: R, y0: -R, y1: R }, ["wildflowers"], grassOut, { count: 50, tries: 2000, spacing: 650, kit: "westfarm" });
 
   // ---- past the edge: the great wood north, oaks and fields round the rest, Venezia's woods south ----
-  const rim = (x: number, y: number) => (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || wet(x, y, 150) || toLine(x, y, [aqAt(AQ_BAY(-5)), aqAt(AQ_BAY(1))]) < 450;
-  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => rim(x, y) || (x < 5600 && rnd() < 0.45), { count: 520, tries: 8000, spacing: 420 });
+  // the windmill fields' wheat over the east edge, the plain below Noa's over the west
+  const rimFields: XY[] = [];
+  const wheatOver = (x0: number, x1: number, y0: number, y1: number) => {
+    for (let x = x0; x <= x1; x += 640)
+      for (let y = y0; Math.sign(y1 - y0) * (y1 - y) >= 0; y += Math.sign(y1 - y0) * 840) {
+        if (nearTrack(x, y, 560) || wet(x, y, 500) || toLine(x, y, [aqAt(AQ_BAY(-5)), aqAt(AQ_BAY(9))]) < 700 || Math.abs(f.h(x + 300, y) - f.h(x - 300, y)) > 16 || Math.abs(f.h(x, y + 400) - f.h(x, y - 400)) > 16) continue;
+        put("plains:wheat_field", [x, y], 90, { solid: "none" });
+        rimFields.push([x, y]);
+      }
+  };
+  wheatOver(-3000, 1000, -5900, -7600);
+  wheatOver(300, 2200, 6000, 7700);
+  const rim = (x: number, y: number) =>
+    (Math.abs(x) < R + 250 && Math.abs(y) < R + 250) || nearTrack(x, y, 330) || wet(x, y, 150) || toLine(x, y, [aqAt(AQ_BAY(-5)), aqAt(AQ_BAY(9))]) < 450 ||
+    rimFields.some(([px, py]) => Math.abs(px - x) < 450 && Math.abs(py - y) < 560);
+  f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["BigOak", "RoundTree", "BigOak", "SmallTree", "RoundTree", "Pine"], (x, y) => rim(x, y) || (x < 5600 && rnd() < (y > 5600 ? 0.75 : 0.45)), { count: 520, tries: 8000, spacing: 420 });
   f.woods({ x0: -A, x1: A, y0: -A, y1: A }, ["cypress", "cypress", "wildflowers", "vineyard_row"], (x, y) => rim(x, y) || x > 5600, { count: 70, tries: 2000, spacing: 600, kit: "westfarm" });
 
   // ---- monsters: the lavender, the hill, the terraces, the meadows ----
