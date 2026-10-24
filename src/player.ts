@@ -4,15 +4,17 @@
 // Sheets are the Oriverse sprite `mage_twintail` (tools/sprite_cells.py): one row per direction
 // in Oriverse order (front, then clockwise seen from above), one column per frame, pivot at the
 // bottom centre of each cell. The character is empty-handed; the weapon is drawn into her hand
-// during attacks and casts (src/weapons.js).
+// during attacks and casts (src/weapons.js). In a form (a druid's) she is drawn as a monster's
+// sheet instead (`shape`, set by main.ts): four directions, its walk and its attack.
 
-import { mapX, mapY, yawEighths } from "./projection";
+import { mapX, mapY, yaw, yawEighths } from "./projection";
 import { resolve } from "./world";
 import { attackRange } from "./combat";
 import { WEAPON_ART, drawWeapon, heldAngle, screenAngle, weaponTip } from "./weapons";
 import { silhouette } from "./recolor";
 import type { WeaponArt } from "./weapons";
 import type { WeaponType } from "./items";
+import type { Sheet } from "./allies";
 import type { Hands } from "./look";
 import type { Img, Vec2, View } from "./types";
 
@@ -59,6 +61,7 @@ const HOVER_RAMP = 40 / 60;
 const HIT_AT: Record<string, number> = { swing: 3 / 8, thrust: 4 / 8, shoot: 4 / 8 };
 const ATTACK_TIME = 8 / 12;
 const WINDUP_AT = 3 / 8;  // the cast holds this frame while the cast bar fills
+const SHAPE_SIZE = [130, 190]; // cm tall a form is drawn, whatever the monster it looks like
 
 export const DIRECTIONS = ["south", "south-west", "west", "north-west", "north", "north-east", "east", "south-east"];
 
@@ -103,6 +106,9 @@ export class Player {
   builtin: Record<string, boolean> = {};
   cell = 96;
   scale = 1;
+  shape: Sheet | null = null; // a form's look, drawn instead of her (null: herself)
+  orbs: Img[] = [];           // the glows of the element orbs she holds, circling over her head
+  private redShapes = new Map<Img, Img>(); // its red copies for a hit
 
   // sheets: { idle, walk, swing, thrust, shoot, cast? }; anchors: hand positions per clip
   // (they change with the body, see setSheets);
@@ -317,6 +323,7 @@ export class Player {
 
   // weapon / offhand: what to draw in each hand during attacks and casts (null: empty)
   draw(ctx: CanvasRenderingContext2D, view: View, weapon: { img: Img; art: WeaponArt } | null, offhand: { img: Img; art: WeaponArt } | null = null): void {
+    if (this.shape) return this.drawShape(ctx, view, this.shape);
     const { k, ox, oy } = view;
     const gx = mapX(this.x, this.y) * k + ox;
     const gy = mapY(this.x, this.y) * k + oy;
@@ -392,7 +399,56 @@ export class Player {
     if (!offBehind) drawOff();
     if (!behind) drawMain();
 
+    this.drawOrbs(ctx, gx, fy - (HEIGHT * HEAD + 22) * k, k);
     if (this.casting) this.drawCastBar(ctx, gx, fy - HEIGHT * HEAD * k - 6 * k, k);
+  }
+
+  // The orbs she holds circling round a point over her head: each its colour's glow, twice for
+  // depth of colour, with a bright core.
+  drawOrbs(ctx: CanvasRenderingContext2D, cx: number, cy: number, k: number): void {
+    this.orbs.forEach((img, i) => {
+      const a = this.time * 2.4 + (i * Math.PI * 2) / this.orbs.length;
+      const x = cx + Math.cos(a) * 32 * k, y = cy + Math.sin(a) * 10 * k, r = (15 + 2 * Math.sin(this.time * 6 + i * 2)) * k;
+      ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+      ctx.drawImage(img, x - r * 0.7, y - r * 0.7, r * 1.4, r * 1.4);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.drawImage(img, x - r * 0.4, y - r * 0.4, r * 0.8, r * 0.8);
+      ctx.globalCompositeOperation = "source-over";
+    });
+  }
+
+  // In a form: the monster's sheet as tall as the monster stands, within SHAPE_SIZE (floating if
+  // it flies), turned the way she faces, walking as she walks, its attack while she strikes; red
+  // when hit.
+  drawShape(ctx: CanvasRenderingContext2D, view: View, sh: Sheet): void {
+    const { k, ox, oy } = view;
+    const gx = mapX(this.x, this.y) * k + ox, gy = mapY(this.x, this.y) * k + oy;
+    const lift = (sh.fly ? 40 + Math.sin(this.time * 2.6) * 7 : 0) + Math.max(0, this.z) * Math.SQRT1_2; // (map px; z is cm up)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = `rgba(16, 30, 10, ${sh.fly ? 0.22 : 0.34})`;
+    const sr = Math.max(30, Math.min(SHAPE_SIZE[1], sh.size) * 0.22) * k;
+    ctx.beginPath();
+    ctx.ellipse(gx, gy, sr, sr * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const a = this.attack;
+    const clip = a ? sh.attack : this.moving ? sh.move : sh.idle;
+    const col = a ? Math.min(clip.frames - 1, Math.floor((a.t / a.dur) * clip.frames)) : this.moving ? Math.floor(this.walked / 30) % clip.frames : 0;
+    const row = (Math.round(this.dir / 2) + Math.round(yaw / (Math.PI / 2))) % 4;
+    const size = Math.min(SHAPE_SIZE[1], Math.max(SHAPE_SIZE[0], sh.size));
+    const c = sh.cell, s = (size * 0.8 * k) / sh.top, breathe = this.moving || this.busy ? 1 : 1 + 0.015 * Math.sin(this.time * 2.4);
+    const sx = (clip.at + col) * c, sy = row * c, dw = c * s, dh = c * s * breathe;
+    const dx = gx - dw / 2, dy = gy - (c - sh.foot) * s * breathe - lift * k;
+    if (this.dead) ctx.globalAlpha = 0.45;
+    ctx.drawImage(clip.img, sx, sy, c, c, dx, dy, dw, dh);
+    if (this.hurtFlash > 0) {
+      let red = this.redShapes.get(clip.img);
+      if (!red) this.redShapes.set(clip.img, (red = silhouette(clip.img, "#ff3a2a")));
+      ctx.globalAlpha = Math.min(1, this.hurtFlash * 3) * 0.6;
+      ctx.drawImage(red, sx, sy, c, c, dx, dy, dw, dh);
+    }
+    ctx.globalAlpha = 1;
+    this.drawOrbs(ctx, gx, gy - (size * 0.8 + lift + 22) * k, k);
+    if (this.casting) this.drawCastBar(ctx, gx, gy - (size * 0.8 + lift) * k - 6 * k, k);
   }
 
   // Hand positions (sprite px) for a frame; falls back to a point beside the body.

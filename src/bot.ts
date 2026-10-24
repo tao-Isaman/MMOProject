@@ -1,13 +1,15 @@
 // Auto-hunt bot: picks slimes inside a hunting area, walks to them around the solids, uses the
 // skills its rules allow in their priority order, attacks normally in between, walks over what
 // they drop to pick it up (if told to), and sits down to recover when HP or MP runs low. Any
-// key or click hands control back for a moment.
+// key or click hands control back for a moment. It keeps an invoker's three orbs up and turns
+// them toward a spell that can go (invoke below), and takes a druid's form when a fight is on.
 //
 // Settings live in localStorage (the character's "bot.v1"); the window that edits them is src/botui.ts.
 
 import { ACTIVES, mpCost } from "./progression";
 import { saveKey } from "./save";
-import type { Progress, SkillDef } from "./progression";
+import { MAX_ORBS } from "./hero";
+import type { ElementId, Progress, SkillDef } from "./progression";
 import { findPath, clearLine } from "./world";
 import { attackRange } from "./combat";
 import { RADIUS } from "./player";
@@ -64,8 +66,9 @@ export const STATE_TEXT: Record<BotState, string> = {
   rest: "นั่งพักฟื้น", return: "กลับเขตล่า", paused: "ผู้เล่นควบคุมอยู่",
 };
 
-// (a summon and a smoke cloud are support too: called when a fight is on and they aren't up)
-const SUPPORT = new Set(["heal", "shield", "buff", "decoy", "summon", "smoke"]);
+// (a summon and a smoke cloud are support too: called when a fight is on and they aren't up; an
+// orb while fewer than three are held, a form while she is in none)
+const SUPPORT = new Set(["heal", "shield", "buff", "decoy", "summon", "smoke", "orb", "form"]);
 // A buff lasting at least this long (s) is worth keeping up out of a fight as well.
 const LONG_BUFF = 60;
 export const isSupport = (s: SkillDef) => SUPPORT.has(s.type);
@@ -99,6 +102,8 @@ export function skillReach(s: SkillDef): { reach: number; area: number; self: bo
     case "nova": case "storm": return { reach: (s.radius ?? 200) * 0.85, area: (s.radius ?? 200) * 0.85, self: true };
     case "flower": return { reach: (s.radius ?? 450) * 0.75, area: (s.radius ?? 450) * 0.75, self: true };
     case "mimic": return { reach: (s.range ?? 600) * 0.9, area: 160, self: false };
+    // an invoke as far as the nearest-reaching of its spells
+    case "invoke": return { reach: Math.min(...Object.values(s.invoke ?? {}).map((x) => skillReach(x.skill).reach)), area: 160, self: false };
     default: return { reach: Infinity, area: 300, self: true };
   }
 }
@@ -499,22 +504,29 @@ export class Bot {
       const a = ACTIVES[r.id];
       if (!r.on || !a || !isSupport(a.skill) || !this.ready(r.id, true)) continue;
       const s = a.skill;
+      // (a form she is in would only turn her back)
+      if (s.type === "form" && hero.form?.id === r.id) continue;
       let go = false;
       if (r.cond === "hp") go = hpPct < r.value;
       else if (r.cond === "mobs") go = this.count(player, 300) >= r.value;
       else if (busy) {
         if (s.type === "heal") go = hpPct < 90;
         else if (s.type === "shield") go = !hero.shield;
-        else if (s.type === "summon") go = (this.d.skills.allies?.count(s.ally ?? "wolf") ?? 0) < (s.count ?? 1)
+        else if (s.type === "summon") go = (this.d.skills.allies?.same(s).length ?? 0) < (s.count ?? 1)
           // a statue's blessing doesn't stack: a second of the same one is no use while it stands
           && !(s.ally === "statue" && this.d.skills.allies?.list.some((x) => x.alive && x.skill === r.id));
         else if (s.type === "decoy") go = !this.d.skills.allies?.count("decoy");
         else if (s.type === "smoke") go = !this.d.skills.clouds.length;
+        else if (s.type === "orb") go = hero.orbs.length < MAX_ORBS;
+        else if (s.type === "form") go = !hero.form;
         else go = !hero.buffs.some((b) => b.id === r.id);
       } else if (fighting && s.type === "buff" && (s.duration ?? 8) >= LONG_BUFF) {
         // a blessing that lasts minutes is kept up between fights too, not left to lapse until
         // the next one starts
         go = !hero.buffs.some((b) => b.id === r.id);
+      } else if (fighting && s.type === "orb") {
+        // the orbs' buffs last as long as they are held: three are kept up between fights too
+        go = hero.orbs.length < MAX_ORBS;
       }
       if (go && this.cast(r.id, null)) return true;
     }
@@ -544,9 +556,50 @@ export class Bot {
         if (this.mp(r.id) + this.floor(false) <= hero.stats.maxMp) reserve = Math.max(reserve, this.mp(r.id));
         continue;
       }
-      if (this.cast(r.id, t)) return true;
+      if (a.skill.type === "invoke" ? this.invoke(r.id, t, dist, reserve) : this.cast(r.id, t)) return true;
     }
     return false;
+  }
+
+  // An invoke rule: the spell for the orbs held if it can go now (off cooldown, its MP there, the
+  // target in its reach; a buff not on her already), else an orb toward the spell in its table
+  // that fewest orb casts away can (the first such in the table); an orb on its short cooldown is
+  // waited for, not planned round (or the plan would swing from spell to spell). Whether it did
+  // either.
+  invoke(id: string, t: Monster, dist: number, reserve: number): boolean {
+    const { hero, skills, progress } = this.d, rank = progress.skillRank(id);
+    // the orb skills she has, one for each element
+    const orbs = new Map<ElementId, string>();
+    for (const [oid, o] of Object.entries(ACTIVES)) {
+      if (o.skill.type === "orb" && o.skill.orb && !orbs.has(o.skill.orb) && progress.skillRank(oid) && skills.wields(oid)) orbs.set(o.skill.orb, oid);
+    }
+    const held = hero.orbs.map((o) => o.el);
+    let best: ElementId[] | null = null;
+    for (const [key, spell] of Object.entries(ACTIVES[id].skill.invoke ?? {})) {
+      const sp = spell.skill, cast = `${id}:${key}`;
+      if (hero.cooldowns.has(cast) || hero.mp - skills.mpOf(cast, rank) < this.floor(false) + reserve) continue;
+      if (sp.type === "buff" ? hero.buffs.some((b) => b.id === cast) : dist > skillReach(sp).reach) continue;
+      const need = this.orbsFor(held, key.split("+") as ElementId[], orbs);
+      if (need && (!best || need.length < best.length)) best = need;
+      if (best?.length === 0) break;
+    }
+    if (!best) return false;
+    if (!best.length) return this.cast(id, t);
+    const next = orbs.get(best[0])!;
+    return this.ready(next, false, reserve) && this.cast(next, null);
+  }
+
+  // The orbs to cast (fewest first) so that the three held become `want` (each new one sends the
+  // oldest away), or null when one of them has no orb skill.
+  orbsFor(held: ElementId[], want: ElementId[], have: Map<ElementId, string>): ElementId[] | null {
+    for (let n = 0; n <= MAX_ORBS; n++) {
+      const kept = held.slice(Math.max(0, held.length + n - MAX_ORBS));
+      if (kept.length + n !== MAX_ORBS) continue;
+      const rest = [...want];
+      if (!kept.every((e) => rest.includes(e) && rest.splice(rest.indexOf(e), 1))) continue;
+      return rest.every((e) => have.has(e)) ? rest : null;
+    }
+    return null;
   }
 
   cast(id: string, aim: Vec2 | null): boolean {

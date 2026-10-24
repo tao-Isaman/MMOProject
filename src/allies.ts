@@ -10,10 +10,17 @@
 //   wall    a stone block: monsters can't walk through it (monsters.ts walls) and hit it when it
 //           stands in their way
 //   decoy   the jester's copy: every monster goes for it while it stands
+//   spirit  floats by the player's shoulder and shoots at her target, or at what goes for her,
+//           from up to SPIRIT_RANGE: each shot a skill hit of hers, one every `every` s
+//   familiar  follows her; while she is within its `radius` she has its `buff`, and every `every`
+//           s it heals her `heal` of her max HP
+// A summon may give a `look` (a bestiary monster's sheet, or "slime:<hue>"): the ally is drawn
+// as that instead of its kind's own look (lookSheet below; the decoy always looks like her).
 // Monsters pick whom they go for here (foeFor): the decoy first, else whoever is nearest of the
 // player and the allies, a golem counting as much nearer, a statue as farther, and an ally that
 // has just hit the monster nearer again; a wall between it and that one comes first. Allies'
 // blows are skill hits of the player's (her stats, the summon's `mult`); what they defeat is hers.
+// Her allyPct stat makes every ally's HP and blows that much stronger.
 
 import { mapX, mapY, yaw } from "./projection";
 import { resolve } from "./world";
@@ -21,6 +28,8 @@ import { loadImage } from "./assets";
 import { rand, AIR_GLOW, GROUND_GLOW } from "./particles";
 import { skillDamage, basicDamage, monsterDamage, isMagic } from "./stats";
 import { walls } from "./monsters";
+import { MONSTER_BY_ID, behaviour } from "./bestiary";
+import { hueShift } from "./recolor";
 import { Player } from "./player";
 import { ACTIVES } from "./progression";
 import type { AllyKind, SkillDef } from "./progression";
@@ -51,6 +60,8 @@ const FOLLOW = 150;   // cm a wolf or clone keeps from the player when there's n
 const LEASH = 1300;   // farther than this from her, it gives up the fight and comes back
 const RECHECK = 0.4;  // s a monster keeps its choice of foe
 const MEMORY = 5;     // s a monster remembers which ally hit it
+const SPIRIT_RANGE = 520; // cm a spirit shoots from
+const SPIRIT_LIFT = 55;   // cm a spirit floats over the ground
 
 export class Ally {
   kind: AllyKind;
@@ -76,6 +87,9 @@ export class Ally {
   age = 0;
   gone = false;
   body: Player | null = null; // a clone: the player's look
+  look: string | null;        // the sheet it is drawn with (lookSheet), null: its kind's picture
+  filter: string;             // and how that is recoloured
+  size: number | null;        // cm tall it is drawn (null: the look's own size)
 
   constructor(kind: AllyKind, skill: string, s: SkillDef, rank: number, at: Vec2, hp: number, def: number, flee: number) {
     this.kind = kind;
@@ -90,6 +104,10 @@ export class Ally {
     this.def = def;
     this.flee = flee;
     this.blow = { type: "cone", stat: s.stat ?? "atk", element: s.element, mult: s.mult, mp: 0, cd: 0, motion: "swing", color: s.color };
+    const own = OWN_LOOK[kind];
+    this.look = lookOf(kind, s);
+    this.filter = s.look ? "" : own?.filter ?? "";
+    this.size = s.look ? null : own?.size ?? null;
   }
 
   get alive(): boolean {
@@ -114,22 +132,46 @@ interface AllyDeps {
 
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
 
-// The monster sheets the wolf and the golem are drawn with (public/assets/monsters), loaded the
-// first time one is called and recoloured so they read as the player's: the wolf a warmer coat,
-// the golem pale worked stone (the basalt golem, its lava cooled).
-interface Sheet {
+// The looks the kinds have of their own (a summon's `look` takes their place): bestiary monsters'
+// sheets recoloured so they read as the player's: the wolf a warmer coat, the golem pale worked
+// stone (the basalt golem, its lava cooled), the spirit a pale ghost of the brook spirit, the
+// familiar a little oak sprite. The clone and the decoy are her figure; the statue and the wall
+// are drawn below.
+const OWN_LOOK: Partial<Record<AllyKind, { look: string; size: number; filter: string }>> = {
+  wolf: { look: "pine_wolf", size: 100, filter: "sepia(0.35) brightness(1.15)" },
+  golem: { look: "basalt_golem", size: 175, filter: "grayscale(0.9) sepia(0.15) brightness(1.7)" },
+  spirit: { look: "brook_spirit", size: 95, filter: "saturate(0.45) brightness(1.4)" },
+  familiar: { look: "oak_sprite", size: 80, filter: "saturate(1.2) brightness(1.1)" },
+};
+
+// A picture to draw an ally with (or the player in a form, main.ts): a bestiary monster's sheet
+// (public/assets/monsters: a standing frame, its walk, its attack) or a slime's hop tinted to a
+// hue, four directions a row like the monsters'. size: cm tall it stands (the bestiary's, within
+// LOOK_SIZE); fly: it floats (the bestiary's "fly").
+export interface Clip {
   img: Img;
+  at: number; // its first column
+  frames: number;
+}
+export interface Sheet {
   cell: number;
   foot: number;
   top: number;
-  walk: number;
-  attack: number;
+  idle: Clip;
+  move: Clip;
+  attack: Clip;
+  size: number;
+  fly: boolean;
 }
-const SHEETS: Partial<Record<AllyKind, { id: string; size: number; filter: string }>> = {
-  wolf: { id: "pine_wolf", size: 100, filter: "sepia(0.35) brightness(1.15)" },
-  golem: { id: "basalt_golem", size: 175, filter: "grayscale(0.9) sepia(0.15) brightness(1.7)" },
-};
-function recolour(img: Img, filter: string): HTMLCanvasElement {
+const LOOK_SIZE = [60, 200];
+// What an ally of a summon looks like: the summon's look, else its kind's own (the decoy is
+// always her: none).
+function lookOf(kind: AllyKind, s: SkillDef): string | null {
+  return kind === "decoy" ? null : s.look ?? OWN_LOOK[kind]?.look ?? null;
+}
+const SLIME_HUE = 150; // the hue of the slime sheet's own green (monsters.ts VARIANTS turn it from there)
+function recolour(img: Img, filter: string): Img {
+  if (!filter) return img;
   const c = document.createElement("canvas");
   c.width = img.width;
   c.height = img.height;
@@ -139,20 +181,35 @@ function recolour(img: Img, filter: string): HTMLCanvasElement {
   return c;
 }
 let meta: Promise<Record<string, { cell: number; foot: number; top: number; walk: number; attack: number }>> | null = null;
-const sheets = new Map<AllyKind, Sheet | "loading">();
-function sheetFor(kind: AllyKind): Sheet | null {
-  const known = sheets.get(kind);
-  if (known) return known === "loading" ? null : known;
-  const want = SHEETS[kind];
-  if (!want) return null;
-  sheets.set(kind, "loading");
+async function loadSheet(look: string, filter: string): Promise<Sheet | null> {
+  const slime = /^slime:(\d+)$/.exec(look);
+  if (slime) {
+    const turn = Number(slime[1]) - SLIME_HUE;
+    const [idle, hop] = (await Promise.all([loadImage("assets/slime_idle.png"), loadImage("assets/slime_hop.png")])).map((img) => recolour(hueShift(img, turn, 1.1), filter));
+    const move = { img: hop, at: 0, frames: hop.width / 64 };
+    return { cell: 64, foot: 0, top: 64 * 0.82, idle: { img: idle, at: 0, frames: 1 }, move, attack: move, size: 70, fly: false };
+  }
   meta ??= fetch("assets/monsters/index.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
-  void meta.then(async (m) => {
-    const info = m[want.id];
-    if (!info) return;
-    const img = await loadImage(`assets/monsters/${want.id}.png`);
-    sheets.set(kind, { img: recolour(img, want.filter), ...info });
-  }).catch(console.warn);
+  const info = (await meta)[look], def = MONSTER_BY_ID[look];
+  if (!info) return null;
+  const img = recolour(await loadImage(`assets/monsters/${look}.png`), filter);
+  return {
+    cell: info.cell, foot: info.foot, top: info.top,
+    idle: { img, at: 0, frames: 1 }, move: { img, at: 1, frames: info.walk }, attack: { img, at: 1 + info.walk, frames: info.attack },
+    size: Math.min(LOOK_SIZE[1], Math.max(LOOK_SIZE[0], def?.size ?? 120)), fly: !!def && behaviour(def, "fly") !== null,
+  };
+}
+const sheets = new Map<string, Sheet | "loading" | "none">();
+// The sheet of a look ("<monster id>" or "slime:<hue>"), recoloured by a canvas filter: null
+// until it has loaded (the first ask starts it), or when there is no such sheet.
+export function lookSheet(look: string, filter = ""): Sheet | null {
+  const key = `${look}|${filter}`, known = sheets.get(key);
+  if (known) return typeof known === "string" ? null : known;
+  sheets.set(key, "loading");
+  loadSheet(look, filter).then((sh) => sheets.set(key, sh ?? "none")).catch((err) => {
+    console.warn(err);
+    sheets.set(key, "none");
+  });
   return null;
 }
 
@@ -282,17 +339,24 @@ export class Allies {
     return this.list.filter((a) => a.alive && a.kind === kind).length;
   }
 
-  // Call one of a summon's allies at a spot (the decoy's copy too): `count` of its kind at most,
-  // the oldest goes for the new one.
+  // Those standing now of the creature a summon calls: its kind with its look (two summons of
+  // one kind in different looks, a ghost and a demon, count apart).
+  same(s: SkillDef): Ally[] {
+    const kind = s.type === "decoy" ? "decoy" : s.ally ?? "wolf", look = lookOf(kind, s);
+    return this.list.filter((a) => a.alive && a.kind === kind && a.look === look);
+  }
+
+  // Call one of a summon's allies at a spot (the decoy's copy too): `count` of that creature at
+  // most, the oldest goes for the new one.
   summon(skill: string, s: SkillDef, rank: number, at: Vec2, dir: Vec2): Ally {
     const kind = s.type === "decoy" ? "decoy" : s.ally ?? "wolf";
-    const same = this.list.filter((a) => a.alive && a.kind === kind);
+    const same = this.same(s);
     for (const old of same.slice(0, Math.max(0, same.length - (s.count ?? 1) + 1))) this.dismiss(old);
-    sheetFor(kind); // (its picture starts loading now)
     const st = this.d.hero.stats, k = KIND[kind];
     const spot = { ...at };
     if (k.speed) resolve(spot, k.radius);
-    const a = new Ally(kind, skill, s, rank, spot, st.maxHp * (s.base?.(rank) ?? k.hp), st.def * k.def, st.flee * k.flee);
+    const a = new Ally(kind, skill, s, rank, spot, st.maxHp * (s.base?.(rank) ?? k.hp) * (1 + st.allyPct), st.def * k.def, st.flee * k.flee);
+    if (a.look) lookSheet(a.look, a.filter); // (its picture starts loading now)
     a.dir = dir;
     if (kind === "clone") {
       const p = this.d.player;
@@ -362,6 +426,8 @@ export class Allies {
       if (a.kind === "wolf") this.hunt(a, dt, true);
       else if (a.kind === "golem") this.hunt(a, dt, false);
       else if (a.kind === "clone") this.duel(a, dt);
+      else if (a.kind === "spirit") this.float(a, dt);
+      else if (a.kind === "familiar") this.tend(a, dt);
       else if (a.kind === "statue" && dist(a, p) <= (a.s.radius ?? 300) && hero.alive) this.bless(a);
     }
     for (let i = this.list.length - 1; i >= 0; i--) if (!this.list[i].alive) this.list.splice(i, 1);
@@ -380,6 +446,54 @@ export class Allies {
     const b = hero.buffs.find((x) => x.id === id);
     if (b) b.t = Math.max(b.t, 0.6);
     else hero.addBuff(id, a.name, a.s.buff?.(a.rank) ?? {}, 0.6);
+  }
+
+  // A spirit: it keeps by the player's shoulder (floating over whatever stands there; several
+  // spirits take turns at either side, each farther out) and shoots at her target, or at one going
+  // for her or for it, within SPIRIT_RANGE.
+  private float(a: Ally, dt: number): void {
+    const p = this.d.player, f = p.facing();
+    const i = this.list.filter((x) => x.alive && x.kind === "spirit").indexOf(a), side = (i % 2 ? -1 : 1) * (55 + 50 * Math.floor(i / 2));
+    const spot = { x: p.x - f.x * 60 + f.y * side, y: p.y - f.y * 60 - f.x * side };
+    const d = dist(a, spot);
+    if (d > LEASH * 1.8) Object.assign(a, spot);
+    else if (d > 10) {
+      const step = Math.min(d, Math.max(KIND.spirit.speed, d * 3) * dt), was = { x: a.x, y: a.y };
+      a.x += ((spot.x - a.x) / d) * step;
+      a.y += ((spot.y - a.y) / d) * step;
+      a.walked += dist(a, was);
+    }
+    a.moving = d > 10;
+    const m = (a.target = this.pick(a, true));
+    if (!m || dist(a, m) - m.radius > SPIRIT_RANGE) return;
+    a.dir = this.toward(a, m);
+    if (a.cd > 0) return;
+    a.cd = a.s.every ?? KIND.spirit.every;
+    a.swing = 0.35;
+    this.d.combat.shoot({ x: a.x, y: a.y }, a.dir, {
+      kind: "skill", speed: 900, range: SPIRIT_RANGE + 100, radius: 26, color: a.s.color, target: m,
+      onHit: (hit) => this.strike(a, hit, this.skillHit(a, hit)),
+    });
+  }
+
+  // A familiar: it follows the player; while she is within its radius she has its buff, and every
+  // `every` s it heals her its `heal` of her max HP.
+  private tend(a: Ally, dt: number): void {
+    const p = this.d.player, hero = this.d.hero;
+    if (dist(a, p) > LEASH * 1.8) {
+      a.x = p.x - p.facing().x * 90;
+      a.y = p.y - p.facing().y * 90;
+    }
+    if (dist(a, p) > FOLLOW) this.walk(a, p, KIND.familiar.speed, dt, FOLLOW * 0.7);
+    else a.moving = false;
+    if (!hero.alive || dist(a, p) > (a.s.radius ?? 300)) return;
+    if (a.s.buff) this.bless(a);
+    if (a.cd > 0 || !a.s.heal) return;
+    a.cd = a.s.every ?? KIND.familiar.every;
+    a.swing = 0.35;
+    const got = hero.heal(hero.stats.maxHp * a.s.heal(a.rank) * (1 + hero.stats.healPct));
+    if (got >= 1) this.d.floaters.add(p.x, p.y, 130, `+${Math.round(got)}`, "heal");
+    this.sparkle(p.x, p.y, a.s.color, 10);
   }
 
   // What a wolf or golem goes for: a wolf the player's target, or one going for her or for it;
@@ -449,11 +563,15 @@ export class Allies {
     const hit = b.update(dt, move, w);
     a.x = b.x;
     a.y = b.y;
+    // (a clone drawn in a look turns and steps with its body)
     a.moving = b.moving;
+    a.walked = b.walked;
+    a.dir = b.facing();
     if (hit && want?.alive && dist(b, want) - want.radius <= (w.projectile ? w.projectile.range : w.reach) + 40) {
       // her weapon's blow, `mult` of it
       const st = this.d.hero.stats, r = basicDamage(st, w, want, isMagic(w) ? null : this.d.hero.enchant);
       if (!r.miss) r.dmg = Math.max(1, Math.round(r.dmg * (a.s.mult?.(a.rank) ?? 0.5)));
+      a.swing = 0.35;
       this.strike(a, want, r);
     }
   }
@@ -465,6 +583,7 @@ export class Allies {
 
   private strike(a: Ally, m: Monster, r: ReturnType<typeof skillDamage>): void {
     this.hitBy.set(m, { by: a, t: this.clock });
+    if (!r.miss) r.dmg = Math.max(1, Math.round(r.dmg * (1 + this.d.hero.stats.allyPct)));
     this.d.combat.apply(m, r, this.toward(a, m), 0, true);
     if (!r.miss) this.sparkle(m.x, m.y, a.s.color, 5);
   }
@@ -552,10 +671,20 @@ export class Allies {
   }
 
   // ---- drawing ----
-  // The board an ally is drawn into (World3D.actor).
+  // The board an ally is drawn into (World3D.actor): room for its picture, its float and its HP.
   box(a: Ally): { x: number; y: number; w: number; h: number; foot: number } {
-    const h = a.kind === "clone" || a.kind === "decoy" ? 300 : a.kind === "golem" ? 280 : a.kind === "statue" ? 240 : 200;
+    if (a.look) {
+      const size = a.size ?? lookSheet(a.look, a.filter)?.size ?? 120;
+      return { x: a.x, y: a.y, w: Math.max(260, size * 1.4), h: Math.max(200, size * 0.8 + this.lift(a) + 90), foot: 50 };
+    }
+    const h = a.kind === "clone" || a.kind === "decoy" ? 300 : a.kind === "statue" ? 240 : 200;
     return { x: a.x, y: a.y, w: a.kind === "clone" || a.kind === "decoy" ? 340 : 260, h, foot: 50 };
+  }
+
+  // How high it floats (map px): a spirit always, a look of a monster that flies.
+  private lift(a: Ally): number {
+    const fly = a.kind === "spirit" || (!!a.look && !!lookSheet(a.look, a.filter)?.fly);
+    return fly ? SPIRIT_LIFT + Math.sin(a.age * 2.6) * 8 : 0;
   }
 
   // An ally on its board. person: the player's own figure drawn at a spot (a clone, a decoy).
@@ -572,7 +701,21 @@ export class Allies {
     ctx.stroke();
     ctx.globalAlpha = fade;
     let top = 120;
-    if (a.kind === "clone" || a.kind === "decoy") {
+    if (a.look) {
+      const sh = lookSheet(a.look, a.filter);
+      if (sh) {
+        const size = a.size ?? sh.size, lift = this.lift(a);
+        const s = (size * 0.8 * k) / sh.top, c = sh.cell;
+        const row = ((Math.round(Math.atan2(a.dir.y, -a.dir.x) / (Math.PI / 2)) % 4) + 4 + Math.round(yaw / (Math.PI / 2))) % 4;
+        const clip = a.swing > 0 ? sh.attack : a.moving ? sh.move : sh.idle;
+        const col = a.swing > 0 ? Math.min(clip.frames - 1, Math.floor((0.35 - a.swing) * 12)) : a.moving ? Math.floor(a.walked / 25) % clip.frames : 0;
+        ctx.drawImage(clip.img, (clip.at + col) * c, row * c, c, c, gx - (c * s) / 2, gy - (c - sh.foot) * s - lift * k, c * s, c * s);
+        top = size * 0.8 + lift + 10;
+      } else {
+        // its sheet still on its way: a glow where it stands
+        ctx.drawImage(this.d.tex.glowFor(a.s.color), gx - 30 * k, gy - 70 * k, 60 * k, 60 * k);
+      }
+    } else if (a.kind === "clone" || a.kind === "decoy") {
       person(ctx, view, a.body, a);
       // a copy: see-through, a little blue (the decoy fainter)
       ctx.globalCompositeOperation = "destination-in";
@@ -593,20 +736,6 @@ export class Allies {
         ctx.fillRect(gx - w / 2, gy - h + 8 * k, w, h);
       }
       top = h / k - 4;
-    } else {
-      const sh = sheetFor(a.kind);
-      const size = SHEETS[a.kind]!.size;
-      if (sh) {
-        const s = (size * 0.8 * k) / sh.top, c = sh.cell;
-        const row = ((Math.round(Math.atan2(a.dir.y, -a.dir.x) / (Math.PI / 2)) % 4) + 4 + Math.round(yaw / (Math.PI / 2))) % 4;
-        const col = a.swing > 0 ? 1 + sh.walk + Math.min(sh.attack - 1, Math.floor((0.35 - a.swing) * 12))
-          : a.moving ? 1 + (Math.floor(a.walked / 25) % sh.walk) : 0;
-        ctx.drawImage(sh.img, col * c, row * c, c, c, gx - (c * s) / 2, gy - (c - sh.foot) * s, c * s, c * s);
-        top = (size * 0.8) + 10;
-      } else {
-        // its sheet still on its way: a glow where it stands
-        ctx.drawImage(this.d.tex.glowFor(a.s.color), gx - 30 * k, gy - 70 * k, 60 * k, 60 * k);
-      }
     }
     // its HP, green, over it
     if (a.kind !== "decoy") {

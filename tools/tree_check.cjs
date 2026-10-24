@@ -12,6 +12,13 @@
 //   - a job branch or book the jobs tables (JOBS, JOBS3, JOBS4) and the trees disagree about
 //   - the third jobs' riders: an ally kind, a combo after a skill that doesn't exist, an autocast
 //     of one that doesn't, a terrain kind or a made item that isn't there
+//   - the fourth jobs' (progression.ts SkillDef): an orb without `orb` or `buff`; an invoke without
+//     a table, a key that isn't three elements sorted and joined by "+", a spell of a type that
+//     can't be invoked or broken like any skill; a form without `form`, `look` or `formAttack`
+//     (or a formAttack that is broken); a `look` that isn't a monster with a sheet
+//     (public/assets/monsters/index.json) or "slime:<hue>"; a spirit without `mult`, a familiar
+//     without `heal` or `buff`; `hot` on what isn't a heal; a need of an unknown form, or of an
+//     empty off hand and something in it
 // and, run without ids, the masteries and the elements:
 //   - a weapon without a mastery or without its in-hand picture (public/assets/weapons/<id>.png),
 //     a mastery for an unknown weapon, an unknown glyph or stat, a reward skill that's broken
@@ -28,7 +35,7 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const out = fs.mkdtempSync(path.join(os.tmpdir(), "treecheck-"));
 try {
-  execSync(`npx tsc src/progression.ts src/poisons.ts --ignoreConfig --outDir ${out} --module commonjs --target es2022 --skipLibCheck --lib es2022,dom --noCheck`, { cwd: root, stdio: "pipe" });
+  execSync(`npx tsc src/progression.ts src/poisons.ts src/bestiary.ts --ignoreConfig --outDir ${out} --module commonjs --target es2022 --skipLibCheck --lib es2022,dom --noCheck`, { cwd: root, stdio: "pipe" });
 } catch (e) {
   // tsc still writes the files with --noCheck; only stop if nothing came out
   if (!fs.existsSync(path.join(out, "progression.js"))) {
@@ -40,15 +47,22 @@ global.localStorage = { getItem: () => null, setItem: () => {} };
 const P = require(path.join(out, "progression.js"));
 const items = require(path.join(out, "items.js"));
 require(path.join(out, "poisons.js")); // the poison vials join ITEMS
+const { MONSTER_BY_ID } = require(path.join(out, "bestiary.js"));
+const sheets = JSON.parse(fs.readFileSync(path.join(root, "public/assets/monsters/index.json"), "utf8"));
 const icons = fs.readFileSync(path.join(root, "src/icons.ts"), "utf8");
 const glyphs = new Set([...icons.slice(icons.indexOf("const GLYPHS")).matchAll(/^  ([a-z_]+): \(g/gm)].map((m) => m[1]));
 const TYPES = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "beam", "dash", "heal", "shield", "buff", "flower", "trap", "falcon", "decoy", "workshop",
-  "summon", "mimic", "smoke", "make"]);
+  "summon", "mimic", "smoke", "make", "orb", "invoke", "form", "stall"]);
+// what an invoke may cast: the damaging types and heal, shield, buff (skills.ts spellFor)
+const INVOKABLE = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "beam", "dash", "flower", "trap", "falcon", "heal", "shield", "buff"]);
+// a summon's or form's look: a bestiary monster that has a sheet, or a slime of a hue
+const lookOk = (look) => /^slime:\d+$/.test(look) ? Number(look.slice(6)) <= 360 : !!MONSTER_BY_ID[look] && !!sheets[look];
 const statKeys = new Set([
   "maxHp", "maxMp", "atk", "matk", "def", "mdef", "hit", "flee", "crit", "critDmg", "aspd", "move", "hpRegen", "mpRegen", "cdr", "dmgRed", "castRed",
   "dmg", "reach", "stunHit", "xpPct", "drop", "pierce", "potion", "healPct", "multiShot", "poisonHit", "huntDmg", "buffTime", "reflect",
   "atkPct", "matkPct", "defPct", "mdefPct", "maxHpPct", "maxMpPct", "mpRegenPct", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "poisonPct",
   "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "statusRes", "doubleHit", "stealth", "ambush",
+  "hpToAtk", "counter", "allyPct",
   ...P.ELEMENT_IDS.flatMap((e) => [`${e}Atk`, `${e}Def`]), ...P.RACES.map((r) => `${r}Dmg`),
 ]);
 // a stat that casts a skill by itself: autocast_<an active skill's id>
@@ -69,6 +83,92 @@ const checkTerrain = (where, by, k) => {
     for (const [key, v] of Object.entries(bag || {})) if (!knownStat(key) || badNum(v)) bad(where, `terrain ${kind} ${key} at rank ${k}: ${v}`);
   }
 };
+
+// An active's skill (a tree node's, or a spell an invoke casts): `max` ranks of it.
+function checkActive(where, s, max) {
+  if (!TYPES.has(s.type)) bad(where, `skill type ${s.type}`);
+  if (badNum(s.mp) || badNum(s.cd)) bad(where, "mp and cd must be numbers");
+  if (!/^#[0-9a-f]{6}$/i.test(s.color || "")) bad(where, "skill color must be #rrggbb");
+  if (s.element && !P.ELEMENT_IDS.includes(s.element)) bad(where, `element ${s.element}`);
+  if (s.enchant && !P.ELEMENT_IDS.includes(s.enchant)) bad(where, `enchant ${s.enchant}`);
+  for (const r of Object.keys(s.vs || {})) if (!P.RACES.includes(r)) bad(where, `race ${r}`);
+  for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance", "coin"]) {
+    if (s[key] === undefined) continue;
+    if (typeof s[key] !== "function") { bad(where, `${key} must be a function of rank`); continue; }
+    for (let k = 1; k <= max; k++) if (badNum(s[key](k))) bad(where, `${key}(${k}) = ${s[key](k)}`);
+  }
+  if (s.roll) for (let k = 1; k <= max; k++) for (const [key, v] of Object.entries(s.roll(k))) {
+    if (!knownStat(key) || badNum(v)) bad(where, `roll ${key} at rank ${k}: ${v}`);
+  }
+  if (s.steal && !s.stealChance) bad(where, "steal without stealChance");
+  if (s.buff) for (let k = 1; k <= max; k++) for (const [key, v] of Object.entries(s.buff(k))) {
+    if (!knownStat(key)) bad(where, `unknown buff stat ${key}`);
+    if (badNum(v)) bad(where, `buff ${key} at rank ${k}: ${v}`);
+  }
+  // the third jobs' types and riders
+  if (s.type === "summon" && !P.ALLY_KINDS.includes(s.ally)) bad(where, `summon of ally "${s.ally}" (${P.ALLY_KINDS.join(", ")})`);
+  if (s.type === "summon" && ["wolf", "clone", "golem"].includes(s.ally) && !s.mult) bad(where, `a ${s.ally} without mult does no damage`);
+  if (s.type === "summon" && s.ally === "statue" && !s.buff) bad(where, "a statue without buff gives nothing");
+  if (s.type === "make") {
+    if (!s.make || !items.ITEMS[s.make.item]) bad(where, `make: unknown item ${s.make?.item}`);
+    else {
+      for (const [it, c] of s.make.from) if (!items.ITEMS[it] || badNum(c)) bad(where, `make from ${it} x ${c}`);
+      for (let k = 1; k <= max; k++) if (badNum(s.make.count(k))) bad(where, `make count(${k}) = ${s.make.count(k)}`);
+    }
+  }
+  if (s.combo) {
+    for (const a of s.combo.after || []) if (!P.ACTIVES[a]) bad(where, `combo after unknown skill ${a}`);
+    if (!s.combo.after?.length) bad(where, "combo after nothing");
+    for (let k = 1; k <= max; k++) if (badNum(s.combo.more(k))) bad(where, `combo more(${k}) = ${s.combo.more(k)}`);
+  }
+  if (s.manaBurn) for (let k = 1; k <= max; k++) if (badNum(s.manaBurn(k))) bad(where, `manaBurn(${k})`);
+  if (s.terrain) for (let k = 1; k <= max; k++) checkTerrain(where, s.terrain(k), k);
+  if (s.terrain && s.type !== "buff") bad(where, "terrain only works on a buff");
+  const damaging = !["heal", "shield", "buff", "decoy", "workshop", "summon", "smoke", "make", "orb", "invoke", "form", "stall"].includes(s.type) && !(s.type === "dash" && !s.mult);
+  if (damaging && !s.mult) bad(where, `${s.type} skill without mult`);
+  if (["heal", "buff", "shield", "orb", "form"].includes(s.type) && s.cast) bad(where, "support skills have no cast time");
+  // the fourth jobs' types and riders
+  if (s.type === "summon" && s.ally === "spirit" && !s.mult) bad(where, "a spirit without mult does no damage");
+  if (s.type === "summon" && s.ally === "familiar" && !s.heal && !s.buff) bad(where, "a familiar without heal or buff gives nothing");
+  if (s.look !== undefined && !["summon", "form"].includes(s.type)) bad(where, "look only works on a summon or a form");
+  if (s.look !== undefined && !lookOk(s.look)) bad(where, `look "${s.look}" is neither a monster with a sheet nor slime:<hue 0-360>`);
+  if (s.hot && !((s.type === "heal" || s.type === "buff") && s.heal)) bad(where, "hot only works on a heal (or a buff's heal)");
+  if (s.ticks !== undefined && badNum(s.ticks)) bad(where, "ticks must be a number");
+  if (s.type === "orb") {
+    if (!P.ELEMENT_IDS.includes(s.orb)) bad(where, `orb of element "${s.orb}"`);
+    if (!s.buff) bad(where, "an orb without buff gives nothing");
+  }
+  if (s.type === "invoke") {
+    const table = Object.entries(s.invoke || {});
+    if (!table.length) bad(where, "invoke without a table of spells");
+    for (const [key, spell] of table) {
+      const els = key.split("+");
+      if (els.length !== 3 || els.some((e) => !P.ELEMENT_IDS.includes(e)) || els.join("+") !== [...els].sort().join("+")) bad(where, `invoke key "${key}" (three elements, sorted, joined by +)`);
+      if (!spell?.name || badText(spell.name)) bad(`${where}[${key}]`, "a spell needs a name");
+      if (!spell?.skill) { bad(`${where}[${key}]`, "a spell without skill"); continue; }
+      if (!INVOKABLE.has(spell.skill.type)) bad(`${where}[${key}]`, `an invoke can't cast a ${spell.skill.type}`);
+      else checkActive(`${where}[${key}]`, spell.skill, max);
+    }
+  }
+  if (s.type === "form") {
+    if (!P.FORM_IDS.includes(s.form)) bad(where, `form "${s.form}" (${P.FORM_IDS.join(", ")})`);
+    if (!s.look) bad(where, "a form without look");
+    const fa = s.formAttack;
+    if (!fa) bad(where, "a form without formAttack");
+    else {
+      if (!["melee", "ranged"].includes(fa.kind)) bad(where, `formAttack kind ${fa.kind} (melee, ranged)`);
+      if (fa.stat !== undefined && !["atk", "matk"].includes(fa.stat)) bad(where, `formAttack stat ${fa.stat}`);
+      if (fa.element !== undefined && !P.ELEMENT_IDS.includes(fa.element)) bad(where, `formAttack element ${fa.element}`);
+      for (const key of ["mult", "heal"]) {
+        if (fa[key] === undefined) { if (key === "mult") bad(where, "formAttack without mult"); continue; }
+        if (typeof fa[key] !== "function") { bad(where, `formAttack ${key} must be a function of rank`); continue; }
+        for (let k = 1; k <= max; k++) if (badNum(fa[key](k))) bad(where, `formAttack ${key}(${k}) = ${fa[key](k)}`);
+      }
+      for (const key of ["reach", "range", "every"]) if (fa[key] !== undefined && (badNum(fa[key]) || fa[key] <= 0)) bad(where, `formAttack ${key} ${fa[key]}`);
+    }
+  }
+  if (s.formAttack && s.type !== "form") bad(where, "formAttack only works on a form");
+}
 
 for (const [id, t] of Object.entries(P.TREES)) {
   if (only.length && !only.includes(id)) continue;
@@ -114,50 +214,11 @@ for (const [id, t] of Object.entries(P.TREES)) {
       }
     }
     if (n.kind === "active") {
-      const s = n.skill;
-      if (!s) { bad(where, "active without skill"); continue; }
-      if (!TYPES.has(s.type)) bad(where, `skill type ${s.type}`);
-      if (badNum(s.mp) || badNum(s.cd)) bad(where, "mp and cd must be numbers");
-      if (!/^#[0-9a-f]{6}$/i.test(s.color || "")) bad(where, "skill color must be #rrggbb");
-      if (s.element && !P.ELEMENT_IDS.includes(s.element)) bad(where, `element ${s.element}`);
-      if (s.enchant && !P.ELEMENT_IDS.includes(s.enchant)) bad(where, `enchant ${s.enchant}`);
-      for (const r of Object.keys(s.vs || {})) if (!P.RACES.includes(r)) bad(where, `race ${r}`);
-      for (const key of ["mult", "stun", "slow", "freeze", "heal", "base", "poison", "weaken", "expose", "blind", "drain", "detonate", "stealChance", "coin"]) {
-        if (s[key] === undefined) continue;
-        if (typeof s[key] !== "function") { bad(where, `${key} must be a function of rank`); continue; }
-        for (let k = 1; k <= n.max; k++) if (badNum(s[key](k))) bad(where, `${key}(${k}) = ${s[key](k)}`);
-      }
-      if (s.roll) for (let k = 1; k <= n.max; k++) for (const [key, v] of Object.entries(s.roll(k))) {
-        if (!knownStat(key) || badNum(v)) bad(where, `roll ${key} at rank ${k}: ${v}`);
-      }
-      if (s.steal && !s.stealChance) bad(where, "steal without stealChance");
-      if (s.buff) for (let k = 1; k <= n.max; k++) for (const [key, v] of Object.entries(s.buff(k))) {
-        if (!knownStat(key)) bad(where, `unknown buff stat ${key}`);
-        if (badNum(v)) bad(where, `buff ${key} at rank ${k}: ${v}`);
-      }
-      // the third jobs' types and riders
-      if (s.type === "summon" && !P.ALLY_KINDS.includes(s.ally)) bad(where, `summon of ally "${s.ally}" (${P.ALLY_KINDS.join(", ")})`);
-      if (s.type === "summon" && ["wolf", "clone", "golem"].includes(s.ally) && !s.mult) bad(where, `a ${s.ally} without mult does no damage`);
-      if (s.type === "summon" && s.ally === "statue" && !s.buff) bad(where, "a statue without buff gives nothing");
-      if (s.type === "make") {
-        if (!s.make || !items.ITEMS[s.make.item]) bad(where, `make: unknown item ${s.make?.item}`);
-        else {
-          for (const [it, c] of s.make.from) if (!items.ITEMS[it] || badNum(c)) bad(where, `make from ${it} x ${c}`);
-          for (let k = 1; k <= n.max; k++) if (badNum(s.make.count(k))) bad(where, `make count(${k}) = ${s.make.count(k)}`);
-        }
-      }
-      if (s.combo) {
-        for (const a of s.combo.after || []) if (!P.ACTIVES[a]) bad(where, `combo after unknown skill ${a}`);
-        if (!s.combo.after?.length) bad(where, "combo after nothing");
-        for (let k = 1; k <= n.max; k++) if (badNum(s.combo.more(k))) bad(where, `combo more(${k}) = ${s.combo.more(k)}`);
-      }
-      if (s.manaBurn) for (let k = 1; k <= n.max; k++) if (badNum(s.manaBurn(k))) bad(where, `manaBurn(${k})`);
-      if (s.terrain) for (let k = 1; k <= n.max; k++) checkTerrain(where, s.terrain(k), k);
-      if (s.terrain && s.type !== "buff") bad(where, "terrain only works on a buff");
-      const damaging = !["heal", "shield", "buff", "decoy", "workshop", "summon", "smoke", "make"].includes(s.type) && !(s.type === "dash" && !s.mult);
-      if (damaging && !s.mult) bad(where, `${s.type} skill without mult`);
-      if (["heal", "buff", "shield"].includes(s.type) && s.cast) bad(where, "support skills have no cast time");
+      if (!n.skill) bad(where, "active without skill");
+      else checkActive(where, n.skill, n.max);
     }
+    if (n.need?.form && !P.FORM_IDS.includes(n.need.form)) bad(where, `need of form ${n.need.form} (${P.FORM_IDS.join(", ")})`);
+    if (n.need?.offEmpty && (n.need.shield || n.need.dual)) bad(where, "needs the off hand empty and something in it");
   }
   if (t.job && !P.JOBS[t.job]?.branches.includes(id)) bad(id, `job ${t.job} doesn't list this branch`);
   if (t.job3 && !P.JOBS3[t.job3]?.branches.includes(id)) bad(id, `third job ${t.job3} doesn't list this branch`);

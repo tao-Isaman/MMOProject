@@ -9,7 +9,7 @@
 // stats.js turns this into numbers, skills.js runs the actives.
 
 import { saveKey } from "./save";
-import { ITEMS } from "./items";
+import { ITEMS, offhandKind } from "./items";
 import type { WeaponId } from "./items";
 import { pct, lin } from "./trees/util";
 import { RANGER_TREES } from "./trees/ranger";
@@ -54,9 +54,12 @@ export const RACE_ICONS: Record<Race, [string, string]> = {
 export interface Need {
   weapons?: WeaponId[];
   dual?: true | WeaponId[];
-  shield?: boolean; // a shield (buckler, kite shield) in the off hand
-  offEmpty?: boolean; // nothing in the off hand (the wuxia's lone sword)
-  form?: FormId;      // only in this shape (the druid's; skills.ts)
+  shield?: boolean;   // a shield (buckler, kite shield) in the off hand
+  offEmpty?: boolean; // nothing at all in the off hand: no weapon, shield, flask or book (the wuxia's lone sword)
+  // only in this shape (the druid's, SkillDef type "form"): an active can't be used out of it, a
+  // passive counts only while she is in it. (In any form an active that needs a weapon, shield or
+  // two weapons can't be used: skills.ts wields.)
+  form?: FormId;
 }
 
 export type SkillType = "bolt" | "fan" | "blast" | "nova" | "storm" | "cone" | "beam" | "dash" | "heal" | "shield" | "buff" | "flower" | "trap" | "falcon" | "decoy" | "workshop"
@@ -72,6 +75,7 @@ export type AllyKind = (typeof ALLY_KINDS)[number];
 // The druid's shapes (SkillDef type "form").
 export const FORM_IDS = ["bear", "bird", "deer"] as const;
 export type FormId = (typeof FORM_IDS)[number];
+export const FORM_NAMES: Record<FormId, string> = { bear: "ร่างหมี", bird: "ร่างนก", deer: "ร่างกวาง" };
 export { TERRAIN_KINDS };
 export type { TerrainKind };
 
@@ -92,7 +96,8 @@ export const AUTOCAST = "autocast_";
 //           the smiths' fees.
 // The third jobs' (src/allies.ts, skills.ts):
 //   summon  calls an ally of kind `ally` (ALLY_KINDS) for `duration` s (default 30), at most
-//           `count` of that kind at a time (default 1; one more sends the oldest away). `base`: its
+//           `count` of that creature (its kind and `look`) at a time (default 1; one more sends
+//           the oldest away). `base`: its
 //           HP as a share of the player's max HP; `mult` (with `stat`): each of its blows, as a
 //           skill hit of the player's (a clone: of the player's normal attack), one every `every`
 //           s; `range`: placed on the aimed spot up to that far (else in front of the player);
@@ -100,7 +105,12 @@ export const AUTOCAST = "autocast_";
 //           `radius` is its size (default 70). wolf: follows, bites what the player attacks or
 //           what attacks the player; clone: the player's look, fights the player's target; golem:
 //           walks to the nearest monster and draws the monsters to it; wall: monsters can't
-//           walk through it and hit it when it is in their way.
+//           walk through it and hit it when it is in their way. v0.5: spirit: floats by her
+//           shoulder (over whatever is in the way) and shoots at her target, or at what goes for
+//           her, from up to 520 cm: each shot `mult` (`stat`, `element`), one every `every` s
+//           (default 1.2); familiar: follows her; while she is within its `radius` (default 300)
+//           she has its `buff`, and every `every` s (default 3) it heals her `heal` of her max HP
+//           (with her healPct). Her allyPct stat: every ally's HP and blows that much more.
 //   mimic   copies the locked monster's attack (its shot and element, or its bite) for `uses`
 //           uses (default 5) or `duration` s (default 20): the same slot then fires the copy,
 //           `mult` of the player's attack (magic attack for a spell), no MP, `every` s apart
@@ -181,26 +191,48 @@ export interface SkillDef {
   // a coin is flipped on every hit (flipCoin; luck helps it come up heads): heads, the hit does
   // this much more (0.5: +50%); tails, as much less
   coin?: ByRank<number>;
-  // ---- the fourth jobs' (docs/v05_jobs.md) ----
+  // ---- the fourth jobs' (docs/v05_jobs.md; skills.ts, hero.ts, combat.ts, allies.ts) ----
   // orb     adds an orb of element `orb` to the three the player holds (a fourth sends the oldest
   //         away); each orb held gives `buff` at this skill's rank for as long as it is held (two
-  //         of one element give it twice). Orbs stay from map to map and go when she falls.
+  //         of one element give it twice). Orbs stay from map to map and go when she falls; the
+  //         HUD shows them beside the skill bar. A stance, not a spell: keep its `cd` short
+  //         (0.3-1 s) and its `mp` low; the element effects of a cast (earth's shield...) don't
+  //         follow it.
   orb?: ElementId;
-  // invoke  casts the spell `invoke` holds for the three orbs held: their elements sorted and
-  //         joined by "+" ("fire+fire+ice"), at this skill's rank, with that spell's own MP,
-  //         cooldown and cast time. Not three orbs held, or no spell for them: it can't be used.
+  // invoke  casts the spell `invoke` holds for the three orbs held. The key: their elements
+  //         sorted by name and joined by "+" ("fire+fire+ice", "fire+ice+lightning"). The spell
+  //         goes at this skill's rank (its `mult` and the rest read that rank) with its own type,
+  //         MP (grown by this skill's ranks as mpCost grows any skill's), cooldown and cast time;
+  //         each spell keeps its own cooldown, so other orbs can cast another at once. A spell is
+  //         a damaging type (bolt, fan, blast, nova, storm, cone, beam, dash, flower, trap,
+  //         falcon) or heal, shield, buff (an invoked buff is named by the spell). The invoke's own
+  //         mp, cd and motion aren't used (write 0, 0, "cast"). Fewer than three orbs, or none in
+  //         the table for them: it can't be used (the bar says why). Over its slot the bar shows
+  //         the spell it would cast now.
   invoke?: Record<string, { name: string; skill: SkillDef }>;
-  // form    turns the player into `form` for `duration` s (default 60; used again, she is herself
-  //         again), drawn as the monster `look` (a bestiary id). She has `buff` while in it, and
-  //         her normal attack is `formAttack`: a blow in front of her (`reach`, default 130) or a
-  //         shot (`range`, default 560), `mult` of her attack (stat "matk": magic attack), healing
-  //         her `heal` of the damage it does. Skills that need a weapon can't be used in a form.
+  // form    turns the player into `form` for `duration` s (default 60, longer with buffTime);
+  //         used again she is herself again (free, whatever its cooldown), another form switches.
+  //         She is drawn as the monster `look` (a bestiary id with a sheet: pine_bear,
+  //         steppe_eagle, crimson_stag...) as tall as it stands within 130-190 cm, floating if it
+  //         flies. She has `buff` while in it, and her normal attack is `formAttack`: kind
+  //         "melee", a blow at the one in front within `reach` cm (default 130), or "ranged", a
+  //         shot in the skill's colour that homes in from up to `range` (default 560); `mult` of
+  //         her attack (`stat` "matk": magic attack; no weapon power) in `element`, healing her
+  //         `heal` of the damage it does, one blow every `every` s (default 1, quicker with attack
+  //         speed). In a form, skills with need.form work only in it; skills that need a weapon
+  //         or shield can't be used; the rest (heals, buffs, spells) can. Falling or leaving the
+  //         map ends it.
   form?: FormId;
   formAttack?: { kind: "melee" | "ranged"; mult: ByRank<number>; stat?: "atk" | "matk"; element?: ElementId; heal?: ByRank<number>; reach?: number; range?: number; every?: number };
-  // summon: the ally drawn as this monster's sheet (a bestiary id) or a slime of a hue
-  // ("slime:<degrees>") instead of its kind's own look
+  // summon (or form): drawn as this instead of its kind's own look: a bestiary monster id with a
+  // sheet (public/assets/monsters/index.json: "ghost_rancher", "shadow_imp", "skeleton_soldier"
+  // ...) or "slime:<hue>", a slime of that hue (0 red, 30 orange, 60 yellow, 150 the field
+  // slimes' green, 220 blue, 275 violet, 335 pink). A summon's allies of one kind and one look
+  // are one creature: `count` counts them together, so a ghost and a demon (both spirits) don't
+  // send each other away.
   look?: string;
-  // a heal over time: `heal` (the heal type's amount) given in `ticks` parts, one a second
+  // on a heal (or a buff's heal): the heal comes a part a second over `ticks` s (default 5)
+  // instead of at once, shown as a buff while it lasts (what is left is lost if she falls)
   hot?: boolean;
 }
 
@@ -282,27 +314,44 @@ export interface ElementDef {
 export type ClassId = "mage" | "warrior" | "archer" | "priest";
 export type JobId = "ranger" | "swordsman" | "wizard" | "bishop" | "battlemage" | "warlord" | "thief" | "jester" | "mercenary" | "inventor" | "merchant";
 
-// Whether the hands hold what `need` asks for (main: the main-hand weapon type, off: the off
-// hand's, null when empty or not a weapon).
-export function needMet(need: Need | undefined, main: string | null, off: string | null): boolean {
+// What the off hand holds as needMet reads it: a weapon type, "shield", "gear" (a flask, a book)
+// or null when it is empty.
+export function offKind(id: string | null | undefined): string | null {
+  return id ? offhandKind(id) ?? "gear" : null;
+}
+
+// Whether the hands hold what `need` asks for, and she is in the shape it asks for (main: the
+// main-hand weapon type, off: offKind of the off hand, form: the shape she is in, null: none).
+export function needMet(need: Need | undefined, main: string | null, off: string | null, form: FormId | null = null): boolean {
   if (!need) return true;
   if (need.weapons && !need.weapons.includes(main as WeaponId)) return false;
   if (need.dual) {
-    const ok = (w: string | null) => !!w && w !== "shield" && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
+    const ok = (w: string | null) => !!w && w !== "shield" && w !== "gear" && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
     if (!ok(main) || !ok(off)) return false;
   }
   if (need.shield && off !== "shield") return false;
+  if (need.offEmpty && off !== null) return false;
+  if (need.form && need.form !== form) return false;
   return true;
 }
 
-// "ดาบมือเดียว หรือ ดาบสองมือ", "ดาบมือเดียวทั้งสองมือ", for the skill window and the bar.
+// Whether a need asks for something in hand (a skill like that can't be used in a form).
+export function needsWeapon(need: Need | undefined): boolean {
+  return !!(need?.weapons || need?.dual || need?.shield);
+}
+
+// "ถือดาบมือเดียว หรือ ดาบสองมือ", "ถือดาบมือเดียว และ มือรองว่าง", "อยู่ในร่างหมี", for the skill
+// window ("ใช้ได้เมื่อ…") and the bar ("ต้อง…").
 export function needText(need: Need | undefined, weaponName: (w: WeaponId) => string): string {
   if (!need) return "";
-  const parts: string[] = [];
-  if (need.weapons) parts.push(need.weapons.map(weaponName).join(" หรือ "));
-  if (need.dual === true) parts.push("อาวุธมือเดียวทั้งสองมือ");
-  else if (need.dual) parts.push(`${need.dual.map(weaponName).join(" หรือ ")} ทั้งสองมือ`);
-  if (need.shield) parts.push("โล่ในมือรอง");
+  const held: string[] = [];
+  if (need.weapons) held.push(need.weapons.map(weaponName).join(" หรือ "));
+  if (need.dual === true) held.push("อาวุธมือเดียวทั้งสองมือ");
+  else if (need.dual) held.push(`${need.dual.map(weaponName).join(" หรือ ")} ทั้งสองมือ`);
+  if (need.shield) held.push("โล่ในมือรอง");
+  const parts = held.length ? [`ถือ${held.join(" และ ")}`] : [];
+  if (need.offEmpty) parts.push("มือรองว่าง");
+  if (need.form) parts.push(`อยู่ใน${FORM_NAMES[need.form]}`);
   return parts.join(" และ ");
 }
 
@@ -339,8 +388,10 @@ export const STAT_NAMES: Record<string, string> = {
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
   luck: "โชคดี", magicDodge: "หลบเวท", statusRes: "ต้านสถานะ", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
-  // v0.5: attack from max HP (hpToAtk: that share of max HP), a blow back when hit (counter: the
-  // chance, the blow 150% of attack), allies stronger and tougher (allyPct)
+  // v0.5: attack from max HP (hpToAtk: that share of max HP, added after atkPct; the profile
+  // window shows what it adds), a blow back (counter: the chance, at most 60%, that a monster's
+  // blow landing on her from within about 2 m is struck straight back for 150% of attack and the
+  // weapon's power, a physical hit, "สวนกลับ"), allies' HP and blows that much more (allyPct)
   hpToAtk: "HP เป็นพลังโจมตี", counter: "โอกาสสวนกลับ", allyPct: "พลังผู้ช่วย",
 };
 export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush",
@@ -1514,12 +1565,13 @@ for (const [mid, m] of Object.entries(MASTERIES)) {
 
 // What a skill costs in MP at a rank: the cost it is written with is rank 1's, and each rank
 // after costs more, up to MP_GROWTH more at its top rank (a one-rank skill stays as written).
+// mp: another cost to grow by the skill's ranks (an invoked spell's own, skills.ts).
 export const MP_GROWTH = 0.8;
-export function mpCost(id: string, rank: number): number {
+export function mpCost(id: string, rank: number, mp = ACTIVES[id]?.skill.mp ?? 0): number {
   const a = ACTIVES[id];
   if (!a) return 0;
   const r = Math.min(Math.max(1, rank), a.max);
-  return a.max > 1 ? Math.round(a.skill.mp * (1 + (MP_GROWTH * (r - 1)) / (a.max - 1))) : a.skill.mp;
+  return a.max > 1 ? Math.round(mp * (1 + (MP_GROWTH * (r - 1)) / (a.max - 1))) : mp;
 }
 
 

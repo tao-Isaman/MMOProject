@@ -11,7 +11,7 @@ import type { OffhandArt, Gender } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
 import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
-import { Combat, Floaters, weaponStats, attackRange } from "./combat";
+import { Combat, Floaters, weaponStats, attackRange, formWeapon } from "./combat";
 import { gearTierAt, TIER_DROP, tierPool } from "./drops";
 import { WorkshopUI } from "./workshop";
 import { CodexUI } from "./codex";
@@ -26,10 +26,10 @@ import { dressed } from "./outfits";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, JOBS, JOBS3, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
+import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE } from "./progression";
 import { Hero } from "./hero";
 import { Skills, groundTarget } from "./skills";
-import { Allies, Ally } from "./allies";
+import { Allies, Ally, lookSheet } from "./allies";
 import { jobMasters } from "./jobmasters";
 import { COATINGS } from "./poisons";
 import { terrainOf } from "./terrain";
@@ -694,6 +694,14 @@ async function boot(): Promise<void> {
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
   combat.onBasicHit = (m) => skills.autocast(m);
+  // In a form (a druid's) she is the form skill's look and her normal attack is its formAttack:
+  // the form she is in, and what she swings.
+  const formSkill = () => (hero.form ? ACTIVES[hero.form.id]?.skill : undefined);
+  const swingWeapon = () => {
+    const fa = formSkill()?.formAttack;
+    return fa ? formWeapon(fa, hero.stats) : weaponStats(inv.equipped.weapon, hero.stats);
+  };
+  let formWas: string | null = null;
 
   function levelUp() {
     hero.refill();
@@ -734,7 +742,7 @@ async function boot(): Promise<void> {
   // ---- auto-hunt bot ----
   const bot = new Bot({
     player, hero, progress, skills, monsters, inv,
-    weapon: () => weaponStats(inv.equipped.weapon, hero.stats),
+    weapon: swingWeapon,
     weaponId: () => inv.equipped.weapon,
     onSkill(id) {
       const i = progress.hotbar.indexOf(id);
@@ -1143,12 +1151,14 @@ async function boot(): Promise<void> {
 
   // An area skill placed on the ground is aimed first: a disc under the mouse (no farther than
   // the skill reaches); a click or its key again casts it there, a right click or Escape lets
-  // it go. Single-target skills lock on to the target (src/skills.ts).
+  // it go. Single-target skills lock on to the target (src/skills.ts). An invoke is aimed as the
+  // spell it would cast now.
+  const castSkill = (id: string) => skills.spellFor(id)?.s ?? ACTIVES[id].skill;
   let aiming: { slot: number; id: string } | null = null;
   function aimSpot(id: string): { x: number; y: number } | null {
     const at = aimPoint();
     if (!at) return null;
-    const range = ACTIVES[id].skill.range ?? 500, dx = at.x - player.x, dy = at.y - player.y, d = Math.hypot(dx, dy);
+    const range = castSkill(id).range ?? 500, dx = at.x - player.x, dy = at.y - player.y, d = Math.hypot(dx, dy);
     return d <= range ? at : { x: player.x + (dx / d) * range, y: player.y + (dy / d) * range };
   }
   function stopAiming(): void {
@@ -1166,7 +1176,7 @@ async function boot(): Promise<void> {
   function useSlot(i: number): void {
     const id = progress.hotbar[i];
     const a = id ? ACTIVES[id] : null;
-    if (a && groundTarget(a.skill) && pointer && !isTouch()) {
+    if (a && groundTarget(castSkill(id!)) && pointer && !isTouch()) {
       if (aiming?.id === id) return castAim();
       const no = skills.why(id!);
       if (no) return report(i, id, no);
@@ -1183,7 +1193,7 @@ async function boot(): Promise<void> {
   // swing that way); without a pointer (touch), the nearest one in reach.
   function quickAttack() {
     if (!hero.alive) return;
-    const w = weaponStats(inv.equipped.weapon, hero.stats);
+    const w = swingWeapon();
     if (pointer && view) {
       const p = toMap(pointer), at = groundAt(p.x, p.y);
       let near: Monster | null = null, best = 260;
@@ -1213,7 +1223,7 @@ async function boot(): Promise<void> {
     if (player.target?.alive) return;
     const m = nearestMonster(700);
     if (m) player.target = m;
-    else player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), null);
+    else player.startAttack(swingWeapon(), null);
   }
 
   // ---- input ----
@@ -1324,7 +1334,7 @@ async function boot(): Promise<void> {
     }
     player.target = null;
     if (walk) return walkToward(groundAt(mx, my));
-    player.startAttack(weaponStats(inv.equipped.weapon, hero.stats), groundAt(mx, my));
+    player.startAttack(swingWeapon(), groundAt(mx, my));
     return false;
   }
   // Walking over loot picks it up (what doesn't fit stays where it lies).
@@ -1517,6 +1527,11 @@ async function boot(): Promise<void> {
         burning.t = 0;
         return;
       }
+      // the counter: a blow from close by may be struck straight back
+      if (hero.stats.counter > 0 && Math.hypot(m.x - player.x, m.y - player.y) - m.radius < 220 && lucky(hero.stats.counter, hero.stats)) {
+        combat.counter(m, player, swingWeapon());
+        if (!player.busy) player.startMotion("swing", { x: m.x - player.x, y: m.y - player.y }, skills.weaponStats(), 0.3);
+      }
       // metal: part of the bite goes back at the biter
       if (hero.stats.reflect > 0) {
         const back = Math.round(bite.dmg * hero.stats.reflect);
@@ -1641,13 +1656,29 @@ async function boot(): Promise<void> {
     player.dead = !hero.alive;
     player.speedMul = 1 + hero.stats.move;
     player.hurtFlash = hero.hurt;
-    const w = weaponStats(inv.equipped.weapon, hero.stats);
-    const offW = offhandWeapon(inv.equipped.offhand);
+    // in a form: drawn as its look, swinging its blow (the hands rest); in one or out of one (its
+    // time up, used again, falling, a new map), the bar greys what she can't use
+    const shape = formSkill();
+    player.shape = shape?.look ? lookSheet(shape.look) : null;
+    player.orbs = hero.orbs.map((o) => tex.glowFor(ELEMENTS[o.el].color));
+    if ((hero.form?.id ?? null) !== formWas) {
+      if (formWas && !hero.form && hero.alive) {
+        floaters.add(player.x, player.y, 170, "คืนร่าง", "info");
+        skills.burst(player.x, player.y, "#e8f0d8", 70);
+      }
+      formWas = hero.form?.id ?? null;
+      refreshBar();
+    }
+    const w = swingWeapon();
+    const offW = shape ? null : offhandWeapon(inv.equipped.offhand);
     if (offW) w.interval *= DUAL_WIELD_SLOWDOWN; // two weapons swing a little slower
     // walking (the keys, a click on the ground) lets a cast go; the bot waits for it
     if (skills.pending && (fwd || left || walkTo) && (move.x || move.y)) skills.interrupt();
     const was = { x: player.x, y: player.y };
-    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) combat.strike(player, inv.equipped.weapon, offW);
+    if (player.update(dt, player.dead ? { x: 0, y: 0 } : move, w) && hero.alive) {
+      if (shape?.formAttack) combat.formStrike(player, shape.formAttack, progress.skillRank(hero.form!.id), w, shape.color);
+      else combat.strike(player, inv.equipped.weapon, offW);
+    }
     // a walk that stops getting anywhere (held up by a fight, or by someone in the way) ends
     if (walkTo && !fwd && !left) {
       walkTo.stuck = Math.hypot(player.x - was.x, player.y - was.y) < 0.5 ? walkTo.stuck + dt : 0;
@@ -1692,7 +1723,15 @@ async function boot(): Promise<void> {
     }
     fx.update(dt);
     motes.update(dt, { x: player.x, y: player.y });
-    progress.hotbar.forEach((id, i) => hud.setCooldown(i, id ? hero.cooldowns.get(id) ?? 0 : 0, id ? hero.cdTotal.get(id) ?? 1 : 1));
+    // (an invoke: the cooldown and the name of the spell it would cast now; the orbs beside the bar)
+    progress.hotbar.forEach((id, i) => {
+      const a = id ? ACTIVES[id] : null, sp = a ? skills.spellFor(id!) : null, key = sp?.key ?? id;
+      hud.setCooldown(i, key ? hero.cooldowns.get(key) ?? 0 : 0, key ? hero.cdTotal.get(key) ?? 1 : 1);
+      if (a?.skill.type === "invoke") hud.setNote(i, sp?.name ?? (hero.orbKey ? "ไม่มีเวท" : ""), sp?.s.color ?? "#b8b8b8");
+      else hud.setNote(i, "");
+    });
+    hud.setOrbs(hero.orbs.map((o) => ({ name: ELEMENTS[o.el].name, color: ELEMENTS[o.el].color })),
+      hero.orbs.length > 0 || progress.hotbar.some((id) => id && ACTIVES[id]?.skill.type === "orb"));
     vitals.update();
     uiClock += dt;
     if (uiClock > 0.25) {
@@ -1727,7 +1766,7 @@ async function boot(): Promise<void> {
     // (or, walking to a spot picked on the map, under that spot)
     // the disc of an area skill being aimed
     if (aiming) {
-      const sk = ACTIVES[aiming.id].skill, spot = aimSpot(aiming.id);
+      const sk = castSkill(aiming.id), spot = aimSpot(aiming.id);
       w3d.setAim(spot, sk.radius ?? 150, sk.color ?? "#ffd27a");
     }
     w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target
