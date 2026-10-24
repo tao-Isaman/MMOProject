@@ -189,15 +189,16 @@ const CIRCLE: XY = [-3650, -3350];
 // the tracks: from the way in high on the west side down past the lumber camp, over the bridge and
 // out east; up to the lookout, on to the camp and the falls, a loop over the dry hill in the east,
 // up to the stones
-const T1: XY[] = smooth([[2800, 5900], [2690, 5150], [2400, 4350], [1800, 3650], [1050, 3050], [700, 2250], [100, 1700], [-700, 1550], [-1300, 1250], off(900), C.at, off(-900), [-500, -1500], RE1.bottom, [-1000, -3900], [-900, -4700], [-850, -5900]]);
+const T1: XY[] = smooth([[2800, 5900], [2690, 5150], [2400, 4350], [1800, 3650], [1050, 3050], [700, 2250], [100, 1700], [-700, 1550], [-1300, 1250], off(900), C.at, off(-900), [-500, -1500], RE1.bottom, [-800, -3800], [-200, -4500], [-20, -5150], [0, -5900]]);
 const T_RIDGE: XY[] = [...smooth([[-450, 1580], [-700, 2150], [-1050, 2430], RW1.bottom], 4), RW1.top, [-3100, 2700], [-3600, 3000]];
 const T_CAMP: XY[] = smooth([[100, 1700], [1300, 1850], [2100, 1750], [3000, 1450], [3450, 1150]]);
-const T_EAST: XY[] = smooth([[-500, -1500], [800, -2300], [2000, -3150], [1300, -4300], [-1000, -3900]]);
+const T_EAST: XY[] = smooth([[-500, -1500], [800, -2300], [2000, -3150], [1300, -4300], [-800, -3800]]);
 const T_STONES: XY[] = [RE1.bottom, RE1.top, [-2900, -2000], RE2.bottom, RE2.top, [-3650, -2650]];
 
 // the way to the royal road where the road's own way out meets this edge (n 0.78)
 const WAY_W: XY = [2690, 5150], ARRIVE_W: XY = [2470, 4500];
-const WAY_E: XY = [-881, -5150], ARRIVE_E: XY = [-931, -4450];
+// the way to the steppe where the steppe's own way out meets this edge (n 0.52)
+const WAY_E: XY = [-20, -5150], ARRIVE_E: XY = [-190, -4470];
 const CAMP: XY = [2000, 1750];
 const LOOKOUT: XY = [-3800, 3200];
 
@@ -351,8 +352,8 @@ export function build(quality: { flowers: number }): Town {
   P("plains:signpost", [3100, 4950], 180, 80);
   P("plains:milestone", [2250, 5000], 0, 60);
   f.exit("west_steppe", WAY_E, ARRIVE_E);
-  P("plains:signpost", [-1350, -5000], 0, 80);
-  P("trunrada:standing_stone", [-400, -5050], 20, 90);
+  P("plains:signpost", [-480, -5000], 0, 80);
+  P("trunrada:standing_stone", [380, -5250], 20, 90);
 
   // ---- the lumberjacks' camp on the west bank below the falls ----
   P("plains:hunter_lodge", [2400, 2750], 90, 560);
