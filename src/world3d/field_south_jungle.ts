@@ -6,7 +6,9 @@
 // fallen columns, and on a higher step the temple mountain with its fig-split prang. To the east
 // a ridge carries a giant strangler fig. In the south-east, mud pools ringed with reeds. A side
 // track runs on west past the stream to the way out to the royal necropolis, where two of the
-// necropolis's stone guardians stand overgrown on either side of it. Toward the north edge, where
+// necropolis's stone guardians stand overgrown on either side of it. Another runs east from the
+// main track north of the bridge, down the north bank of the stream to the way out to the
+// waterfall gorge, the stream going on east beside it. Toward the north edge, where
 // the desert round Bahamas begins, the jungle thins out: the ground goes dry and grassy, then
 // sandy, and the trees give way to acacias, palms and thorn bushes among sandstone rocks.
 //
@@ -156,7 +158,10 @@ export function build(quality: { flowers: number }): Town {
   const WEST = smooth([[-650, -200], [-400, 600], [-350, 1500], [-250, 2300], [-450, 3000]]);
   // on from the west track's end to the way out to the necropolis
   const NECRO = smooth([[-450, 3000], [-350, 3800], [-180, 4500], [-250, 5150], [-320, 7000]]);
-  const roads: Poly[] = [band(MAIN, 440), band(POOLS, 360), band(RUINS, 420), band(FIG, 380), band(FACE, 380), band(WEST, 320), band(NECRO, 380)];
+  // east from the main track north of the bridge, along the stream's north bank to the way out to
+  // the waterfall gorge
+  const GORGE = smooth([[0, -380], [-150, -1500], [-100, -2600], [-350, -3700], [-550, -4450], [-550, -5150], [-700, -7600]]);
+  const roads: Poly[] = [band(MAIN, 440), band(POOLS, 360), band(RUINS, 420), band(FIG, 380), band(FACE, 380), band(WEST, 320), band(NECRO, 380), band(GORGE, 380)];
   // the old flagstone court before the temple stair
   const COURT: Poly = [[2050, 2950], [2650, 2850], [2700, 4150], [2080, 4050]];
 
@@ -196,6 +201,7 @@ export function build(quality: { flowers: number }): Town {
   f.exit("yodia", [-5150, 420], [-4450, 510]);
   f.exit("bahamas", [5150, -660], [4450, -780]);
   f.exit("royal_necropolis", [-250, 5150], [-280, 4450]);
+  f.exit("waterfall_gorge", [-550, -5150], [-500, -4450]);
 
   // ---- what stands where: every placement is remembered (x, y, r) so the forest keeps clear ----
   const taken: [number, number, number][] = [];
@@ -285,6 +291,10 @@ export function build(quality: { flowers: number }): Town {
   put("ruins:guardian_statue", [260, 4880], 90, { solid: [box(170, 170, 0, 0, "statue")], r: 160 });
   put("trail_sign", [-650, 4350], -60, { solid: [disc(20, 0, 0, "post")], r: 90 });
   put("rock_cluster", [500, 4400], 20, { s: 0.6, solid: [disc(100, 0, 0, "rock")], r: 160 });
+
+  // the waterfall gorge way: torches either side, a sign where it leaves the main track
+  for (const x of [-850, -250]) put("yodia:tiki_torch", [x, -4900], 0, { solid: [disc(14, 0, 0, "post")], r: 60 });
+  put("trail_sign", [250, -1100], 250, { solid: [disc(20, 0, 0, "post")], r: 90 });
 
   // the Bahamas way: torches and a sign
   for (const y of [-1000, -330]) put("yodia:tiki_torch", [4900, y], 0, { solid: [disc(14, 0, 0, "post")], r: 60 });
@@ -387,6 +397,7 @@ export function build(quality: { flowers: number }): Town {
       { x: -4900, y: 420, text: "ทางไปโยเดีย", kind: "gate" },
       { x: 4900, y: -660, text: "ทางไปบาฮามัส", kind: "gate" },
       { x: -250, y: 4900, text: "ทางไปสุสานหลวงโบราณ", kind: "gate" },
+      { x: -550, y: -4900, text: "ทางไปหุบผาน้ำตก", kind: "gate" },
       { x: 2250, y: 3500, text: "ปราสาทหินร้าง" },
       { x: 1600, y: 2150, text: "ซากเมืองโบราณ" },
       { x: 2300, y: -2950, text: "ไทรยักษ์บนเนิน" },

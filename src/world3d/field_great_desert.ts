@@ -4,10 +4,14 @@
 // (a terrace of broken houses, columns and obelisks, where scholars from Bahamas dig), and up
 // again to the high terrace of the temple. Among the dunes before it: a colossal stone head, a
 // rock with an obelisk to watch the sand from, and an oasis of palms where the caravans water.
-// A mesa wall closes the east, dunes roll away on every other side.
+// A mesa wall closes the east, dunes roll away on every other side. From the oasis a caravan
+// track runs east past the camp and round the north of the old city to a fork: north over the
+// dunes to the red dunes on the inner sea, east out through a cut in the mesa wall to the glass
+// desert; and from the foot of the watch rock another runs south down to the waterfall gorge.
 //
 // Laid out at full size in centimetres (north +X, east -Y) and scaled by TOWN_SCALE in finish.
-// One way out: west to Bahamas' east gate.
+// Ways out: west to Bahamas' east gate, north (the middle) to the salt dunes, east (the north
+// end) to the glass desert, south (west of the middle) to the waterfall gorge.
 
 import { FieldBuilder } from "./field";
 import type { Poly } from "./paved";
@@ -132,8 +136,8 @@ export function build(_quality: { flowers: number }): Town {
       { poly: dense(L1), h: 220, ramps: [RAMP_L1] },
       { poly: dense(L2), h: 480, ramps: [RAMP_L2] },
       { poly: dense(P3), h: 300, ramps: [RAMP_P3] },
-      // the mesa wall closing the east
-      { poly: dense([[-8700, -6300], [-4000, -6650], [0, -6200], [4000, -6700], [8700, -6300], [8700, -8700], [-8700, -8700]]), h: 700 },
+      // the mesa wall closing the east (a cut through it where the track to the glass desert goes on)
+      { poly: dense([[-8700, -6300], [-4000, -6650], [0, -6200], [3050, -6580], [3100, -8200], [3900, -8200], [3950, -6690], [8700, -6300], [8700, -8700], [-8700, -8700]]), h: 700 },
     ],
     rock: "CliffSand",
   });
@@ -143,12 +147,18 @@ export function build(_quality: { flowers: number }): Town {
   const MAIN = smooth([[0, 5900], [0, 5150], [350, 4300], [100, 3400], [-150, 2750], [0, 2075], [0, 1325]]);
   const SPUR_O = smooth([[150, 3450], [1100, 3380], [2000, 3220], [2780, 3040]]);
   const SPUR_P = smooth([[-80, 3050], [-1000, 3300], [-1700, 3330], [-2265, 3380], [-3200, 3550], [-3850, 3800]]);
+  // the caravan track from the oasis east round the north of the old city, forking north to the
+  // salt dunes and east to the glass desert; the track south from the foot of the watch rock
+  const WAY_NE = smooth([[2780, 3040], [3100, 2400], [3350, 1300], [3800, 600], [4200, 250]]);
+  const WAY_N = smooth([[4200, 250], [4700, 80], [5150, 0], [7600, 0]]);
+  const WAY_E = smooth([[4200, 250], [4500, -600], [4650, -1600], [4600, -2600], [4350, -3600], [3900, -4500], [3500, -5150], [3500, -7600]]);
+  const WAY_S = smooth([[-2265, 3380], [-2700, 2950], [-3300, 2450], [-4100, 2250], [-5150, 2200], [-7600, 2200]]);
   const WAY = band([[0, 1400], [0, 700], [0, -400], [0, -1276], [0, -2060]], 520, 0);
   const COURT: Poly = [[-1350, -1500], [1350, -1500], [1350, -2080], [-1350, -2080]];
   const POND = ellipse(OASIS[0], OASIS[1], 700, 520);
   const ground = f.ground({
     area: { x0: -A, x1: A, y0: -A, y1: A },
-    roads: [band(MAIN, 500), band(SPUR_O, 400), band(SPUR_P, 420)],
+    roads: [band(MAIN, 500), band(SPUR_O, 400), band(SPUR_P, 420), band(WAY_NE, 420), band(WAY_N, 420), band(WAY_E, 420), band(WAY_S, 420)],
     plazas: [WAY, COURT],
     plaza: [0.92, 0.82, 0.64],
     water: [POND],
@@ -157,9 +167,13 @@ export function build(_quality: { flowers: number }): Town {
   const scenery = [f.waterSheet({ x0: OASIS[0] - 950, x1: OASIS[0] + 950, y0: OASIS[1] - 750, y1: OASIS[1] + 750 }, -14, "Desert_Water")];
   for (const [dx, r] of [[-330, 470], [0, 520], [330, 470]] as XY[]) f.blockDisc([OASIS[0] + dx, OASIS[1]], r);
 
-  // ---- the way out, west to Bahamas ----
-  const W: XY = [xAt(MAIN, 5150), 5150];
+  // ---- the ways out: west to Bahamas, north to the salt dunes, east to the glass desert, south to
+  // the waterfall gorge ----
+  const W: XY = [xAt(MAIN, 5150), 5150], N: XY = [5150, 0], E: XY = [3500, -5150], S: XY = [-5150, 2200];
   f.exit("bahamas", W, [xAt(MAIN, 4450), 4450]);
+  f.exit("salt_dunes", N, [4450, 120]);
+  f.exit("glass_desert", E, [3800, -4450]);
+  f.exit("waterfall_gorge", S, [-4450, 2250]);
 
   const taken: [number, number, number][] = [];
   const free = (x: number, y: number, r: number) => taken.every(([tx, ty, tr]) => Math.hypot(tx - x, ty - y) > tr + r);
@@ -185,7 +199,7 @@ export function build(_quality: { flowers: number }): Town {
       left--;
     }
   };
-  const nearExit = (x: number, y: number) => Math.hypot(x - W[0], y - W[1]) < 1000;
+  const nearExit = (x: number, y: number) => [W, N, E, S].some((p) => Math.hypot(x - p[0], y - p[1]) < 1000);
   const IN = { x0: -R + 300, x1: R - 300, y0: -R + 300, y1: R - 300 };
   const onL1 = (x: number, y: number) => Math.abs(f.h(x, y) - 220) < 1;
 
@@ -193,6 +207,14 @@ export function build(_quality: { flowers: number }): Town {
   put("desert:signpost", [W[0] - 450, W[1] - 150], -90, 80);
   put("desert:ruin_column", [W[0] + 520, W[1] - 300], 30, 100, { s: 0.8 });
   tree("flora:PalmBent", [W[0] - 700, W[1] - 700], 200, 0.9);
+  // the new ways out: signposts at the fork and at each, rocks for markers
+  put("desert:signpost", [4500, 600], 120, 80);
+  put("desert:signpost", [N[0] - 350, N[1] + 400], 180, 80);
+  put("desert:boulder_flat", [N[0] - 500, N[1] - 600], 30, 250, { s: 0.7 });
+  put("desert:signpost", [E[0] + 450, E[1] + 450], 90, 80);
+  put("desert:rock_cluster", [E[0] - 600, E[1] + 300], 60, 220, { s: 0.7 });
+  put("desert:signpost", [S[0] + 400, S[1] - 380], 0, 80);
+  put("desert:boulder_big", [S[0] + 600, S[1] + 650], 20, 260, { s: 0.6 });
 
   // ---- the oasis: palms round the water, reeds, a well, a trough and a caravan resting ----
   for (let i = 0; i < 11; i++) {
@@ -330,6 +352,9 @@ export function build(_quality: { flowers: number }): Town {
     { x: -1500, y: 1800, text: "กองคาราวานที่หายไป", kind: "small" },
     { x: -4100, y: 3600, text: "ผาเฝ้าทราย", kind: "small" },
     { x: W[0], y: W[1], text: "ทางไปบาฮามัส", kind: "gate" },
+    { x: N[0] - 250, y: N[1], text: "ทางไปเนินทรายริมทะเลใน", kind: "gate" },
+    { x: E[0], y: E[1] + 250, text: "ทางไปทะเลทรายแก้ว", kind: "gate" },
+    { x: S[0] + 250, y: S[1], text: "ทางไปหุบผาน้ำตก", kind: "gate" },
   ];
 
   return f.finishField({
