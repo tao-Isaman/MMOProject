@@ -6,7 +6,7 @@ import { fromView, mapX, mapY, S2, toView } from "./projection";
 import { sound } from "./audio";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
 import type { WeaponId, WeaponType } from "./items";
-import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
+import { AIR_GLOW, GROUND_GLOW, SORTED, rand } from "./particles";
 import type { Particles } from "./particles";
 import { basicDamage, isMagic, poisonScale, lucky, skillDamage } from "./stats";
 import type { Hit, Stats } from "./stats";
