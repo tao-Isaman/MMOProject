@@ -36,6 +36,31 @@ export function skillIcon(id: string | null | undefined, glyph: string, color: s
   return (id && art.get(id)) || icon(glyph, color);
 }
 
+// Inventory glyph fallback: keep the artwork itself, without the gem tile used by skills.
+export function itemGlyph(glyph: string, color: string): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = c.height = SIZE;
+  const g = c.getContext("2d")!;
+  g.save();
+  g.translate(SIZE / 2, SIZE / 2);
+  g.scale(1.25, 1.25);
+  g.lineJoin = "round";
+  g.lineCap = "round";
+  const path = GLYPHS[glyph] ?? GLYPHS.star;
+  g.strokeStyle = "rgba(20, 14, 8, 0.9)";
+  g.fillStyle = "rgba(20, 14, 8, 0.9)";
+  g.lineWidth = 11;
+  path(g, true);
+  g.stroke();
+  g.strokeStyle = color;
+  g.fillStyle = color;
+  g.lineWidth = 5;
+  path(g, false);
+  g.stroke();
+  g.restore();
+  return c;
+}
+
 export function icon(glyph: string, color: string): HTMLCanvasElement {
   const key = `${glyph}|${color}`;
   const hit = cache.get(key);

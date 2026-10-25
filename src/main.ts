@@ -38,7 +38,7 @@ import type { ElementId, StatBag } from "./progression";
 
 import { Vitals, ClassPicker, ProfileUI, SettingsUI, SkillUI, skillTip } from "./charui";
 import { startGear } from "./starter";
-import { icon, skillIcon, loadSkillArt, hasArt } from "./icons";
+import { icon, itemGlyph, skillIcon, loadSkillArt, hasArt } from "./icons";
 import { Bot } from "./bot";
 import { Title } from "./title";
 import { useCharacter, loadRoster, touchCharacter, saveKey, readJson } from "./save";
@@ -470,12 +470,14 @@ async function boot(): Promise<void> {
     } else if (item.kind === "potion" && !hasArt(id)) {
       c = potionIcon(item.icon.color ?? "#ff6a5a", id.endsWith("_big"));
     } else if (item.icon.glyph) {
-      // books, hairstyles, hats, shoes, rings, trinkets, quest items, potions: their picture, else
-      // a glyph on a gem; a badge ("II": a second book) in the bottom corner
+      // Prefer item artwork; missing artwork falls back to a transparent, colored glyph.
       c = document.createElement("canvas");
       c.width = c.height = ICON * 2;
       const g = c.getContext("2d")!;
-      g.drawImage(skillIcon(item.icon.art, item.icon.glyph ?? "star", item.icon.color ?? "#c9a86a"), 4, 4, c.width - 8, c.height - 8);
+      const art = item.icon.art;
+      const glyph = item.icon.glyph;
+      const color = item.icon.color ?? "#c9a86a";
+      g.drawImage(art && hasArt(art) ? skillIcon(art, glyph, color) : itemGlyph(glyph, color), 4, 4, c.width - 8, c.height - 8);
     } else c = makeIcon(images[item.icon.sheet ?? "jelly"]);
     // a badge in the bottom corner ("II": a second book), the refine on top
     const g = c.getContext("2d")!;
