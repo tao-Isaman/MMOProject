@@ -269,7 +269,7 @@ export class Combat {
       if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player });
     };
     const dir = player.aimDir();
-    const origin = w.projectile
+    const origin = w.projectile?.kind === "arrow"
       ? player.projectileOrigin?.() ?? { x: player.x, y: player.y }
       : { x: player.x, y: player.y };
     if (w.projectile) {
@@ -324,7 +324,7 @@ export class Combat {
     };
     const dir = player.aimDir();
     if (w.projectile) {
-      const shotOrigin = player.projectileOrigin?.() ?? origin;
+      const shotOrigin = origin;
       const p = w.projectile, target = this.lockOn(player, dir, p.range);
       const aim = target ? this.toward(shotOrigin, target) : dir;
       this.shoot(shotOrigin, aim, { kind: "skill", speed: p.speed, range: p.range, radius: p.radius, color, target, onHit: land });

@@ -463,12 +463,13 @@ export class Player {
     return { r, l: a?.l ?? null, lh: a?.lh, c };
   }
 
-  // Projectiles leave from the animated body center, not the ground pivot or a raised hand.
+  // Bow arrows leave from the animated shooting hand; other weapons use the body pivot.
   projectileOrigin(): Vec2 {
     const { clip, col } = this.pose();
-    const center = this.handFor(clip, col).c;
-    const dx = (center[0] - this.cell / 2) * this.scale;
-    const dy = (center[1] - this.cell) * this.scale;
+    if (clip !== "shoot") return { x: this.x, y: this.y };
+    const hand = this.handFor(clip, col).r;
+    const dx = (hand[0] - this.cell / 2) * this.scale;
+    const dy = (hand[1] - this.cell) * this.scale;
     return groundFromMap(mapX(this.x, this.y) + dx, mapY(this.x, this.y) + dy);
   }
 
