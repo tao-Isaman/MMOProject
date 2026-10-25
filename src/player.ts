@@ -7,7 +7,7 @@
 // during attacks and casts (src/weapons.js). In a form (a druid's) she is drawn as a monster's
 // sheet instead (`shape`, set by main.ts): four directions, its walk and its attack.
 
-import { mapX, mapY, yaw, yawEighths } from "./projection";
+import { groundFromMap, mapX, mapY, yaw, yawEighths } from "./projection";
 import { resolve } from "./world";
 import { attackRange } from "./combat";
 import { WEAPON_ART, drawWeapon, heldAngle, screenAngle, weaponTip } from "./weapons";
@@ -461,6 +461,17 @@ export class Player {
     const c: [number, number] = a?.c ?? [this.cell / 2, this.cell * 0.62];
     const r: [number, number] = a?.r ?? [c[0] + (row >= 5 ? 10 : -10), c[1] + 6];
     return { r, l: a?.l ?? null, lh: a?.lh, c };
+  }
+
+  // Projectile origin for a bow release: convert the animated hand's sprite position back to
+  // world coordinates so the arrow appears to leave the hand instead of the ground pivot.
+  projectileOrigin(): Vec2 {
+    const { clip, col } = this.pose();
+    if (clip !== "shoot") return { x: this.x, y: this.y };
+    const hand = this.handFor(clip, col).r;
+    const dx = (hand[0] - this.cell / 2) * this.scale;
+    const dy = (hand[1] - this.cell) * this.scale;
+    return groundFromMap(mapX(this.x, this.y) + dx, mapY(this.x, this.y) + dy);
   }
 
   // Ragnarok-style cast bar over the head.

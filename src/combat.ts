@@ -254,14 +254,16 @@ export class Combat {
   // The player's weapon lands: one monster, locked on (src/combat.ts lockOn). A bow or a staff
   // shoots a shot that homes in on it; a melee weapon hits it if it is within reach. A weapon
   // in the off hand follows up for OFFHAND_DAMAGE of its own damage.
-  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, weaponId: string | null, offhand: WeaponId | null = null): void {
+  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2; projectileOrigin?(): Vec2 }, weaponId: string | null, offhand: WeaponId | null = null): void {
     const w = weaponStats(weaponId, this.hero.stats);
     const off = offhand ? weaponStats(offhand, this.hero.stats) : null;
     const follow = (m: Monster, d: Vec2) => {
       if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player });
     };
     const dir = player.aimDir();
-    const origin = { x: player.x, y: player.y };
+    const origin = w.projectile?.kind === "arrow"
+      ? player.projectileOrigin?.() ?? { x: player.x, y: player.y }
+      : { x: player.x, y: player.y };
     if (w.projectile) {
       const p = w.projectile;
       const target = this.lockOn(player, dir, p.range);
