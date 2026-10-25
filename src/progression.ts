@@ -450,12 +450,12 @@ export const CLASSES: Record<ClassId, ClassDef> = {
 };
 
 // ---- second jobs ----
-// At level 30 (JOB_LEVEL; a job every 30 levels) a character can take a second job from that
+// At level 35 (JOB_LEVEL) a character can take a second job from that
 // job's master, by the master's quest (quests.ts). Before handing it in they pick one of the
 // job's branches: a skill tree learned on the spot, with JOB_POINTS skill points. A job adds
 // its bonus at once and its growth on every level after JOB_LEVEL; `from` is the classes that
 // may take it (null: any).
-export const JOB_LEVEL = 30;
+export const JOB_LEVEL = 35;
 export const JOB_POINTS = 5;
 
 export interface JobDef {
@@ -534,14 +534,14 @@ export function jobOpen(id: JobId): boolean {
 }
 
 // ---- third jobs ----
-// At level 60 (THIRD_JOB_LEVEL) a character with a second job can take a third, from its master
+// At level 75 (THIRD_JOB_LEVEL) a character with a second job can take a third, from its master
 // (src/jobmasters.ts) by the master's quest (src/quests_job3.ts), the same way: a branch picked at
 // the hand-in, learned on the spot with JOB_POINTS points, its first skill on the bar. `from`: the
 // second jobs that may take it (null: any). The second job and its branch stay; the third adds
 // its bonus at once and its growth on every level after THIRD_JOB_LEVEL (job3Stats), a little
 // over a second job's. Its branches have TREE_SKILLS[3] skills; a branch still being written is a
 // stub, and a job with a stub branch isn't offered yet (job3Open).
-export const THIRD_JOB_LEVEL = 60;
+export const THIRD_JOB_LEVEL = 75;
 export type Job3Id = "knight" | "hunter" | "archmage" | "assassin" | "high_bishop" | "monk" | "spellblade" | "sculptor" | "magician" | "historian" | "shinobi";
 
 export interface Job3Def {
@@ -629,11 +629,13 @@ export function job3Stats(p: { job3: Job3Id | null; level: number }): StatBag {
 }
 
 // ---- fourth jobs (docs/v05_jobs.md) ----
-// At level 90 (FOURTH_JOB_LEVEL) a character with a third job can take a fourth, from its master
+// At level 115 (FOURTH_JOB_LEVEL, past the level-99 limit) a character with a third job can take a fourth, from its master
 // by a longer quest, the same way as the third: a branch picked at the hand-in, learned on the
 // spot with JOB_POINTS points. `from`: the third jobs that may take it (null: any). Its bonus
 // and growth are a little over a third job's; its branches have TREE_SKILLS[4] skills.
-export const FOURTH_JOB_LEVEL = 90;
+export const FOURTH_JOB_LEVEL = 115;
+// (a fifth job, still to come, opens at FIFTH_JOB_LEVEL)
+export const FIFTH_JOB_LEVEL = 150;
 export type Job4Id = "high_knight" | "sniper" | "warlock" | "druid" | "slayer" | "royal_guard" | "alchemist" | "wuxia" | "viking" | "samurai" | "shaman";
 
 export interface Job4Def {
