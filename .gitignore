@@ -6,3 +6,4 @@ dist/
 key.txt
 output/imagegen/
 tmp/imagegen/
+claude_key.txt

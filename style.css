@@ -123,34 +123,54 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 .menu-btn:hover { border-color: var(--gold); }
 .menu-btn kbd { margin: 0; }
 
-/* ---- windows (inventory, wardrobe) ----
-   layers: HUD 3-5, windows 5 (50 on phones), drag ghost 60, item tooltip 61, item menu 70,
-   class picker 100, title screen 200, portrait note 1000 */
+/* ---- windows (inventory, skills, codex...; the manager is src/windows.ts) ----
+   layers: HUD 3-5, windows 10-20 (the manager stacks them; 50 on phones), talk window and map
+   banner 30, drag ghost 60,
+   item tooltip 61, item menu 70, class picker 100, title screen 200, portrait note 1000.
+   A window is a flex column: the title bar stays put, the body under it scrolls. */
 .window {
-  position: fixed; top: 70px; right: 24px; z-index: 5; min-width: 300px; max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 150px); overflow: auto; border-radius: 14px; background: rgba(18, 24, 16, 0.92);
+  position: fixed; top: 70px; right: 24px; z-index: 10; min-width: 280px; max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 14px; background: rgba(18, 24, 16, 0.92);
   border: 1px solid var(--rim); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 .window.hidden { display: none; }
+.window.front { border-color: rgba(244, 210, 122, 0.55); box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(244, 210, 122, 0.12); }
 .window-bar.dragging { cursor: grabbing; }
 #wardrobe { right: auto; left: 24px; }
 .window-bar {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; cursor: grab; touch-action: none;
+  flex: none; display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 5px 3px 12px; cursor: grab; touch-action: none;
   border-bottom: 1px solid var(--rim); background: rgba(255, 255, 255, 0.04);
   user-select: none; -webkit-user-select: none;
 }
-.window-bar h2 { margin: 0; flex: 1; font-size: 16px; font-weight: 600; color: var(--gold); }
-.window-close {
-  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--rim); background: transparent;
-  color: var(--text); font-size: 18px; line-height: 1; cursor: pointer;
+.window-bar h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 600; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.window-close, .window-collapse {
+  flex: none; width: 24px; height: 24px; padding: 0; border-radius: 7px; border: 1px solid var(--rim); background: transparent;
+  color: var(--text); font-size: 16px; line-height: 1; cursor: pointer;
 }
-.window-close:hover { border-color: var(--gold); }
+.window-collapse { font-size: 12px; }
+.window-close:hover, .window-collapse:hover { border-color: var(--gold); }
+.window-body { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; }
+.window-grip {
+  position: absolute; right: 0; bottom: 0; z-index: 3; width: 14px; height: 14px; cursor: nwse-resize; touch-action: none;
+  border-bottom-right-radius: 14px; background: linear-gradient(135deg, transparent 50%, rgba(244, 210, 122, 0.45) 50%);
+}
+.window-grip:hover { background: linear-gradient(135deg, transparent 50%, rgba(244, 210, 122, 0.8) 50%); }
+.window.collapsed { height: auto !important; }
+.window.collapsed .window-body, .window.collapsed .window-grip { display: none; }
+.window.collapsed .window-bar { border-bottom: 0; }
+/* big-content windows: the body is a column and its list fills what the window leaves it */
+body:not(.touch) .window-fill > .window-body { display: flex; flex-direction: column; }
+body:not(.touch) .window-fill > .window-body > * { flex: none; }
+body:not(.touch) .window-fill .sk-body, body:not(.touch) .window-fill .shop-list, body:not(.touch) .window-fill .ql-list,
+body:not(.touch) .window-fill > .window-body > .inv-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+body:not(.touch) .window-fill .inv-grid { align-self: stretch; align-content: start; }
 
 .inv-body { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
 .inv-equip { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 8px; }
 .inv-equip-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .inv-equip-label { font-size: 12px; color: var(--muted); }
-.inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; max-height: 346px; overflow-y: auto; scrollbar-width: thin; }
+.inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; overflow-y: auto; scrollbar-width: thin; }
 .inv-cell {
   position: relative; width: 46px; height: 46px; border-radius: 8px; touch-action: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.28));
@@ -262,7 +282,7 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 .picker-trees { font-size: 12px; color: var(--muted); }
 
 /* ---- status window ---- */
-#status { left: 14px; right: auto; top: 178px; max-height: calc(100vh - 190px); } /* scrolls rather than run off the bottom */
+#status { left: 14px; right: auto; top: 178px; } /* the manager keeps it on screen */
 .st-body { padding: 12px 14px 14px; width: 300px; max-width: 100%; }
 .st-head { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
 .st-head strong { color: var(--gold); font-size: 16px; }
@@ -271,7 +291,7 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 .st-row b { color: var(--text); font-weight: 600; }
 .st-elements { display: grid; gap: 3px; margin-top: 8px; }
 .st-sub { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
-.st-actions { display: flex; gap: 6px; margin-top: 10px; }
+.st-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .st-body { width: 340px; }
 .st-gear { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
 .st-gear-row { display: flex; gap: 6px; align-items: center; padding: 3px 5px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); min-width: 0; }
@@ -306,7 +326,7 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 .sk-tab { padding: 5px 12px; border-radius: 8px; cursor: pointer; font: 600 13px var(--font); color: var(--text);
   background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.16); }
 .sk-tab.on { border-color: var(--gold); background: rgba(244, 210, 122, 0.14); color: var(--gold); }
-.sk-body { padding: 10px 14px 4px; max-height: min(70vh, 640px); overflow-y: auto; }
+.sk-body { padding: 10px 14px 4px; overflow-y: auto; }
 .sk-help { padding: 0 14px 12px; }
 .sk-icon { position: relative; flex: none; width: 40px; height: 40px; }
 .sk-icon canvas { width: 40px; height: 40px; display: block; }
@@ -468,7 +488,7 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 
 /* the name of the map, shown for a moment on arriving */
 .map-banner {
-  position: fixed; top: 22%; left: 50%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none;
+  position: fixed; top: 22%; left: 50%; transform: translate(-50%, -8px); z-index: 30; pointer-events: none;
   padding: 10px 34px; font-size: 30px; font-weight: 600; letter-spacing: 0.06em; color: #ffe6a8; white-space: nowrap;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 18px rgba(255, 200, 110, 0.35);
   background: linear-gradient(90deg, transparent, rgba(16, 22, 12, 0.62) 22%, rgba(16, 22, 12, 0.62) 78%, transparent);
@@ -516,12 +536,11 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 #codex { left: 50%; right: auto; top: 60px; transform: translateX(-50%); width: min(760px, calc(100vw - 24px)); }
 .cx-bar { padding: 8px 12px 0; }
 .cx-search { width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.3); color: inherit; font: inherit; }
-.cx-list { max-height: min(66vh, 600px); }
 .cx-head { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
 .cx-body { width: 100%; line-height: 1.6; }
 .cx-page { padding: 24px; text-align: center; opacity: 0.8; }
 .shop-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 0; }
-.shop-list { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; max-height: min(60vh, 520px); overflow-y: auto; }
+.shop-list { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; overflow-y: auto; }
 .shop-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
 .shop-row { flex-wrap: wrap; }
 .shop-icon { flex: none; cursor: pointer; }
@@ -725,8 +744,10 @@ body.touch .window {
   transform: translateX(-50%) !important; min-width: 0;
   max-width: calc(100vw - 12px - env(safe-area-inset-left) - env(safe-area-inset-right));
   max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  overscroll-behavior: contain;
+  overscroll-behavior: contain; display: block; overflow: auto;
 }
+body.touch .window-body { overflow: visible; }
+body.touch .window-collapse, body.touch .window-grip { display: none; }
 body.touch .window-bar { cursor: default; position: sticky; top: 0; z-index: 2; background: rgba(28, 36, 24, 0.98); }
 body.touch .window-close { width: 36px; height: 36px; font-size: 22px; }
 body.touch .sk-body { max-height: none; overflow: visible; }
@@ -761,6 +782,7 @@ body.touch .title-form { max-height: calc(100dvh - 150px); }
 
 /* ---- maps (src/mapui.ts): the minimap top right, the map window (M) ---- */
 #map { left: 50%; right: auto; top: 56px; transform: translateX(-50%); min-width: 0; max-height: none; overflow: visible; }
+#map .window-body { overflow: visible; }
 .mp-tabs { display: flex; gap: 6px; }
 .mp-stage { position: relative; padding: 8px; }
 .mp-canvas { display: block; border-radius: 10px; touch-action: none; }
@@ -811,7 +833,7 @@ body.touch .mp-info:empty { display: none; }
 
 /* ---- talking and quests (src/questui.ts): the talk window, the log (J), the tracker under HP/MP ---- */
 .qd {
-  position: fixed; left: 50%; bottom: 118px; transform: translateX(-50%); z-index: 6; width: min(470px, calc(100vw - 32px));
+  position: fixed; left: 50%; bottom: 118px; transform: translateX(-50%); z-index: 30; width: min(470px, calc(100vw - 32px));
   max-height: calc(100vh - 200px); overflow: auto; padding-bottom: 12px; border-radius: 14px;
   background: rgba(18, 24, 16, 0.95); border: 1px solid var(--rim); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }

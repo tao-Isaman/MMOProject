@@ -2,6 +2,7 @@
 // window (O) and the skill window (K) with its three tabs: skill books, masteries and elements.
 
 import { el, makeWindow, HAIRSTYLES } from "./ui";
+import { resetLayout } from "./windows";
 import type { Look } from "./ui";
 import { skillIcon, hasArt, icon } from "./icons";
 import {
@@ -333,6 +334,11 @@ export class SettingsUI {
     out.type = "button";
     out.textContent = "ออกจากเกม";
     out.addEventListener("click", onExit);
+    // windows go back to their default spots and sizes (each character keeps its own layout)
+    const layout = el("button", "wr-choice", row);
+    layout.type = "button";
+    layout.textContent = "รีเซ็ตตำแหน่งหน้าต่าง";
+    layout.addEventListener("click", resetLayout);
     el("p", "wr-note", body).textContent = "เกมเซฟให้อัตโนมัติ ทั้งเลเวล ของในกระเป๋า และตำแหน่งที่ยืน";
   }
 

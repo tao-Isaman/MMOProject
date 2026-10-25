@@ -148,7 +148,11 @@ export class MapUI {
       b.textContent = text;
       b.addEventListener("click", () => this.zoomAt(f));
     }
-    new MutationObserver(() => this.open && this.fit()).observe(this.win, { attributes: true, attributeFilter: ["class"] });
+    // fit when the window opens (not on the window manager's own class changes: front, collapsed)
+    let wasOpen = this.open;
+    new MutationObserver(() => {
+      if (this.open !== wasOpen && (wasOpen = this.open)) this.fit();
+    }).observe(this.win, { attributes: true, attributeFilter: ["class"] });
     window.addEventListener("resize", () => this.open && this.fit());
 
     const box = el("div", "minimap", document.body);

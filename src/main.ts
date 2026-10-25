@@ -47,6 +47,7 @@ import { Stall, StallUI, Townsfolk } from "./stall";
 import { Npc, TALK_RANGE } from "./npcs";
 import { loadMap, MAP_NAMES, TOWNS } from "./maps";
 import { MapUI, mapArea, travelFee } from "./mapui";
+import { closeTop, setCloser } from "./windows";
 import type { GameMap, MapId, TownId } from "./maps";
 import { findPath, blocked, SOLIDS } from "./world";
 import { RADIUS } from "./player";
@@ -1332,23 +1333,15 @@ async function boot(): Promise<void> {
         if (n) talkTo(n);
       }
     }
+    // Esc, one thing at a time: an aimed skill lets go, else the front window closes, else the talk window
     if (e.code === "Escape") {
-      stopAiming();
-      invUI.toggle(false);
-      statusUI.toggle(false);
-      settingsUI.toggle(false);
-      skillUI.toggle(false);
-      botUI.toggle(false);
-      shopUI.toggle(false);
-      workshopUI.toggle(false);
-      stallUI.toggle(false);
-      codexUI.toggle(false);
-      mapUI.toggle(false);
-      questLog.toggle(false);
-      talkDialog.close();
+      if (aiming) stopAiming();
+      else if (!closeTop()) talkDialog.close();
     }
     if (e.code === "Backquote") showDebug = !showDebug;
   });
+  // a window closed by its × or Esc closes as its owner would close it (tooltips, sounds, the map's guide)
+  for (const ui of [invUI, statusUI, settingsUI, skillUI, botUI, shopUI, workshopUI, stallUI, codexUI, mapUI, questLog]) setCloser(ui.win, () => ui.toggle(false));
   const buttons: [string, () => void][] = [["btn-inventory", () => invUI.toggle()],
     ["btn-status", () => statusUI.toggle()], ["btn-skills", () => skillUI.toggle()], ["btn-settings", () => settingsUI.toggle()],
     ["btn-bot", () => botUI.toggle()], ["btn-auto", () => bot.toggle()], ["btn-map", () => mapUI.cycle()], ["btn-quests", () => questLog.toggle()],
