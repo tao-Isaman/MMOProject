@@ -229,7 +229,7 @@ export class Combat {
   onBasicHit?: (m: Monster) => void;                            // a main-hand normal hit landed (autocast)
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
-  offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2; from: Vec2 }[] = []; // off-hand follow-ups (from: who strikes)
+  offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2; from: Vec2; sound: string }[] = []; // off-hand follow-ups (from: who strikes)
   burnClock = 0;
 
   // hero: stats for damage; onKill(monster)
@@ -267,7 +267,7 @@ export class Combat {
     const w = weaponStats(weaponId, this.hero.stats);
     const off = offhand ? weaponStats(offhand, this.hero.stats) : null;
     const follow = (m: Monster, d: Vec2) => {
-      if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player });
+      if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player, sound: offhand ?? "unarmed" });
     };
     const dir = player.aimDir();
     const origin = w.projectile?.kind === "arrow"
@@ -484,12 +484,13 @@ export class Combat {
       if (!h.m.alive) continue;
       const shot = h.w.projectile?.kind === "bullet" ? h.w.projectile : null;
       if (!shot) {
+        sound.playWeapon(h.sound);
         this.damage(h.m, h.w, h.dir, OFFHAND_DAMAGE);
         continue;
       }
       // a pistol in the off hand fires its own bullet at it
       const d = Math.hypot(h.m.x - h.from.x, h.m.y - h.from.y) || 1;
-      this.shoot(h.from, { x: (h.m.x - h.from.x) / d, y: (h.m.y - h.from.y) / d }, { ...shot, target: h.m, onHit: (m, dir) => this.damage(m, h.w, dir, OFFHAND_DAMAGE) });
+      this.shoot(h.from, { x: (h.m.x - h.from.x) / d, y: (h.m.y - h.from.y) / d }, { ...shot, target: h.m, weaponSound: h.sound, onHit: (m, dir) => this.damage(m, h.w, dir, OFFHAND_DAMAGE) });
     }
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
