@@ -11,6 +11,7 @@
 
 import * as THREE from "three";
 import { wind } from "./trees";
+import { sceneryTime } from "./animation";
 import { groundFromMap, heightAt, mapX, mapY } from "../projection";
 
 const COMPILE_WAIT = 8000; // ms the loading screen waits for shaders at most
@@ -360,6 +361,7 @@ export class World3D {
   render(dt: number): void {
     this.time += dt;
     wind.value = this.time;
+    sceneryTime.value = this.time;
     // the shadows cover 68 m around the view; past 15 m of drift they are drawn again around it
     if (this.shadowAt.distanceTo(this.target) > 1500) {
       this.shadowAt.copy(this.target);

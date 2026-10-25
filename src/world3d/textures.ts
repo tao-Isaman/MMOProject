@@ -3,6 +3,7 @@
 // Every map tiles and covers one metre (the meshes' texture coordinates are in metres).
 
 import * as THREE from "three";
+import { animateSceneryMaterial, type SceneryMotion } from "./animation";
 
 const SIZE = 256;
 
@@ -1207,6 +1208,12 @@ export function material(name: string): THREE.MeshStandardMaterial {
       m.bumpScale = r.bump;
     }
   }
+  const motion: SceneryMotion | null = r.card === "flowers" ? "flower"
+    : /flame|ember|fire/i.test(name) ? "fire"
+    : /spray|veil/i.test(name) ? "spray"
+    : /water/i.test(name) ? "water"
+    : null;
+  if (motion) animateSceneryMaterial(m, motion);
   mats.set(name, m);
   return m;
 }

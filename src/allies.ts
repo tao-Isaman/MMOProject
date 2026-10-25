@@ -23,6 +23,7 @@
 // Her allyPct stat makes every ally's HP and blows that much stronger.
 
 import { mapX, mapY, yaw } from "./projection";
+import { sound } from "./audio";
 import { resolve } from "./world";
 import { loadImage } from "./assets";
 import { rand, AIR_GLOW, GROUND_GLOW } from "./particles";
@@ -660,11 +661,14 @@ export class Allies {
     if (!a.alive) return;
     const st = { ...this.d.hero.stats, def: a.def, mdef: a.def, flee: a.flee, dmgRed: a.kind === "wall" ? 0.2 : 0 } as Stats;
     const r = monsterDamage(m, st);
+    if (!r) sound.play("miss", a.name.length);
     if (!r) return void this.d.floaters.add(a.x, a.y, 110, "พลาด", "miss");
+    sound.play("impact", r.dmg);
     a.hp -= r.dmg;
     a.hurt = 0.25;
     this.d.floaters.add(a.x, a.y, 100, `-${r.dmg}`, "hurt");
     if (a.hp <= 0) {
+      sound.play("enemy-death", a.name.length);
       a.hp = 0;
       this.ring(a.x, a.y, a.s.color, 160, 0.4);
       this.d.floaters.add(a.x, a.y, 140, `${a.name} ล้มแล้ว`, "info");

@@ -1,0 +1,228 @@
+// Procedural game SFX. Web Audio synthesizes the short sounds locally, so the game has no
+// external audio requests and every event can vary slightly without loading sample packs.
+
+type Wave = OscillatorType;
+
+interface ToneSpec {
+  from: number;
+  to: number;
+  duration: number;
+  gain: number;
+  wave?: Wave;
+  delay?: number;
+}
+
+interface NoiseSpec {
+  duration: number;
+  gain: number;
+  frequency: number;
+  type?: BiquadFilterType;
+  delay?: number;
+}
+
+interface SoundSpec {
+  tones: ToneSpec[];
+  noise?: NoiseSpec;
+  bus?: "ui" | "sfx";
+}
+
+const VOLUME_KEY = "mmoproject.sfx-volume.v1";
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
+function hash(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+class GameAudio {
+  private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private sfxBus: GainNode | null = null;
+  private uiBus: GainNode | null = null;
+  private noise: AudioBuffer | null = null;
+  private voices: number[] = [];
+  private level = this.readVolume();
+
+  constructor() {
+    document.addEventListener("pointerdown", () => this.unlock(), { capture: true, passive: true });
+    document.addEventListener("keydown", () => this.unlock(), { capture: true });
+    // One quiet UI sound covers buttons across all windows without wiring each control by hand.
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest<HTMLButtonElement>("button,[role='button']");
+      if (!button || (button instanceof HTMLButtonElement && (button.disabled || button.getAttribute("aria-disabled") === "true"))) return;
+      this.play("ui-click", hash(button.id || button.className.toString()));
+    }, true);
+  }
+
+  get volume(): number {
+    return this.level;
+  }
+
+  setVolume(value: number): void {
+    this.level = clamp(value, 0, 1);
+    try { localStorage.setItem(VOLUME_KEY, String(this.level)); } catch { /* private storage */ }
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.035);
+  }
+
+  private readVolume(): number {
+    try {
+      const value = Number(localStorage.getItem(VOLUME_KEY));
+      return Number.isFinite(value) ? clamp(value, 0, 1) : 0.72;
+    } catch { return 0.72; }
+  }
+
+  private unlock(): void {
+    if (!this.ctx) {
+      const Ctx = window.AudioContext;
+      if (!Ctx) return;
+      this.ctx = new Ctx({ latencyHint: "interactive" });
+      this.master = this.ctx.createGain();
+      this.sfxBus = this.ctx.createGain();
+      this.uiBus = this.ctx.createGain();
+      this.master.gain.value = this.level;
+      this.sfxBus.gain.value = 0.82;
+      this.uiBus.gain.value = 0.52;
+      this.sfxBus.connect(this.master);
+      this.uiBus.connect(this.master);
+      this.master.connect(this.ctx.destination);
+      this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+      const channel = this.noise.getChannelData(0);
+      for (let i = 0; i < channel.length; i++) channel[i] = Math.random() * 2 - 1;
+    }
+    if (this.ctx.state === "suspended") void this.ctx.resume().catch(() => undefined);
+  }
+
+  play(event: string, variation = 0): void {
+    if (!this.ctx || !this.sfxBus || !this.uiBus) return;
+    if (this.ctx.state === "suspended") void this.ctx.resume().catch(() => undefined);
+    const now = this.ctx.currentTime;
+    this.voices = this.voices.filter((until) => until > now);
+    if (this.voices.length >= 18) return;
+    const spec = this.spec(event, variation);
+    const bus = spec.bus === "ui" ? this.uiBus : this.sfxBus;
+    const jitter = 0.965 + Math.random() * 0.07;
+    let end = now;
+    for (const tone of spec.tones) {
+      const start = now + (tone.delay ?? 0);
+      end = Math.max(end, start + tone.duration);
+      this.tone(tone, start, bus, jitter);
+    }
+    if (spec.noise) {
+      const start = now + (spec.noise.delay ?? 0);
+      end = Math.max(end, start + spec.noise.duration);
+      this.noiseBurst(spec.noise, start, bus);
+    }
+    this.voices.push(end + 0.02);
+  }
+
+  playSkill(theme: string, type: string, id: string): void {
+    if (!this.ctx) return;
+    const roots: Record<string, number> = {
+      fire: 180, plant: 360, ice: 620, water: 420, lightning: 760, wind: 520, earth: 145,
+      holy: 680, shadow: 230, poison: 300, metal: 250, arcane: 500, physical: 210,
+    };
+    const seed = hash(id), root = roots[theme] ?? 440, offset = (seed % 9) * 0.035;
+    const support = ["heal", "shield", "buff", "orb", "form"].includes(type);
+    const duration = support ? 0.34 : 0.24;
+    const wave: Wave = theme === "fire" || theme === "poison" ? "sawtooth" : theme === "lightning" || theme === "metal" ? "square" : "sine";
+    const bus = this.sfxBus;
+    if (!bus || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    this.voices = this.voices.filter((until) => until > now);
+    if (this.voices.length >= 18) return;
+    const tones: ToneSpec[] = support
+      ? [{ from: root, to: root * 1.3, duration: duration * 0.72, gain: 0.065, wave },
+         { from: root * 1.25, to: root * 1.9, duration: duration * 0.62, gain: 0.045, wave: "sine", delay: duration * 0.24 },
+         { from: root * 1.9, to: root * 2.25, duration: duration * 0.7, gain: 0.03, wave: "sine", delay: duration * 0.52 }]
+      : [{ from: root * (1 + offset), to: root * (type === "beam" ? 0.62 : 0.48), duration, gain: 0.07, wave },
+         { from: root * 1.5, to: root * 0.8, duration: duration * 0.7, gain: 0.032, wave: "sine", delay: 0.018 }];
+    for (const tone of tones) this.tone(tone, now + (tone.delay ?? 0), bus, 0.98 + (seed % 5) * 0.01);
+    if (!support && this.noise && this.voices.length < 18) {
+      this.noiseBurst({ duration: 0.08, gain: theme === "fire" || theme === "earth" ? 0.045 : 0.018,
+        frequency: theme === "ice" ? 3200 : theme === "fire" ? 900 : 1800, type: "highpass" }, now, bus);
+    }
+    this.voices.push(now + duration + 0.04);
+  }
+
+  playFootstep(surface: string): void {
+    this.play("footstep", hash(surface));
+  }
+
+  playProjectile(kind: string, theme = ""): void {
+    const seed = hash(`${kind}:${theme}`);
+    this.play(kind === "bullet" ? "gunshot" : kind === "arrow" ? "arrow-shot" : "magic-shot", seed);
+  }
+
+  private tone(spec: ToneSpec, start: number, bus: GainNode, jitter: number): void {
+    if (!this.ctx) return;
+    const end = start + spec.duration, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+    osc.type = spec.wave ?? "sine";
+    osc.frequency.setValueAtTime(Math.max(24, spec.from * jitter), start);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(24, spec.to * jitter), end);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(spec.gain, start + Math.min(0.012, spec.duration * 0.18));
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    osc.connect(gain);
+    gain.connect(bus);
+    osc.start(start);
+    osc.stop(end + 0.01);
+  }
+
+  private noiseBurst(spec: NoiseSpec, start: number, bus: GainNode): void {
+    if (!this.ctx || !this.noise) return;
+    const source = this.ctx.createBufferSource(), filter = this.ctx.createBiquadFilter(), gain = this.ctx.createGain();
+    source.buffer = this.noise;
+    filter.type = spec.type ?? "bandpass";
+    filter.frequency.setValueAtTime(spec.frequency, start);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(80, spec.frequency * 0.35), start + spec.duration);
+    filter.Q.value = 0.7;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(spec.gain, start + Math.min(0.008, spec.duration * 0.2));
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + spec.duration);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus);
+    source.start(start);
+    source.stop(start + spec.duration + 0.01);
+  }
+
+  private spec(event: string, variation: number): SoundSpec {
+    const v = (variation % 7) * 0.035;
+    switch (event) {
+      case "ui-click": return { bus: "ui", tones: [{ from: 740 + variation % 180, to: 480, duration: 0.045, gain: 0.026, wave: "sine" }] };
+      case "ui-open": return { bus: "ui", tones: [{ from: 390, to: 620, duration: 0.13, gain: 0.04 }, { from: 585, to: 790, duration: 0.1, gain: 0.022, delay: 0.045 }] };
+      case "ui-close": return { bus: "ui", tones: [{ from: 560, to: 340, duration: 0.11, gain: 0.035 }] };
+      case "ui-error": return { bus: "ui", tones: [{ from: 250, to: 170, duration: 0.15, gain: 0.045, wave: "triangle" }], noise: { duration: 0.055, gain: 0.012, frequency: 500, type: "lowpass" } };
+      case "swing": return { tones: [{ from: 290 + variation % 140, to: 95, duration: 0.12, gain: 0.055, wave: "triangle" }], noise: { duration: 0.075, gain: 0.035, frequency: 2100 + variation % 700, type: "bandpass" } };
+      case "impact": return { tones: [{ from: 115 + variation % 32, to: 48, duration: 0.12, gain: 0.1, wave: "sine" }], noise: { duration: 0.06, gain: 0.065, frequency: 720, type: "lowpass" } };
+      case "miss": return { tones: [{ from: 380, to: 190, duration: 0.13, gain: 0.035, wave: "triangle" }], noise: { duration: 0.045, gain: 0.012, frequency: 1800, type: "highpass" } };
+      case "critical": return { tones: [{ from: 420, to: 155, duration: 0.19, gain: 0.095, wave: "triangle" }, { from: 780, to: 330, duration: 0.13, gain: 0.045, delay: 0.01 }], noise: { duration: 0.08, gain: 0.05, frequency: 2600, type: "highpass" } };
+      case "enemy-death": return { tones: [{ from: 250 + v * 500, to: 58, duration: 0.27, gain: 0.065, wave: "triangle" }], noise: { duration: 0.11, gain: 0.035, frequency: 540, type: "lowpass" } };
+      case "player-hurt": return { tones: [{ from: 210, to: 82, duration: 0.22, gain: 0.085, wave: "sawtooth" }], noise: { duration: 0.1, gain: 0.045, frequency: 480, type: "lowpass" } };
+      case "player-death": return { tones: [{ from: 390, to: 170, duration: 0.45, gain: 0.07, wave: "triangle" }, { from: 190, to: 58, duration: 0.56, gain: 0.055, wave: "sine", delay: 0.18 }], noise: { duration: 0.24, gain: 0.035, frequency: 520, type: "lowpass" } };
+      case "enemy-swipe": return { tones: [{ from: 180, to: 70, duration: 0.16, gain: 0.055, wave: "triangle" }], noise: { duration: 0.09, gain: 0.028, frequency: 900, type: "bandpass" } };
+      case "enemy-shot": return { tones: [{ from: 430 + variation % 260, to: 150, duration: 0.2, gain: 0.045, wave: "sawtooth" }], noise: { duration: 0.08, gain: 0.035, frequency: 1300, type: "bandpass" } };
+      case "arrow-shot": return { tones: [{ from: 620 + v * 300, to: 240, duration: 0.13, gain: 0.04, wave: "triangle" }], noise: { duration: 0.095, gain: 0.05, frequency: 2800, type: "highpass" } };
+      case "gunshot": return { tones: [{ from: 130, to: 42, duration: 0.13, gain: 0.11, wave: "square" }], noise: { duration: 0.12, gain: 0.11, frequency: 1500, type: "lowpass" } };
+      case "magic-shot": return { tones: [{ from: 850 + variation % 300, to: 310, duration: 0.22, gain: 0.05 }, { from: 1300, to: 680, duration: 0.15, gain: 0.025, delay: 0.018 }] };
+      case "loot-pickup": return { tones: [{ from: 760 + variation % 140, to: 1120, duration: 0.12, gain: 0.055 }, { from: 1120, to: 1480, duration: 0.13, gain: 0.038, delay: 0.07 }] };
+      case "coin": return { tones: [{ from: 920, to: 1280, duration: 0.075, gain: 0.04 }, { from: 1380, to: 980, duration: 0.12, gain: 0.032, delay: 0.065 }] };
+      case "potion-hp": return { tones: [{ from: 360, to: 720, duration: 0.24, gain: 0.05 }, { from: 540, to: 980, duration: 0.29, gain: 0.035, delay: 0.06 }] };
+      case "potion-mp": return { tones: [{ from: 530, to: 980, duration: 0.27, gain: 0.05 }, { from: 790, to: 1320, duration: 0.3, gain: 0.032, delay: 0.06 }] };
+      case "heal": return { tones: [{ from: 420, to: 680, duration: 0.22, gain: 0.05 }, { from: 640, to: 980, duration: 0.3, gain: 0.04, delay: 0.1 }] };
+      case "buff": return { tones: [{ from: 360, to: 560, duration: 0.16, gain: 0.045 }, { from: 560, to: 880, duration: 0.2, gain: 0.04, delay: 0.11 }] };
+      case "shield": return { tones: [{ from: 240, to: 440, duration: 0.2, gain: 0.06, wave: "triangle" }, { from: 590, to: 510, duration: 0.24, gain: 0.035, delay: 0.045 }], noise: { duration: 0.16, gain: 0.025, frequency: 1500, type: "bandpass" } };
+      case "level-up": return { tones: [{ from: 392, to: 392, duration: 0.15, gain: 0.05 }, { from: 523, to: 523, duration: 0.15, gain: 0.05, delay: 0.12 }, { from: 784, to: 1046, duration: 0.36, gain: 0.065, delay: 0.24 }] };
+      case "quest-complete": return { tones: [{ from: 523, to: 523, duration: 0.13, gain: 0.045 }, { from: 659, to: 659, duration: 0.13, gain: 0.05, delay: 0.1 }, { from: 784, to: 1175, duration: 0.29, gain: 0.06, delay: 0.2 }] };
+      case "travel": return { tones: [{ from: 260, to: 390, duration: 0.34, gain: 0.045, wave: "triangle" }, { from: 520, to: 790, duration: 0.38, gain: 0.038, delay: 0.2 }], noise: { duration: 0.28, gain: 0.025, frequency: 500, type: "lowpass" } };
+      case "talk": return { tones: [{ from: 540 + variation % 150, to: 710 + variation % 130, duration: 0.095, gain: 0.03 }, { from: 720, to: 590, duration: 0.08, gain: 0.022, delay: 0.09 }] };
+      case "footstep": return { tones: [{ from: 100 + variation % 25, to: 54, duration: 0.065, gain: 0.046, wave: "triangle" }], noise: { duration: 0.045, gain: 0.018, frequency: 400 + variation % 1100, type: variation % 2 ? "lowpass" : "bandpass" } };
+      default: return { tones: [{ from: 400, to: 260, duration: 0.12, gain: 0.035 }] };
+    }
+  }
+}
+
+export const sound = new GameAudio();

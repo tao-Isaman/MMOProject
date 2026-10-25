@@ -75,6 +75,8 @@ import type { Spell } from "./spell";
 import { CastCircle } from "./castfx";
 import type { CastTarget } from "./castfx";
 import { lookFor } from "./circles";
+import { skillVfxProfile, type SkillVfxTheme } from "./skillvfx";
+import { sound } from "./audio";
 import { WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
 import type { Hero } from "./hero";
@@ -183,6 +185,7 @@ const SHOT_TINT: Record<string, string> = {
 interface Trap {
   x: number;
   y: number;
+  id: string;
   s: SkillDef;
   rank: number;
   left: number;
@@ -382,7 +385,8 @@ export class Skills {
       const mark = lock ?? this.markFor(s, dir, aim);
       // the circle under the caster (as wide as a spell round the caster reaches), and a sigil
       // under what it is aimed at
-      const look = lookFor(id, s.color);
+      const profile = this.vfxProfile(id, s);
+      const look = lookFor(id, this.vfxColor(id, s), profile.glyph, profile.theme);
       const size = s.type === "nova" || s.type === "storm" ? Math.max(look.size, (s.radius ?? 200) * 2) : look.size;
       const circle = new CastCircle(this.fx, this.tex, look, p, time, size, this.sigilFor(s, dir, aim, mark, lock));
       this.spells.push(circle);
@@ -570,7 +574,7 @@ export class Skills {
   }
 
   // Damage a monster with a skill, then the element riders.
-  hit(m: Monster, skill: SkillDef, rank: number, dir: Vec2, knock = 0, chained = false): void {
+  hit(m: Monster, skill: SkillDef, rank: number, dir: Vec2, knock = 0, chained = false, skillId = ""): void {
     if (!m.alive) return;
     // an enchanted weapon lends its element to a physical skill that has none
     const ench = this.hero.enchant;
@@ -621,6 +625,7 @@ export class Skills {
     if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
     if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank) * poisonScale(this.hero.stats, this.el)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock);
+    if (skillId) this.skillImpactVfx(skillId, skill, m, dir);
     // a stealing blow: once a monster, gold or one of its drops
     if (s.steal && !m.stolen && lucky(at(s.stealChance, rank) ?? 0, this.hero.stats)) {
       m.stolen = true;
@@ -640,7 +645,7 @@ export class Skills {
         .slice(0, lightning >= 35 ? 2 : 1);
       for (const o of next) {
         this.zap(m, o);
-        this.hit(o, s, rank, dir, 0, true);
+        this.hit(o, s, rank, dir, 0, true, skillId);
       }
     }
   }
@@ -712,29 +717,40 @@ export class Skills {
 
   effect(id: string, s: SkillDef, rank: number, dir: Vec2, aim: Vec2 | null, lock: Monster | null = null): void {
     const p = this.player, origin = { x: p.x, y: p.y };
-    const hitAll = (list: Monster[], knock?: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock));
+    if (s.type !== "workshop" && s.type !== "stall" && s.type !== "make") {
+      const profile = this.vfxProfile(id, s);
+      sound.playSkill(profile.theme, s.type, id);
+    }
+    if (s.type !== "flower" && s.type !== "workshop" && s.type !== "stall" && s.type !== "make") this.skillReleaseVfx(id, s, dir);
+    const hitAll = (list: Monster[], knock?: number) => list.forEach((m) => this.hit(m, s, rank, dir, knock, false, id));
     switch (s.type) {
-      case "bolt":
+      case "bolt": {
         // `hits` shots one after another (a volley of arrows)
+        const profile = this.vfxProfile(id, s), color = this.vfxColor(id, s);
         for (let i = 0; i < (s.hits ?? 1); i++) {
           this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot(p.projectileOrigin(), dir, {
             kind: s.arrow ? "arrow" : s.bullet ? "bullet" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
-            target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock),
+            color, vfxTheme: profile.theme, glyph: profile.glyph, vfxSignature: profile.signature,
+            target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock, false, id),
           }));
         }
         break;
-      case "fan":
+      }
+      case "fan": {
+        const profile = this.vfxProfile(id, s), color = this.vfxColor(id, s);
         this.later(LEAD, () => {
           const base = Math.atan2(dir.y, dir.x), spread = ((s.spread ?? 40) * Math.PI) / 180, count = s.count ?? 3;
           for (let i = 0; i < count; i++) {
             const a = base + (i / (count - 1) - 0.5) * spread;
             this.combat.shoot(p.projectileOrigin(), { x: Math.cos(a), y: Math.sin(a) }, {
               kind: s.arrow ? "arrow" : s.bullet ? "bullet" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
-              onHit: (m, d) => this.hit(m, s, rank, d),
+              color, vfxTheme: profile.theme, glyph: profile.glyph, vfxSignature: profile.signature,
+              onHit: (m, d) => this.hit(m, s, rank, d, 0, false, id),
             });
           }
         });
         break;
+      }
       case "blast": {
         const range = s.range ?? 500, radius = s.radius ?? 150, delay = s.delay ?? 0.3;
         const dist = aim ? Math.min(range, Math.hypot(aim.x - p.x, aim.y - p.y)) : range * 0.6;
@@ -755,7 +771,7 @@ export class Skills {
           this.later(LEAD * 0.8 + i * 0.2, () => {
             for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
               const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
-              this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock);
+              this.hit(m, s, rank, { x: dx / d, y: dy / d }, s.knock, false, id);
             }
             this.ring(p.x, p.y, s.color, radius * 2, 0.45);
             this.burst(p.x, p.y, s.color, radius * 0.7);
@@ -770,7 +786,7 @@ export class Skills {
           this.later(LEAD * 0.5 + i * (s.every ?? 0.2), () => {
             for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: radius }, this.monsters)) {
               const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy) || 1;
-              this.hit(m, s, rank, { x: dx / d, y: dy / d });
+              this.hit(m, s, rank, { x: dx / d, y: dy / d }, 0, false, id);
             }
             this.ring(p.x, p.y, s.color, radius * 2, 0.25);
             if (i < pulses - 1) p.startMotion(i % 2 ? "swing" : "thrust", dir, this.weaponStats(), 0.2);
@@ -806,8 +822,8 @@ export class Skills {
           if (s.mult) for (const m of shapeTargets({ x: p.x, y: p.y }, dir, { hit: "circle", reach: s.width ?? 60 }, this.monsters)) {
             if (hit.has(m)) continue;
             hit.add(m);
-            this.hit(m, s, rank, dir, 30);
-            for (let i = 1; i < (s.hits ?? 1); i++) this.later(i * 0.12, () => this.hit(m, s, rank, dir));
+            this.hit(m, s, rank, dir, 30, false, id);
+            for (let i = 1; i < (s.hits ?? 1); i++) this.later(i * 0.12, () => this.hit(m, s, rank, dir, 0, false, id));
           }
           this.fx.add({ x: p.x, y: p.y, z: 50, layer: AIR_GLOW, tex: this.tex.sparkle, life: 0.35,
             size: [[0, 40], [1, 8]], alpha: [[0, 0.8], [1, 0]] });
@@ -825,7 +841,7 @@ export class Skills {
           const amount = this.hero.stats.maxMp * at(s.base, rank) + this.hero.stats.matk * at(s.mult, rank);
           this.hero.addShield(amount, s.duration ?? 8);
           this.floaters.add(p.x, p.y, 130, `โล่ ${Math.round(amount)}`, "shield");
-          this.ring(p.x, p.y, s.color, 140, 0.6);
+          this.skillAuraVfx(id, s, "shield");
         });
         break;
       case "buff":
@@ -840,8 +856,7 @@ export class Skills {
           this.hero.addBuff(id, this.nameOf(id), stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant, s.terrain?.(rank));
           if (s.heal) this.restore(id, s, this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
           this.floaters.add(p.x, p.y, 150, this.nameOf(id), "level");
-          this.ring(p.x, p.y, s.color, 180, 0.5);
-          this.sparkleUp(p.x, p.y, this.tex.flash, 16);
+          this.skillAuraVfx(id, s, "buff");
         });
         break;
       case "trap": {
@@ -850,7 +865,7 @@ export class Skills {
         const spot = { x: p.x + dir.x * dist, y: p.y + dir.y * dist };
         this.later(LEAD, () => {
           if (this.traps.length >= MAX_TRAPS) this.traps.shift();
-          this.traps.push({ ...spot, s, rank, left: s.duration ?? 20, armed: 0.5, pulse: 0 });
+          this.traps.push({ ...spot, id, s, rank, left: s.duration ?? 20, armed: 0.5, pulse: 0 });
           this.ring(spot.x, spot.y, s.color, (s.radius ?? 90) * 2, 0.5, true);
         });
         break;
@@ -903,8 +918,8 @@ export class Skills {
           this.later(LEAD + i * 0.25, () => {
             if (!lock.alive) return;
             // a pack strike: each wolf standing leaps in and lands the hit, no falcon
-            if (s.ally === "wolf") this.allies?.pounce(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir));
-            else this.dive(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir));
+            if (s.ally === "wolf") this.allies?.pounce(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir, 0, false, id));
+            else this.dive(lock, () => this.hit(lock, s, rank, toward(p, lock) ?? dir, 0, false, id));
           });
         }
         break;
@@ -920,7 +935,7 @@ export class Skills {
           this.later(CAST_TIME + 0.4 + i * 1, () => {
             for (const m of shapeTargets(spot, dir, { hit: "circle", reach: radius }, this.monsters)) {
               const dx = m.x - spot.x, dy = m.y - spot.y, d = Math.hypot(dx, dy) || 1;
-              this.hit(m, s, rank, { x: dx / d, y: dy / d }, 5);
+              this.hit(m, s, rank, { x: dx / d, y: dy / d }, 5, false, id);
             }
           });
         }
@@ -1069,7 +1084,7 @@ export class Skills {
       if (caught.length) {
         for (const m of caught) {
           const dx = m.x - t.x, dy = m.y - t.y, d = Math.hypot(dx, dy) || 1;
-          this.hit(m, t.s, t.rank, { x: dx / d, y: dy / d }, t.s.knock);
+          this.hit(m, t.s, t.rank, { x: dx / d, y: dy / d }, t.s.knock, false, t.id);
         }
         this.burst(t.x, t.y, t.s.color, radius);
       }
@@ -1102,6 +1117,131 @@ export class Skills {
   }
 
   // ---- effects ----
+  vfxProfile(id: string, s: SkillDef) {
+    return skillVfxProfile(id, ACTIVES[id]?.glyph ?? "star", s);
+  }
+
+  vfxColor(id: string, s: SkillDef): string {
+    const colors: Record<SkillVfxTheme, string> = {
+      fire: "#ff713b", plant: "#8be276", ice: "#9feaff", water: "#62cfff", lightning: "#fff06a",
+      wind: "#a5f4dc", earth: "#d4ad79", holy: "#ffe99a", shadow: "#bd8cff", poison: "#8ee45d",
+      metal: "#d7e5f2", arcane: "#c7a2ff", physical: "#ffd4a0",
+    };
+    return s.color || colors[this.vfxProfile(id, s).theme];
+  }
+
+  // A small, readable cast signature for every active: the icon's shape and the skill's element
+  // travel together, so otherwise similar skill types still look distinct.
+  skillReleaseVfx(id: string, s: SkillDef, dir: Vec2): void {
+    const p = this.player, profile = this.vfxProfile(id, s), color = this.vfxColor(id, s);
+    const glyph = profile.glyph, theme = profile.theme, seed = profile.signature;
+    const size = Math.max(48, Math.min(150, s.radius ?? s.reach ?? 90));
+    const origin = { x: p.x, y: p.y }, glow = this.tex.glowFor(color);
+    const directional = ["bolt", "beam", "arrow", "pierce", "dash", "wing", "twin"].includes(glyph);
+    if (["nova", "storm", "heal", "shield", "buff", "orb", "form", "summon", "decoy", "smoke", "trap"].includes(s.type)) {
+      this.ring(p.x, p.y, color, size * 2.2, 0.52, true);
+    }
+    if (directional) {
+      for (let i = 0; i < 7; i++) {
+        const side = (i - 3) * 10;
+        const x = p.x + dir.x * (32 + i * 15) - dir.y * side;
+        const y = p.y + dir.y * (32 + i * 15) + dir.x * side;
+        this.fx.add({ x, y, z: 35 + (i % 3) * 12, vx: dir.x * 85, vy: dir.y * 85, layer: AIR_GLOW, tex: glow, life: 0.28,
+          size: [[0, 26], [1, 3]], alpha: [[0, 0.8], [1, 0]] });
+      }
+    } else if (["flower", "leaf", "thorn"].includes(glyph) || theme === "plant") {
+      for (let i = 0; i < 10; i++) {
+        const a = (Math.PI * 2 * i) / 10, r = 32 + (i % 2) * 22;
+        this.fx.add({ x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, z: 12 + (i % 4) * 9,
+          vx: Math.cos(a) * 18, vy: Math.sin(a) * 18, vz: 55 + (i % 3) * 18, az: 30, spin: (i % 2 ? 1 : -1) * 2,
+          layer: SORTED, atlas: this.tex.petals, frame: i % 4, life: 0.85, size: [[0, 15], [0.45, 18], [1, 2]], alpha: [[0, 0], [0.12, 0.95], [1, 0]] });
+      }
+    } else if (["flame", "rage", "burst"].includes(glyph) || theme === "fire") {
+      for (let i = 0; i < 9; i++) {
+        const a = (Math.PI * 2 * i) / 9, r = 24 + (i % 3) * 10;
+        this.fx.add({ x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, z: 8, vx: Math.cos(a) * 45, vy: Math.sin(a) * 45,
+          vz: 95 + (i % 3) * 20, layer: AIR_GLOW, tex: this.tex.ember, life: 0.55, size: [[0, 15], [1, 3]], alpha: [[0, 0.9], [1, 0]] });
+      }
+    } else if (["freeze", "drop", "wave", "eye"].includes(glyph) || theme === "ice" || theme === "water") {
+      this.ring(p.x, p.y, color, size * 1.5, 0.45, true);
+      this.sparkleUp(p.x, p.y, glow, 8);
+    } else if (["heal", "heart", "star", "up"].includes(glyph) || theme === "holy") {
+      this.sparkleUp(p.x, p.y, this.tex.flash, 10);
+      this.fx.add({ x: p.x, y: p.y, z: 55, layer: AIR_GLOW, tex: this.tex.flash, life: 0.4,
+        size: [[0, 18], [0.4, 42], [1, 8]], alpha: [[0, 0.8], [1, 0]] });
+    } else if (["shield", "bash", "slam", "earth"].includes(glyph) || theme === "metal" || theme === "earth") {
+      this.ring(p.x, p.y, color, 110, 0.4, true);
+      this.burst(p.x, p.y, color, 52);
+    } else if (["swirl", "spin", "storm", "fan"].includes(glyph) || theme === "wind" || theme === "lightning") {
+      this.ring(p.x, p.y, color, size * 1.4, 0.4, true);
+      this.fan(origin, dir, 95, 105, color);
+    } else {
+      this.ring(p.x, p.y, color, 96, 0.38, true);
+      this.sparkleUp(p.x, p.y, glow, 6);
+    }
+    // A stable per-skill flourish gives every named skill its own arrangement, even when two
+    // share an element and icon family. The element still selects the actual particle material.
+    const count = 3 + (seed % 5), phase = ((seed >>> 8) % 628) / 100;
+    for (let i = 0; i < count; i++) {
+      const f = i / count, angle = phase + f * Math.PI * 2 * (1 + (seed % 3));
+      const radius = 30 + ((seed >>> ((i % 4) * 5)) % 46);
+      const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
+      this.fx.add({ x, y, z: 18 + ((seed >>> (i % 16)) % 52), vx: Math.cos(angle + 0.8) * (20 + seed % 45),
+        vy: Math.sin(angle + 0.8) * (20 + seed % 45), vz: 35 + ((seed >>> (i % 13)) % 75), spin: (seed & 1 ? 1 : -1) * (1 + (seed % 4)),
+        layer: theme === "plant" ? SORTED : AIR_GLOW, tex: theme === "fire" ? this.tex.ember : glow, life: 0.48 + (seed % 35) / 100,
+        size: [[0, 8 + (seed % 12)], [1, 2]], alpha: [[0, 0.9], [1, 0]] });
+    }
+  }
+
+  skillImpactVfx(id: string, s: SkillDef, m: Monster, dir: Vec2): void {
+    const profile = this.vfxProfile(id, s), color = this.vfxColor(id, s), seed = profile.signature;
+    const count = 2 + (seed % 3), base = Math.atan2(dir.y, dir.x), glow = this.tex.glowFor(color);
+    for (let i = 0; i < count; i++) {
+      const a = base + (((seed >>> (i * 3)) % 100) / 100 - 0.5) * Math.PI + i * Math.PI * 2 / count;
+      const speed = 35 + ((seed >>> (i * 4)) % 80), r = m.radius * (0.25 + (i % 3) * 0.18);
+      const particle = profile.theme === "plant"
+        ? { layer: SORTED, atlas: this.tex.petals, frame: (seed + i) % 4 }
+        : { layer: AIR_GLOW, tex: profile.theme === "fire" ? this.tex.ember : glow };
+      this.fx.add({ x: m.x + Math.cos(a) * r, y: m.y + Math.sin(a) * r, z: m.height * 0.5 + 12,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, vz: 28 + ((seed >>> (i * 2)) % 65), spin: (i % 2 ? 1 : -1) * 2,
+        ...particle, life: 0.22 + ((seed >>> (i * 5)) % 24) / 100,
+        size: [[0, 8 + ((seed >>> i) % 8)], [1, 2]], alpha: [[0, 0.95], [1, 0]] });
+    }
+    const closeStrike = s.type === "cone" || s.type === "dash" || s.type === "falcon" ||
+      ((s.type === "nova" || s.type === "storm") && s.stat === "atk");
+    if (closeStrike) {
+      // A weapon-like crescent follows the strike direction; its sweep and density belong to
+      // this skill, while the tinted edge follows its element and icon theme.
+      const halfArc = 0.42 + (seed % 45) / 100, slices = 5 + (seed % 4), reach = m.radius + 24 + (seed % 28);
+      for (let i = 0; i <= slices; i++) {
+        const a = base + (i / slices - 0.5) * halfArc * 2;
+        this.fx.add({ x: m.x + Math.cos(a) * reach, y: m.y + Math.sin(a) * reach, z: m.height * 0.45 + 34,
+          vx: Math.cos(a) * (18 + seed % 36), vy: Math.sin(a) * (18 + seed % 36),
+          layer: AIR_GLOW, tex: i % 3 === seed % 3 ? this.tex.flash : glow, life: 0.16 + (i % 3) * 0.025,
+          size: [[0, 18 + (seed % 12)], [0.35, 28 + (seed % 16)], [1, 2]], alpha: [[0, 0], [0.08, 0.95], [1, 0]] });
+      }
+    }
+  }
+
+  skillAuraVfx(id: string, s: SkillDef, kind: "buff" | "shield"): void {
+    const profile = this.vfxProfile(id, s), color = this.vfxColor(id, s), seed = profile.signature;
+    const p = this.player, count = (kind === "shield" ? 9 : 6) + (seed % 5), radius = (kind === "shield" ? 72 : 52) + (seed % 24);
+    const glow = this.tex.glowFor(color);
+    this.ring(p.x, p.y, color, radius * 2.4, 0.72, true);
+    if (kind === "shield") this.ring(p.x, p.y, color, radius * 1.45, 0.55);
+    for (let i = 0; i < count; i++) {
+      const angle = ((Math.PI * 2 * i) / count) + ((seed % 628) / 100);
+      const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
+      const mote = profile.theme === "plant"
+        ? { layer: SORTED, atlas: this.tex.petals, frame: (seed + i) % 4 }
+        : { layer: AIR_GLOW, tex: kind === "shield" ? this.tex.flash : glow };
+      this.fx.add({ x, y, z: 26 + (i % 3) * 13, vx: -Math.sin(angle) * (18 + seed % 20),
+        vy: Math.cos(angle) * (18 + seed % 20), vz: 12 + (seed % 48), spin: seed & 1 ? 1.8 : -1.8,
+        ...mote, life: 0.75 + (seed % 30) / 100, size: [[0, 7], [0.2, 18 + (seed % 9)], [1, 3]],
+        alpha: [[0, 0], [0.12, 0.9], [1, 0]] });
+    }
+  }
+
   ring(x: number, y: number, color: string, size: number, life: number, ground = false): void {
     this.fx.add({ x, y, z: 2, layer: GROUND_GLOW, tex: this.tex.ringFor(color), flat: true, life,
       size: ground ? [[0, size * 0.9], [1, size]] : [[0, size * 0.3], [1, size]], alpha: [[0, 0.9], [0.7, 0.6], [1, 0]] });

@@ -32,8 +32,42 @@ export const LOOKS: Record<string, CircleLook> = {
 };
 
 // A look for a spell without one of its own, from its colour.
-export function lookFor(id: string, color: string): CircleLook {
-  return LOOKS[id] ?? { color, light: "#ffffff", figure: "star5", script: "arcane", motes: "wisp", size: 260 };
+const inferredLooks = new Map<string, CircleLook>();
+export function lookFor(id: string, color: string, glyph = "star", elementTheme?: string): CircleLook {
+  if (LOOKS[id]) return LOOKS[id];
+  const key = `${id}|${color}|${glyph}|${elementTheme ?? ""}`;
+  let look = inferredLooks.get(key);
+  if (look) return look;
+  const words = `${id} ${glyph}`.toLowerCase();
+  const theme = elementTheme === "fire" ? "fire" : elementTheme === "ice" ? "ice" : elementTheme === "plant" ? "nature"
+    : elementTheme === "poison" || elementTheme === "shadow" ? "void"
+    : /fire|flame|meteor|lava/.test(words) ? "fire"
+    : /poison|toxic|venom/.test(words) ? "void"
+    : /ice|frost|freeze|snow/.test(words) ? "ice"
+    : /lightning|thunder/.test(words) ? "arcane"
+    : /plant|flower|petal|seed|root|thorn|vine/.test(words) ? "nature"
+    : /holy|divine|bless|angel|heal|miracle/.test(words) ? "arcane"
+    : /shadow|dark|doom|curse|smoke|void/.test(words) ? "void"
+    : /water|river|aqua|tide|rain/.test(words) ? "ice"
+    : /wind|dash|sprint|gale|spin|whirl|storm/.test(words) ? "arcane"
+    : /earth|stone|mud|quake|slam/.test(words) ? "arcane"
+    : "arcane";
+  const figures: Record<string, Figure> = {
+    flower: "rose", leaf: "vines", thorn: "thorns", flame: "triangle", rage: "sun", burst: "octagram",
+    freeze: "snow", drop: "eye", eye: "eye", shield: "hexagram", heal: "star5", heart: "rose",
+    wave: "orbits", swirl: "spiral", spin: "spiral", storm: "orbits", dash: "triangle", arrow: "triangle",
+    bolt: "star5", beam: "sun", earth: "hexagram", slam: "octagram", fan: "star5", pierce: "triangle",
+  };
+  const signatures: Figure[] = [figures[glyph] ?? "star5", "triangle", "sun", "octagram", "hexagram", "orbits", "spiral"];
+  const seed = Array.from(id).reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
+  const base = figures[glyph] ?? "star5";
+  const figure = seed % 5 === 0 ? signatures[(seed >>> 4) % signatures.length] : base;
+  const scripts: Record<string, Script> = { fire: "fire", ice: "ice", nature: "nature", arcane: "arcane", void: "void" };
+  const motes: Record<string, Motes> = { fire: "ember", ice: "frost", nature: glyph === "flower" || glyph === "thorn" ? "petal" : "leaf", arcane: "wisp", void: "void" };
+  look = { color, light: "#ffffff", figure, script: scripts[theme], motes: motes[theme], size: glyph === "burst" || glyph === "storm" ? 330 : 260,
+    nodes: 3 + (seed % 6) };
+  inferredLooks.set(key, look);
+  return look;
 }
 
 export interface CircleTextures {

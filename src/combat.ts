@@ -3,6 +3,7 @@
 // from stats.js.
 
 import { fromView, mapX, mapY, S2, toView } from "./projection";
+import { sound } from "./audio";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, rand } from "./particles";
@@ -18,6 +19,7 @@ import type { Img, Textures, Vec2, View } from "./types";
 // Where a gun's muzzle is when she fires: this far ahead of her (cm) and this high, and this far
 // to the side when she aims up or down the screen.
 const MUZZLE = { out: 62, z: 95, side: 44 };
+const soundSeed = (text: string): number => { let h = 2166136261; for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619); return h >>> 0; };
 
 export const UNARMED: WeaponType = { name: "มือเปล่า", motion: "thrust", hit: "line", reach: 90, width: 40, interval: 0.6, damage: [4, 7] };
 
@@ -176,6 +178,9 @@ export interface ShotSpec {
   radius: number;
   pierce?: boolean;
   color?: string;
+  vfxTheme?: string;
+  glyph?: string;
+  vfxSignature?: number;
   target?: Monster | null; // locked on: it homes in on this one and hits nothing else
   onHit: (m: Monster, dir: Vec2) => void;
 }
@@ -190,6 +195,9 @@ interface Projectile {
   kind: ShotSpec["kind"];
   radius: number;
   color?: string;
+  vfxTheme?: string;
+  glyph?: string;
+  vfxSignature?: number;
   pierce: boolean;
   onHit: ShotSpec["onHit"];
   hitSet: Set<Monster>;
@@ -284,6 +292,7 @@ export class Combat {
       }
       return;
     }
+    sound.play("swing", soundSeed(`${w.name}:${w.motion}`));
     const target = this.lockOn(player, dir, w.reach + 40);
     const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
     const at = near ? (() => {
@@ -324,6 +333,7 @@ export class Combat {
     const target = this.lockOn(player, dir, w.reach + 40);
     const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
     const at = near ? this.toward(origin, target) : dir;
+    if (!w.projectile) sound.play("swing", soundSeed(`form:${fa.kind}:${w.motion}`));
     if (near) land(target, at);
     this.slashFx(origin, at, w);
   }
@@ -346,6 +356,7 @@ export class Combat {
   // color, onHit(monster, dir) }. A bullet leaves from the muzzle of the gun held out at
   // shoulder height, in a flash.
   shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
+    sound.playProjectile(p.kind, p.vfxTheme ?? p.glyph ?? "");
     const gun = p.kind === "bullet", z = gun ? MUZZLE.z : 60;
     const v = toView(aim.x, aim.y), len = Math.hypot(v.left, v.fwd) || 1;
     // aimed off to a far corner, the gun is held out at arm's length in the hand that points it
@@ -360,7 +371,7 @@ export class Combat {
     }
     this.projectiles.push({
       x, y, z, vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
-      color: p.color, pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
+      color: p.color, vfxTheme: p.vfxTheme, glyph: p.glyph, vfxSignature: p.vfxSignature, pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
     });
     if (gun) this.muzzleFlash(x, y, z, aim);
   }
@@ -411,6 +422,7 @@ export class Combat {
   apply(m: Monster, r: Hit, dir: Vec2, knock = 0, ally = false): boolean {
     if (!m.alive) return false;
     if (r.miss) {
+      sound.play("miss", soundSeed(m.variant.id));
       m.provoke(dir);
       this.floaters.add(m.x, m.y, m.height, "พลาด", "miss");
       return false;
@@ -426,6 +438,7 @@ export class Combat {
       * (1 + st[`${m.race}Dmg`]) * low * ambush;
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
+    sound.play(r.crit ? "critical" : "impact", r.dmg + soundSeed(m.variant.id));
     if (st.lifesteal > 0 && this.hero.alive && !ally) this.hero.heal(r.dmg * st.lifesteal);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
@@ -435,7 +448,10 @@ export class Combat {
       const back = Math.round(r.dmg * m.reflect);
       if (back > 0) this.onReflect?.(m, back);
     }
-    if (died) this.onKill(m);
+    if (died) {
+      sound.play("enemy-death", soundSeed(m.variant.id));
+      this.onKill(m);
+    }
     return died;
   }
 
@@ -496,9 +512,21 @@ export class Combat {
       p.y += p.vy * dt;
       p.left -= step;
       p.age += dt;
-      if (p.kind !== "arrow" && p.kind !== "bullet") {
-        this.fx.add({ x: p.x, y: p.y, z: p.z, layer: AIR_GLOW, tex: p.color ? this.tex.glowFor(p.color) : p.kind === "bolt" ? this.tex.mint : this.tex.sparkle, life: 0.25,
-          size: [[0, p.kind === "wave" ? 40 : 26], [1, 6]], alpha: [[0, 0.6], [1, 0]] });
+      if ((p.kind !== "bullet" || p.vfxSignature !== undefined) && (p.kind !== "arrow" || !!p.color)) {
+        const glyphMotion = p.glyph === "wave" || p.glyph === "swirl" ? 1.8 : p.glyph === "beam" || p.glyph === "pierce" ? 0.45 : 1;
+        const phase = ((p.vfxSignature ?? 0) % 31) * 0.2 + p.age * (2 + ((p.vfxSignature ?? 0) % 7)) * glyphMotion;
+        const side = Math.sin(phase) * (3 + ((p.vfxSignature ?? 0) % 9)) * glyphMotion;
+        const speed = Math.hypot(p.vx, p.vy) || 1, tx = -p.vy / speed, ty = p.vx / speed;
+        const trailX = p.x + tx * side, trailY = p.y + ty * side;
+        const tex = p.vfxTheme === "fire" ? this.tex.ember : p.color ? this.tex.glowFor(p.color) : p.kind === "bolt" ? this.tex.mint : this.tex.sparkle;
+        if (p.vfxTheme === "plant") {
+          this.fx.add({ x: trailX, y: trailY, z: p.z, layer: SORTED, atlas: this.tex.petals, frame: Math.floor(p.age * 18 + (p.vfxSignature ?? 0)) % 4, life: 0.34,
+            size: [[0, 12], [1, 3]], alpha: [[0, 0.75], [1, 0]] });
+        } else {
+          const scale = 0.8 + ((p.vfxSignature ?? 0) % 7) * 0.08;
+          this.fx.add({ x: trailX, y: trailY, z: p.z, layer: AIR_GLOW, tex, life: 0.25 + ((p.vfxSignature ?? 0) % 4) * 0.03,
+            size: [[0, (p.kind === "wave" ? 40 : 26) * scale], [1, 6]], alpha: [[0, 0.6], [1, 0]] });
+        }
       }
       let gone = p.left <= 0;
       for (const m of this.monsters) {
@@ -540,7 +568,10 @@ export class Combat {
           this.floaters.add(m.x, m.y, m.height, String(Math.round(dmg)), "info");
           this.fx.add({ x: m.x + rand(-15, 15), y: m.y + rand(-15, 15), z: 30, layer: AIR_GLOW, tex: poison ? this.tex.glowFor("#7be06a") : this.tex.ember, life: 0.5,
             size: [[0, 30], [1, 8]], alpha: [[0, 0.8], [1, 0]], vz: 80 });
-          if (died) this.onKill(m);
+          if (died) {
+            sound.play("enemy-death", soundSeed(m.variant.id));
+            this.onKill(m);
+          }
         }
       }
     }

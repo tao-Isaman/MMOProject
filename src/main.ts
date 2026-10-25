@@ -61,6 +61,7 @@ import { nextHop, questDest } from "./guide";
 import type { Dest } from "./guide";
 import type { QuestDef } from "./quests";
 import { LOOKS, circleTextures } from "./circles";
+import { sound } from "./audio";
 import type { Atlas, Img, Textures, View } from "./types";
 
 // What an elemental bite can leave on the player (a buff whose id starts with "ail_").
@@ -600,9 +601,11 @@ async function boot(): Promise<void> {
     },
     pastLimit: () => progress.limit,
     reward(r, q) {
+      sound.play("quest-complete", q.id.length);
       floaters.add(player.x, player.y, 175, `สำเร็จเควส: ${q.name}`, "level");
       if (r.gold) {
         inv.gold += r.gold;
+        sound.play("coin", r.gold);
         floaters.add(player.x, player.y, 150, `+${r.gold.toLocaleString()} ทอง`, "loot");
       }
       for (const [id, n] of r.items ?? []) {
@@ -635,13 +638,20 @@ async function boot(): Promise<void> {
     fx, tex, floaters, monsters, hero,
     onReflect(_m, dmg) {
       const r = hero.takeDamage(dmg);
-      if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
-      if (r.died) player.target = player.attack = null;
+      if (r.lost) {
+        floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
+        sound.play("player-hurt", dmg);
+      }
+      if (r.died) {
+        sound.play("player-death");
+        player.target = player.attack = null;
+      }
     },
     onKill(m) {
       const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop + hero.stats.goldPct + hero.stats.luck / 200)) + 1;
       // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
+      sound.play("coin", gold);
       for (const id of rollDrops(m.variant, hero.stats.drop + hero.stats.luck / 200)) ground.drop(id, m);
       // what the quests count, and what they want dropped
       const kind = m.entry?.id ?? m.variant.id;
@@ -687,6 +697,7 @@ async function boot(): Promise<void> {
       if (what === "gold") {
         const got = Math.round(m.level * (4 + Math.random() * 4) * (1 + hero.stats.goldPct));
         inv.gold += got;
+        sound.play("coin", got);
         inv.changed();
         floaters.add(m.x, m.y, m.height + 70, `ขโมย +${got} ทอง`, "level");
         return;
@@ -743,6 +754,7 @@ async function boot(): Promise<void> {
   // `gained` levels up to the one now, said `z` over the player: the points they gave show under
   // it when past the limit they gave more than one a level (11 at 100, 3 at 105, 110 ...)
   function levelUp(gained: number, title = "LEVEL UP!", z = 150) {
+    sound.play("level-up", progress.level);
     hero.refill();
     floaters.add(player.x, player.y, z, `${title} Lv ${progress.level}`, "level");
     let points = 0;
@@ -807,6 +819,7 @@ async function boot(): Promise<void> {
     const r = item.restore;
     if ((!r.hp || hero.hp >= hero.stats.maxHp) && (!r.mp || hero.mp >= hero.stats.maxMp)) return "เต็มอยู่แล้ว";
     potionCd = 0.8;
+    sound.play(r.hp ? "potion-hp" : "potion-mp", i);
     const boost = 1 + hero.stats.potion; // the alchemy flask
     if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(r.hp * boost))}`, "heal");
     if (r.mp) {
@@ -982,6 +995,7 @@ async function boot(): Promise<void> {
   // Anyone spoken to opens the talk window: what they say, their business (buying and selling,
   // healing, travel, keeping the save point) and their quests.
   function act(npc: Npc): void {
+    sound.play("talk", npc.spec.id.length);
     walkTo = null;
     const shop = (tab: "buy" | "sell") => () => {
       shopKeeper = npc;
@@ -991,6 +1005,7 @@ async function boot(): Promise<void> {
     const heal = (): string => {
       if (!hero.alive) return "ฟื้นขึ้นมาก่อนนะ แล้วค่อยมาให้รักษา";
       hero.refill();
+      sound.play("heal");
       floaters.add(player.x, player.y, 140, "HP และ MP เต็มแล้ว", "heal");
       skills.sparkleUp(player.x, player.y, tex.glowFor("#ffe9a8"), 24);
       return "เรียบร้อย HP และ MP ของเจ้าเต็มแล้ว ขอให้เดินทางปลอดภัย";
@@ -1098,6 +1113,7 @@ async function boot(): Promise<void> {
     await settle(current);
     loaded();
     travelling = false;
+    sound.play("travel", current.id.length);
     quests.onEnter(current.id);
     guideStep(); // a quest guide under way goes on from here
     savePlace(); // the new map at once, in case the page closes right away
@@ -1181,6 +1197,7 @@ async function boot(): Promise<void> {
   // A skill went off (why: null) or didn't, on the bar's slot i.
   function report(i: number, id: string | null, why: string | null): void {
     if (why) {
+      sound.play("ui-error", i);
       hud.pulse(i, "denied");
       if (id && performance.now() - denyText > 600) {
         denyText = performance.now();
@@ -1397,6 +1414,7 @@ async function boot(): Promise<void> {
       }
       ground.take(l);
       took = true;
+      sound.play(l.id === "zenny" ? "coin" : "loot-pickup", l.seed * 1000);
       floaters.add(player.x, player.y, 120, ITEMS[l.id].name, "loot");
       bot.notePick();
     }
@@ -1565,7 +1583,9 @@ async function boot(): Promise<void> {
       const r = hero.takeDamage(bite.dmg);
       if (r.absorbed) floaters.add(player.x, player.y, 120, `-${Math.round(r.absorbed)}`, "shield");
       if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, bite.crit ? "crit" : "hurt");
+      if (r.lost) sound.play("player-hurt", bite.dmg);
       if (r.died) {
+        sound.play("player-death");
         player.target = null;
         player.attack = null;
         player.cast = null;
@@ -1632,6 +1652,7 @@ async function boot(): Promise<void> {
   };
   let last = performance.now();
   let fps = 60;
+  let footstepDistance = 0;
 
   function frame(now: number): void {
     if (travelling) {
@@ -1727,6 +1748,14 @@ async function boot(): Promise<void> {
       if (shape?.formAttack) combat.formStrike(player, shape.formAttack, progress.skillRank(hero.form!.id), w, shape.color);
       else combat.strike(player, inv.equipped.weapon, offW);
     }
+    const walked = Math.hypot(player.x - was.x, player.y - was.y);
+    if (walked > 0.1 && hero.alive) {
+      footstepDistance += walked;
+      if (footstepDistance >= 118) {
+        footstepDistance %= 118;
+        sound.playFootstep(current.id);
+      }
+    }
     // a walk that stops getting anywhere (held up by a fight, or by someone in the way) ends
     if (walkTo && !fwd && !left) {
       walkTo.stuck = Math.hypot(player.x - was.x, player.y - was.y) < 0.5 ? walkTo.stuck + dt : 0;
@@ -1745,8 +1774,14 @@ async function boot(): Promise<void> {
       if (burning.acc >= 1) {
         burning.acc -= 1;
         const r = hero.takeDamage(burning.dmg);
-        if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
-        if (r.died) burning.t = 0;
+        if (r.lost) {
+          floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
+          sound.play("player-hurt", burning.dmg);
+        }
+        if (r.died) {
+          sound.play("player-death");
+          burning.t = 0;
+        }
       }
     }
     // warps to the next map; gates that are shut say so
