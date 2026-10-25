@@ -12,6 +12,7 @@ import type { Inventory } from "./inventory";
 import type { Dye } from "./recolor";
 import type { Img } from "./types";
 import { isTouch } from "./touch";
+import { register, optsFor, closeWindow } from "./windows";
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -20,7 +21,8 @@ export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, 
   return e;
 }
 
-// A draggable window with a title bar and a close button.
+// A window with a title bar (title, hotkey, collapse, close) over a scrolling body. Moving,
+// stacking, collapsing, resizing and remembering its place are the window manager's (src/windows.ts).
 export function makeWindow(id: string, title: string, key: string): HTMLElement {
   const win = el("section", "window hidden");
   win.id = id;
@@ -33,32 +35,8 @@ export function makeWindow(id: string, title: string, key: string): HTMLElement 
   close.type = "button";
   close.setAttribute("aria-label", "ปิด");
   close.textContent = "×";
-  close.addEventListener("click", () => win.classList.add("hidden"));
-  // drag by the title bar; the window is pinned where it stands first (some windows are
-  // centred with a transform, which would otherwise make them jump)
-  bar.addEventListener("pointerdown", (e) => {
-    // buttons in the bar (close, the map's tabs) keep their clicks: no drag from them
-    if (e.button !== 0 || isTouch() || (e.target instanceof Element && e.target.closest("button, input, select, a"))) return;
-    e.preventDefault();
-    const r = win.getBoundingClientRect();
-    Object.assign(win.style, { transform: "none", left: `${r.left}px`, top: `${r.top}px`, right: "auto" });
-    const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    bar.setPointerCapture(e.pointerId);
-    bar.classList.add("dragging");
-    const move = (ev: PointerEvent) => {
-      win.style.left = `${Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx))}px`;
-      win.style.top = `${Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy))}px`;
-    };
-    const up = () => {
-      bar.classList.remove("dragging");
-      bar.removeEventListener("pointermove", move);
-      bar.removeEventListener("pointerup", up);
-      bar.removeEventListener("pointercancel", up);
-    };
-    bar.addEventListener("pointermove", move);
-    bar.addEventListener("pointerup", up);
-    bar.addEventListener("pointercancel", up);
-  });
+  close.addEventListener("click", () => closeWindow(win));
+  register(win, optsFor(id));
   document.body.append(win);
   return win;
 }
@@ -121,7 +99,12 @@ export class InventoryUI {
     window.addEventListener("pointerdown", (e) => {
       if (!(e.target instanceof Node && this.menu.contains(e.target))) this.closeMenu();
     });
-    window.addEventListener("keydown", (e) => e.code === "Escape" && this.closeMenu());
+    // Esc with the item menu open closes only the menu (capture: before the game's Esc closes the bag)
+    window.addEventListener("keydown", (e) => {
+      if (e.code !== "Escape" || this.menu.classList.contains("hidden")) return;
+      this.closeMenu();
+      e.stopImmediatePropagation();
+    }, { capture: true });
     inv.onChange(() => this.render());
     this.bindPointer();
     this.render();

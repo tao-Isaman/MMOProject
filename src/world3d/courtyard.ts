@@ -4,6 +4,7 @@
 // walkable square so the view never runs off the edge of the world.
 
 import * as THREE from "three";
+import { animateSceneryMaterial } from "./animation";
 import {
   merge, translate, rotateX, rotateY, rotateZ, scale, array, gridArray, boxAt, boxBounds, boxCenter, beamBetween,
   cylinderBetween, cylinderAt, cylinderCenter, sphereCenter, torus, gableRoof, gableWall, rock, toThree, place,
@@ -193,6 +194,7 @@ export function flowerFields(isOpen: (x: number, y: number) => boolean, area: { 
     const r = seeded(seed);
     const geo = coloured(flower(white));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, depthWrite: false });
+    animateSceneryMaterial(mat, "flower");
     const spots: THREE.Matrix4[] = [];
     const m = new THREE.Matrix4(), q = new THREE.Quaternion();
     const count = Math.round(((area.w * area.h) / spacing ** 2) * dens * density);

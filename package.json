@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "audit:monster-sprites": "node tools/monster_sprite_audit.cjs",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },

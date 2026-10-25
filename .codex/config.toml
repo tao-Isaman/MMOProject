@@ -1,0 +1,7 @@
+[sandbox_workspace_write]
+network_access = true
+
+[features.network_proxy]
+enabled = true
+allow_upstream_proxy = false
+domains = { "api.openai.com" = "allow" }

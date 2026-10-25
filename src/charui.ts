@@ -2,6 +2,7 @@
 // window (O) and the skill window (K) with its three tabs: skill books, masteries and elements.
 
 import { el, makeWindow, HAIRSTYLES } from "./ui";
+import { resetLayout } from "./windows";
 import type { Look } from "./ui";
 import { skillIcon, hasArt, icon } from "./icons";
 import {
@@ -17,6 +18,7 @@ import type { Progress, SkillDef, StatBag, TreeNode } from "./progression";
 import { REGEN_TICK } from "./hero";
 import type { Hero } from "./hero";
 import { skillPower } from "./stats";
+import { sound } from "./audio";
 import type { Stats } from "./stats";
 import type { Img } from "./types";
 
@@ -309,6 +311,20 @@ export class SettingsUI {
   constructor(onSwitch: () => void, onExit: () => void) {
     this.win = makeWindow("settings", "ตั้งค่า", "O");
     const body = el("div", "st-body", this.win);
+    const volumeLabel = el("label", "st-volume", body);
+    volumeLabel.style.display = "flex";
+    volumeLabel.style.alignItems = "center";
+    volumeLabel.style.gap = "12px";
+    volumeLabel.style.margin = "0 0 12px";
+    volumeLabel.textContent = "SFX volume";
+    const volume = el("input", "st-volume-slider", volumeLabel) as HTMLInputElement;
+    volume.type = "range";
+    volume.min = "0";
+    volume.max = "1";
+    volume.step = "0.01";
+    volume.value = String(sound.volume);
+    volume.setAttribute("aria-label", "SFX volume");
+    volume.addEventListener("input", () => sound.setVolume(Number(volume.value)));
     const row = el("div", "st-actions", body);
     const sw = el("button", "wr-choice", row);
     sw.type = "button";
@@ -318,11 +334,17 @@ export class SettingsUI {
     out.type = "button";
     out.textContent = "ออกจากเกม";
     out.addEventListener("click", onExit);
+    // windows go back to their default spots and sizes (each character keeps its own layout)
+    const layout = el("button", "wr-choice", row);
+    layout.type = "button";
+    layout.textContent = "รีเซ็ตตำแหน่งหน้าต่าง";
+    layout.addEventListener("click", resetLayout);
     el("p", "wr-note", body).textContent = "เกมเซฟให้อัตโนมัติ ทั้งเลเวล ของในกระเป๋า และตำแหน่งที่ยืน";
   }
 
   toggle(show = this.win.classList.contains("hidden")): void {
     this.win.classList.toggle("hidden", !show);
+    sound.play(show ? "ui-open" : "ui-close");
   }
 }
 

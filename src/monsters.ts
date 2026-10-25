@@ -16,6 +16,7 @@
 // wardrobe (src/look.ts) and drawn like the player, weapon in hand.
 
 import { icon } from "./icons";
+import { sound } from "./audio";
 import { mapX, mapY, yaw, heightAt } from "./projection";
 import { resolve, SOLIDS, BOUNDS } from "./world";
 import { hueShift, silhouette } from "./recolor";
@@ -766,12 +767,17 @@ export class Monster {
       this.bitten = true;
       const alive = this.foe ? this.foe.alive : ctx.hero.alive;
       if (this.blow === "bite") {
-        if (toPlayer < this.reach + 30 && alive) this.land(ctx, this.boost);
+        if (toPlayer < this.reach + 30 && alive) {
+          sound.play("enemy-swipe", this.variant.level);
+          this.land(ctx, this.boost);
+        }
       } else if (this.blow === "shot") {
         const d = far, dx = (pl.x - this.x) / d, dy = (pl.y - this.y) / d;
+        sound.play("enemy-shot", this.variant.level);
         shots.push({ x: this.x + dx * this.radius, y: this.y + dy * this.radius, z: this.height * 0.55 + (this.fly ? 50 : 0),
           vx: dx * SHOT_SPEED, vy: dy * SHOT_SPEED, left: (d + 120) / SHOT_SPEED, t: 0, kind: this.ranged ?? "rock", owner: this, foe: this.foe });
       } else {
+        sound.play("enemy-swipe", this.variant.level);
         shots.push({ x: this.x, y: this.y, z: 0, vx: 0, vy: 0, left: 0.45, t: 0, kind: "slam", owner: this, ring: this.radius + 180 });
         if (toPlayer < this.radius + 180 && alive) this.land(ctx, 1.4);
         this.slamCd = 7;
