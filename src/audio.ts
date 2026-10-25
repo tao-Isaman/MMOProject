@@ -173,6 +173,11 @@ class GameAudio {
     this.play(kind === "bullet" ? "gunshot" : kind === "arrow" ? "arrow-shot" : "magic-shot", seed);
   }
 
+  playProjectileImpact(kind: string, theme = "", weaponSound = "", critical = false): void {
+    const key = `projectile-impact:${kind}:${theme}:${weaponSound}:${critical ? "critical" : "hit"}`;
+    this.play(key, hash(key));
+  }
+
   private tone(spec: ToneSpec, start: number, bus: GainNode, jitter: number): void {
     if (!this.ctx) return;
     const end = start + spec.duration, osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
@@ -209,6 +214,7 @@ class GameAudio {
   private spec(event: string, variation: number): SoundSpec {
     const v = (variation % 7) * 0.035;
     if (event.startsWith("weapon:")) return this.weaponSpec(event.slice(7), variation);
+    if (event.startsWith("projectile-impact:")) return this.projectileImpactSpec(event, variation);
     switch (event) {
       case "ui-click": return { bus: "ui", tones: [{ from: 740 + variation % 180, to: 480, duration: 0.045, gain: 0.026, wave: "sine" }] };
       case "ui-open": return { bus: "ui", tones: [{ from: 390, to: 620, duration: 0.13, gain: 0.04 }, { from: 585, to: 790, duration: 0.1, gain: 0.022, delay: 0.045 }] };
@@ -240,6 +246,43 @@ class GameAudio {
       case "footstep": return { tones: [{ from: 100 + variation % 25, to: 54, duration: 0.065, gain: 0.046, wave: "triangle" }], noise: { duration: 0.045, gain: 0.018, frequency: 400 + variation % 1100, type: variation % 2 ? "lowpass" : "bandpass" } };
       default: return { tones: [{ from: 400, to: 260, duration: 0.12, gain: 0.035 }] };
     }
+  }
+
+  private projectileImpactSpec(event: string, variation: number): SoundSpec {
+    const [, kind, theme, weapon] = event.split(":");
+    const variationTone = (variation % 7) * 4;
+    const tones: ToneSpec[] = [
+      { from: 86 + variationTone, to: 29, duration: 0.25, gain: 0.26, wave: "sine" },
+      { from: 184 + variationTone * 2, to: 54, duration: 0.17, gain: 0.15, wave: "triangle", delay: 0.004 },
+    ];
+    let noise: NoiseSpec = { duration: 0.16, gain: 0.16, frequency: 510, type: "lowpass" };
+    let extraNoise: NoiseSpec = { duration: 0.055, gain: 0.12, frequency: 1900, type: "bandpass", delay: 0.006 };
+
+    if (kind === "arrow" || weapon === "bow") {
+      tones.push({ from: 310 + variationTone * 3, to: 84, duration: 0.12, gain: 0.12, wave: "triangle", delay: 0.008 });
+      noise = { duration: 0.19, gain: 0.19, frequency: 440, type: "lowpass" };
+      extraNoise = { duration: 0.06, gain: 0.15, frequency: 2250, type: "bandpass", delay: 0.005 };
+    } else if (kind === "bullet" || weapon === "pistol" || weapon === "rifle") {
+      tones.push({ from: 520 + variationTone * 5, to: 115, duration: 0.075, gain: 0.1, wave: "square", delay: 0.003 });
+      noise = { duration: 0.14, gain: 0.2, frequency: 780, type: "lowpass" };
+      extraNoise = { duration: 0.045, gain: 0.16, frequency: 3200, type: "highpass", delay: 0.002 };
+    } else {
+      const accents: Record<string, number> = {
+        fire: 920, plant: 1250, ice: 3000, water: 1650, lightning: 3400, wind: 2450,
+        earth: 470, holy: 2800, shadow: 750, poison: 1350, metal: 2150, arcane: 2500, physical: 1750,
+      };
+      tones.push({ from: accents[theme] ?? 1650, to: 240, duration: 0.11, gain: 0.075, wave: theme === "metal" || theme === "lightning" ? "square" : "triangle", delay: 0.01 });
+      noise = { duration: 0.17, gain: theme === "earth" || theme === "fire" ? 0.2 : 0.16,
+        frequency: theme === "ice" ? 1250 : theme === "water" ? 700 : 520, type: "lowpass" };
+      extraNoise = { duration: 0.065, gain: theme === "ice" || theme === "lightning" ? 0.14 : 0.105,
+        frequency: accents[theme] ?? 1650, type: "bandpass", delay: 0.008 };
+    }
+
+    if (event.endsWith(":critical")) {
+      tones.push({ from: 1480 + variationTone * 8, to: 430, duration: 0.09, gain: 0.12, wave: "sawtooth", delay: 0.012 });
+      extraNoise = { duration: 0.07, gain: 0.19, frequency: 2450, type: "bandpass", delay: 0.01 };
+    }
+    return { tones, noise, extraNoise };
   }
 
   private weaponSpec(id: string, variation: number): SoundSpec {

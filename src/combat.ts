@@ -186,6 +186,12 @@ export interface ShotSpec {
   onHit: (m: Monster, dir: Vec2) => void;
 }
 
+interface ProjectileHitSound {
+  kind: ShotSpec["kind"];
+  theme: string;
+  weapon: string;
+}
+
 interface Projectile {
   x: number;
   y: number;
@@ -199,6 +205,7 @@ interface Projectile {
   vfxTheme?: string;
   glyph?: string;
   vfxSignature?: number;
+  weaponSound?: string;
   pierce: boolean;
   onHit: ShotSpec["onHit"];
   hitSet: Set<Monster>;
@@ -230,6 +237,7 @@ export class Combat {
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
   offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2; from: Vec2; sound: string }[] = []; // off-hand follow-ups (from: who strikes)
+  private activeProjectileHit: ProjectileHitSound | null = null;
   burnClock = 0;
 
   // hero: stats for damage; onKill(monster)
@@ -372,7 +380,8 @@ export class Combat {
     }
     this.projectiles.push({
       x, y, z, vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
-      color: p.color, vfxTheme: p.vfxTheme, glyph: p.glyph, vfxSignature: p.vfxSignature, pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
+      color: p.color, vfxTheme: p.vfxTheme, glyph: p.glyph, vfxSignature: p.vfxSignature, weaponSound: p.weaponSound,
+      pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
     });
     if (gun) this.muzzleFlash(x, y, z, aim);
   }
@@ -439,7 +448,10 @@ export class Combat {
       * (1 + st[`${m.race}Dmg`]) * low * ambush;
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
-    sound.play(r.crit ? "critical" : "impact", r.dmg + soundSeed(m.variant.id));
+    if (this.activeProjectileHit) {
+      const hit = this.activeProjectileHit;
+      sound.playProjectileImpact(hit.kind, hit.theme, hit.weapon, r.crit);
+    } else sound.play(r.crit ? "critical" : "impact", r.dmg + soundSeed(m.variant.id));
     if (st.lifesteal > 0 && this.hero.alive && !ally) this.hero.heal(r.dmg * st.lifesteal);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
@@ -535,7 +547,13 @@ export class Combat {
         if (gone || !m.alive || p.hitSet.has(m) || (p.target && m !== p.target)) continue;
         if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius * 0.5) {
           const d = Math.hypot(p.vx, p.vy) || 1;
-          p.onHit(m, { x: p.vx / d, y: p.vy / d });
+          const previousHit = this.activeProjectileHit;
+          this.activeProjectileHit = { kind: p.kind, theme: p.vfxTheme ?? p.glyph ?? "", weapon: p.weaponSound ?? "" };
+          try {
+            p.onHit(m, { x: p.vx / d, y: p.vy / d });
+          } finally {
+            this.activeProjectileHit = previousHit;
+          }
           p.hitSet.add(m);
           if (!p.pierce) gone = true;
         }
