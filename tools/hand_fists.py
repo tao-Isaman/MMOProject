@@ -21,7 +21,7 @@ import json
 import sys
 import numpy as np
 from PIL import Image
-from hand_anchors import components
+from hand_anchors import BELT, CHIN, GLOVES, REACH, SIDE, components
 
 FEET = 20     # px above the soles where nothing is a hand
 FACE = 13     # px either side of the neck that the face (or its stump) takes up
@@ -37,9 +37,10 @@ BEND = -0.6   # cosine of the sharpest turn from the shoulders an arm takes at t
 INWARD = 6    # px an arm followed past its wrapping may come in toward the middle
 
 
-def skin_mask(cell):
+def skin_mask(cell, gloves=None, waist=None):
     """Skin-coloured pixels: hand_anchors.py's test, but saturated enough that a beige shirt
-    (the plain male body's) is not skin."""
+    (the plain male body's) is not skin. With gloves (hand_anchors.GLOVES) their colour is
+    skin too, but for the belt that shares it at row `waist`."""
     rgb = cell[..., :3].astype(float) / 255
     hi, lo = rgb.max(axis=2), rgb.min(axis=2)
     l = (hi + lo) / 2
@@ -49,10 +50,19 @@ def skin_mask(cell):
         r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
         h = np.where(hi == r, (g - b) / d % 6, np.where(hi == g, (b - r) / d + 2, (r - g) / d + 4)) * 60
     h = np.nan_to_num(h)
-    return (cell[..., 3] > 0) & ((h <= 32) | (h >= 345)) & (s >= 0.58) & (l >= 0.6) & (l <= 0.92) & (d > 0)
+    m = (cell[..., 3] > 0) & ((h <= 32) | (h >= 345)) & (s >= 0.58) & (l >= 0.6) & (l <= 0.92) & (d > 0)
+    if gloves:
+        g = (cell[..., 3] > 0) & (d > 0) & ((h >= gloves["h"][0]) | (h <= gloves["h"][1])) \
+            & (s >= gloves["s"][0]) & (s <= gloves["s"][1]) & (l >= gloves["l"][0]) & (l <= gloves["l"][1])
+        if waist:
+            xs = np.where(cell[..., 3] > 0)[1]
+            cx = xs.mean() if len(xs) else cell.shape[1] / 2
+            g[waist - BELT[0]:waist + BELT[0] + 1, max(0, int(cx - BELT[1])):int(cx + BELT[1]) + 1] = False
+        m |= g
+    return m
 
 
-def arms(cell, neck, face, guessed):
+def arms(cell, neck, face, guessed, gloves=None, waist=None):
     """Skin on the figure joined across one-pixel outlines into arms, as (pixels, high) with
     high: up beside the head, where an off hand hardly ever is but ears and hair ties are. The
     face goes first: face is True for a body that draws its own head (its biggest skin patch
@@ -63,7 +73,7 @@ def arms(cell, neck, face, guessed):
     on = np.zeros(a.shape, bool)
     on[figure[:, 1], figure[:, 0]] = True
     top, bottom = figure[:, 1].min(), figure[:, 1].max()
-    skin = skin_mask(cell) & on
+    skin = skin_mask(cell, gloves, waist) & on
     skin[int(bottom - FEET):] = False
     nx, ny = neck
     if face:
@@ -77,6 +87,10 @@ def arms(cell, neck, face, guessed):
         if head:
             p = max(head, key=len)
             skin[p[:, 1], p[:, 0]] = False
+        if not guessed:  # and a mouth drawn apart from it at the chin (too small to be a fist)
+            for p in components(skin):
+                if len(p) < RAISED and p[:, 1].mean() < ny + CHIN and abs(p[:, 0].mean() - nx) < FACE:
+                    skin[p[:, 1], p[:, 0]] = False
     grown = skin.copy()
     grown[1:] |= skin[:-1]
     grown[:-1] |= skin[1:]
@@ -165,9 +179,9 @@ def along(t, found, cell, shoulder):
         been.append(t[0])
 
 
-def frame(cell, r, neck, face, guessed):
+def frame(cell, r, neck, face, guessed, gloves=None, waist=None):
     shoulder = (neck[0], neck[1] + SHOULDER)
-    found = [(p, *fist(p, shoulder), high) for p, high in arms(cell, neck, face, guessed)]
+    found = [(p, *fist(p, shoulder), high) for p, high in arms(cell, neck, face, guessed, gloves, waist)]
     low = [t for t in found if not t[3]]
     rt = None
     if r is not None:
@@ -234,7 +248,10 @@ def main():
                     else:
                         neck = (size / 2, body.get("neck", size * 0.36))
                     necks.append(neck)
-                    r, l = frame(img[d * size:(d + 1) * size, f * size:(f + 1) * size], h["r"], neck, not body.get("hairless"), not head)
+                    r, l = frame(img[d * size:(d + 1) * size, f * size:(f + 1) * size], h["r"], neck, not body.get("hairless"), not head,
+                                 GLOVES.get(name), body.get("waist"))
+                    if d in REACH.get(name, ()) and clip == "thrust" and SIDE[d]:
+                        r = h["r"]  # the fist hand_anchors.py found out in front, which no skin marks
                     h["r"] = [round(v, 1) for v in r] if r else None
                     h["l"] = [round(v, 1) for v in l] if l else None
                     h.pop("lh", None)
