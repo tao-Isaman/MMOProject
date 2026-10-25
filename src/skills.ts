@@ -77,6 +77,7 @@ import type { CastTarget } from "./castfx";
 import { lookFor } from "./circles";
 import { skillVfxProfile, type SkillVfxTheme } from "./skillvfx";
 import { sound } from "./audio";
+import type { HitSoundCue } from "./audio";
 import { WEAPON_TYPES } from "./items";
 import type { WeaponId } from "./items";
 import type { Hero } from "./hero";
@@ -580,8 +581,9 @@ export class Skills {
     const ench = this.hero.enchant;
     const s = ench && !skill.element && (skill.stat ?? "atk") === "atk" ? { ...skill, element: ench } : skill;
     const r = skillDamage(this.hero.stats, this.el, s, rank, m, WEAPON_TYPES[this.weapon() as WeaponId]);
+    const hitSound: HitSoundCue = { kind: "skill", theme: skillId ? this.vfxProfile(skillId, skill).theme : s.element ?? "physical", weapon: "" };
     // a physical skill that misses does nothing but anger it: no status, no riders
-    if (r.miss) return void this.combat.apply(m, r, dir);
+    if (r.miss) return void this.combat.apply(m, r, dir, 0, false, hitSound);
     if (chained) r.dmg = Math.max(1, Math.round(r.dmg * ((this.el.lightning ?? 0) >= 50 ? 0.6 : 0.3)));
     let more = 1 + (s.vs?.[m.race] ?? 0);
     if (s.masteryScale) more *= 1 + s.masteryScale * this.masteryLevel();
@@ -624,7 +626,7 @@ export class Skills {
     if (s.weaken) m.weaken((s.debuff ?? 6) * earth, s.weaken(rank));
     if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
     if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank) * poisonScale(this.hero.stats, this.el)) / 4, t: 4, poison: true });
-    this.combat.apply(m, r, dir, knock);
+    this.combat.apply(m, r, dir, knock, false, hitSound);
     if (skillId) this.skillImpactVfx(skillId, skill, m, dir);
     // a stealing blow: once a monster, gold or one of its drops
     if (s.steal && !m.stolen && lucky(at(s.stealChance, rank) ?? 0, this.hero.stats)) {

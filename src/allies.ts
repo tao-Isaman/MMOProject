@@ -663,7 +663,7 @@ export class Allies {
     const r = monsterDamage(m, st);
     if (!r) sound.play("miss", a.name.length);
     if (!r) return void this.d.floaters.add(a.x, a.y, 110, "พลาด", "miss");
-    sound.play("impact", r.dmg);
+    sound.playHit({ kind: "enemy", theme: "", weapon: "" });
     a.hp -= r.dmg;
     a.hurt = 0.25;
     this.d.floaters.add(a.x, a.y, 100, `-${r.dmg}`, "hurt");

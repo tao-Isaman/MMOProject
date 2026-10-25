@@ -1,5 +1,4 @@
-// Procedural game SFX. Web Audio synthesizes the short sounds locally, so the game has no
-// external audio requests and every event can vary slightly without loading sample packs.
+// Game SFX: authored hit samples play through the same Web Audio buses as procedural effects.
 
 type Wave = OscillatorType;
 
@@ -27,6 +26,27 @@ interface SoundSpec {
   bus?: "ui" | "sfx";
 }
 
+export interface HitSoundCue {
+  kind: string;
+  theme: string;
+  weapon: string;
+}
+
+const HIT_BANKS: Record<string, string[]> = {
+  enemy: ["enemy/enemy_hit_1.wav", "enemy/enemy_hit_2.wav", "enemy/enemy_hit_3.wav", "enemy/enemy_hit_4.wav"],
+  fire: ["fire/fire_hit_1.wav", "fire/fire_hit_2.wav"],
+  normal: ["normal/normal_hit_1.wav", "normal/normal_hit_2.wav", "normal/normal_hit_3.wav", "normal/normal_hit_4.wav"],
+  lightning: ["lightning/lightning_hit_1.wav", "lightning/lightning_hit_2.wav"],
+  arrow: ["arrow/arrow_hit.wav"],
+  axe: ["axe/axe_hit.wav"],
+  dagger: ["dagger/dagger_hit.wav"],
+  hand: ["hand/hand_hit_1.wav", "hand/hand_hit_2.wav", "hand/hand_hit_3.wav", "hand/hand_hit_4.wav"],
+  mace: ["mace/mace_hit.wav"],
+  rod: ["rod/rod_hit.wav"],
+  spear: ["spear/spear_hit.wav"],
+  sword: ["sword/sword_hit.wav"],
+};
+
 const VOLUME_KEY = "mmoproject.sfx-volume.v1";
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
@@ -43,6 +63,9 @@ class GameAudio {
   private uiBus: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private voices: number[] = [];
+  private hitBuffers = new Map<string, AudioBuffer>();
+  private hitLoadStarted = false;
+  private lastHitIndex = new Map<string, number>();
   private level = this.readVolume();
 
   constructor() {
@@ -93,7 +116,25 @@ class GameAudio {
       const channel = this.noise.getChannelData(0);
       for (let i = 0; i < channel.length; i++) channel[i] = Math.random() * 2 - 1;
     }
+    void this.preloadHitSounds();
     if (this.ctx.state === "suspended") void this.ctx.resume().catch(() => undefined);
+  }
+
+  private async preloadHitSounds(): Promise<void> {
+    if (!this.ctx || this.hitLoadStarted) return;
+    this.hitLoadStarted = true;
+    const ctx = this.ctx;
+    const files = Object.values(HIT_BANKS).flat();
+    await Promise.all(files.map(async (file) => {
+      try {
+        const response = await fetch(`assets/audio/hits/${file}`);
+        if (!response.ok) return;
+        const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+        this.hitBuffers.set(file, buffer);
+      } catch {
+        // A missing or unsupported sample uses the procedural fallback for that hit.
+      }
+    }));
   }
 
   play(event: string, variation = 0): void {
@@ -126,6 +167,51 @@ class GameAudio {
 
   playWeapon(id: string): void {
     this.play(`weapon:${id}`, hash(id));
+  }
+
+  playHit(cue: HitSoundCue = { kind: "normal", theme: "", weapon: "" }, critical = false): void {
+    if (!this.ctx || !this.sfxBus) return;
+    const group = this.hitGroup(cue), files = HIT_BANKS[group] ?? HIT_BANKS.normal;
+    const available = files.filter((file) => this.hitBuffers.has(file));
+    if (!available.length) {
+      const fallback = group === "enemy" ? "player-hurt" : critical ? "critical" : "impact";
+      this.play(fallback, hash(`${group}:${critical}`));
+      return;
+    }
+    let index = Math.floor(Math.random() * available.length);
+    const previous = this.lastHitIndex.get(group);
+    if (available.length > 1 && index === previous) index = (index + 1) % available.length;
+    this.lastHitIndex.set(group, index);
+    const buffer = this.hitBuffers.get(available[index]);
+    if (!buffer) return;
+    const now = this.ctx.currentTime;
+    this.voices = this.voices.filter((until) => until > now);
+    if (this.voices.length >= 18) return;
+    const source = this.ctx.createBufferSource(), gain = this.ctx.createGain();
+    const rate = critical ? 0.94 : 0.98 + Math.random() * 0.04;
+    source.buffer = buffer;
+    source.playbackRate.setValueAtTime(rate, now);
+    gain.gain.setValueAtTime(critical ? 1.12 : 1, now);
+    source.connect(gain);
+    gain.connect(this.sfxBus);
+    source.start(now);
+    this.voices.push(now + buffer.duration / rate + 0.02);
+  }
+
+  private hitGroup(cue: HitSoundCue): string {
+    const theme = cue.theme.toLowerCase(), weapon = cue.weapon.toLowerCase();
+    if (cue.kind === "enemy") return "enemy";
+    if (theme === "fire") return "fire";
+    if (theme === "lightning") return "lightning";
+    if (weapon.includes("axe")) return "axe";
+    if (weapon.includes("dagger")) return "dagger";
+    if (weapon === "mace") return "mace";
+    if (weapon.includes("spear")) return "spear";
+    if (weapon.includes("sword")) return "sword";
+    if (weapon === "staff" || weapon === "rod") return "rod";
+    if (["bow", "arrow"].includes(weapon) || cue.kind === "arrow") return "arrow";
+    if (["knuckle", "claw", "unarmed", "form", "hand"].includes(weapon)) return "hand";
+    return "normal";
   }
 
   playSkill(theme: string, type: string, id: string): void {
@@ -174,8 +260,7 @@ class GameAudio {
   }
 
   playProjectileImpact(kind: string, theme = "", weaponSound = "", critical = false): void {
-    const key = `projectile-impact:${kind}:${theme}:${weaponSound}:${critical ? "critical" : "hit"}`;
-    this.play(key, hash(key));
+    this.playHit({ kind, theme, weapon: weaponSound }, critical);
   }
 
   private tone(spec: ToneSpec, start: number, bus: GainNode, jitter: number): void {

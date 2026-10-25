@@ -642,7 +642,7 @@ async function boot(): Promise<void> {
       const r = hero.takeDamage(dmg);
       if (r.lost) {
         floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
-        sound.play("player-hurt", dmg);
+        sound.playHit({ kind: "enemy", theme: "", weapon: "" });
       }
       if (r.died) {
         sound.play("player-death");
@@ -1585,7 +1585,7 @@ async function boot(): Promise<void> {
       const r = hero.takeDamage(bite.dmg);
       if (r.absorbed) floaters.add(player.x, player.y, 120, `-${Math.round(r.absorbed)}`, "shield");
       if (r.lost) floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, bite.crit ? "crit" : "hurt");
-      if (r.lost) sound.play("player-hurt", bite.dmg);
+      if (r.lost) sound.playHit({ kind: "enemy", theme: "", weapon: "" });
       if (r.died) {
         sound.play("player-death");
         player.target = null;
@@ -1778,7 +1778,7 @@ async function boot(): Promise<void> {
         const r = hero.takeDamage(burning.dmg);
         if (r.lost) {
           floaters.add(player.x, player.y, 110, `-${Math.round(r.lost)}`, "hurt");
-          sound.play("player-hurt", burning.dmg);
+          sound.playHit({ kind: "enemy", theme: "", weapon: "" });
         }
         if (r.died) {
           sound.play("player-death");

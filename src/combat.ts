@@ -4,6 +4,7 @@
 
 import { fromView, mapX, mapY, S2, toView } from "./projection";
 import { sound } from "./audio";
+import type { HitSoundCue } from "./audio";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
 import type { WeaponId, WeaponType } from "./items";
 import { AIR_GLOW, GROUND_GLOW, SORTED, rand } from "./particles";
@@ -186,12 +187,6 @@ export interface ShotSpec {
   onHit: (m: Monster, dir: Vec2) => void;
 }
 
-interface ProjectileHitSound {
-  kind: ShotSpec["kind"];
-  theme: string;
-  weapon: string;
-}
-
 interface Projectile {
   x: number;
   y: number;
@@ -235,9 +230,9 @@ export class Combat {
   onFalcon?: (m: Monster) => void;                              // the falcon dives in after a normal hit
   onBasicHit?: (m: Monster) => void;                            // a main-hand normal hit landed (autocast)
   projectiles: Projectile[] = [];
-  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null }[] = []; // delayed second hits (weapons with hits > 1)
+  pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null; hitSound: HitSoundCue }[] = []; // delayed second hits (weapons with hits > 1)
   offhits: { t: number; m: Monster; w: WeaponType; dir: Vec2; from: Vec2; sound: string }[] = []; // off-hand follow-ups (from: who strikes)
-  private activeProjectileHit: ProjectileHitSound | null = null;
+  private activeProjectileHit: HitSoundCue | null = null;
   burnClock = 0;
 
   // hero: stats for damage; onKill(monster)
@@ -278,6 +273,7 @@ export class Combat {
       if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player, sound: offhand ?? "unarmed" });
     };
     const dir = player.aimDir();
+    const hitSound: HitSoundCue = { kind: "weapon", theme: "", weapon: weaponId ?? "unarmed" };
     const origin = w.projectile?.kind === "arrow"
       ? player.projectileOrigin?.() ?? { x: player.x, y: player.y }
       : { x: player.x, y: player.y };
@@ -309,11 +305,11 @@ export class Combat {
       return { x: dx / d, y: dy / d };
     })() : dir;
     if (near) {
-      this.damage(target, w, at);
+      this.damage(target, w, at, 1, false, hitSound);
       follow(target, at);
     }
     this.slashFx(origin, at, w);
-    if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir: at, w, m: near ? target : null });
+    if ((w.hits ?? 1) > 1) this.pending.push({ t: 0.14, origin, dir: at, w, m: near ? target : null, hitSound });
   }
 
   // A normal attack in a form (the druid's): a blow at the one in front within reach, or a shot in
@@ -324,7 +320,7 @@ export class Combat {
     const origin = { x: player.x, y: player.y };
     const land = (m: Monster, d: Vec2) => {
       const r = skillDamage(this.hero.stats, this.hero.progress.elements, blow, rank, m);
-      this.apply(m, r, d);
+      this.apply(m, r, d, 0, false, { kind: "skill", theme: fa.element ?? "", weapon: "form" });
       if (r.miss) return;
       if (fa.element) this.onElement?.(m, fa.element, r.dmg);
       const got = fa.heal && this.hero.alive ? this.hero.heal(r.dmg * fa.heal(rank)) : 0;
@@ -410,26 +406,26 @@ export class Combat {
   // A normal attack lands on a monster (scale < 1 for the off hand). An enchanted weapon hits in
   // its element (with that element's riders); the falcon may dive in after it; a thief's dagger
   // may land twice (again: this is that second blow).
-  damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1, again = false): void {
+  damage(m: Monster, w: WeaponType, dir: Vec2, scale = 1, again = false, hitSound?: HitSoundCue): void {
     const st = this.hero.stats, el = isMagic(w) ? null : this.hero.enchant, r = basicDamage(st, w, m, el);
-    if (r.miss) return void this.apply(m, r, dir);
+    if (r.miss) return void this.apply(m, r, dir, 0, false, hitSound);
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
     if (st.stunHit && lucky(st.stunHit, st)) m.stun = Math.max(m.stun, 1);
     if (st.poisonHit && lucky(st.poisonHit, st)) {
       m.burns.push({ dps: (r.dmg * 0.4 * poisonScale(st, this.hero.progress.elements)) / 3, t: 3, poison: true });
     }
-    this.apply(m, r, dir);
+    this.apply(m, r, dir, 0, false, hitSound);
     if (el) this.onElement?.(m, el, r.dmg);
     if (st.falconChance && m.alive && lucky(st.falconChance, st)) this.onFalcon?.(m);
     if (!again && scale === 1) this.onBasicHit?.(m);
-    if (!again && st.doubleHit && m.alive && lucky(st.doubleHit, st)) this.damage(m, w, dir, scale, true);
+    if (!again && st.doubleHit && m.alive && lucky(st.doubleHit, st)) this.damage(m, w, dir, scale, true, hitSound);
   }
 
   // Land a computed hit { dmg, crit, magic, miss } on a monster. A miss still angers it. Only a
   // skill made to push (knock) moves it; normal attacks don't, or a ranged fighter would keep
   // everything off for ever. ally: one of the player's allies struck (src/allies.ts): her hiding,
   // lifesteal and the monster's spikes have nothing to do with it.
-  apply(m: Monster, r: Hit, dir: Vec2, knock = 0, ally = false): boolean {
+  apply(m: Monster, r: Hit, dir: Vec2, knock = 0, ally = false, hitSound?: HitSoundCue): boolean {
     if (!m.alive) return false;
     if (r.miss) {
       sound.play("miss", soundSeed(m.variant.id));
@@ -448,10 +444,8 @@ export class Combat {
       * (1 + st[`${m.race}Dmg`]) * low * ambush;
     if (more !== 1) r.dmg = Math.max(1, Math.round(r.dmg * more));
     const died = m.hit(r.dmg, dir, knock);
-    if (this.activeProjectileHit) {
-      const hit = this.activeProjectileHit;
-      sound.playProjectileImpact(hit.kind, hit.theme, hit.weapon, r.crit);
-    } else sound.play(r.crit ? "critical" : "impact", r.dmg + soundSeed(m.variant.id));
+    const hit = this.activeProjectileHit ?? hitSound ?? { kind: "normal", theme: "", weapon: "" };
+    sound.playHit(hit, r.crit);
     if (st.lifesteal > 0 && this.hero.alive && !ally) this.hero.heal(r.dmg * st.lifesteal);
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
@@ -497,19 +491,19 @@ export class Combat {
       const shot = h.w.projectile?.kind === "bullet" ? h.w.projectile : null;
       if (!shot) {
         sound.playWeapon(h.sound);
-        this.damage(h.m, h.w, h.dir, OFFHAND_DAMAGE);
+        this.damage(h.m, h.w, h.dir, OFFHAND_DAMAGE, false, { kind: "weapon", theme: "", weapon: h.sound });
         continue;
       }
       // a pistol in the off hand fires its own bullet at it
       const d = Math.hypot(h.m.x - h.from.x, h.m.y - h.from.y) || 1;
-      this.shoot(h.from, { x: (h.m.x - h.from.x) / d, y: (h.m.y - h.from.y) / d }, { ...shot, target: h.m, weaponSound: h.sound, onHit: (m, dir) => this.damage(m, h.w, dir, OFFHAND_DAMAGE) });
+      this.shoot(h.from, { x: (h.m.x - h.from.x) / d, y: (h.m.y - h.from.y) / d }, { ...shot, target: h.m, weaponSound: h.sound, onHit: (m, dir) => this.damage(m, h.w, dir, OFFHAND_DAMAGE, false, { kind: "weapon", theme: "", weapon: h.sound }) });
     }
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       p.t -= dt;
       if (p.t > 0) continue;
       this.pending.splice(i, 1);
-      if (p.m?.alive) this.damage(p.m, p.w, p.dir);
+      if (p.m?.alive) this.damage(p.m, p.w, p.dir, 1, false, p.hitSound);
       this.slashFx(p.origin, p.dir, p.w);
     }
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
