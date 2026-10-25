@@ -150,7 +150,10 @@ body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
 }
 .window-collapse { font-size: 12px; }
 .window-close:hover, .window-collapse:hover { border-color: var(--gold); }
-.window-body { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; }
+.window-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* no scrollbars inside windows: the wheel (or a finger) still scrolls what overflows */
+.window-body, .window-body * { scrollbar-width: none; }
+.window-body::-webkit-scrollbar, .window-body *::-webkit-scrollbar { display: none; }
 .window-grip {
   position: absolute; right: 0; bottom: 0; z-index: 3; width: 14px; height: 14px; cursor: nwse-resize; touch-action: none;
   border-bottom-right-radius: 14px; background: linear-gradient(135deg, transparent 50%, rgba(244, 210, 122, 0.45) 50%);
@@ -165,12 +168,18 @@ body:not(.touch) .window-fill > .window-body > * { flex: none; }
 body:not(.touch) .window-fill .sk-body, body:not(.touch) .window-fill .shop-list, body:not(.touch) .window-fill .ql-list,
 body:not(.touch) .window-fill > .window-body > .inv-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 body:not(.touch) .window-fill .inv-grid { align-self: stretch; align-content: start; }
+/* the skill trees: the three columns scroll on their own, so picking a skill with a long
+   detail never moves the drawing */
+body:not(.touch) .window-fill .sk-body { display: flex; flex-direction: column; }
+body:not(.touch) .window-fill .sk-body > * { flex: none; }
+body:not(.touch) .window-fill .sk-body > .sk-treeview { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%; overflow-y: auto; }
 
 .inv-body { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
 .inv-equip { display: grid; grid-template-columns: repeat(2, auto); gap: 6px 8px; }
 .inv-equip-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .inv-equip-label { font-size: 12px; color: var(--muted); }
-.inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; overflow-y: auto; scrollbar-width: thin; }
+.inv-grid { display: grid; grid-template-columns: repeat(var(--cols), 46px); gap: 4px; overflow-y: auto; }
 .inv-cell {
   position: relative; width: 46px; height: 46px; border-radius: 8px; touch-action: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.28));

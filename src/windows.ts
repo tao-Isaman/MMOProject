@@ -34,7 +34,7 @@ export interface WindowOpts {
 const WINDOW_OPTS: Record<string, WindowOpts> = {
   status: { anchor: "left-top", dx: 14, dy: 178, resizable: true },
   inventory: { anchor: "right-top", dx: 24, dy: 70, resizable: true, fill: true, h: 500 },
-  skills: { anchor: "center", dx: -120, resizable: true, fill: true, h: 620 },
+  skills: { anchor: "center", dx: -120, resizable: true, fill: true, h: 860 },
   quests: { anchor: "right-top", dx: 360, dy: 70, resizable: true, fill: true, w: 480, h: 520 },
   codex: { anchor: "center", dx: 80, dy: 40, resizable: true, fill: true, h: 600 },
   bot: { anchor: "left-top", dx: 300, dy: 180, resizable: true },
@@ -53,6 +53,7 @@ const SNAP = 12;      // px: edges closer than this stick together while draggin
 const Z0 = 10;        // the bottom window's z-index (tooltips and menus sit at 60+)
 const MIN_W = 280, MIN_H = 200;
 const NUDGE = 28;     // a default spot already taken moves this far down and right
+const HUD_ROOM = 140; // px kept free under a window's default height for the skill bar
 
 interface Layout { x: number; y: number; w?: number; h?: number; c?: boolean }
 
@@ -176,7 +177,8 @@ function place(w: Win): void {
   const o = w.opts, s = w.el.style;
   const saved = readJson<Layout>(layoutKey(w.id));
   const width = (o.resizable ? saved?.w : undefined) ?? o.w;
-  const height = (o.resizable ? saved?.h : undefined) ?? o.h;
+  // a default height leaves the skill bar in view; a size the player chose only has to fit the screen
+  const height = (o.resizable ? saved?.h : undefined) ?? (o.h ? Math.min(o.h, innerHeight - HUD_ROOM) : undefined);
   s.width = width ? px(Math.min(width, innerWidth - 16)) : "";
   s.height = height ? px(Math.min(height, innerHeight - 24)) : "";
   setCollapsed(w, !!saved?.c);
