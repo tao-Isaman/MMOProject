@@ -271,7 +271,7 @@ export class Combat {
   // The player's weapon lands: one monster, locked on (src/combat.ts lockOn). A bow or a staff
   // shoots a shot that homes in on it; a melee weapon hits it if it is within reach. A weapon
   // in the off hand follows up for OFFHAND_DAMAGE of its own damage.
-  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2; projectileOrigin?(): Vec2 }, weaponId: string | null, offhand: WeaponId | null = null): void {
+  strike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2; projectileOrigin?(): Vec2 & { z?: number } }, weaponId: string | null, offhand: WeaponId | null = null): void {
     const w = weaponStats(weaponId, this.hero.stats);
     const off = offhand ? weaponStats(offhand, this.hero.stats) : null;
     const follow = (m: Monster, d: Vec2) => {
@@ -297,7 +297,7 @@ export class Combat {
       // a second arrow after the first, now and then (the archer's double shot)
       if (p.kind === "arrow" && lucky(this.hero.stats.multiShot, this.hero.stats)) {
         const a = Math.atan2(aim.y, aim.x) + 0.07;
-        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit, target, weaponSound: weaponId ?? "bow" });
+        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14, z: origin.z }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit, target, weaponSound: weaponId ?? "bow" });
       }
       return;
     }
@@ -319,7 +319,7 @@ export class Combat {
   // A normal attack in a form (the druid's): a blow at the one in front within reach, or a shot in
   // the form's colour that homes in on it; `mult` of attack (or magic attack) in its element,
   // `heal` of the damage done back as HP. Like a weapon's blow, it may set an autocast going.
-  formStrike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2; projectileOrigin?(): Vec2 }, fa: FormAttack, rank: number, w: WeaponType, color: string): void {
+  formStrike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2; projectileOrigin?(): Vec2 & { z?: number } }, fa: FormAttack, rank: number, w: WeaponType, color: string): void {
     const blow: SkillDef = { type: "cone", stat: fa.stat ?? "atk", element: fa.element, mult: fa.mult, mp: 0, cd: 0, motion: "swing", color };
     const origin = { x: player.x, y: player.y };
     const land = (m: Monster, d: Vec2) => {
@@ -364,13 +364,13 @@ export class Combat {
   // Launch a projectile from `origin` along unit `aim`: { kind, speed, range, radius, pierce,
   // color, onHit(monster, dir) }. A bullet leaves from the muzzle of the gun held out at
   // shoulder height, in a flash.
-  shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
+  shoot(origin: Vec2 & { z?: number }, aim: Vec2, p: ShotSpec): void {
     sound.playProjectile(p.kind, p.vfxTheme ?? p.glyph ?? "", p.weaponSound ?? "");
-    const gun = p.kind === "bullet", z = gun ? MUZZLE.z : 60;
+    const gun = p.kind === "bullet", z = gun ? MUZZLE.z : (origin.z ?? 60);
     const v = toView(aim.x, aim.y), len = Math.hypot(v.left, v.fwd) || 1;
     // aimed off to a far corner, the gun is held out at arm's length in the hand that points it
     // (not between her hands), so its muzzle is farther out
-    const out = gun ? MUZZLE.out * (1 + 1.4 * (Math.max(0, v.fwd) / len) * (Math.abs(v.left) / len)) : 40;
+    const out = gun ? MUZZLE.out * (1 + 1.4 * (Math.max(0, v.fwd) / len) * (Math.abs(v.left) / len)) : p.kind === "arrow" ? 23 : 40;
     let x = origin.x + aim.x * out, y = origin.y + aim.y * out;
     // a gun aimed straight up or down the screen is held out at the side (weapons.ts aimAngle)
     if (gun && Math.abs(v.left) < 0.3 * Math.hypot(v.left, v.fwd * S2)) {

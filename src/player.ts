@@ -7,7 +7,7 @@
 // during attacks and casts (src/weapons.js). In a form (a druid's) she is drawn as a monster's
 // sheet instead (`shape`, set by main.ts): four directions, its walk and its attack.
 
-import { groundFromMap, mapX, mapY, yaw, yawEighths } from "./projection";
+import { fromView, heightAt, mapX, mapY, yaw, yawEighths } from "./projection";
 import { resolve } from "./world";
 import { attackRange } from "./combat";
 import { WEAPON_ART, drawWeapon, heldAngle, screenAngle, weaponTip } from "./weapons";
@@ -464,13 +464,18 @@ export class Player {
   }
 
   // Bow arrows leave from the animated shooting hand; other weapons use the body pivot.
-  projectileOrigin(): Vec2 {
+  projectileOrigin(): Vec2 & { z?: number } {
     const { clip, col } = this.pose();
     if (clip !== "shoot") return { x: this.x, y: this.y };
     const hand = this.handFor(clip, col).r;
     const dx = (hand[0] - this.cell / 2) * this.scale;
-    const dy = (hand[1] - this.cell) * this.scale;
-    return groundFromMap(mapX(this.x, this.y) + dx, mapY(this.x, this.y) + dy);
+    const lateral = fromView(0, -dx);
+    const x = this.x + lateral.x, y = this.y + lateral.y;
+    const handHeight = (this.cell - hand[1]) * this.scale / Math.SQRT1_2;
+    // Match the hand's absolute height even when its small lateral offset lands on a different
+    // part of a slope. `mapY` adds the terrain height under the projectile when drawing it.
+    const z = heightAt(this.x, this.y) + this.z + handHeight - heightAt(x, y);
+    return { x, y, z };
   }
 
   // Ragnarok-style cast bar over the head.
