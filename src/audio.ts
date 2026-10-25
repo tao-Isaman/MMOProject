@@ -23,6 +23,7 @@ interface NoiseSpec {
 interface SoundSpec {
   tones: ToneSpec[];
   noise?: NoiseSpec;
+  extraNoise?: NoiseSpec;
   bus?: "ui" | "sfx";
 }
 
@@ -115,7 +116,16 @@ class GameAudio {
       end = Math.max(end, start + spec.noise.duration);
       this.noiseBurst(spec.noise, start, bus);
     }
+    if (spec.extraNoise) {
+      const start = now + (spec.extraNoise.delay ?? 0);
+      end = Math.max(end, start + spec.extraNoise.duration);
+      this.noiseBurst(spec.extraNoise, start, bus);
+    }
     this.voices.push(end + 0.02);
+  }
+
+  playWeapon(id: string): void {
+    this.play(`weapon:${id}`, hash(id));
   }
 
   playSkill(theme: string, type: string, id: string): void {
@@ -133,15 +143,21 @@ class GameAudio {
     const now = this.ctx.currentTime;
     this.voices = this.voices.filter((until) => until > now);
     if (this.voices.length >= 18) return;
-    const tones: ToneSpec[] = support
+    const signature: ToneSpec[] = support
       ? [{ from: root, to: root * 1.3, duration: duration * 0.72, gain: 0.065, wave },
          { from: root * 1.25, to: root * 1.9, duration: duration * 0.62, gain: 0.045, wave: "sine", delay: duration * 0.24 },
          { from: root * 1.9, to: root * 2.25, duration: duration * 0.7, gain: 0.03, wave: "sine", delay: duration * 0.52 }]
       : [{ from: root * (1 + offset), to: root * (type === "beam" ? 0.62 : 0.48), duration, gain: 0.07, wave },
          { from: root * 1.5, to: root * 0.8, duration: duration * 0.7, gain: 0.032, wave: "sine", delay: 0.018 }];
+    const weight: ToneSpec[] = support ? [] : [
+      { from: 88 + (seed % 5) * 5, to: 38, duration: 0.19, gain: 0.13, wave: "sine" },
+      { from: 172 + (seed % 7) * 9, to: 66, duration: 0.115, gain: 0.075, wave: "triangle", delay: 0.006 },
+    ];
+    const tones = [...weight, ...signature];
     for (const tone of tones) this.tone(tone, now + (tone.delay ?? 0), bus, 0.98 + (seed % 5) * 0.01);
-    if (!support && this.noise && this.voices.length < 18) {
-      this.noiseBurst({ duration: 0.08, gain: theme === "fire" || theme === "earth" ? 0.045 : 0.018,
+    if (!support && this.noise) {
+      this.noiseBurst({ duration: 0.105, gain: 0.085, frequency: 560, type: "lowpass" }, now, bus);
+      this.noiseBurst({ duration: 0.065, gain: theme === "fire" || theme === "earth" ? 0.04 : 0.022,
         frequency: theme === "ice" ? 3200 : theme === "fire" ? 900 : 1800, type: "highpass" }, now, bus);
     }
     this.voices.push(now + duration + 0.04);
@@ -151,7 +167,8 @@ class GameAudio {
     this.play("footstep", hash(surface));
   }
 
-  playProjectile(kind: string, theme = ""): void {
+  playProjectile(kind: string, theme = "", weaponSound = ""): void {
+    if (weaponSound) return this.play(`weapon:${weaponSound}`, hash(`${weaponSound}:${theme}`));
     const seed = hash(`${kind}:${theme}`);
     this.play(kind === "bullet" ? "gunshot" : kind === "arrow" ? "arrow-shot" : "magic-shot", seed);
   }
@@ -191,23 +208,24 @@ class GameAudio {
 
   private spec(event: string, variation: number): SoundSpec {
     const v = (variation % 7) * 0.035;
+    if (event.startsWith("weapon:")) return this.weaponSpec(event.slice(7), variation);
     switch (event) {
       case "ui-click": return { bus: "ui", tones: [{ from: 740 + variation % 180, to: 480, duration: 0.045, gain: 0.026, wave: "sine" }] };
       case "ui-open": return { bus: "ui", tones: [{ from: 390, to: 620, duration: 0.13, gain: 0.04 }, { from: 585, to: 790, duration: 0.1, gain: 0.022, delay: 0.045 }] };
       case "ui-close": return { bus: "ui", tones: [{ from: 560, to: 340, duration: 0.11, gain: 0.035 }] };
       case "ui-error": return { bus: "ui", tones: [{ from: 250, to: 170, duration: 0.15, gain: 0.045, wave: "triangle" }], noise: { duration: 0.055, gain: 0.012, frequency: 500, type: "lowpass" } };
-      case "swing": return { tones: [{ from: 290 + variation % 140, to: 95, duration: 0.12, gain: 0.055, wave: "triangle" }], noise: { duration: 0.075, gain: 0.035, frequency: 2100 + variation % 700, type: "bandpass" } };
-      case "impact": return { tones: [{ from: 115 + variation % 32, to: 48, duration: 0.12, gain: 0.1, wave: "sine" }], noise: { duration: 0.06, gain: 0.065, frequency: 720, type: "lowpass" } };
+      case "swing": return { tones: [{ from: 290 + variation % 140, to: 95, duration: 0.12, gain: 0.055, wave: "triangle" }, { from: 126 + variation % 24, to: 52, duration: 0.15, gain: 0.075, wave: "sine" }], noise: { duration: 0.1, gain: 0.05, frequency: 620, type: "lowpass" } };
+      case "impact": return { tones: [{ from: 82 + variation % 18, to: 34, duration: 0.2, gain: 0.15, wave: "sine" }, { from: 175 + variation % 42, to: 62, duration: 0.13, gain: 0.095, wave: "triangle", delay: 0.004 }], noise: { duration: 0.095, gain: 0.095, frequency: 520, type: "lowpass" } };
       case "miss": return { tones: [{ from: 380, to: 190, duration: 0.13, gain: 0.035, wave: "triangle" }], noise: { duration: 0.045, gain: 0.012, frequency: 1800, type: "highpass" } };
-      case "critical": return { tones: [{ from: 420, to: 155, duration: 0.19, gain: 0.095, wave: "triangle" }, { from: 780, to: 330, duration: 0.13, gain: 0.045, delay: 0.01 }], noise: { duration: 0.08, gain: 0.05, frequency: 2600, type: "highpass" } };
+      case "critical": return { tones: [{ from: 420, to: 155, duration: 0.19, gain: 0.095, wave: "triangle" }, { from: 780, to: 330, duration: 0.13, gain: 0.045, delay: 0.01 }, { from: 72, to: 28, duration: 0.25, gain: 0.22, wave: "sine" }, { from: 205, to: 72, duration: 0.15, gain: 0.12, wave: "triangle", delay: 0.008 }], noise: { duration: 0.115, gain: 0.085, frequency: 510, type: "lowpass" }, extraNoise: { duration: 0.048, gain: 0.13, frequency: 2050, type: "bandpass", delay: 0.012 } };
       case "enemy-death": return { tones: [{ from: 250 + v * 500, to: 58, duration: 0.27, gain: 0.065, wave: "triangle" }], noise: { duration: 0.11, gain: 0.035, frequency: 540, type: "lowpass" } };
       case "player-hurt": return { tones: [{ from: 210, to: 82, duration: 0.22, gain: 0.085, wave: "sawtooth" }], noise: { duration: 0.1, gain: 0.045, frequency: 480, type: "lowpass" } };
       case "player-death": return { tones: [{ from: 390, to: 170, duration: 0.45, gain: 0.07, wave: "triangle" }, { from: 190, to: 58, duration: 0.56, gain: 0.055, wave: "sine", delay: 0.18 }], noise: { duration: 0.24, gain: 0.035, frequency: 520, type: "lowpass" } };
-      case "enemy-swipe": return { tones: [{ from: 180, to: 70, duration: 0.16, gain: 0.055, wave: "triangle" }], noise: { duration: 0.09, gain: 0.028, frequency: 900, type: "bandpass" } };
-      case "enemy-shot": return { tones: [{ from: 430 + variation % 260, to: 150, duration: 0.2, gain: 0.045, wave: "sawtooth" }], noise: { duration: 0.08, gain: 0.035, frequency: 1300, type: "bandpass" } };
-      case "arrow-shot": return { tones: [{ from: 620 + v * 300, to: 240, duration: 0.13, gain: 0.04, wave: "triangle" }], noise: { duration: 0.095, gain: 0.05, frequency: 2800, type: "highpass" } };
+      case "enemy-swipe": return { tones: [{ from: 180, to: 70, duration: 0.16, gain: 0.055, wave: "triangle" }, { from: 84, to: 38, duration: 0.18, gain: 0.11, wave: "sine" }], noise: { duration: 0.1, gain: 0.07, frequency: 580, type: "lowpass" } };
+      case "enemy-shot": return { tones: [{ from: 430 + variation % 260, to: 150, duration: 0.2, gain: 0.045, wave: "sawtooth" }, { from: 92, to: 42, duration: 0.17, gain: 0.1, wave: "sine" }], noise: { duration: 0.09, gain: 0.075, frequency: 620, type: "lowpass" } };
+      case "arrow-shot": return { tones: [{ from: 620 + v * 300, to: 240, duration: 0.13, gain: 0.04, wave: "triangle" }, { from: 156, to: 58, duration: 0.14, gain: 0.09, wave: "sine" }], noise: { duration: 0.095, gain: 0.065, frequency: 900, type: "bandpass" } };
       case "gunshot": return { tones: [{ from: 130, to: 42, duration: 0.13, gain: 0.11, wave: "square" }], noise: { duration: 0.12, gain: 0.11, frequency: 1500, type: "lowpass" } };
-      case "magic-shot": return { tones: [{ from: 850 + variation % 300, to: 310, duration: 0.22, gain: 0.05 }, { from: 1300, to: 680, duration: 0.15, gain: 0.025, delay: 0.018 }] };
+      case "magic-shot": return { tones: [{ from: 850 + variation % 300, to: 310, duration: 0.22, gain: 0.05 }, { from: 1300, to: 680, duration: 0.15, gain: 0.025, delay: 0.018 }, { from: 118, to: 44, duration: 0.18, gain: 0.12, wave: "sine" }], noise: { duration: 0.08, gain: 0.055, frequency: 560, type: "lowpass" } };
       case "loot-pickup": return { tones: [{ from: 760 + variation % 140, to: 1120, duration: 0.12, gain: 0.055 }, { from: 1120, to: 1480, duration: 0.13, gain: 0.038, delay: 0.07 }] };
       case "coin": return { tones: [{ from: 920, to: 1280, duration: 0.075, gain: 0.04 }, { from: 1380, to: 980, duration: 0.12, gain: 0.032, delay: 0.065 }] };
       case "potion-hp": return { tones: [{ from: 360, to: 720, duration: 0.24, gain: 0.05 }, { from: 540, to: 980, duration: 0.29, gain: 0.035, delay: 0.06 }] };
@@ -221,6 +239,29 @@ class GameAudio {
       case "talk": return { tones: [{ from: 540 + variation % 150, to: 710 + variation % 130, duration: 0.095, gain: 0.03 }, { from: 720, to: 590, duration: 0.08, gain: 0.022, delay: 0.09 }] };
       case "footstep": return { tones: [{ from: 100 + variation % 25, to: 54, duration: 0.065, gain: 0.046, wave: "triangle" }], noise: { duration: 0.045, gain: 0.018, frequency: 400 + variation % 1100, type: variation % 2 ? "lowpass" : "bandpass" } };
       default: return { tones: [{ from: 400, to: 260, duration: 0.12, gain: 0.035 }] };
+    }
+  }
+
+  private weaponSpec(id: string, variation: number): SoundSpec {
+    const v = variation % 9;
+    switch (id) {
+      case "sword_1h": return { tones: [{ from: 390 + v * 13, to: 125, duration: 0.14, gain: 0.07, wave: "triangle" }, { from: 145, to: 58, duration: 0.15, gain: 0.065, wave: "sine" }], noise: { duration: 0.11, gain: 0.06, frequency: 1500, type: "bandpass" } };
+      case "sword_2h": return { tones: [{ from: 280 + v * 9, to: 72, duration: 0.23, gain: 0.09, wave: "triangle" }, { from: 98, to: 34, duration: 0.23, gain: 0.12, wave: "sine" }], noise: { duration: 0.16, gain: 0.075, frequency: 900, type: "bandpass" } };
+      case "axe": return { tones: [{ from: 240 + v * 11, to: 58, duration: 0.18, gain: 0.09, wave: "sawtooth" }, { from: 92, to: 34, duration: 0.2, gain: 0.14, wave: "sine" }], noise: { duration: 0.14, gain: 0.09, frequency: 690, type: "lowpass" }, extraNoise: { duration: 0.045, gain: 0.045, frequency: 2300, type: "highpass", delay: 0.018 } };
+      case "axe_2h": return { tones: [{ from: 205 + v * 8, to: 42, duration: 0.28, gain: 0.12, wave: "sawtooth" }, { from: 72, to: 28, duration: 0.29, gain: 0.19, wave: "sine" }], noise: { duration: 0.19, gain: 0.11, frequency: 520, type: "lowpass" }, extraNoise: { duration: 0.055, gain: 0.055, frequency: 1800, type: "highpass", delay: 0.025 } };
+      case "mace": return { tones: [{ from: 112 + v * 5, to: 38, duration: 0.2, gain: 0.19, wave: "sine" }, { from: 360, to: 115, duration: 0.11, gain: 0.09, wave: "triangle", delay: 0.006 }], noise: { duration: 0.15, gain: 0.11, frequency: 430, type: "lowpass" }, extraNoise: { duration: 0.04, gain: 0.035, frequency: 1300, type: "bandpass", delay: 0.03 } };
+      case "spear_1h": return { tones: [{ from: 330 + v * 12, to: 105, duration: 0.12, gain: 0.075, wave: "triangle" }, { from: 120, to: 48, duration: 0.14, gain: 0.09, wave: "sine" }], noise: { duration: 0.12, gain: 0.075, frequency: 740, type: "bandpass" } };
+      case "spear_2h": return { tones: [{ from: 250 + v * 10, to: 68, duration: 0.19, gain: 0.1, wave: "triangle" }, { from: 88, to: 31, duration: 0.23, gain: 0.16, wave: "sine" }], noise: { duration: 0.16, gain: 0.095, frequency: 560, type: "lowpass" } };
+      case "dagger": return { tones: [{ from: 640 + v * 18, to: 190, duration: 0.085, gain: 0.065, wave: "triangle" }, { from: 155, to: 58, duration: 0.095, gain: 0.055, wave: "sine" }], noise: { duration: 0.065, gain: 0.055, frequency: 2100, type: "highpass" } };
+      case "claw": return { tones: [{ from: 510 + v * 15, to: 125, duration: 0.11, gain: 0.08, wave: "sawtooth" }, { from: 112, to: 45, duration: 0.13, gain: 0.07, wave: "sine" }], noise: { duration: 0.1, gain: 0.085, frequency: 2800, type: "highpass" } };
+      case "staff": return { tones: [{ from: 260 + v * 12, to: 90, duration: 0.18, gain: 0.09, wave: "sine" }, { from: 560, to: 210, duration: 0.18, gain: 0.045, wave: "triangle", delay: 0.012 }], noise: { duration: 0.1, gain: 0.055, frequency: 650, type: "lowpass" } };
+      case "bow": return { tones: [{ from: 760 + v * 22, to: 260, duration: 0.11, gain: 0.09, wave: "triangle" }, { from: 112, to: 38, duration: 0.2, gain: 0.19, wave: "sine" }, { from: 210, to: 78, duration: 0.12, gain: 0.09, wave: "triangle", delay: 0.008 }], noise: { duration: 0.12, gain: 0.1, frequency: 920, type: "bandpass" }, extraNoise: { duration: 0.05, gain: 0.045, frequency: 3000, type: "highpass", delay: 0.01 } };
+      case "knuckle": return { tones: [{ from: 138 + v * 4, to: 42, duration: 0.16, gain: 0.16, wave: "sine" }, { from: 225, to: 78, duration: 0.1, gain: 0.09, wave: "triangle" }], noise: { duration: 0.095, gain: 0.1, frequency: 520, type: "lowpass" } };
+      case "pistol": return { tones: [{ from: 148, to: 38, duration: 0.13, gain: 0.17, wave: "square" }, { from: 690, to: 175, duration: 0.075, gain: 0.06, wave: "triangle" }], noise: { duration: 0.12, gain: 0.15, frequency: 1350, type: "lowpass" }, extraNoise: { duration: 0.04, gain: 0.07, frequency: 3600, type: "highpass", delay: 0.008 } };
+      case "rifle": return { tones: [{ from: 94, to: 27, duration: 0.22, gain: 0.22, wave: "square" }, { from: 480, to: 92, duration: 0.12, gain: 0.075, wave: "triangle" }], noise: { duration: 0.18, gain: 0.18, frequency: 950, type: "lowpass" }, extraNoise: { duration: 0.055, gain: 0.09, frequency: 3200, type: "highpass", delay: 0.012 } };
+      case "form": return { tones: [{ from: 180 + v * 10, to: 48, duration: 0.2, gain: 0.12, wave: "triangle" }, { from: 74, to: 30, duration: 0.22, gain: 0.16, wave: "sine" }], noise: { duration: 0.14, gain: 0.08, frequency: 480, type: "lowpass" } };
+      case "unarmed": return { tones: [{ from: 145 + v * 4, to: 46, duration: 0.15, gain: 0.15, wave: "sine" }, { from: 250, to: 85, duration: 0.09, gain: 0.08, wave: "triangle" }], noise: { duration: 0.09, gain: 0.085, frequency: 580, type: "lowpass" } };
+      default: return { tones: [{ from: 190 + v * 9, to: 55, duration: 0.16, gain: 0.1, wave: "triangle" }, { from: 90, to: 34, duration: 0.18, gain: 0.12, wave: "sine" }], noise: { duration: 0.11, gain: 0.07, frequency: 620, type: "lowpass" } };
     }
   }
 }

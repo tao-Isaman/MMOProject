@@ -181,6 +181,7 @@ export interface ShotSpec {
   vfxTheme?: string;
   glyph?: string;
   vfxSignature?: number;
+  weaponSound?: string;
   target?: Monster | null; // locked on: it homes in on this one and hits nothing else
   onHit: (m: Monster, dir: Vec2) => void;
 }
@@ -284,15 +285,15 @@ export class Combat {
         this.damage(m, w, d);
         follow(m, d);
       };
-      this.shoot(origin, aim, { ...p, onHit, target });
+      this.shoot(origin, aim, { ...p, onHit, target, weaponSound: weaponId ?? "bow" });
       // a second arrow after the first, now and then (the archer's double shot)
       if (p.kind === "arrow" && lucky(this.hero.stats.multiShot, this.hero.stats)) {
         const a = Math.atan2(aim.y, aim.x) + 0.07;
-        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit, target });
+        this.shoot({ x: origin.x - aim.y * 14, y: origin.y + aim.x * 14 }, { x: Math.cos(a), y: Math.sin(a) }, { ...p, onHit, target, weaponSound: weaponId ?? "bow" });
       }
       return;
     }
-    sound.play("swing", soundSeed(`${w.name}:${w.motion}`));
+    sound.playWeapon(weaponId ?? "unarmed");
     const target = this.lockOn(player, dir, w.reach + 40);
     const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
     const at = near ? (() => {
@@ -333,7 +334,7 @@ export class Combat {
     const target = this.lockOn(player, dir, w.reach + 40);
     const near = target && Math.hypot(target.x - origin.x, target.y - origin.y) - target.radius <= w.reach + 40;
     const at = near ? this.toward(origin, target) : dir;
-    if (!w.projectile) sound.play("swing", soundSeed(`form:${fa.kind}:${w.motion}`));
+    if (!w.projectile) sound.playWeapon("form");
     if (near) land(target, at);
     this.slashFx(origin, at, w);
   }
@@ -356,7 +357,7 @@ export class Combat {
   // color, onHit(monster, dir) }. A bullet leaves from the muzzle of the gun held out at
   // shoulder height, in a flash.
   shoot(origin: Vec2, aim: Vec2, p: ShotSpec): void {
-    sound.playProjectile(p.kind, p.vfxTheme ?? p.glyph ?? "");
+    sound.playProjectile(p.kind, p.vfxTheme ?? p.glyph ?? "", p.weaponSound ?? "");
     const gun = p.kind === "bullet", z = gun ? MUZZLE.z : 60;
     const v = toView(aim.x, aim.y), len = Math.hypot(v.left, v.fwd) || 1;
     // aimed off to a far corner, the gun is held out at arm's length in the hand that points it
