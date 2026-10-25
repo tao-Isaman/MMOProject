@@ -717,7 +717,7 @@ export class Skills {
       case "bolt":
         // `hits` shots one after another (a volley of arrows)
         for (let i = 0; i < (s.hits ?? 1); i++) {
-          this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot({ x: p.x, y: p.y }, dir, {
+          this.later(LEAD + i * (s.every ?? 0.12), () => this.combat.shoot(p.projectileOrigin(), dir, {
             kind: s.arrow ? "arrow" : s.bullet ? "bullet" : s.pierce ? "wave" : "skill", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 30, pierce: s.pierce,
             target: lock, onHit: (m, d) => this.hit(m, s, rank, d, s.knock),
           }));
@@ -728,7 +728,7 @@ export class Skills {
           const base = Math.atan2(dir.y, dir.x), spread = ((s.spread ?? 40) * Math.PI) / 180, count = s.count ?? 3;
           for (let i = 0; i < count; i++) {
             const a = base + (i / (count - 1) - 0.5) * spread;
-            this.combat.shoot({ x: p.x, y: p.y }, { x: Math.cos(a), y: Math.sin(a) }, {
+            this.combat.shoot(p.projectileOrigin(), { x: Math.cos(a), y: Math.sin(a) }, {
               kind: s.arrow ? "arrow" : s.bullet ? "bullet" : "bolt", speed: s.speed ?? 900, range: s.range ?? 500, radius: s.radius ?? 28,
               onHit: (m, d) => this.hit(m, s, rank, d),
             });

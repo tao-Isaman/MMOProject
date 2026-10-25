@@ -463,14 +463,12 @@ export class Player {
     return { r, l: a?.l ?? null, lh: a?.lh, c };
   }
 
-  // Projectile origin for a bow release: convert the animated hand's sprite position back to
-  // world coordinates so the arrow appears to leave the hand instead of the ground pivot.
+  // Projectiles leave from the animated body center, not the ground pivot or a raised hand.
   projectileOrigin(): Vec2 {
     const { clip, col } = this.pose();
-    if (clip !== "shoot") return { x: this.x, y: this.y };
-    const hand = this.handFor(clip, col).r;
-    const dx = (hand[0] - this.cell / 2) * this.scale;
-    const dy = (hand[1] - this.cell) * this.scale;
+    const center = this.handFor(clip, col).c;
+    const dx = (center[0] - this.cell / 2) * this.scale;
+    const dy = (center[1] - this.cell) * this.scale;
     return groundFromMap(mapX(this.x, this.y) + dx, mapY(this.x, this.y) + dy);
   }
 

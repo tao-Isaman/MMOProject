@@ -261,7 +261,7 @@ export class Combat {
       if (off) this.offhits.push({ t: 0.13, m, w: off, dir: d, from: player });
     };
     const dir = player.aimDir();
-    const origin = w.projectile?.kind === "arrow"
+    const origin = w.projectile
       ? player.projectileOrigin?.() ?? { x: player.x, y: player.y }
       : { x: player.x, y: player.y };
     if (w.projectile) {
@@ -301,7 +301,7 @@ export class Combat {
   // A normal attack in a form (the druid's): a blow at the one in front within reach, or a shot in
   // the form's colour that homes in on it; `mult` of attack (or magic attack) in its element,
   // `heal` of the damage done back as HP. Like a weapon's blow, it may set an autocast going.
-  formStrike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2 }, fa: FormAttack, rank: number, w: WeaponType, color: string): void {
+  formStrike(player: { x: number; y: number; target: Target | null; aimDir(): Vec2; projectileOrigin?(): Vec2 }, fa: FormAttack, rank: number, w: WeaponType, color: string): void {
     const blow: SkillDef = { type: "cone", stat: fa.stat ?? "atk", element: fa.element, mult: fa.mult, mp: 0, cd: 0, motion: "swing", color };
     const origin = { x: player.x, y: player.y };
     const land = (m: Monster, d: Vec2) => {
@@ -315,9 +315,10 @@ export class Combat {
     };
     const dir = player.aimDir();
     if (w.projectile) {
+      const shotOrigin = player.projectileOrigin?.() ?? origin;
       const p = w.projectile, target = this.lockOn(player, dir, p.range);
-      const aim = target ? this.toward(origin, target) : dir;
-      this.shoot(origin, aim, { kind: "skill", speed: p.speed, range: p.range, radius: p.radius, color, target, onHit: land });
+      const aim = target ? this.toward(shotOrigin, target) : dir;
+      this.shoot(shotOrigin, aim, { kind: "skill", speed: p.speed, range: p.range, radius: p.radius, color, target, onHit: land });
       return;
     }
     const target = this.lockOn(player, dir, w.reach + 40);
