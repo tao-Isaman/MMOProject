@@ -1,8 +1,85 @@
 {
+ "ancient_treant": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "armored_rhino": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "aurora_wisp": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "bamboo_ninja": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "banyan_wraith": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "basalt_golem": {
   "cell": 128,
   "foot": 0,
   "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
+ "black_panther": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "blood_mage": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "bog_hulk": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "bog_witch": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "bone_royal_guard": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "bridge_troll": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -13,10 +90,59 @@
   "walk": 4,
   "attack": 4
  },
+ "cairn_walker": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "canyon_wolf": {
   "cell": 96,
   "foot": 0,
   "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "caravan_raider": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "cliff_ascetic": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "cloud_qilin": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "cloud_sheep": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "corpse_bloom": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "crag_roc": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -27,10 +153,31 @@
   "walk": 4,
   "attack": 4
  },
+ "cursed_deserter": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "cursed_doll": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "dark_crystal_fiend": {
   "cell": 128,
   "foot": 0,
   "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
+ "demon_general": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -45,6 +192,13 @@
   "cell": 128,
   "foot": 0,
   "top": 123,
+  "walk": 4,
+  "attack": 4
+ },
+ "demon_soldier": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -69,10 +223,59 @@
   "walk": 4,
   "attack": 4
  },
+ "dust_devil": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "echo_bat": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "falls_nymph": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "fang_squirrel": {
   "cell": 96,
   "foot": 0,
   "top": 92,
+  "walk": 4,
+  "attack": 4
+ },
+ "feathered_raptor": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "fighting_rooster": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "first_king": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "first_tree_warden": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -83,10 +286,45 @@
   "walk": 4,
   "attack": 4
  },
+ "floating_eye": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "forest_turtle": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "frost_dragon": {
   "cell": 128,
   "foot": 0,
   "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "frost_giant": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "frost_harpy": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "frost_titan": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -97,10 +335,31 @@
   "walk": 4,
   "attack": 4
  },
+ "frozen_knight": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "furrow_mole": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "ghost_captain": {
   "cell": 128,
   "foot": 0,
   "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "ghost_charioteer": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -125,10 +384,31 @@
   "walk": 4,
   "attack": 4
  },
+ "giant_revenant": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "glass_scorpion": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "goat_demon": {
   "cell": 128,
   "foot": 0,
   "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
+ "golden_firefly": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -146,6 +426,13 @@
   "walk": 4,
   "attack": 4
  },
+ "haunted_minecart": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "haunted_scarecrow": {
   "cell": 128,
   "foot": 0,
@@ -160,10 +447,24 @@
   "walk": 4,
   "attack": 4
  },
+ "highway_bandit": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "horned_hare": {
   "cell": 96,
   "foot": 0,
   "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
+ "ice_bat": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -174,10 +475,31 @@
   "walk": 4,
   "attack": 4
  },
+ "ice_pike": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "ice_worm": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "iron_crab": {
   "cell": 96,
   "foot": 0,
   "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "land_octopus": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -195,6 +517,48 @@
   "walk": 4,
   "attack": 4
  },
+ "lavender_moth": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "lighthouse_fiend": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "lost_wisp": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "maple_bear": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "marsh_hydra": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "maze_minotaur": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "menhir_warden": {
   "cell": 128,
   "foot": 0,
@@ -202,10 +566,45 @@
   "walk": 4,
   "attack": 4
  },
+ "mesa_armadillo": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "meteor_imp": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "mill_rat": {
   "cell": 96,
   "foot": 0,
   "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "mist_crane": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "money_toad": {
+  "cell": 128,
+  "foot": 0,
+  "top": 110,
+  "walk": 4,
+  "attack": 4
+ },
+ "moss_dryad": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -237,6 +636,13 @@
   "walk": 4,
   "attack": 4
  },
+ "nomad_raider": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "oak_boar": {
   "cell": 96,
   "foot": 0,
@@ -251,10 +657,31 @@
   "walk": 4,
   "attack": 4
  },
+ "paddy_waterbug": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "paper_lantern": {
   "cell": 96,
   "foot": 0,
   "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "pass_gargoyle": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "phantom_hoplite": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -286,6 +713,13 @@
   "walk": 4,
   "attack": 4
  },
+ "rafflesia": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "ram_goat": {
   "cell": 96,
   "foot": 0,
@@ -300,10 +734,31 @@
   "walk": 4,
   "attack": 4
  },
+ "rime_wyvern": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "risen_pharaoh": {
   "cell": 128,
   "foot": 0,
   "top": 124,
+  "walk": 4,
+  "attack": 4
+ },
+ "rope_spider": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "royal_bee": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -335,6 +790,27 @@
   "walk": 4,
   "attack": 4
  },
+ "sea_cultist": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "sea_dragon": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "sea_krait": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "shadow_imp": {
   "cell": 96,
   "foot": 0,
@@ -349,6 +825,20 @@
   "walk": 4,
   "attack": 4
  },
+ "sheepskin_wolf": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "shrine_mask": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "siege_golem": {
   "cell": 128,
   "foot": 0,
@@ -356,10 +846,73 @@
   "walk": 4,
   "attack": 4
  },
+ "silver_golem": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "silver_stag": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "skeleton_soldier": {
   "cell": 128,
   "foot": 0,
   "top": 122,
+  "walk": 4,
+  "attack": 4
+ },
+ "skull_crab": {
+  "cell": 128,
+  "foot": 0,
+  "top": 104,
+  "walk": 4,
+  "attack": 4
+ },
+ "sky_dragon": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "sky_whelp": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "snow_fox": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "snow_leopard": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "snow_otter": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "snow_queen": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -377,10 +930,24 @@
   "walk": 4,
   "attack": 4
  },
+ "spirit_elephant": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "spore_mushroom": {
   "cell": 96,
   "foot": 0,
   "top": 88,
+  "walk": 4,
+  "attack": 4
+ },
+ "statue_hand": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -391,10 +958,31 @@
   "walk": 4,
   "attack": 4
  },
+ "storm_elemental": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "storm_griffin": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "sulfur_wisp": {
   "cell": 96,
   "foot": 0,
   "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "sunflower_sentinel": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -412,6 +1000,41 @@
   "walk": 4,
   "attack": 4
  },
+ "temple_guardian": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "thorn_crawler": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "three_eyed_crow": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "three_horn": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "thunder_eel": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "thunder_steed": {
   "cell": 128,
   "foot": 0,
@@ -426,10 +1049,38 @@
   "walk": 4,
   "attack": 4
  },
+ "tipsy_wasp": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "toll_keeper": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "village_ghoul": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
  "vine_monkey": {
   "cell": 96,
   "foot": 0,
   "top": 91,
+  "walk": 4,
+  "attack": 4
+ },
+ "vine_snail": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },
@@ -451,6 +1102,20 @@
   "cell": 96,
   "foot": 0,
   "top": 93,
+  "walk": 4,
+  "attack": 4
+ },
+ "wild_yak": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
+  "walk": 4,
+  "attack": 4
+ },
+ "woolly_mammoth": {
+  "cell": 128,
+  "foot": 0,
+  "top": 116,
   "walk": 4,
   "attack": 4
  },

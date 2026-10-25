@@ -3,3 +3,6 @@ __pycache__/
 node_modules
 dist/
 .claude/worktrees/
+key.txt
+output/imagegen/
+tmp/imagegen/
