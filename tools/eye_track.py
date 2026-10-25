@@ -72,9 +72,17 @@ BOXES = {
         [[55, 34, 56, 35]],
         [[48, 34, 50, 36], [58, 34, 59, 36]],
     ],
+    "wizard_m": [
+        [[40, 32, 44, 35], [52, 32, 56, 35]],
+        [[37, 32, 41, 35], [47, 32, 52, 35]],
+        [[40, 31, 44, 35]],
+        [], [], [],
+        [[51, 32, 55, 35]],
+        [[45, 32, 49, 35], [56, 32, 59, 35]],
+    ],
 }
 NATURAL = {"plainm": "amber", "warrior": "amber", "swordsman_m": "blue", "ranger_m": "teal",
-           "knight_m": "crimson", "bishop_m": "crimson"}  # the EYE_COLORS id they are drawn in
+           "knight_m": "crimson", "bishop_m": "crimson", "wizard_m": "blue"}  # the EYE_COLORS id they are drawn in
 IRIS = {  # the colour of that iris
     "amber": {"h": [18, 45], "s": [0.6, 1], "l": [0.28, 0.66]},
     "blue": {"h": [195, 240], "s": [0.35, 1], "l": [0.15, 0.8]},

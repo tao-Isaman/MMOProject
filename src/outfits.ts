@@ -4,11 +4,11 @@
 // Ragnarok job changes its sprite.
 //
 // Each job and build is getting a body of its own from Oriverse (src/items.ts SHAPES marked
-// `job`), worn as it was drawn: so far the swordsman's, the knight's and the bishop's, female and
-// male, and the ranger's male one. Until a job's body for a build is in, its outfit is one of the
-// other bodies in that job's colours: a female character the mage coat, the priestess robe or the
+// `job`), worn as it was drawn: so far the swordsman's, the wizard's, the knight's and the
+// bishop's, female and male, and the ranger's male one. Until a job's body for a build is in,
+// its outfit is one of the other bodies in that job's colours: a female character the mage coat, the priestess robe or the
 // adventurer vest, a male one the warrior jacket. A job line keeps its class's shape and moves on
-// in colour (the wizard a violet coat, the archmage a midnight one).
+// in colour (the battlemage a sky-blue coat, the archmage a midnight one).
 //
 // The look code (src/look.ts) reads a slot holding "@shape/dye" as that garment itself, so an
 // outfit goes in place of the worn top and bottom without being an item anybody can hold.
@@ -28,7 +28,7 @@ const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
   archer: { female: [["adventurer", "forest"], ["adventurer", "sand"]], male: [["warrior", "forest"], ["warrior", "cocoa"]] },
   priest: { female: [["priestess", null], ["priestess", null]], male: [["warrior", "white"], ["warrior", "navy"]] },
   // the second jobs
-  wizard: { female: [["mage", "lilac"], ["mage", "navy"]], male: [["warrior", "plum"], ["warrior", "black"]] },
+  wizard: { female: [["wizard_f", null], ["wizard_f", null]], male: [["wizard_m", null], ["wizard_m", null]] },
   battlemage: { female: [["mage", "sky"], ["mage", "wine"]], male: [["warrior", "sky"], ["warrior", "wine"]] },
   bishop: { female: [["bishop_f", null], ["bishop_f", null]], male: [["bishop_m", null], ["bishop_m", null]] },
   ranger: { female: [["adventurer", "teal"], ["adventurer", "cocoa"]], male: [["ranger_m", null], ["ranger_m", null]] },

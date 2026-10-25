@@ -35,6 +35,10 @@ RAISED = 10   # skin px at least in a fist up beside the head
 GAP = 16      # px a cuff or a wrapping may part the skin of one arm by
 BEND = -0.6   # cosine of the sharpest turn from the shoulders an arm takes at the elbow
 INWARD = 6    # px an arm followed past its wrapping may come in toward the middle
+# frames whose weapon fist holds a slash drawn into the source sprite, the slash crossing the face
+# so that a piece of the face passes for a raised fist: (clip, direction, frame) -> the frame of
+# the same direction whose weapon hand (moved with the neck) is taken instead
+SLASHED = {"wizard_m": {("thrust", 0, 1): 2}}
 
 
 def skin_mask(cell, gloves=None, waist=None):
@@ -256,6 +260,13 @@ def main():
                     h["l"] = [round(v, 1) for v in l] if l else None
                     h.pop("lh", None)
                     shown += bool(l)
+                for (c, dd, f), j in SLASHED.get(name, {}).items():
+                    if c == clip and dd == d and frames[j]["r"]:
+                        rx, ry = frames[j]["r"]
+                        h = frames[f]
+                        h["r"] = [round(rx - necks[j][0] + necks[f][0], 1), round(ry - necks[j][1] + necks[f][1], 1)]
+                        if h["l"] and np.hypot(h["l"][0] - h["r"][0], h["l"][1] - h["r"][1]) <= OTHER:
+                            h["l"] = None  # that was the weapon arm: the off hand is borrowed below
                 known = [i for i, h in enumerate(frames) if h["l"] and not h.get("lh")]
                 for i, h in enumerate(frames):
                     if h["l"] or not known:
