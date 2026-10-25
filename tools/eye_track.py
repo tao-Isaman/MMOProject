@@ -48,11 +48,40 @@ BOXES = {
         [[54, 27, 56, 29]],
         [[48, 28, 51, 29], [56, 28, 57, 29]],
     ],
+    "ranger_m": [
+        [[40, 30, 43, 33], [51, 31, 54, 33]],
+        [[37, 31, 38, 33], [45, 30, 47, 33]],
+        [[38, 31, 39, 33]],
+        [], [], [],
+        [[56, 31, 57, 33]],
+        [[48, 30, 51, 33], [58, 31, 59, 33]],
+    ],
+    "knight_m": [
+        [[42, 31, 44, 33], [51, 31, 53, 33]],
+        [[38, 31, 39, 33], [45, 31, 46, 33]],
+        [[39, 31, 39, 32]],
+        [], [], [],
+        [[56, 31, 56, 32]],
+        [[48, 31, 50, 32], [57, 31, 57, 32]],
+    ],
+    "bishop_m": [
+        [[41, 33, 44, 35], [53, 33, 55, 35]],
+        [[37, 34, 39, 36], [46, 34, 49, 36]],
+        [[40, 34, 41, 36]],
+        [], [], [],
+        [[55, 34, 56, 35]],
+        [[48, 34, 50, 36], [58, 34, 59, 36]],
+    ],
 }
-NATURAL = {"plainm": "amber", "warrior": "amber", "swordsman_m": "blue"}  # the EYE_COLORS id they are drawn in
+NATURAL = {"plainm": "amber", "warrior": "amber", "swordsman_m": "blue", "ranger_m": "teal",
+           "knight_m": "crimson", "bishop_m": "crimson"}  # the EYE_COLORS id they are drawn in
 IRIS = {  # the colour of that iris
     "amber": {"h": [18, 45], "s": [0.6, 1], "l": [0.28, 0.66]},
     "blue": {"h": [195, 240], "s": [0.35, 1], "l": [0.15, 0.8]},
+    "teal": {"h": [115, 225], "s": [0.2, 1], "l": [0.08, 0.5]},  # down to the green at the iris's foot
+    # the knight's and the bishop's red eyes share their hair's reds but for their darkest one:
+    # only that one is looked for around the boxes, so the hair over their eyes keeps its colour
+    "crimson": {"h": [318, 334], "s": [0.5, 1], "l": [0.08, 0.3]},
 }
 
 

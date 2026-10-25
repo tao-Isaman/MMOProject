@@ -4,11 +4,11 @@
 // Ragnarok job changes its sprite.
 //
 // Each job and build is getting a body of its own from Oriverse (src/items.ts SHAPES marked
-// `job`), worn as it was drawn: so far the swordsman's, female and male. Until a job's body for a
-// build is in, its outfit is one of the other bodies in that job's colours: a female character the
-// mage coat, the priestess robe or the adventurer vest, a male one the warrior jacket. A job line
-// keeps its class's shape and moves on in colour (the wizard a violet coat, the archmage a midnight
-// one).
+// `job`), worn as it was drawn: so far the swordsman's, the knight's and the bishop's, female and
+// male, and the ranger's male one. Until a job's body for a build is in, its outfit is one of the
+// other bodies in that job's colours: a female character the mage coat, the priestess robe or the
+// adventurer vest, a male one the warrior jacket. A job line keeps its class's shape and moves on
+// in colour (the wizard a violet coat, the archmage a midnight one).
 //
 // The look code (src/look.ts) reads a slot holding "@shape/dye" as that garment itself, so an
 // outfit goes in place of the worn top and bottom without being an item anybody can hold.
@@ -30,8 +30,8 @@ const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
   // the second jobs
   wizard: { female: [["mage", "lilac"], ["mage", "navy"]], male: [["warrior", "plum"], ["warrior", "black"]] },
   battlemage: { female: [["mage", "sky"], ["mage", "wine"]], male: [["warrior", "sky"], ["warrior", "wine"]] },
-  bishop: { female: [["priestess", "white"], ["priestess", "white"]], male: [["warrior", "white"], ["warrior", "white"]] },
-  ranger: { female: [["adventurer", "teal"], ["adventurer", "cocoa"]], male: [["warrior", "teal"], ["warrior", "cocoa"]] },
+  bishop: { female: [["bishop_f", null], ["bishop_f", null]], male: [["bishop_m", null], ["bishop_m", null]] },
+  ranger: { female: [["adventurer", "teal"], ["adventurer", "cocoa"]], male: [["ranger_m", null], ["ranger_m", null]] },
   swordsman: { female: [["swordsman_f", null], ["swordsman_f", null]], male: [["swordsman_m", null], ["swordsman_m", null]] },
   warlord: { female: [["adventurer", "crimson"], ["adventurer", "black"]], male: [["warrior", "crimson"], ["warrior", "black"]] },
   thief: { female: [["adventurer", "plum"], ["adventurer", "black"]], male: [["warrior", "plum"], ["warrior", "black"]] },
@@ -40,7 +40,7 @@ const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
   inventor: { female: [["adventurer", "cocoa"], ["adventurer", "ochre"]], male: [["warrior", "cocoa"], ["warrior", "ochre"]] },
   merchant: { female: [["adventurer", "ochre"], ["adventurer", "cocoa"]], male: [["warrior", "ochre"], ["warrior", "cocoa"]] },
   // the third jobs
-  knight: { female: [["adventurer", "white"], ["adventurer", "navy"]], male: [["warrior", "white"], ["warrior", "navy"]] },
+  knight: { female: [["knight_f", null], ["knight_f", null]], male: [["knight_m", null], ["knight_m", null]] },
   hunter: { female: [["adventurer", "forest"], ["adventurer", "cocoa"]], male: [["warrior", "forest"], ["warrior", "black"]] },
   archmage: { female: [["mage", "navy"], ["mage", "black"]], male: [["warrior", "navy"], ["warrior", "plum"]] },
   assassin: { female: [["adventurer", "black"], ["adventurer", "black"]], male: [["warrior", "black"], ["warrior", "black"]] },

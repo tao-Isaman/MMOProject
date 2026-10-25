@@ -157,6 +157,11 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     plain_m: { name: "เสื้อยืดผ้าฝ้าย", body: "plainm", gender: "male", note: "เสื้อยืดแขนสั้นสีน้ำตาลอ่อน", bare: true },
     swordsman_f: { name: "เสื้อนักดาบ", body: "swordsman_f", gender: "female", note: "ทูนิกสีกรมท่า ผ้าคลุมไหล่ เข็มขัดหนัง ปลอกแขนหนัง", job: true },
     swordsman_m: { name: "เสื้อนักดาบ", body: "swordsman_m", gender: "male", note: "ทูนิกสีกรมท่า ผ้าคลุมไหล่ เกราะไหล่เหล็ก เข็มขัดและปลอกแขนหนัง", job: true },
+    ranger_m: { name: "เสื้อนายพราน", body: "ranger_m", gender: "male", note: "เสื้อสีเขียวหัวเป็ด เสื้อกั๊กหนัง ปลอกแขนหนัง กระบอกลูกธนูสะพายหลัง", job: true },
+    knight_f: { name: "เกราะอัศวิน", body: "knight_f", gender: "female", note: "เกราะเหล็กเต็มตัว ตรากางเขนที่อก ผ้าคลุมยาวสีกรมท่า ถุงมือหนัง", job: true },
+    knight_m: { name: "เกราะอัศวิน", body: "knight_m", gender: "male", note: "เกราะเหล็ก เสื้อคลุมสีขาวตรากางเขน ผ้าคลุมยาวสีกรมท่า", job: true },
+    bishop_f: { name: "เสื้อคลุมบาทหลวง", body: "bishop_f", gender: "female", note: "เสื้อคลุมยาวสีขาว ขลิบทอง ผ้าสโตลปักทอง", job: true },
+    bishop_m: { name: "เสื้อคลุมบาทหลวง", body: "bishop_m", gender: "male", note: "เสื้อคลุมยาวสีขาว ขลิบทอง ผ้าคลุมไหล่ ผ้าสโตลปักทอง", job: true },
   },
   bottom: {
     mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "กางเกงขายาว บูทหนัง ใส่กับเสื้อคลุมจอมเวทมีชายเสื้อคลุมยาวคลุมทับ" },
@@ -167,6 +172,11 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     plain_m: { name: "กางเกงผ้าฝ้าย", body: "plainm", gender: "male", note: "กางเกงขายาวสีน้ำตาลเข้ม รองเท้าผ้า", bare: true },
     swordsman_f: { name: "กางเกงนักดาบ", body: "swordsman_f", gender: "female", note: "กางเกงสีทราย บูทหนังสูง", job: true },
     swordsman_m: { name: "กางเกงนักดาบ", body: "swordsman_m", gender: "male", note: "กางเกงสีทราย บูทหนัง", job: true },
+    ranger_m: { name: "กางเกงนายพราน", body: "ranger_m", gender: "male", note: "กางเกงหนังสีน้ำตาล บูทหนัง กระเป๋าคาดเอว", job: true },
+    knight_f: { name: "เกราะขาอัศวิน", body: "knight_f", gender: "female", note: "เกราะขาเหล็ก รองเท้าเหล็ก", job: true },
+    knight_m: { name: "เกราะขาอัศวิน", body: "knight_m", gender: "male", note: "เกราะขาเหล็ก รองเท้าเหล็ก", job: true },
+    bishop_f: { name: "ชายเสื้อคลุมบาทหลวง", body: "bishop_f", gender: "female", note: "ชายเสื้อคลุมยาวสีขาว ขลิบทอง", job: true },
+    bishop_m: { name: "ชายเสื้อคลุมบาทหลวง", body: "bishop_m", gender: "male", note: "ชายเสื้อคลุมยาวสีขาว ขลิบทอง รองเท้าสีเงิน", job: true },
   },
 };
 

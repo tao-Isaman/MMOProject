@@ -314,8 +314,9 @@ function eyeDyeFor(natural: string, chosen: string): Dye | null {
 // Dye a body's own eyes, frame by frame, deciding by the undyed pixels in `plain` (the hair
 // dye may have reached the darker reds of an iris). Never skin; inside a box every other colour
 // but whites and greys is eye, around it (a pixel above, two to the sides and below) only the
-// iris's own colour, which catches an eye drawn a pixel or two off.
-function paintEyes(dyed: Sheets, plain: Sheets, eyes: Eyes, dye: Dye): Sheets {
+// iris's own colour, which catches an eye drawn a pixel or two off. With no dye the eyes get
+// their own colours back.
+function paintEyes(dyed: Sheets, plain: Sheets, eyes: Eyes, dye: Dye | null): Sheets {
   const out: Sheets = { ...dyed };
   const eyeLike = (s: number, l: number) => s >= 0.25 && l < 0.8;
   for (const [clip, img] of Object.entries(dyed)) {
@@ -345,7 +346,7 @@ function paintEyes(dyed: Sheets, plain: Sheets, eyes: Eyes, dye: Dye): Sheets {
               const [h, s, l] = rgbToHsl(src[i], src[i + 1], src[i + 2]);
               const inside = x >= x0 && x <= x1 && y >= y0 && y <= y1;
               if (inRegion(SKIN, h, s, l) || !(inside ? eyeLike(s, l) : inRegion(eyes.iris, h, s, l))) continue;
-              [px[i], px[i + 1], px[i + 2]] = paint(src[i], src[i + 1], src[i + 2], dye, 0.5);
+              [px[i], px[i + 1], px[i + 2]] = dye ? paint(src[i], src[i + 1], src[i + 2], dye, 0.5) : [src[i], src[i + 1], src[i + 2]];
             }
       }
     });
@@ -607,7 +608,9 @@ export class Looks {
     // (the top reaches down to the lower of the two waists, so no gap opens between them)
     let upperC = recolor(same ? upper : pieces(upper, def, true, Math.max(def.waist, bdef.waist)), def.regions, topDyes, def.mean, split(def));
     const ownEyes = def.eyes && eyeDyeFor(def.eyes.natural, look.eyes);
-    if (def.eyes && ownEyes) upperC = paintEyes(upperC, upper, def.eyes, ownEyes);
+    // eyes kept in their own colour still need it back where the hair dye reached them (a red
+    // iris drawn in the hair's reds)
+    if (def.eyes && (ownEyes || (!def.hairless && hairDye?.hue != null))) upperC = paintEyes(upperC, upper, def.eyes, ownEyes ?? null);
     const lowerP = same ? lower : pieces(lower, bdef, false);
     let lowerC = recolor(lowerP, bdef.regions, same ? { ...topCloth, ...bottomCloth } : bottomCloth, bdef.mean, split(bdef));
     // shoes drawn in the trousers' colours keep theirs when the trousers are dyed
