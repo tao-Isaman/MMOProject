@@ -11,7 +11,7 @@ import { VARIANTS } from "./monsters";
 import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
 import type { MapId, TownId } from "./maps";
-import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, JOBS4, THIRD_JOB_LEVEL, FOURTH_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open, job4Open, BREW_AT } from "./progression";
+import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, JOBS4, JOB_LEVEL, THIRD_JOB_LEVEL, FOURTH_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open, job4Open, BREW_AT } from "./progression";
 import type { ElementId, Job3Id, Job4Id, JobId } from "./progression";
 import { QUESTS } from "./quests";
 import type { QuestDef } from "./quests";
@@ -241,7 +241,7 @@ export class CodexUI {
       const body = this.row(`c:${id}`, null, c.name, c.note);
       if (body) body.innerHTML = `ตำราสกิลของอาชีพ: ${c.trees.map((t) => TREES[t].name).join(" · ")}`;
     }
-    el("h4", "ws-craft", this.list).textContent = `อาชีพที่ 2 (เลเวล 30 ขึ้นไป เปลี่ยนได้ครั้งเดียว)`;
+    el("h4", "ws-craft", this.list).textContent = `อาชีพที่ 2 (เลเวล ${JOB_LEVEL} ขึ้นไป เปลี่ยนได้ครั้งเดียว)`;
     for (const [id, j] of Object.entries(JOBS) as [JobId, (typeof JOBS)[JobId]][]) {
       const q = QUESTS.find((x) => x.job === id);
       const where = q ? `${q.giver.name} · ${MAP_NAMES[q.giver.map as MapId]}` : "-";

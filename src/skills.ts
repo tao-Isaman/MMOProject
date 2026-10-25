@@ -62,7 +62,7 @@
 // is aimed at feel it coming and turn on the caster, so the heavy spells cost a risk as well; a
 // spell aimed at a monster (or at a spot with monsters in it) follows that one when it moves.
 
-import { ACTIVES, AUTOCAST, ELEMENTS, MASTERIES, mpCost, needMet, needsWeapon, needText, offKind } from "./progression";
+import { ACTIVES, AUTOCAST, ELEMENTS, MASTERIES, OFFHAND_DAMAGE, mpCost, needMet, needsWeapon, needText, offKind, offhandOnly } from "./progression";
 import type { ElementId, Progress, SkillDef } from "./progression";
 import type { Allies } from "./allies";
 import { mitigate, poisonScale, skillDamage, lucky, rollDie, flipCoin } from "./stats";
@@ -415,6 +415,11 @@ export class Skills {
       const base = s.mult;
       s = { ...s, mult: base && ((r: number) => base(r) * (1 + more)) };
       this.floaters.add(this.player.x, this.player.y, 190, `คอมโบ! +${Math.round(more * 100)}%`, "level");
+    }
+    // its weapon held only in the off hand: half the damage
+    if (s.mult && offhandOnly(ACTIVES[castOf(id).id]?.need, this.weapon(), this.offWeapon())) {
+      const base = s.mult;
+      s = { ...s, mult: (r: number) => base(r) * OFFHAND_DAMAGE };
     }
     this.casts.push({ id: castOf(id).id, t: this.clock });
     if (this.casts.length > 8) this.casts.shift();

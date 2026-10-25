@@ -5,7 +5,7 @@ import { el, makeWindow, HAIRSTYLES } from "./ui";
 import type { Look } from "./ui";
 import { skillIcon, hasArt, icon } from "./icons";
 import {
-  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
+  TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, ELEMENT_STAT_NAMES, ACTIVES, NODES, STAT_NAMES, PERCENT_STATS, MAX_LEVEL, needMet, needText, OFFHAND_DAMAGE, RACES, RACE_NAMES, jobName, jobIcon, mpCost,
   JOBS, JOBS3, AUTOCAST, jobGlyph, offKind,
 } from "./progression";
 import { WEAPON_TYPES, ITEMS, EQUIP_SLOTS, statText } from "./items";
@@ -761,7 +761,7 @@ export class SkillUI {
     el("p", "sk-desc", panel).textContent = n.desc(Math.max(1, rank));
     if (n.need) {
       const ok = needMet(n.need, this.weapon(), this.offWeapon(), this.hero.form?.form ?? null);
-      el("p", ok ? "sk-ok" : "sk-miss", panel).textContent = `${ok ? "✓" : "✗"} ${n.kind === "active" ? "ใช้ได้เมื่อ" : "ได้ผลเมื่อ"}${needText(n.need, (w) => WEAPON_TYPES[w].name)}`;
+      el("p", ok ? "sk-ok" : "sk-miss", panel).textContent = `${ok ? "✓" : "✗"} ${n.kind === "active" ? "ใช้ได้เมื่อ" : "ได้ผลเมื่อ"}${needText(n.need, (w) => WEAPON_TYPES[w].name)}${n.need.weapons ? ` (มือหลักหรือมือรอง${n.kind === "active" ? ` · มือรอง: ความเสียหาย ${Math.round(OFFHAND_DAMAGE * 100)}%` : ""})` : ""}`;
     }
     if (n.kind === "active" && n.skill) {
       const s = n.skill;
