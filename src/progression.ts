@@ -331,7 +331,9 @@ export function offKind(id: string | null | undefined): string | null {
 // main-hand weapon type, off: offKind of the off hand, form: the shape she is in, null: none).
 export function needMet(need: Need | undefined, main: string | null, off: string | null, form: FormId | null = null): boolean {
   if (!need) return true;
-  if (need.weapons && !need.weapons.includes(main as WeaponId)) return false;
+  // (the weapon a skill names may be in either hand: in the off hand only, an active hits at half
+  // its damage, offhandOnly)
+  if (need.weapons && !need.weapons.includes(main as WeaponId) && !need.weapons.includes(off as WeaponId)) return false;
   if (need.dual) {
     const ok = (w: string | null) => !!w && w !== "shield" && w !== "gear" && (need.dual === true || (need.dual as WeaponId[]).includes(w as WeaponId));
     if (!ok(main) || !ok(off)) return false;
@@ -340,6 +342,12 @@ export function needMet(need: Need | undefined, main: string | null, off: string
   if (need.offEmpty && off !== null) return false;
   if (need.form && need.form !== form) return false;
   return true;
+}
+
+// Whether a need's weapon is held only in the off hand (its skill does half damage then).
+export const OFFHAND_DAMAGE = 0.5;
+export function offhandOnly(need: Need | undefined, main: string | null, off: string | null): boolean {
+  return !!need?.weapons && !need.weapons.includes(main as WeaponId) && need.weapons.includes(off as WeaponId);
 }
 
 // Whether a need asks for something in hand (a skill like that can't be used in a form).
