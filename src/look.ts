@@ -28,7 +28,8 @@ import { loadImage } from "./assets";
 import type { Img } from "./types";
 
 export const CLIPS = ["idle", "walk", "swing", "thrust", "shoot", "cast"];
-// Cast is optional: a body without it raises its arms with its swing instead (player.ts).
+// Cast is optional: a body without it raises its arms with its swing instead, or with its thrust
+// when a sword is drawn into its swing (player.ts).
 const NEEDED = CLIPS.filter((c) => c !== "cast");
 const CELL = 96;
 
