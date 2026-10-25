@@ -29,10 +29,10 @@ CHIN = 3   # px below the neck that a face may still reach (a mouth drawn at the
 OTHER = 12 # px at least between the two hands
 BELT = (4, 14)  # px above and below the waist, and either side of the middle, where the gloves' colour is the belt
 # bodies whose weapon fist shows no skin in some directions (the knight's right gauntlet is steel
-# like the rest of his armour, the ranger's gloves are leather like his bracers), so that no
-# colour finds it there: in a thrust in those directions the weapon hand is taken as the farthest
-# point out in front, at arm height
-REACH = {"knight_m": (5, 6, 7), "ranger_m": (3, 5)}
+# like the rest of his armour, the ranger's gloves are leather like his bracers, the thief's
+# black like his cuffs), so that no colour finds it there: in a thrust in those directions the
+# weapon hand is taken as the farthest point out in front, at arm height
+REACH = {"knight_m": (5, 6, 7), "ranger_m": (3, 5), "thief_m": (5, 6), "jester_m": (2, 5)}
 SIDE = [0, -1, -1, -1, 0, 1, 1, 1]  # which way (on screen) a direction faces: -1 left, 1 right
 ARMS = 3  # px below the neck where an arm thrust out at shoulder height starts
 GLOVES = {  # bodies whose hands are gloved, and the gloves' colour: h either side of 0, s, l
