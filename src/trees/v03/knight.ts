@@ -38,8 +38,8 @@ export const KNIGHT_TREES: Record<string, Tree> = {
           combo: { after: ["knight_lance_whirl"], within: 4, more: () => 0.3 }, color: "#e8f0ff" },
         desc: (r) => `พุ่งหอกลงจุดที่เล็ง รัศมี 2.3 ม. 3 ครั้ง ครั้งละ ${pct(lin(1.9, 0.24)(r))} ของพลังโจมตี ใช้ต่อจากพายุหอกหมุนภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือหอก` },
       { id: "knight_lance_steadfast", name: "ใจมั่นไม่หวั่นเวท", kind: "passive", max: 10, pos: [0, 2], req: [["knight_lance_bulwark", 3]], glyph: "ring",
-        stats: (r) => ({ statusRes: 0.015 * r, mdefPct: 0.015 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.015 * r)} ต้านเวท +${pct(0.015 * r)}` },
+        stats: (r) => ({ statusRes: 0.01 * r, mdefPct: 0.015 * r }),
+        desc: (r) => `ต้านสถานะ +${pct(0.01 * r)} ต้านเวท +${pct(0.015 * r)}` },
     ],
   },
   // ---- the blade: fast hands, fast feet, cuts that chain ----

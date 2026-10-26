@@ -47,8 +47,8 @@ export const ROYAL_GUARD_TREES: Record<string, Tree> = {
         desc: (r) => `ระเบิดพลังทั้งหมดในดาบเดียวใส่ตัวที่ล็อกไว้ ${pct(lin(6.4, 0.8)(r))} ของพลังโจมตี มึน 1 วิ ใช้ต่อจากสามกระบวนดาบเสื้อแพรภายใน 4 วิ แรงขึ้น 40%` },
       // the shield's third passive (v0.6): a guard who stands and strikes back
       { id: "royal_guard_shield_riposte", name: "สวนดาบเสื้อแพร", kind: "passive", max: 5, pos: [3, 1], req: [["royal_guard_shield_duel", 1]], glyph: "swirl",
-        stats: (r) => ({ counter: 0.02 * r, critDmg: 0.03 * r }),
-        desc: (r) => `ศัตรูที่ตีโดนจากระยะใกล้มีโอกาส ${pct(0.02 * r)} โดนสวนกลับ 150% ของพลังโจมตี แรงคริติคอล +${pct(0.03 * r)}` },
+        stats: (r) => ({ counter: 0.01 * r, critDmg: 0.03 * r }),
+        desc: (r) => `ศัตรูที่ตีโดนจากระยะใกล้มีโอกาส ${pct(0.01 * r)} โดนสวนกลับ 150% ของพลังโจมตี แรงคริติคอล +${pct(0.03 * r)}` },
     ],
   },
   // ---- the hunt: strip the armour, strike the weapon away, chain and pounce ----

@@ -95,7 +95,7 @@ export const BLADE_TREES: Record<string, Tree> = {
         desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.028 * r)} เมื่อ HP ใกล้หมด` },
       { id: "blood_berserk", name: "คลั่งเลือด", kind: "active", max: 5, pos: [2, 1], req: [["blood_wrath", 4]], glyph: "cry",
         skill: { type: "buff", mp: 30, cd: 40, motion: "swing", duration: 18, buff: (r) => ({ atkPct: 0.175 + 0.035 * r, aspd: 0.14, lifesteal: 0.021 + 0.007 * r, defPct: -0.14 }), color: "#ff5050" },
-        desc: (r) => `18 วิ: พลังโจมตี +${pct(0.175 + 0.035 * r)} ความเร็วโจมตี +20% ดูด HP ${pct(0.021 + 0.007 * r)} ของดาเมจ แต่ป้องกัน −20%` },
+        desc: (r) => `18 วิ: พลังโจมตี +${pct(0.175 + 0.035 * r)} ความเร็วโจมตี +14% ดูด HP ${pct(0.021 + 0.007 * r)} ของดาเมจ แต่ป้องกัน −14%` },
       { id: "blood_execution", name: "ประหารโลหิต", kind: "active", max: 5, pos: [1, 2], req: [["blood_cleave", 5], ["blood_berserk", 1]], glyph: "sword",
         skill: { type: "cone", stat: "atk", mult: lin(4.9, 0.595), drain: lin(0.2, 0.05), mp: 40, cd: 15, motion: "swing", reach: 180, arc: 40, color: "#ff4040" },
         desc: (r) => `ฟันประหารใส่ตัวข้างหน้า ดาเมจ ${pct(lin(4.9, 0.595)(r))} ของพลังโจมตี ดูด HP ${pct(lin(0.2, 0.05)(r))} ของดาเมจ` },

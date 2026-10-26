@@ -42,8 +42,8 @@ export const ARCHMAGE_TREES: Record<string, Tree> = {
           combo: { after: ["archmage_elements_firestorm", "archmage_elements_thunder"], within: 5, more: () => 0.35 }, color: "#f0e0ff" },
         desc: (r) => `ร่ายให้ทุกธาตุบรรจบกันตรงจุดที่เล็ง รัศมี 3 ม. ${pct(lin(10.0, 1.25)(r))} ของพลังเวท มึน ${lin(1, 0.15)(r).toFixed(1)} วิ ใช้ต่อจากวายุอัคคีหรืออัสนีผ่าสมุทรภายใน 5 วิ แรงขึ้น 35%` },
       { id: "archmage_elements_focus", name: "สมาธิร่ายยาว", kind: "passive", max: 10, pos: [0, 1], req: [["archmage_elements_sage", 3]], glyph: "scroll",
-        stats: (r) => ({ castRed: 0.015 * r, maxMpPct: 0.015 * r }),
-        desc: (r) => `ลดเวลาร่าย ${pct(0.015 * r)} MP สูงสุด +${pct(0.015 * r)}` },
+        stats: (r) => ({ castRed: 0.0075 * r, maxMpPct: 0.015 * r }),
+        desc: (r) => `ลดเวลาร่าย ${pct(0.0075 * r)} MP สูงสุด +${pct(0.015 * r)}` },
     ],
   },
   // ---- metal: a caster in the front line, a shield in the off hand, the blows sent back ----

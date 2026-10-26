@@ -55,7 +55,7 @@ export const BATTLEMAGE_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "matk", mult: lin(7, 0.98), stun: lin(1, 0.15), mp: 60, cd: 24, cast: 3, motion: "cast", range: 600, radius: 280, delay: 0.8, color: "#a8b8ff" },
         desc: (r) => `ร่ายเวทวิบัติตรงจุดที่เล็ง รัศมี 2.8 ม. ดาเมจ ${pct(lin(7, 0.98)(r))} ของพลังเวท มึน ${lin(1, 0.15)(r).toFixed(1)} วิ` },
       { id: "arcanist_swift_chant", name: "ร่ายไว", kind: "passive", max: 10, pos: [2, 0], glyph: "scroll",
-        stats: (r) => ({ castRed: 0.015 * r }), desc: (r) => `ลดเวลาร่าย ${pct(0.015 * r)}` },
+        stats: (r) => ({ castRed: 0.0075 * r }), desc: (r) => `ลดเวลาร่าย ${pct(0.0075 * r)}` },
     ],
   },
   runeblade: {
