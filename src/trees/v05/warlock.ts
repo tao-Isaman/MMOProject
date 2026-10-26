@@ -3,9 +3,9 @@
 // is held, and an invoke that reads the three held as a recipe: ten spells for the ten mixes of
 // fire, ice and lightning, after Dota's Invoker; a grand invoke for three orbs of one element) and
 // the curse (dark that weakens, poison that eats on, lava that melts the armour; wide spells, a
-// blood rite that lifts magic attack far at the cost of defence). Ten skills on the invoker,
-// eleven on the curse (five passives each, v0.6), a little stronger than the archmage's at the
-// same rank.
+// blood rite that lifts magic attack far at the cost of defence). Eight skills a branch (three
+// passives on the invoker, two on the curse: a caster's are its spells), a little stronger than
+// the archmage's at the same rank.
 import type { SkillDef, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -104,13 +104,6 @@ export const WARLOCK_TREES: Record<string, Tree> = {
       { id: "warlock_invoker_pure", name: "มหาเวทธาตุแท้", kind: "active", max: 5, pos: [1, 2], req: [["warlock_invoker_invoke", 5], ["warlock_invoker_sage", 5]], glyph: "storm",
         skill: { type: "invoke", invoke: PURE, mp: 0, cd: 0, motion: "cast", color: "#f0e8ff" },
         desc: (r) => `ร่ายมหาเวทเมื่อถือลูกแก้วธาตุเดียวกันครบ 3 ลูก (ได้บัฟของธาตุนั้น 3 เท่าด้วย) แต่ละแบบมีคูลดาวน์ของตัวเอง (ตัวเลขเป็น % ของพลังเวท): ${spellsText(PURE, r)}` },
-      // v0.6: two more passives (the branch's five)
-      { id: "warlock_invoker_vessel", name: "กายาภาชนะธาตุ", kind: "passive", max: 5, pos: [1, 1], req: [["warlock_invoker_invoke", 3]], glyph: "heart",
-        stats: (r) => ({ maxHpPct: 0.02 * r, statusRes: 0.03 * r }),
-        desc: (r) => `ร่างกายทนพลังธาตุที่ไหลผ่าน: HP สูงสุด +${pct(0.02 * r)} ต้านสถานะ +${pct(0.03 * r)}` },
-      { id: "warlock_invoker_tide", name: "กระแสธาราไม่ขาดสาย", kind: "passive", max: 5, pos: [2, 2], req: [["warlock_invoker_well", 3]], glyph: "wave",
-        stats: (r) => ({ mpRegenPct: 0.04 * r, hpRegen: 2 * r }),
-        desc: (r) => `ฟื้น MP +${pct(0.04 * r)} ฟื้น HP +${2 * r}/วิ` },
     ],
   },
   // ---- the curse: dark, poison and lava; weaken, expose, slow, and what eats on ----
@@ -148,16 +141,6 @@ export const WARLOCK_TREES: Record<string, Tree> = {
           mp: 52, cd: 18, cast: 2.2, motion: "cast", range: 600, radius: 300, delay: 0.5,
           combo: { after: ["warlock_curse_frailty", "warlock_curse_miasma", "warlock_curse_eruption"], within: 5, more: () => 0.35 }, color: "#d04040" },
         desc: (r) => `ฝนลาวาดำปนพิษตกใส่จุดที่เล็ง รัศมี 3 ม. 4 ครั้ง ครั้งละ ${pct(lin(2.0, 0.25)(r))} ของพลังเวท ทุกครั้งติดพิษอีก ${pct(lin(0.2, 0.03)(r))} ของดาเมจ แล้ว 15 วิ: ตีเบาลง 20% รับดาเมจเพิ่ม ${pct(lin(0.12, 0.02)(r))} ใช้ต่อจากคำสาปเปราะสลาย หมอกพิษกัดกร่อน หรือลาวาทะลักพสุธาภายใน 5 วิ แรงขึ้น 35%` },
-      // v0.6: three more passives (the branch's five)
-      { id: "warlock_curse_whisper", name: "บทสวดสาปกระซิบ", kind: "passive", max: 5, pos: [2, 1], req: [["warlock_curse_miasma", 3]], glyph: "cloud",
-        stats: (r) => ({ castRed: 0.015 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `ลดเวลาร่าย ${pct(0.015 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
-      { id: "warlock_curse_shroud", name: "ผ้าคลุมเงาต้องสาป", kind: "passive", max: 5, pos: [0, 2], req: [["warlock_curse_linger", 3]], glyph: "hat",
-        stats: (r) => ({ statusRes: 0.03 * r, hpRegen: 2 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.03 * r)} ฟื้น HP +${2 * r}/วิ` },
-      { id: "warlock_curse_blood", name: "โลหิตต้องสาป", kind: "passive", max: 5, pos: [3, 2], req: [["warlock_curse_pact", 1]], glyph: "drop",
-        stats: (r) => ({ maxHpPct: 0.02 * r, dmgRed: 0.006 * r }),
-        desc: (r) => `เลือดที่สละให้พิธีกลับมาเป็นเกราะ: HP สูงสุด +${pct(0.02 * r)} ลดความเสียหาย ${pct(0.006 * r)}` },
     ],
   },
 };

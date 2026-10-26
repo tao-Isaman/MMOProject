@@ -4,8 +4,9 @@
 // in a single great blow), the hunt (any weapon, the attacker: armour stripped so the quarry takes
 // more, its weapon struck away so it hits softer, chained and pounced on to arrest it, harder on
 // whatever is held or stripped) and the strike (bows, pistols and rifles: long shots, heavy
-// criticals, a fan, a line and a barrage). Eleven skills a branch (five of them passives, v0.6),
-// a little stronger than the third jobs'.
+// criticals, a fan, a line and a barrage). Eight skills a branch (three passives on the shield,
+// the guard who stands and strikes back; two on the hunt and the strike, all moves), a little
+// stronger than the third jobs'.
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -17,28 +18,25 @@ export const ROYAL_GUARD_TREES: Record<string, Tree> = {
   // ---- the shield: guard, send back, duel, then one great blow ----
   royal_guard_shield: {
     name: "ทหารคุ้มกัน", cls: null, job4: "royal_guard", color: "#e8d090", glyph: "shield",
-    note: "องครักษ์เสื้อแพรผู้คุ้มกันองค์ฮ่องเต้ ถือโล่ในมือรองให้ป้องกันสูงและลดความเสียหาย สะท้อนความเสียหายกลับไปที่ตัวที่ตี ตั้งท่าประลองยุทธ์สวนกลับเมื่อโดนตี สู้ตัวต่อตัวเป็นกระบวนท่าแล้วระเบิดพลังทั้งหมดในดาบเดียว: ฟันพิทักษ์ราชันย์หรือกระแทกโล่มังกร → สามกระบวนดาบเสื้อแพร → ดาบอาญาสิทธิ์ ท่าฟันใช้อาวุธใดก็ได้",
+    note: "องครักษ์เสื้อแพรผู้คุ้มกันองค์ฮ่องเต้ ถือโล่ในมือรองให้ป้องกันสูงและลดความเสียหาย สะท้อนความเสียหายกลับไปที่ตัวที่ตี ตั้งท่าประลองยุทธ์และฝีมือสวนดาบให้สวนกลับเมื่อโดนตี สู้ตัวต่อตัวเป็นกระบวนท่าแล้วระเบิดพลังทั้งหมดในดาบเดียว: กระแทกโล่มังกร → สามกระบวนดาบเสื้อแพร → ดาบอาญาสิทธิ์ ท่าฟันใช้อาวุธใดก็ได้",
     nodes: [
       { id: "royal_guard_shield_bulwark", name: "โล่องครักษ์หลวง", kind: "passive", max: 10, pos: [0, 0], glyph: "shield", need: SHIELD,
         stats: (r) => ({ defPct: 0.02 * r, dmgRed: 0.006 * r }),
         desc: (r) => `ป้องกัน +${pct(0.02 * r)} ลดความเสียหาย ${pct(0.006 * r)} เมื่อถือโล่` },
-      { id: "royal_guard_shield_guard", name: "ฟันพิทักษ์ราชันย์", kind: "active", max: 10, pos: [1, 0], glyph: "sword",
-        skill: { type: "cone", stat: "atk", mult: lin(2.3, 0.23), drain: lin(0.03, 0.003), mp: 16, cd: 4, motion: "swing", reach: 170, arc: 40, color: "#f8e4a8" },
-        desc: (r) => `ฟันตัวที่ล็อกไว้ ${pct(lin(2.3, 0.23)(r))} ของพลังโจมตี ฟื้น HP ${pct(lin(0.03, 0.003)(r))} ของดาเมจที่ทำ` },
-      { id: "royal_guard_shield_bash", name: "กระแทกโล่มังกร", kind: "active", max: 10, pos: [2, 0], glyph: "slam", need: SHIELD,
+      { id: "royal_guard_shield_bash", name: "กระแทกโล่มังกร", kind: "active", max: 10, pos: [1, 0], glyph: "slam", need: SHIELD,
         skill: { type: "cone", stat: "atk", mult: lin(2.1, 0.21), stun: () => 1, knock: 40, mp: 16, cd: 6, motion: "thrust", reach: 150, arc: 40, color: "#e8c878" },
         desc: (r) => `กระแทกโล่ใส่ตัวที่ล็อกไว้ ${pct(lin(2.1, 0.21)(r))} ของพลังโจมตี มึน 1 วิ ใช้ได้เมื่อถือโล่` },
       // one on one: every blow that lands on her may be struck straight back (the counter stat)
-      { id: "royal_guard_shield_duel", name: "ท่าประลองยุทธ์", kind: "active", max: 5, pos: [3, 0], glyph: "eye",
+      { id: "royal_guard_shield_duel", name: "ท่าประลองยุทธ์", kind: "active", max: 5, pos: [2, 0], glyph: "eye",
         skill: { type: "buff", mp: 28, cd: 35, motion: "swing", duration: 23, buff: (r) => ({ counter: 0.1 + 0.03 * r, crit: 0.02 + 0.006 * r, dmgRed: 0.03 + 0.01 * r }), color: "#ffe8a0" },
         desc: (r) => `23 วิ: ตั้งท่าประลองตัวต่อตัว โดนตีจากระยะประชิดแล้วมีโอกาส ${pct(0.1 + 0.03 * r)} สวนกลับทันที 150% ของพลังโจมตี โอกาสคริติคอล +${pct(0.02 + 0.006 * r)} ลดความเสียหาย ${pct(0.03 + 0.01 * r)}` },
       { id: "royal_guard_shield_mirror", name: "เกราะสะท้อนพยัคฆ์", kind: "passive", max: 5, pos: [0, 1], req: [["royal_guard_shield_bulwark", 3]], glyph: "thorn",
         stats: (r) => ({ reflect: 0.025 * r, mdefPct: 0.03 * r }),
         desc: (r) => `สะท้อนความเสียหาย ${pct(0.025 * r)} กลับไปที่ตัวที่ตีเรา ต้านเวท +${pct(0.03 * r)}` },
-      { id: "royal_guard_shield_forms", name: "สามกระบวนดาบเสื้อแพร", kind: "active", max: 10, pos: [1, 1], req: [["royal_guard_shield_guard", 4]], glyph: "storm",
+      { id: "royal_guard_shield_forms", name: "สามกระบวนดาบเสื้อแพร", kind: "active", max: 10, pos: [1, 1], req: [["royal_guard_shield_bash", 4]], glyph: "storm",
         skill: { type: "cone", stat: "atk", mult: lin(0.95, 0.095), hits: 3, mp: 20, cd: 6, motion: "swing", reach: 170, arc: 40,
-          combo: { after: ["royal_guard_shield_guard", "royal_guard_shield_bash"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#fff0c0" },
-        desc: (r) => `ฟันตัวที่ล็อกไว้ 3 กระบวนท่ารวด ครั้งละ ${pct(lin(0.95, 0.095)(r))} ของพลังโจมตี ใช้ต่อจากฟันพิทักษ์ราชันย์หรือกระแทกโล่มังกรภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
+          combo: { after: ["royal_guard_shield_bash"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#fff0c0" },
+        desc: (r) => `ฟันตัวที่ล็อกไว้ 3 กระบวนท่ารวด ครั้งละ ${pct(lin(0.95, 0.095)(r))} ของพลังโจมตี ใช้ต่อจากกระแทกโล่มังกรภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
       { id: "royal_guard_shield_wall", name: "กำแพงโล่ทองแดง", kind: "active", max: 5, pos: [2, 1], req: [["royal_guard_shield_bash", 3]], glyph: "shield", need: SHIELD,
         skill: { type: "buff", mp: 30, cd: 35, motion: "thrust", duration: 15, buff: (r) => ({ dmgRed: 0.08 + 0.025 * r, defPct: 0.1 + 0.03 * r, reflect: 0.1 + 0.02 * r }), color: "#d8b060" },
         desc: (r) => `15 วิ: ตั้งโล่เป็นกำแพง ลดความเสียหาย ${pct(0.08 + 0.025 * r)} ป้องกัน +${pct(0.1 + 0.03 * r)} สะท้อนความเสียหาย ${pct(0.1 + 0.02 * r)} ใช้ได้เมื่อถือโล่` },
@@ -47,16 +45,10 @@ export const ROYAL_GUARD_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(6.4, 0.8), stun: () => 1, mp: 56, cd: 18, motion: "swing", reach: 190, arc: 40,
           combo: { after: ["royal_guard_shield_forms"], within: 4, more: () => 0.4 }, color: "#fff8d8" },
         desc: (r) => `ระเบิดพลังทั้งหมดในดาบเดียวใส่ตัวที่ล็อกไว้ ${pct(lin(6.4, 0.8)(r))} ของพลังโจมตี มึน 1 วิ ใช้ต่อจากสามกระบวนดาบเสื้อแพรภายใน 4 วิ แรงขึ้น 40%` },
-      // v0.6: three more passives (the branch's five)
+      // the shield's third passive (v0.6): a guard who stands and strikes back
       { id: "royal_guard_shield_riposte", name: "สวนดาบเสื้อแพร", kind: "passive", max: 5, pos: [3, 1], req: [["royal_guard_shield_duel", 1]], glyph: "swirl",
         stats: (r) => ({ counter: 0.02 * r, critDmg: 0.03 * r }),
         desc: (r) => `ศัตรูที่ตีโดนจากระยะใกล้มีโอกาส ${pct(0.02 * r)} โดนสวนกลับ 150% ของพลังโจมตี แรงคริติคอล +${pct(0.03 * r)}` },
-      { id: "royal_guard_shield_iron", name: "ใจเหล็กองครักษ์", kind: "passive", max: 5, pos: [0, 2], req: [["royal_guard_shield_mirror", 3]], glyph: "heart",
-        stats: (r) => ({ statusRes: 0.03 * r, hpRegen: 2 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.03 * r)} ฟื้น HP +${2 * r}/วิ` },
-      { id: "royal_guard_shield_oath", name: "คำสัตย์ผู้พิทักษ์", kind: "passive", max: 5, pos: [2, 2], req: [["royal_guard_shield_wall", 1]], glyph: "shield", need: SHIELD,
-        stats: (r) => ({ maxHpPct: 0.02 * r, cdr: 0.01 * r }),
-        desc: (r) => `HP สูงสุด +${pct(0.02 * r)} ลดคูลดาวน์ ${pct(0.01 * r)} เมื่อถือโล่` },
     ],
   },
   // ---- the hunt: strip the armour, strike the weapon away, chain and pounce ----
@@ -93,16 +85,6 @@ export const ROYAL_GUARD_TREES: Record<string, Tree> = {
           mp: 55, cd: 18, motion: "swing", range: 520, radius: 250, delay: 0.3,
           combo: { after: ["royal_guard_hunt_disarm", "royal_guard_hunt_pounce"], within: 4, more: () => 0.3 }, color: "#ffd8b0" },
         desc: (r) => `ทอดตาข่ายสวรรค์ลงจุดที่เล็ง (ไกลสุด 5.2 ม.) รัศมี 2.5 ม. รัดแน่น 3 ครั้ง ครั้งละ ${pct(lin(2.0, 0.25)(r))} ของพลังโจมตี ทุกตัวในวงมึน ${n1(lin(1.0, 0.1)(r))} วิ แล้ว 12 วิ: รับดาเมจเพิ่ม 15% และตีเบาลง 15% ใช้ต่อจากดาบปลดอาวุธหรือพุ่งตะครุบภายใน 4 วิ แรงขึ้น 30%` },
-      // v0.6: three more passives (the branch's five)
-      { id: "royal_guard_hunt_dossier", name: "บัญชีดำราชสำนัก", kind: "passive", max: 5, pos: [3, 1], req: [["royal_guard_hunt_warrant", 1]], glyph: "scroll",
-        stats: (r) => ({ cdr: 0.012 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `ลดคูลดาวน์ ${pct(0.012 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
-      { id: "royal_guard_hunt_tracker", name: "แกะรอยมือปราบ", kind: "passive", max: 5, pos: [0, 2], req: [["royal_guard_hunt_stride", 3]], glyph: "eye",
-        stats: (r) => ({ hit: 3 * r, statusRes: 0.03 * r }),
-        desc: (r) => `ความแม่นยำ +${3 * r} ต้านสถานะ +${pct(0.03 * r)}` },
-      { id: "royal_guard_hunt_hardened", name: "กายเหล็กผู้จับกุม", kind: "passive", max: 5, pos: [2, 2], req: [["royal_guard_hunt_pounce", 3]], glyph: "shield",
-        stats: (r) => ({ maxHpPct: 0.015 * r, dmgRed: 0.006 * r }),
-        desc: (r) => `พุ่งเข้าจับกุมกลางฝูงได้ไม่หวั่น: HP สูงสุด +${pct(0.015 * r)} ลดความเสียหาย ${pct(0.006 * r)}` },
     ],
   },
   // ---- the strike: bows and guns, far and heavy ----
@@ -136,16 +118,6 @@ export const ROYAL_GUARD_TREES: Record<string, Tree> = {
         skill: { type: "bolt", stat: "atk", mult: lin(6.2, 0.78), stun: () => 1, mp: 55, cd: 16, motion: "shoot", speed: 2200, range: 1150, radius: 32,
           combo: { after: ["royal_guard_strike_pierce", "royal_guard_strike_barrage"], within: 4, more: () => 0.35 }, color: "#fffbe8" },
         desc: (r) => `ยิงนัดพิฆาตใส่ตัวที่ล็อกไว้ระยะ 11.5 ม. ${pct(lin(6.2, 0.78)(r))} ของพลังโจมตี มึน 1 วิ ใช้ต่อจากยิงทะลวงแนวหรือระดมยิงถล่มภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือธนูหรือปืน` },
-      // v0.6: three more passives (the branch's five)
-      { id: "royal_guard_strike_vigil", name: "เวรยามป้อมปราการ", kind: "passive", max: 5, pos: [3, 1], req: [["royal_guard_strike_post", 1]], glyph: "shield", need: RANGED,
-        stats: (r) => ({ cdr: 0.012 * r, statusRes: 0.03 * r }),
-        desc: (r) => `ลดคูลดาวน์ ${pct(0.012 * r)} ต้านสถานะ +${pct(0.03 * r)} เมื่อถือธนูหรือปืน` },
-      { id: "royal_guard_strike_calm", name: "ใจนิ่งพลแม่น", kind: "passive", max: 5, pos: [0, 2], req: [["royal_guard_strike_eye", 3]], glyph: "eye", need: RANGED,
-        stats: (r) => ({ hit: 3 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `ความแม่นยำ +${3 * r} ฟื้น MP +${n1(0.3 * r)}/วิ เมื่อถือธนูหรือปืน` },
-      { id: "royal_guard_strike_volley", name: "ห่ากระสุนไม่ขาดสาย", kind: "passive", max: 5, pos: [2, 2], req: [["royal_guard_strike_barrage", 3]], glyph: "wing", need: RANGED,
-        stats: (r) => ({ aspd: 0.015 * r, move: 0.01 * r }),
-        desc: (r) => `ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.01 * r)} เมื่อถือธนูหรือปืน` },
     ],
   },
 };

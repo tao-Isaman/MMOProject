@@ -3,13 +3,13 @@
 // of thrusts up close, the spear thrown at one far off or through a whole line, and a rain of
 // spears to end on) and the divine arms (any weapon: no skill asks for one, and the blows grow
 // with the mastery of whatever is held; a body as hard as it hits, armour that turns blows, a
-// parry that leaves the monsters hitting softer, one target or many). Eleven skills a branch
-// (five of them passives, v0.6), a little stronger than the third jobs' (the knight's are the measure).
+// parry that leaves the monsters hitting softer, one target or many). Eight skills a branch (two
+// of them passives: both are built on their moves), a little stronger than the third jobs' (the
+// knight's are the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
 const SPEARS: Need = { weapons: ["spear_1h", "spear_2h"] };
-const n1 = (v: number) => +v.toFixed(1);
 // What the divine arms' blows gain from the held weapon's mastery (SkillDef.masteryScale).
 const ARMS_SCALE = 0.01;
 const BY_MASTERY = `แรงขึ้น ${pct(ARMS_SCALE)} ต่อระดับความเชี่ยวชาญของอาวุธที่ถือ`;
@@ -48,16 +48,6 @@ export const HIGH_KNIGHT_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "atk", mult: lin(1.6, 0.2), hits: 4, every: 0.25, mp: 55, cd: 16, motion: "thrust", range: 650, radius: 240, delay: 0.3,
           combo: { after: ["high_knight_lance_storm", "high_knight_lance_rend"], within: 4, more: () => 0.3 }, color: "#eef4ff" },
         desc: (r) => `ขว้างหอกขึ้นฟ้าให้ตกเป็นห่าฝนลงจุดที่เล็ง (ไกลสุด 6.5 ม.) รัศมี 2.4 ม. 4 ระลอก ระลอกละ ${pct(lin(1.6, 0.2)(r))} ของพลังโจมตี ใช้ต่อจากพายุพันหอกหรือหอกทะลุทัพภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือหอก` },
-      // v0.6: three more passives (the branch's five)
-      { id: "high_knight_lance_ward", name: "ปลายหอกกันภัย", kind: "passive", max: 5, pos: [3, 0], glyph: "shield", need: SPEARS,
-        stats: (r) => ({ defPct: 0.02 * r, statusRes: 0.03 * r }),
-        desc: (r) => `ระยะหอกกันศัตรูไว้ห่างตัว: ป้องกัน +${pct(0.02 * r)} ต้านสถานะ +${pct(0.03 * r)} เมื่อถือหอก` },
-      { id: "high_knight_lance_breath", name: "ลมปราณทวนยาว", kind: "passive", max: 5, pos: [0, 2], req: [["high_knight_lance_form", 3]], glyph: "drop", need: SPEARS,
-        stats: (r) => ({ mpRegen: n1(0.3 * r), cdr: 0.012 * r }),
-        desc: (r) => `ฟื้น MP +${n1(0.3 * r)}/วิ ลดคูลดาวน์ ${pct(0.012 * r)} เมื่อถือหอก` },
-      { id: "high_knight_lance_pursuit", name: "ทวนไล่ล่า", kind: "passive", max: 5, pos: [3, 2], req: [["high_knight_lance_valor", 1]], glyph: "dash", need: SPEARS,
-        stats: (r) => ({ huntDmg: 0.02 * r, move: 0.01 * r }),
-        desc: (r) => `ดาเมจใส่ศัตรูที่ติดสถานะผิดปกติ (หอกปักขาจนช้า มึน ฯลฯ) +${pct(0.02 * r)} ความเร็วเดิน +${pct(0.01 * r)} เมื่อถือหอก` },
     ],
   },
   // ---- the divine arms: any weapon, its mastery in every blow, attack and defence alike ----
@@ -92,16 +82,6 @@ export const HIGH_KNIGHT_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(0.96, 0.12), hits: 5, masteryScale: ARMS_SCALE, mp: 55, cd: 16, motion: "swing", reach: 200, arc: 40,
           combo: { after: ["high_knight_arms_wave"], within: 4, more: () => 0.35 }, color: "#fff6dc" },
         desc: (r) => `เรียกศาสตรานับพันฟันใส่ตัวที่ล็อกไว้ 5 ครั้งรวด ครั้งละ ${pct(lin(0.96, 0.12)(r))} ของพลังโจมตี ${BY_MASTERY} ใช้ต่อจากคลื่นศาสตราสะท้านฟ้าภายใน 4 วิ แรงขึ้น 35%` },
-      // v0.6: three more passives (the branch's five)
-      { id: "high_knight_arms_bastion", name: "ศาสตรากำบังกาย", kind: "passive", max: 5, pos: [3, 1], req: [["high_knight_arms_aegis", 1]], glyph: "shield",
-        stats: (r) => ({ mdefPct: 0.02 * r, dmgRed: 0.006 * r }),
-        desc: (r) => `ต้านเวท +${pct(0.02 * r)} ลดความเสียหาย ${pct(0.006 * r)}` },
-      { id: "high_knight_arms_resolve", name: "จิตเหล็กเทพศาสตรา", kind: "passive", max: 5, pos: [0, 2], req: [["high_knight_arms_mastery", 3]], glyph: "heart",
-        stats: (r) => ({ statusRes: 0.03 * r, hpRegen: 2 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.03 * r)} ฟื้น HP +${2 * r}/วิ` },
-      { id: "high_knight_arms_riposte", name: "ศาสตราสวนกลับ", kind: "passive", max: 5, pos: [2, 2], req: [["high_knight_arms_parry", 3]], glyph: "swirl",
-        stats: (r) => ({ counter: 0.02 * r, cdr: 0.012 * r }),
-        desc: (r) => `ศัตรูที่ตีโดนจากระยะใกล้มีโอกาส ${pct(0.02 * r)} โดนสวนกลับ 150% ของพลังโจมตี ลดคูลดาวน์ ${pct(0.012 * r)}` },
     ],
   },
 };
