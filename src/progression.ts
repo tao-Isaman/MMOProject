@@ -785,11 +785,11 @@ export const FIRST_ELEMENTS = ["earth", "water", "wind", "fire"];
 // Few skills to a tree, more with every class: the rest of a character's strength comes from its
 // masteries, elements and gear. TREE_SKILLS[n]: the skills in each tree of the n-th class (1: the
 // class picked at the start, 2: the second job, 3: the third, 4: the fourth; 5 is still to come).
-// TREE_PASSIVES[n]: the fewest of those that are passives, more with every class, so a higher
-// job's branch carries more of its strength all the time (v0.6 balance: passives took the place
-// of actives, the count stayed).
+// TREE_PASSIVES: how many of those are passives, in every tree of a class or job, as the branch's
+// idea wants: a branch of many moves keeps few, one that is a way of being more (v0.6 balance:
+// passives took the place of actives, the count stayed).
 export const TREE_SKILLS: Record<number, number> = { 1: 5, 2: 6, 3: 7, 4: 8, 5: 9 };
-export const TREE_PASSIVES: Record<number, number> = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
+export const TREE_PASSIVES = { min: 2, max: 4 };
 export const TREES: Record<string, Tree> = {
   arcane: {
     name: "เวทโจมตี", cls: "mage", color: "#8fb6ff", glyph: "bolt",
