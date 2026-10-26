@@ -136,6 +136,11 @@ export class SkillBar {
     if (s.cdText.textContent !== text) s.cdText.textContent = text;
   }
 
+  // The slot whose skill is being aimed (main.ts) glows until it goes off or is let go; -1: none.
+  setAiming(i: number): void {
+    this.slots.forEach((s, j) => s.el.classList.toggle("aiming", j === i));
+  }
+
   // Restart a one-shot CSS animation on a slot.
   pulse(i: number, cls: "flash" | "denied"): void {
     const el = this.slots[i].el;

@@ -28,7 +28,9 @@ import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
 import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, levelPoints } from "./progression";
 import { Hero } from "./hero";
-import { Skills, groundTarget } from "./skills";
+import { Skills, lockReach } from "./skills";
+import { aimKind, aimPreview, groundSpot } from "./aim";
+import type { AimKind } from "./aim";
 import { Allies, Ally, lookSheet } from "./allies";
 import { jobMasters } from "./jobmasters";
 import { COATINGS } from "./poisons";
@@ -1212,44 +1214,142 @@ async function boot(): Promise<void> {
     hud.pulse(i, "flash");
   }
 
-  // An area skill placed on the ground is aimed first: a disc under the mouse (no farther than
-  // the skill reaches); a click or its key again casts it there, a right click or Escape lets
-  // it go. Single-target skills lock on to the target (src/skills.ts). An invoke is aimed as the
-  // spell it would cast now.
-  const castSkill = (id: string) => skills.spellFor(id)?.s ?? ACTIVES[id].skill;
-  let aiming: { slot: number; id: string } | null = null;
-  function aimSpot(id: string): { x: number; y: number } | null {
-    const at = aimPoint();
-    if (!at) return null;
-    const range = castSkill(id).range ?? 500, dx = at.x - player.x, dy = at.y - player.y, d = Math.hypot(dx, dy);
-    return d <= range ? at : { x: player.x + (dx / d) * range, y: player.y + (dy / d) * range };
-  }
+  // With a mouse, a skill is aimed before it goes (src/aim.ts has the kinds and their shapes):
+  // its key or its slot picks it up, the cursor turns to a crosshair, and a click (or its key
+  // again) lets it go at the monster, the spot or the way picked; a right click, Escape, another
+  // skill, falling, a new map or a talk lets it go for nothing. A single-target skill clicked on
+  // a monster out of its reach walks up to it first (chase). Heals, buffs and the like go at
+  // once, and so does everything on a phone. An invoke (and a mimic's copy) is aimed as what it
+  // would cast now.
+  const castSkill = (id: string) => (skills.copy?.id === id ? skills.copySkill(skills.copy) : skills.spellFor(id)?.s ?? ACTIVES[id].skill);
+  let aim: { slot: number; id: string; kind: AimKind; map: string } | null = null;
+  // (clock: s to the next path; left: s before she gives up; best: the closest she has got, cm
+  // from its edge; still: s since she last got closer)
+  let chase: { slot: number; id: string; m: Monster; clock: number; left: number; best: number; still: number } | null = null;
+  let rightDown: { x: number; y: number } | null = null; // where a right click went down while aiming
+  let cursorWas = "";
+  const CHASE_TIME = 7;    // s a walk up to cast may take at most
+  const CHASE_STALL = 1.5; // s without getting closer before it is given up
   function stopAiming(): void {
-    aiming = null;
+    aim = null;
+    rightDown = null;
+    hud.setAiming(-1);
     w3d.setAim(null);
+    w3d.setRange(null);
+    w3d.setHover(null);
+    w3d.setShape(null);
+    setCursor("");
   }
-  function castAim(): void {
-    if (!aiming) return;
-    const { slot, id } = aiming;
-    const spot = aimSpot(id);
+  function setCursor(cls: string): void {
+    if (cls === cursorWas) return;
+    cursorWas = cls;
+    canvas.classList.remove("aim-target", "aim-area", "aim-lock", "aim-far");
+    if (cls) canvas.classList.add(...cls.split(" "));
+  }
+  // The monster under the mouse: the one drawn there, else one standing by the ground point.
+  function monsterAtPointer(): Monster | null {
+    if (!pointer || !view) return null;
+    const { x, y } = toMap(pointer), at = groundAt(x, y);
+    return monsters.find((m) => m.alive && m.contains(x, y))
+      ?? monsters.find((m) => m.alive && Math.hypot(m.x - at.x, m.y - at.y) - m.radius < 30) ?? null;
+  }
+  const inReach = (id: string, m: Monster) => Math.hypot(m.x - player.x, m.y - player.y) - m.radius <= lockReach(castSkill(id));
+  // A single-target skill at monster m: at once in reach, else walk up to it and go then.
+  function castAt(slot: number, id: string, m: Monster): void {
+    const no = skills.why(id);
+    if (no) return report(slot, id, no);
+    if (inReach(id, m)) {
+      player.target = m;
+      return report(slot, id, skills.use(id, { x: m.x, y: m.y }));
+    }
+    player.target = null;
+    chase = { slot, id, m, clock: 0, left: CHASE_TIME, best: Infinity, still: 0 };
+  }
+  // Let the aimed skill go: from a click (click) or its key pressed again.
+  function castAim(click: boolean): void {
+    if (!aim) return;
+    const { slot, id, kind } = aim;
+    if (kind === "target") {
+      const m = monsterAtPointer() ?? (click ? null : player.target?.alive && monsters.includes(player.target as Monster) ? player.target as Monster : nearestMonster(lockReach(castSkill(id))));
+      if (!m) {
+        if (click) return hint("เลือกเป้าหมาย");
+        stopAiming();
+        return report(slot, id, "ไม่มีเป้าหมายในระยะ");
+      }
+      stopAiming();
+      return castAt(slot, id, m);
+    }
+    const at = aimPoint();
+    // a ground skill goes only where its disc was seen: with the mouse off the game (over the
+    // bar, or a pen lifted) it waits for a spot
+    if (kind === "ground" && !at) return hint("ชี้จุดบนพื้นที่จะร่ายก่อน");
     stopAiming();
-    report(slot, id, spot ? skills.use(id, spot) : "เล็งไม่ได้");
+    report(slot, id, skills.use(id, at && kind === "ground" ? groundSpot(castSkill(id), player, at) : at));
+  }
+  // A word over her head while still aiming (no more than one in 0.6 s).
+  function hint(text: string): void {
+    if (performance.now() - denyText < 600) return;
+    denyText = performance.now();
+    floaters.add(player.x, player.y, 150, text, "info");
   }
 
   function useSlot(i: number): void {
     const id = progress.hotbar[i];
-    const a = id ? ACTIVES[id] : null;
-    if (a && groundTarget(castSkill(id!)) && pointer && !isTouch()) {
-      if (aiming?.id === id) return castAim();
-      const no = skills.why(id!);
-      if (no) return report(i, id, no);
-      aiming = { slot: i, id: id! };
-      return;
+    chase = null;
+    if (id && ACTIVES[id] && !isTouch()) {
+      if (aim?.slot === i) return castAim(false);
+      const kind = aimKind(castSkill(id));
+      if (kind !== "instant") {
+        stopAiming();
+        const no = skills.why(id);
+        if (no) return report(i, id, no);
+        aim = { slot: i, id, kind, map: current.id };
+        hud.setAiming(i);
+        return;
+      }
     }
     stopAiming();
     // aim: the mouse, else the target, else (touch) the nearest monster in sight
-    const aim = aimPoint() ?? (player.target?.alive ? player.target : null) ?? nearestMonster(900);
-    report(i, id, id ? skills.use(id, aim) : "ช่องว่าง");
+    const at = aimPoint() ?? (player.target?.alive ? player.target : null) ?? nearestMonster(900);
+    report(i, id, id ? skills.use(id, at) : "ช่องว่าง");
+  }
+  // Each frame: the aimed skill's preview on the ground and the cursor (let go when she falls,
+  // the map changes, a talk opens, the skill leaves its slot or the phone controls take over),
+  // and a chase toward the monster a skill was aimed at.
+  function aimFrame(dt: number): void {
+    if (aim && (!hero.alive || talkDialog.open || aim.map !== current.id || progress.hotbar[aim.slot] !== aim.id || isTouch())) stopAiming();
+    if (aim) {
+      const s = castSkill(aim.id), at = aimPoint(), pv = aimPreview(s, player, at, player.facing());
+      w3d.setRange(pv.range ? player : null, pv.range, pv.color);
+      w3d.setShape(pv.shape);
+      w3d.setAim(pv.disc, pv.disc?.r ?? 0, pv.color);
+      const m = aim.kind === "target" ? monsterAtPointer() : null, near = m && inReach(aim.id, m);
+      w3d.setHover(m, m ? m.radius + 24 : 0, near ? "#ffd27a" : "#ff6a5a");
+      setCursor(aim.kind !== "target" ? "aim-area" : m ? `aim-target ${near ? "aim-lock" : "aim-far"}` : "aim-target");
+    }
+    const c = chase;
+    if (!c) return;
+    // (the bot keeps out of it while she goes; the cooldown or the MP gone meanwhile ends it)
+    bot.noteManual();
+    const no = skills.why(c.id), d = Math.hypot(c.m.x - player.x, c.m.y - player.y) - c.m.radius;
+    if (d < c.best - 10) [c.best, c.still] = [d, 0];
+    else c.still += dt;
+    if (!hero.alive || !c.m.alive || !monsters.includes(c.m) || talkDialog.open || progress.hotbar[c.slot] !== c.id) chase = null;
+    else if (no) {
+      chase = null;
+      report(c.slot, c.id, no);
+    } else if (inReach(c.id, c.m)) {
+      chase = null;
+      walkTo = null;
+      player.target = c.m;
+      report(c.slot, c.id, skills.use(c.id, { x: c.m.x, y: c.m.y }));
+    } else if ((c.left -= dt) <= 0 || c.still > CHASE_STALL || ((c.clock -= dt) <= 0 && !walkToward(c.m))) {
+      // no way up to it, or the way ends short of its reach (a monster on a cell she can't
+      // stand on), or it keeps away from her
+      chase = null;
+      walkTo = null;
+      floaters.add(player.x, player.y, 150, "เดินไปไม่ถึง", "info");
+    } else if (c.clock <= 0) c.clock = 0.25;
   }
 
   // Space: lock on to the monster by the mouse pointer and keep attacking it (none there: a
@@ -1311,6 +1411,7 @@ async function boot(): Promise<void> {
       e.preventDefault();
       if (!e.repeat) {
         bot.noteManual();
+        chase = null;
         quickAttack();
       }
       return;
@@ -1335,7 +1436,8 @@ async function boot(): Promise<void> {
     }
     // Esc, one thing at a time: an aimed skill lets go, else the front window closes, else the talk window
     if (e.code === "Escape") {
-      if (aiming) stopAiming();
+      if (aim) stopAiming();
+      else if (chase) chase = null;
       else if (!closeTop()) talkDialog.close();
     }
     if (e.code === "Backquote") showDebug = !showDebug;
@@ -1424,19 +1526,30 @@ async function boot(): Promise<void> {
   // holding the button down keeps walking toward the pointer, like Ragnarok
   let holdWalk = false, holdClock = 0;
   canvas.addEventListener("pointerdown", (e) => {
-    if (aiming && e.pointerType !== "touch") {
-      // aiming an area skill: a click casts it, a right click lets it go
-      if (e.button === 0) castAim();
-      else if (e.button === 2) stopAiming();
+    if (e.pointerType === "touch") return;
+    if (aim) {
+      // aiming a skill: a click lets it go; a right click lets the aim go, but only if the button
+      // comes up where it went down (a drag with it turns the camera, below)
+      if (e.button === 0) castAim(true);
+      else if (e.button === 2) rightDown = { x: e.clientX, y: e.clientY };
       return;
     }
-    if (e.pointerType !== "touch" && e.button === 0) holdWalk = tapAt(e, !e.shiftKey);
+    if (e.button === 0) {
+      chase = null;
+      holdWalk = tapAt(e, !e.shiftKey);
+    }
   });
   window.addEventListener("pointerup", (e) => {
     if (e.button === 0) holdWalk = false;
+    if (e.button === 2 && rightDown && aim && Math.hypot(e.clientX - rightDown.x, e.clientY - rightDown.y) < 6) stopAiming();
+    if (e.button === 2) rightDown = null;
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
-  window.addEventListener("blur", () => held.clear());
+  // (leaving the window lets an aimed skill go: the keys and buttons up meanwhile go unseen)
+  window.addEventListener("blur", () => {
+    held.clear();
+    if (aim) stopAiming();
+  });
 
   resize();
   window.addEventListener("resize", resize);
@@ -1686,6 +1799,7 @@ async function boot(): Promise<void> {
     if (fwd || left) {
       bot.noteManual();
       walkTo = null;
+      chase = null; // (the aim itself stays while she walks)
     }
     if (guide && walkTo !== guideWalk && !travelling) guide = null; // walked off somewhere else
     potionCd = Math.max(0, potionCd - dt);
@@ -1842,11 +1956,8 @@ async function boot(): Promise<void> {
     // the bot's hunting area and the ring under the slime being attacked lie on the ground
     w3d.setArea((bot.on || botUI.open) && !bot.settings.wholeMap ? (bot.on ? bot.anchor : player) : null, bot.settings.radius);
     // (or, walking to a spot picked on the map, under that spot)
-    // the disc of an area skill being aimed
-    if (aiming) {
-      const sk = castSkill(aiming.id), spot = aimSpot(aiming.id);
-      w3d.setAim(spot, sk.radius ?? 150, sk.color ?? "#ffd27a");
-    }
+    // the skill being aimed: its reach, its area, the monster under the mouse
+    aimFrame(dt);
     w3d.setRing(player.target?.alive ? player.target : bot.on && bot.target?.alive ? bot.target
       : walkTo && !walkTo.npc ? walkTo.path[walkTo.path.length - 1] ?? null : null);
     const mainType = weaponType(inv.equipped.weapon);

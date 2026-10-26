@@ -150,6 +150,11 @@ export function singleTarget(s: SkillDef): boolean {
 export function groundTarget(s: SkillDef): boolean {
   return s.type === "blast" || s.type === "trap" || ((s.type === "summon" || s.type === "smoke") && !!s.range);
 }
+// How far (cm, from the player to a monster's edge) a single-target skill reaches for its lock:
+// lockFor goes by it, and the ring shown while one is aimed (src/aim.ts).
+export function lockReach(s: SkillDef): number {
+  return s.type === "bolt" ? s.range ?? 500 : s.type === "falcon" || s.type === "mimic" ? s.range ?? 600 : (s.reach ?? 150) + 40;
+}
 
 // A monster's attack copied by a mimic: its shot (and element) or its bite, for `uses` uses
 // until `until` (game clock), fired by the mimic's own slot.
@@ -337,7 +342,7 @@ export class Skills {
   // The monster a single-target skill locks on to: the player's target, else the one nearest
   // the aimed spot, else the nearest in front, within its reach.
   lockFor(s: SkillDef, aim: Vec2 | null, dir: Vec2): Monster | null {
-    const p = this.player, reach = s.type === "bolt" ? s.range ?? 500 : s.type === "falcon" || s.type === "mimic" ? s.range ?? 600 : (s.reach ?? 150) + 40;
+    const p = this.player, reach = lockReach(s);
     const t = p.target as Monster | null;
     if (t?.alive && this.monsters.includes(t) && Math.hypot(t.x - p.x, t.y - p.y) - t.radius <= reach) return t;
     if (aim) {

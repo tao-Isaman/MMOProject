@@ -26,6 +26,22 @@ const GROUND_TILE = 60; // cm: the most a ground effect's tile spans (it follows
 const NUDGE = 70;
 const AIM_GRID = 16;    // the aim disc's grid, so it lies on the ground too
 const AREA_N = 96; // points round the bot's hunting circle   // billboards sit this much toward the camera (their ground shadow clears the ground)
+const SHAPE_GRID = 20;  // the aimed skill's shape: its grid, laid on the ground like the disc's
+const RIM = 14;         // cm: the bright edge of that shape
+
+// An aimed skill's shape on the ground (src/aim.ts AimShape): a circle, a wedge or a strip.
+export interface GroundShape {
+  kind: "circle" | "sector" | "rect";
+  x: number;
+  y: number;
+  dirX: number;
+  dirY: number;
+  r: number;
+  arc?: number;
+  len?: number;
+  width?: number;
+  color: string;
+}
 
 interface Billboard {
   canvas: HTMLCanvasElement;
@@ -76,6 +92,11 @@ export class World3D {
   area: THREE.LineLoop;
   aim: THREE.Mesh; // where an area skill is being aimed: a soft disc with a rim
   areaAt = { x: NaN, y: NaN, r: 0 };
+  range: THREE.LineLoop; // how far a skill being aimed reaches: a dashed ring round the player
+  rangeAt = { x: NaN, y: NaN, r: 0 };
+  hover: THREE.Mesh;     // the monster under the mouse while a single-target skill is aimed
+  shape: THREE.Mesh;     // the area a skill being aimed covers (setShape)
+  shapeGrid: Float32Array; // that mesh's grid as it was built: -1..1 across, the points to lay out
   time = 0;
   quality: { flowers: number; shadow: number };
   sun: THREE.DirectionalLight;
@@ -136,8 +157,44 @@ export class World3D {
     }));
     this.aim.frustumCulled = false;
     this.aim.visible = false;
-    this.aim.renderOrder = 5;
+    this.aim.renderOrder = -0.5; // over the glows on the ground, under the characters standing in it
     s.add(this.aim);
+    // an aimed skill's reach, the monster it would go for, and the area it covers
+    const reach = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(AREA_N * 3), 3));
+    this.range = new THREE.LineLoop(reach, new THREE.LineDashedMaterial({ color: "#ffd27a", dashSize: 40, gapSize: 30, transparent: true, opacity: 0.9, depthWrite: false }));
+    this.range.frustumCulled = false;
+    this.range.visible = false;
+    this.range.renderOrder = -0.5;
+    s.add(this.range);
+    this.hover = new THREE.Mesh(new THREE.RingGeometry(0.84, 1, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: "#ffd27a", transparent: true, opacity: 0.95, depthWrite: false }));
+    this.hover.visible = false;
+    this.hover.renderOrder = -0.5;
+    s.add(this.hover);
+    // (the fragment shader cuts the grid to the shape: how far inside its edge a point lies, in
+    // cm, picks its fill or its rim; its points are in cm from where the shape starts)
+    const grid = new THREE.PlaneGeometry(2, 2, SHAPE_GRID, SHAPE_GRID).rotateX(-Math.PI / 2);
+    this.shapeGrid = Float32Array.from(grid.getAttribute("position").array);
+    this.shape = new THREE.Mesh(grid, new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: { uColor: { value: new THREE.Color("#ffd27a") }, uKind: { value: 0 }, uDir: { value: new THREE.Vector2(1, 0) },
+        uR: { value: 1 }, uHalf: { value: 1 }, uLen: { value: 1 }, uW: { value: 1 } },
+      vertexShader: "varying vec2 vP; void main() { vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: `uniform vec3 uColor; uniform float uKind, uR, uHalf, uLen, uW; uniform vec2 uDir; varying vec2 vP;
+        void main() {
+          float along = dot(vP, uDir), side = abs(uDir.x * vP.y - uDir.y * vP.x), r = length(vP), e;
+          if (uKind < 0.5) e = uR - r;
+          else if (uKind < 1.5) e = min(uR - r, (uHalf - atan(side, along)) * r);
+          else e = min(min(along, uLen - along), uW * 0.5 - side);
+          if (e < 0.0) discard;
+          float rim = min(${RIM.toFixed(1)}, max(uR, uW) * 0.25);
+          gl_FragColor = vec4(uColor, 0.16 + 0.55 * (1.0 - smoothstep(rim * 0.45, rim, e)));
+        }`,
+    }));
+    this.shape.frustumCulled = false;
+    this.shape.visible = false;
+    this.shape.renderOrder = -0.5;
+    s.add(this.shape);
   }
 
   // Show a map's scenery instead of the last one's.
@@ -330,18 +387,48 @@ export class World3D {
     if (at) this.ring.position.set(at.x, heightAt(at.x, at.y) + 1.5, -at.y);
   }
   setArea(at: { x: number; y: number } | null, radius = 0): void {
-    this.area.visible = !!at;
+    layCircle(this.area, this.areaAt, at, radius);
+  }
+  // How far an aimed skill reaches: a dashed ring `radius` round a point (null: none).
+  setRange(at: { x: number; y: number } | null, radius = 0, color = "#ffd27a"): void {
+    layCircle(this.range, this.rangeAt, at, radius);
+    if (at) (this.range.material as THREE.LineDashedMaterial).color.set(color);
+  }
+  // A ring round the monster an aimed skill would go for, `radius` across its middle (null: none).
+  setHover(at: { x: number; y: number } | null, radius = 0, color = "#ffd27a"): void {
+    this.hover.visible = !!at;
     if (!at) return;
-    const was = this.areaAt;
-    if (was.x === at.x && was.y === at.y && was.r === radius) return;
-    Object.assign(was, { x: at.x, y: at.y, r: radius });
-    const pos = this.area.geometry.getAttribute("position") as THREE.BufferAttribute;
-    for (let i = 0; i < AREA_N; i++) {
-      const a = (i / AREA_N) * Math.PI * 2, x = at.x + Math.cos(a) * radius, y = at.y - Math.sin(a) * radius;
-      pos.setXYZ(i, x, heightAt(x, y) + 2, -y);
+    this.hover.position.set(at.x, heightAt(at.x, at.y) + 2, -at.y);
+    this.hover.scale.set(radius, 1, radius);
+    (this.hover.material as THREE.MeshBasicMaterial).color.set(color);
+  }
+
+  // The area an aimed skill covers (null: none). Its grid is laid over the shape's box, each
+  // point on the ground under it, 4 cm up; the shader cuts it to the shape.
+  setShape(sh: GroundShape | null): void {
+    this.shape.visible = !!sh;
+    if (!sh) return;
+    const base = heightAt(sh.x, sh.y);
+    this.shape.position.set(sh.x, base, -sh.y).addScaledVector(this.dir, -NUDGE);
+    // in the mesh's own frame (x east, z = -y): the way it points, across it, its box
+    const ax = sh.dirX, az = -sh.dirY, bx = -az, bz = ax;
+    const rect = sh.kind === "rect", len = sh.len ?? 0, w = sh.width ?? 0;
+    const c = rect ? len / 2 : 0, ha = rect ? len / 2 : sh.r, hb = rect ? w / 2 : sh.r;
+    const pos = this.shape.geometry.getAttribute("position") as THREE.BufferAttribute, g = this.shapeGrid;
+    for (let i = 0; i < pos.count; i++) {
+      const u = g[i * 3], v = g[i * 3 + 2];
+      const lx = ax * (c + u * ha) + bx * v * hb, lz = az * (c + u * ha) + bz * v * hb;
+      pos.setXYZ(i, lx, heightAt(sh.x + lx, sh.y - lz) - base + 4, lz);
     }
     pos.needsUpdate = true;
-    this.area.computeLineDistances();
+    const un = (this.shape.material as THREE.ShaderMaterial).uniforms;
+    un.uColor.value.set(sh.color);
+    un.uKind.value = sh.kind === "circle" ? 0 : sh.kind === "sector" ? 1 : 2;
+    un.uDir.value.set(ax, az);
+    un.uR.value = sh.r;
+    un.uHalf.value = ((sh.arc ?? 90) * Math.PI) / 360;
+    un.uLen.value = len;
+    un.uW.value = w;
   }
 
   // The aim of an area skill: a disc `radius` across at a ground point (null: none).
@@ -403,7 +490,7 @@ export class World3D {
     const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
 
     // put away what is not scenery: the characters, the target ring, the fog
-    const hidden: THREE.Object3D[] = [this.ring, this.area, this.aim, ...[...this.boards.values()].flatMap((bb) => (bb.ghost ? [bb.sprite, bb.ghost] : [bb.sprite]))].filter((o) => o.visible);
+    const hidden: THREE.Object3D[] = [this.ring, this.area, this.aim, this.range, this.hover, this.shape, ...[...this.boards.values()].flatMap((bb) => (bb.ghost ? [bb.sprite, bb.ghost] : [bb.sprite]))].filter((o) => o.visible);
     for (const o of hidden) o.visible = false;
     const fog = this.scene.fog as THREE.Fog | null, fogWas = fog ? [fog.near, fog.far] : null;
     if (fog) [fog.near, fog.far] = [1e7, 2e7];
@@ -446,6 +533,26 @@ export class World3D {
     for (const o of hidden) o.visible = true;
     return out;
   }
+}
+
+// A dashed ring lying on the ground: its points laid round `at` again only when it (or its
+// radius) has moved since last time (was: where they were laid).
+function layCircle(line: THREE.LineLoop, was: { x: number; y: number; r: number }, at: { x: number; y: number } | null, radius: number): void {
+  line.visible = !!at;
+  if (!at || (was.x === at.x && was.y === at.y && was.r === radius)) return;
+  Object.assign(was, { x: at.x, y: at.y, r: radius });
+  const geo = line.geometry, pos = geo.getAttribute("position") as THREE.BufferAttribute;
+  // (the dashes go by the distance along it, kept in a buffer of its own made once)
+  if (!geo.getAttribute("lineDistance")) geo.setAttribute("lineDistance", new THREE.BufferAttribute(new Float32Array(AREA_N), 1));
+  const dist = geo.getAttribute("lineDistance") as THREE.BufferAttribute;
+  let along = 0;
+  for (let i = 0; i < AREA_N; i++) {
+    const a = (i / AREA_N) * Math.PI * 2, x = at.x + Math.cos(a) * radius, y = at.y - Math.sin(a) * radius, h = heightAt(x, y) + 2;
+    if (i) along += Math.hypot(x - pos.getX(i - 1), h - pos.getY(i - 1), -y - pos.getZ(i - 1));
+    pos.setXYZ(i, x, h, -y);
+    dist.setX(i, along);
+  }
+  pos.needsUpdate = dist.needsUpdate = true;
 }
 
 // A warp portal as Ragnarok draws one: a glowing ring on the ground and a soft column of light.
