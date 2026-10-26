@@ -557,8 +557,11 @@ export function offhandWeapon(id: string | null | undefined): WeaponId | null {
   return item?.kind === "weapon" ? item.weapon! : null;
 }
 
+// How many of an item one bag slot holds: whatever stacks at all stacks up to STACK_MAX (the
+// `stack` of an item only says that it stacks); gear and the rest lie one to a slot.
+export const STACK_MAX = 9999;
 export function stackLimit(id: string): number {
-  return ITEMS[id]?.stack ?? 1;
+  return (ITEMS[id]?.stack ?? 1) > 1 ? STACK_MAX : 1;
 }
 
 // One line of stats for tooltips.
