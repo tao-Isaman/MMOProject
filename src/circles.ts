@@ -25,7 +25,6 @@ export interface CircleLook {
 
 // One look per spell that is cast (the mage's spells with a cast time, progression.ts).
 export const LOOKS: Record<string, CircleLook> = {
-  fire_bolt:   { color: "#ff6a22", light: "#ffcf8a", figure: "triangle", script: "fire", motes: "ember", size: 230 },
   fire_ball:   { color: "#ff5e22", light: "#ffd890", figure: "sun", script: "fire", motes: "ember", size: 300, nodes: 6 },
   meteor:      { color: "#ff4a1c", light: "#ffd27a", figure: "octagram", script: "fire", motes: "ember", size: 420, nodes: 8 },
   petal_storm: { color: "#ff7cc4", light: "#ffc8e8", figure: "rose", script: "nature", motes: "petal", size: 340, nodes: 5 },
