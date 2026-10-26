@@ -8,7 +8,8 @@ import type { ItemKind } from "./items";
 import { MONSTERS, VISITORS, fieldMonsters, statsFor } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { VARIANTS } from "./monsters";
-import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
+import { fieldDrops, gearTierAt, TIER_DROP, matId } from "./drops";
+import type { Drop } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
 import type { MapId, TownId } from "./maps";
 import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, JOBS4, JOB_LEVEL, THIRD_JOB_LEVEL, FOURTH_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open, job4Open, BREW_AT } from "./progression";
@@ -34,6 +35,8 @@ const BEHAVE_NAMES: Record<string, string> = {
 // A chance as the codex prints it: 40%, 1.2%, 0.04%.
 const pct = (c: number) => `${c >= 0.1 ? Math.round(c * 100) : c >= 0.01 ? +(c * 100).toFixed(1) : +(c * 100).toFixed(2)}%`;
 const itemName = (id: string) => ITEMS[id]?.name ?? id;
+// a drop's chance, and how many fall when several do ("100% ×3–4")
+const dropPct = ([, c, n]: Drop) => `${pct(c)}${n ? ` ×${n[0]}–${n[1]}` : ""}`;
 
 // How each town came to be.
 export const TOWN_LORE: Record<TownId, string> = {
@@ -295,7 +298,8 @@ function monsterText(m: MonsterDef): string {
     if (name === "summon") return `${BEHAVE_NAMES.summon} (${MONSTERS.find((x) => x.id === arg)?.name ?? arg})`;
     return BEHAVE_NAMES[name] ?? b;
   });
-  const drops = fieldDrops(m).map(([id, c]) => `${itemName(id)} ${pct(c)}`);
+  // its own material first, with what the shop pays for it
+  const drops = fieldDrops(m).map((d) => `${itemName(d[0])} ${dropPct(d)}${d[0] === matId(m.id) ? ` (ขาย ${sellPrice(d[0]).toLocaleString()} ทอง)` : ""}`);
   const tier = gearTierAt(m.levels[0]);
   if (tier) drops.push(`อุปกรณ์เลเวล ${tier} (สุ่ม 1 ชิ้น) ${pct(TIER_DROP[m.kind])}`);
   drops.push(`หมวก รองเท้า แหวน จี้ของร้าน (สุ่ม) ${pct(m.kind === "boss" ? 0.6 : m.kind === "rare" ? 0.25 : 0.012)}`);
@@ -331,7 +335,12 @@ function itemSources(): Map<string, string[]> {
   for (const [id, names] of towns) add(id, `ร้านค้าที่${names.join(" ")} ${(ITEMS[id].price ?? 0).toLocaleString()} ทอง`);
   for (const [id, mats] of Object.entries(BREWS)) add(id, `ปรุงเองด้วยความเชี่ยวชาญปรุงยาระดับ ${BREW_AT[id]} จาก${mats.map(([m, n]) => `${itemName(m)} ${n}`).join(" ")}`);
   for (const v of VARIANTS) for (const [id, c] of v.drops) add(id, `${v.name} (${MAP_NAMES.field}) ${pct(c)}`);
-  for (const m of MONSTERS) for (const [id, c] of fieldDrops(m)) add(id, `${m.name} (${MAP_NAMES[m.field]}) ${pct(c)}`);
+  for (const m of MONSTERS) for (const d of fieldDrops(m)) add(d[0], `${m.name} (${MAP_NAMES[m.field]}) ${dropPct(d)}`);
+  // the monsters that visit a second field leave the same there
+  for (const v of VISITORS) {
+    const m = { ...MONSTERS.find((x) => x.id === v.id)!, field: v.field, levels: v.levels };
+    for (const d of fieldDrops(m)) add(d[0], `${m.name} (${MAP_NAMES[m.field]}) ${dropPct(d)}`);
+  }
   const top = Math.max(...MONSTERS.map((m) => m.levels[1]));
   for (const t of GEAR_TIERS) for (const slot of TIER_SLOTS) {
     const id = tierId(t, slot);

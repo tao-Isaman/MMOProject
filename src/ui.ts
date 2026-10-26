@@ -5,7 +5,7 @@
 // menu with what it does.
 
 import { saveKey } from "./save";
-import { ITEMS, EQUIP_SLOTS, describe, itemSlot, fitsSlot, isTwoHanded } from "./items";
+import { ITEMS, EQUIP_SLOTS, describe, itemSlot, fitsSlot, isTwoHanded, sellPrice } from "./items";
 import type { EquipSlot } from "./items";
 import { COLS } from "./inventory";
 import type { Inventory } from "./inventory";
@@ -240,7 +240,9 @@ export class InventoryUI {
       this.tip.classList.add("hidden");
       return;
     }
-    this.tip.innerHTML = itemTip(id, itemSlot(id) ? this.wearable(id) : null);
+    // a material is for selling or making: what the shop pays for it
+    const sell = ITEMS[id].kind === "material" && sellPrice(id) ? `<span class="inv-tip-kind">ร้านรับซื้อ ${sellPrice(id).toLocaleString()} ทอง/ชิ้น</span>` : "";
+    this.tip.innerHTML = itemTip(id, itemSlot(id) ? this.wearable(id) : null) + sell;
     this.tip.classList.remove("hidden");
     const r = this.tip.getBoundingClientRect();
     this.tip.style.left = `${Math.min(innerWidth - r.width - 8, x + 16)}px`;

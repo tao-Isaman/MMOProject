@@ -25,6 +25,7 @@ import { rand } from "./particles";
 import { behaviour, statsFor, monsterMight, PEOPLE } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { fieldDrops } from "./drops";
+import type { Drop } from "./drops";
 import { Player, directionIndex, directionVector } from "./player";
 import type { Hands } from "./look";
 import type { WeaponArt } from "./weapons";
@@ -50,7 +51,7 @@ export interface Variant {
   xp: number;
   aggro: number;
   weight: number;
-  drops: [string, number][];
+  drops: Drop[];      // [item, chance, how many when more than one]
   entry?: MonsterDef; // a bestiary monster (the slimes have none)
 }
 
@@ -1233,9 +1234,16 @@ export function spawnMonsters(looks: MonsterLooks, where: Spawns = {}): Monster[
   return list;
 }
 
-// Roll a variant's drop table.
+// Roll a variant's drop table (a line that leaves several: how many, picked between its fewest
+// and most).
 export function rollDrops(variant: Variant, bonus = 0): string[] {
-  return variant.drops.filter(([, chance]) => Math.random() < chance * (1 + bonus)).map(([id]) => id);
+  const out: string[] = [];
+  for (const [id, chance, count] of variant.drops) {
+    if (Math.random() >= chance * (1 + bonus)) continue;
+    const n = count ? count[0] + Math.floor(Math.random() * (count[1] - count[0] + 1)) : 1;
+    for (let i = 0; i < n; i++) out.push(id);
+  }
+  return out;
 }
 
 export { SOLIDS, BOUNDS };

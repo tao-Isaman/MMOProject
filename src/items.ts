@@ -347,15 +347,16 @@ const BASE: Record<string, Item> = {
 };
 
 // ---- materials and refining stones ----
-// Monsters leave materials by what they are (drops.ts) for the inventors' crafting; the two stones
+// Monsters leave materials by what they are (drops.ts) for the inventors' crafting, a little of the
+// other two as well, and each its own material to sell (drops.ts adds those); the two stones
 // refine gear: sky stone weapons and rings, star stone clothes, hats, shoes, trinkets and off-hand
 // gear.
 const material = (name: string, glyph: string, color: string, sell: number, note: string): Item =>
   ({ kind: "material", name, stack: 99, sell, icon: { glyph, color }, note });
 Object.assign(BASE, {
-  iron_ore: material("แร่เหล็ก", "earth", "#9aa3b5", 12, "ก้อนแร่จากโกเลม วิญญาณหิน และของที่คนพกติดตัว ใช้สร้างอาวุธ"),
-  beast_hide: material("หนังสัตว์", "paw", "#b98a50", 12, "หนังเหนียวจากสัตว์ แมลง และสัตว์น้ำ ใช้สร้างชุด หมวก และรองเท้า"),
-  gem_shard: material("เศษอัญมณี", "star", "#e07ad6", 20, "เศษผลึกจากพืชวิเศษ ปีศาจ เทวะ และมังกร ใช้สร้างแหวนและเครื่องประดับ"),
+  iron_ore: material("แร่เหล็ก", "earth", "#9aa3b5", 12, "ก้อนแร่จากโกเลม วิญญาณหิน และของที่คนพกติดตัว (มอนสเตอร์อื่นก็มีบ้าง) ใช้สร้างอาวุธ"),
+  beast_hide: material("หนังสัตว์", "paw", "#b98a50", 12, "หนังเหนียวจากสัตว์ แมลง และสัตว์น้ำ (มอนสเตอร์อื่นก็มีบ้าง) ใช้สร้างชุด หมวก และรองเท้า"),
+  gem_shard: material("เศษอัญมณี", "star", "#e07ad6", 20, "เศษผลึกจากพืชวิเศษ ปีศาจ เทวะ และมังกร (มอนสเตอร์อื่นก็มีบ้าง) ใช้สร้างแหวนและเครื่องประดับ"),
   monster_core: material("แก่นอสูร", "burst", "#e8604a", 45, "แก่นพลังในตัวมอนสเตอร์ ตัวเลเวลสูงมีบ่อยกว่า ใช้สร้างของทุกอย่าง"),
   sky_stone: material("หินนภา", "cloud", "#7ab8ff", 250, "หินสีฟ้าใสจากฟากฟ้า ใช้ตีบวกอาวุธและแหวน"),
   star_stone: material("หินดารา", "star", "#ffd36b", 250, "หินประกายดาว ใช้ตีบวกชุด หมวก รองเท้า เครื่องประดับ และของมือรอง"),

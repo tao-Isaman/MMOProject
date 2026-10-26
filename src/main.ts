@@ -6,7 +6,7 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./parti
 import { Player, directionIndex, viewRow } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook } from "./items";
+import { ITEMS, WEAPON_TYPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook, tierId } from "./items";
 import type { OffhandArt, Gender } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
@@ -26,7 +26,7 @@ import { dressed } from "./outfits";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, levelPoints } from "./progression";
+import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, CLASSES, levelPoints } from "./progression";
 import { Hero } from "./hero";
 import { Skills, lockReach } from "./skills";
 import { aimKind, aimPreview, groundSpot } from "./aim";
@@ -674,9 +674,14 @@ async function boot(): Promise<void> {
         const tier2 = (b: string) => BOOKS[b].kind === "mastery2" || BOOKS[b].kind === "element2";
         roll(k === "boss" ? BOOK_CHANCE.boss : k === "rare" ? BOOK_CHANCE.rare : BOOK_CHANCE.normal, Object.keys(BOOKS).filter((b) => progress.canRead(b) && !inv.has(b) && !lying.has(b) && (!tier2(b) || m.level >= TIER2_DROP_LEVEL)));
         roll(k === "boss" ? 0.6 : k === "rare" ? 0.25 : 0.012, GEAR_DROPS);
-        // gear of the tier the monster's level falls in (drops.ts)
+        // gear of the tier the monster's level falls in (drops.ts): half the time the weapon the
+        // player holds (or their class's, holding none), else any piece alike
         const tier = gearTierAt(m.level);
-        if (tier) roll(TIER_DROP[k], tierPool(tier));
+        if (tier && Math.random() < TIER_DROP[k] * more) {
+          const own = weaponType(inv.equipped.weapon) ?? (progress.cls ? CLASSES[progress.cls].weapon : null);
+          const pool = tierPool(tier);
+          ground.drop(own && own in WEAPON_TYPES && Math.random() < 0.5 ? tierId(tier, own) : pool[Math.floor(Math.random() * pool.length)], m);
+        }
       }
       // experience shrinks for monsters far below the player's level
       const gap = progress.level - m.level;
