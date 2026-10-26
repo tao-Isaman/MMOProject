@@ -2,7 +2,8 @@
 // criticals that go through the armour, a great deal of HP, and that HP turned into attack: the
 // hpToAtk stat, a share of max HP added to attack, on a passive and on the berserker's rage) and
 // the mace (maces, heavy blows that daze, normal hits that daze now and then, a body with the HP
-// and the defence of a glacier). Eight skills a branch, a little stronger than the third jobs'
+// and the defence of a glacier). Ten skills a branch, five of them passives (v0.6: two passives
+// added to each), a little stronger than the third jobs'
 // (the knight's axe is the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
@@ -38,12 +39,19 @@ export const VIKING_TREES: Record<string, Tree> = {
           combo: { after: ["viking_axe_cleave"], within: 4, more: (r) => 0.4 + 0.02 * r }, color: "#ffb088" },
         desc: (r) => `ฟันทลายโล่และเกราะของตัวที่ล็อกไว้ ${pct(lin(2.7, 0.27)(r))} ของพลังโจมตี ใช้ต่อจากผ่ากะโหลกภายใน 4 วิ แรงขึ้น ${pct(0.4 + 0.02 * r)} ใช้ได้เมื่อถือขวาน` },
       { id: "viking_axe_berserk", name: "เบอร์เซิร์กเกอร์", kind: "active", max: 5, pos: [2, 1], req: [["viking_axe_whirl", 3]], glyph: "cry", need: AXES,
-        skill: { type: "buff", mp: 30, cd: 40, motion: "swing", duration: 15, buff: (r) => ({ hpToAtk: 0.008 + 0.0025 * r, crit: 0.03 + 0.006 * r, critDmg: 0.1 + 0.03 * r }), color: "#ff9a70" },
-        desc: (r) => `15 วิ: คลั่งแบบเบอร์เซิร์กเกอร์ พลังโจมตีเพิ่มเท่ากับ ${pct(0.008 + 0.0025 * r)} ของ HP สูงสุด โอกาสคริติคอล +${pct(0.03 + 0.006 * r)} แรงคริติคอล +${pct(0.1 + 0.03 * r)} ใช้ได้เมื่อถือขวาน` },
+        skill: { type: "buff", mp: 30, cd: 40, motion: "swing", duration: 23, buff: (r) => ({ hpToAtk: 0.008 + 0.0025 * r, crit: 0.03 + 0.006 * r, critDmg: 0.1 + 0.03 * r }), color: "#ff9a70" },
+        desc: (r) => `23 วิ: คลั่งแบบเบอร์เซิร์กเกอร์ พลังโจมตีเพิ่มเท่ากับ ${pct(0.008 + 0.0025 * r)} ของ HP สูงสุด โอกาสคริติคอล +${pct(0.03 + 0.006 * r)} แรงคริติคอล +${pct(0.1 + 0.03 * r)} ใช้ได้เมื่อถือขวาน` },
       { id: "viking_axe_valhalla", name: "ขวานวัลฮัลลา", kind: "active", max: 5, pos: [1, 2], req: [["viking_axe_split", 5], ["viking_axe_berserk", 1]], glyph: "skull", need: AXES,
         skill: { type: "cone", stat: "atk", mult: lin(6.2, 0.78), mp: 55, cd: 16, motion: "swing", reach: 200, arc: 40,
           combo: { after: ["viking_axe_split"], within: 4, more: () => 0.4 }, color: "#ffd0b0" },
         desc: (r) => `ฟันขวานสุดแรงส่งตัวที่ล็อกไว้ไปวัลฮัลลา ${pct(lin(6.2, 0.78)(r))} ของพลังโจมตี ใช้ต่อจากขวานทลายโล่ภายใน 4 วิ แรงขึ้น 40% ใช้ได้เมื่อถือขวาน` },
+      // v0.6: two more passives (no fear of the end, a raider's quick arm)
+      { id: "viking_axe_doom", name: "ไม่หวั่นวันสิ้นโลก", kind: "passive", max: 5, pos: [3, 1], req: [["viking_axe_bite", 3]], glyph: "skull", need: AXES,
+        stats: (r) => ({ lowHpDmg: 0.03 * r, statusRes: 0.02 * r }),
+        desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.03 * r)} เมื่อ HP ใกล้หมด ต้านสถานะ ${pct(0.02 * r)} เมื่อถือขวาน` },
+      { id: "viking_axe_raider", name: "นักปล้นทะเลเหนือ", kind: "passive", max: 5, pos: [0, 2], req: [["viking_axe_fury", 3]], glyph: "rage", need: AXES,
+        stats: (r) => ({ aspd: 0.015 * r, hpRegen: r }),
+        desc: (r) => `ความเร็วโจมตี +${pct(0.015 * r)} ฟื้น HP +${r}/วิ เมื่อถือขวาน` },
     ],
   },
   // ---- the mace: blows that daze, a body like a glacier ----
@@ -71,12 +79,19 @@ export const VIKING_TREES: Record<string, Tree> = {
           combo: { after: ["viking_mace_smash", "viking_mace_quake"], within: 3, more: (r) => 0.3 + 0.02 * r }, color: "#e8e0d0" },
         desc: (r) => `ฟาดค้อนลงหัวตัวที่ล็อกไว้ ${pct(lin(2.7, 0.27)(r))} ของพลังโจมตี มึน 1 วิ ใช้ต่อจากทุบสะท้านหรือทุบพื้นสั่นปฐพีภายใน 3 วิ แรงขึ้น ${pct(0.3 + 0.02 * r)} ใช้ได้เมื่อถือค้อน` },
       { id: "viking_mace_glacier", name: "ใจธารน้ำแข็ง", kind: "active", max: 5, pos: [2, 1], req: [["viking_mace_quake", 3]], glyph: "freeze", need: MACE,
-        skill: { type: "buff", mp: 30, cd: 40, motion: "thrust", duration: 20, buff: (r) => ({ defPct: 0.1 + 0.03 * r, maxHpPct: 0.05 + 0.015 * r, statusRes: 0.1 + 0.03 * r }), color: "#d8ecff" },
-        desc: (r) => `20 วิ: ป้องกัน +${pct(0.1 + 0.03 * r)} HP สูงสุด +${pct(0.05 + 0.015 * r)} ต้านสถานะ ${pct(0.1 + 0.03 * r)} ใช้ได้เมื่อถือค้อน` },
+        skill: { type: "buff", mp: 30, cd: 40, motion: "thrust", duration: 30, buff: (r) => ({ defPct: 0.1 + 0.03 * r, maxHpPct: 0.05 + 0.015 * r, statusRes: 0.1 + 0.03 * r }), color: "#d8ecff" },
+        desc: (r) => `30 วิ: ป้องกัน +${pct(0.1 + 0.03 * r)} HP สูงสุด +${pct(0.05 + 0.015 * r)} ต้านสถานะ ${pct(0.1 + 0.03 * r)} ใช้ได้เมื่อถือค้อน` },
       { id: "viking_mace_thunder", name: "ค้อนอัสนีทลายพิภพ", kind: "active", max: 5, pos: [1, 2], req: [["viking_mace_skull", 5], ["viking_mace_glacier", 1]], glyph: "bolt", need: MACE,
         skill: { type: "nova", stat: "atk", mult: lin(1.95, 0.24), hits: 3, stun: lin(1.5, 0.1), mp: 55, cd: 18, motion: "thrust", radius: 280,
           combo: { after: ["viking_mace_skull"], within: 4, more: () => 0.3 }, color: "#fff4c0" },
         desc: (r) => `ทุบค้อนอัสนีลงพื้นสะท้านรอบตัวรัศมี 2.8 ม. 3 ระลอก ระลอกละ ${pct(lin(1.95, 0.24)(r))} ของพลังโจมตี ทุกตัวมึน ${n1(lin(1.5, 0.1)(r))} วิ ใช้ต่อจากค้อนทลายหัวภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือค้อน` },
+      // v0.6: two more passives (a haft of cast iron, the cold of the fjords)
+      { id: "viking_mace_haft", name: "ด้ามเหล็กหล่อ", kind: "passive", max: 5, pos: [3, 1], req: [["viking_mace_weight", 3]], glyph: "bash", need: MACE,
+        stats: (r) => ({ aspd: 0.012 * r, hit: 3 * r }),
+        desc: (r) => `ความเร็วโจมตี +${pct(0.012 * r)} ความแม่นยำ +${3 * r} เมื่อถือค้อน` },
+      { id: "viking_mace_fjord", name: "ลมหนาวฟยอร์ด", kind: "passive", max: 5, pos: [0, 2], req: [["viking_mace_bear", 3]], glyph: "freeze",
+        stats: (r) => ({ iceDef: 5 * r, waterDef: 5 * r, hpRegen: r }),
+        desc: (r) => `ป้องกันธาตุน้ำแข็งและธาตุน้ำ +${5 * r} ฟื้น HP +${r}/วิ` },
     ],
   },
 };
