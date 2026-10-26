@@ -1,5 +1,6 @@
 // The merchant's branches (second job, docs/v05_jobs.md): merchant_trade and merchant_cart.
-// Six skills a branch (TREE_SKILLS[2]), like the other second jobs'. The stall comes with the job
+// At least six skills a branch (TREE_SKILLS[2]) and three of them passives (TREE_PASSIVES[2]),
+// like the other second jobs' (v0.6 gave the cart a seventh skill for it). The stall comes with the job
 // itself (JOBS.merchant.skill), not with a branch.
 //   trade  the wandering merchant's book made stronger (shop prices, a bigger bag, more gold),
 //          a stall that draws customers sooner and sells dearer, and coins thrown at a cost
@@ -51,14 +52,17 @@ export const MERCHANT_TREES: Record<string, Tree> = {
         skill: { type: "dash", stat: "atk", mult: lin(1.8, 0.18), bag: lin(0.3, 0.03), stun: (r) => 0.6 + 0.06 * r, mp: 18, cd: 8, motion: "thrust", distance: 260, width: 80, color: "#c89a60" },
         desc: (r) => `เข็นเกวียนพุ่งไปข้างหน้า 2.6 ม. ${pct(lin(1.8, 0.18)(r))} ของพลังโจมตี มึน ${n1(0.6 + 0.06 * r)} วิ แรงขึ้นอีกถึง ${pct(lin(0.3, 0.03)(r))} ตามของในกระเป๋า` },
       { id: "cart_barricade", name: "ตั้งเกวียนกำบัง", kind: "active", max: 5, pos: [0, 1], req: [["cart_ironclad", 3]], glyph: "shield",
-        skill: { type: "buff", mp: 20, cd: 30, motion: "cast", duration: 15, buff: (r) => ({ defPct: 0.1 + 0.03 * r, dmgRed: 0.05 + 0.02 * r, move: -0.2 }), color: "#b89060" },
-        desc: (r) => `15 วิ: ป้องกัน +${pct(0.1 + 0.03 * r)} ลดความเสียหาย ${pct(0.05 + 0.02 * r)} เดินช้าลง 20%` },
+        skill: { type: "buff", mp: 20, cd: 30, motion: "cast", duration: 23, buff: (r) => ({ defPct: 0.1 + 0.03 * r, dmgRed: 0.05 + 0.02 * r, move: -0.2 }), color: "#b89060" },
+        desc: (r) => `23 วิ: ป้องกัน +${pct(0.1 + 0.03 * r)} ลดความเสียหาย ${pct(0.05 + 0.02 * r)} เดินช้าลง 20%` },
       { id: "cart_overload", name: "บรรทุกเต็มคัน", kind: "passive", max: 5, pos: [2, 1], req: [["cart_ram", 3]], glyph: "bag",
         stats: (r) => ({ bagSlots: 4 * r, atkPct: 0.02 * r }),
         desc: (r) => `ช่องกระเป๋า +${4 * r} ช่อง พลังโจมตี +${pct(0.02 * r)}` },
       { id: "cart_invest", name: "ทุ่มทุน", kind: "active", max: 5, pos: [1, 2], req: [["cart_sweep", 5]], glyph: "coin",
         skill: { type: "cone", stat: "atk", mult: lin(6.5, 0.9), gold: lin(6, 1), mp: 30, cd: 14, motion: "thrust", reach: 160, arc: 40, color: "#ffd84a" },
         desc: (r) => `ทุ่มทุนทุบตัวที่ล็อกไว้ด้วยเกวียนเต็มแรง ${pct(lin(6.5, 0.9)(r))} ของพลังโจมตี เสียทองครั้งละ เลเวล × ${lin(6, 1)(r)}` },
+      { id: "cart_sturdy_wheels", name: "ล้อทนทาน", kind: "passive", max: 5, pos: [0, 2], req: [["cart_barricade", 1]], glyph: "shoes",
+        stats: (r) => ({ move: 0.01 * r, statusRes: 0.02 * r }),
+        desc: (r) => `ความเร็วเดิน +${pct(0.01 * r)} ต้านสถานะ +${pct(0.02 * r)}` },
     ],
   },
 };
