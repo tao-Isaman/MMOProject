@@ -171,6 +171,20 @@ export class Hero {
     this.recompute();
   }
 
+  // Sitting to recover (พักฟื้น): HP and MP come back 2.5% of the most a second on top of the
+  // usual regen. A short buff, so whoever sits her down (the player's rest, X; the bot's) calls
+  // this again every half second while she sits, and it wears off soon after she stands.
+  rest(): void {
+    this.addBuff("rest", "พักฟื้น", { hpRegen: this.stats.maxHp * 0.025, mpRegen: this.stats.maxMp * 0.025 }, 0.7);
+  }
+
+  // Up again: the rest buff goes at once.
+  standUp(): void {
+    const before = this.buffs.length;
+    this.buffs = this.buffs.filter((b) => b.id !== "rest");
+    if (this.buffs.length !== before) this.recompute();
+  }
+
   // The shape she is in (a form skill's buff), if any.
   get form(): Buff | undefined {
     return this.buffs.find((b) => b.form);

@@ -6,11 +6,11 @@ import { Particles, GROUND_GLOW, SORTED, AIR_GLOW, groundSprites } from "./parti
 import { Player, directionIndex, viewRow } from "./player";
 import { SkillBar, slotForCode } from "./hud";
 import { Motes } from "./motes";
-import { ITEMS, WEAPON_TYPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook, tierId } from "./items";
+import { ITEMS, WEAPON_TYPES, DUAL_WIELD_SLOWDOWN, GEAR_SLOTS, offhandWeapon, weaponType, garmentLook, tierId, usable } from "./items";
 import type { OffhandArt, Gender } from "./items";
 import type { WeaponId } from "./items";
 import { Inventory, NO_GEAR, BAG_BASE } from "./inventory";
-import { InventoryUI, loadLook, saveLook, HAIRSTYLES } from "./ui";
+import { InventoryUI, loadLook, saveLook, HAIRSTYLES, itemTip } from "./ui";
 import { Combat, Floaters, weaponStats, attackRange, formWeapon } from "./combat";
 import { gearTierAt, TIER_DROP, tierPool } from "./drops";
 import { WorkshopUI } from "./workshop";
@@ -26,7 +26,7 @@ import { dressed } from "./outfits";
 import type { BodyDef, HairData } from "./look";
 import { WEAPON_ART } from "./weapons";
 import type { WeaponArt } from "./weapons";
-import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, CLASSES, levelPoints } from "./progression";
+import { Progress, ACTIVES, BOOKS, ELEMENTS, JOBS, JOBS3, JOBS4, TREES, JOB_POINTS, TIER2_DROP_LEVEL, BOOK_CHANCE, CLASSES, levelPoints, slotItem, ITEM_PREFIX } from "./progression";
 import { Hero } from "./hero";
 import { Skills, lockReach } from "./skills";
 import { aimKind, aimPreview, groundSpot } from "./aim";
@@ -775,12 +775,15 @@ async function boot(): Promise<void> {
   }
 
   // ---- skill bar ----
-  const hud = new SkillBar(document.getElementById("skillbar")!, useSlot, (i) => {
-    progress.hotbar[i] = null;
-    progress.changed();
-  });
+  const hud = new SkillBar(document.getElementById("skillbar")!, useSlot, (i) => progress.clearSlot(i), (i, j) => progress.swapSlots(i, j));
   function refreshBar() {
     progress.hotbar.forEach((id, i) => {
+      // an item's shortcut: its icon and how many the bag holds (dimmed at none, RO-style)
+      const item = slotItem(id);
+      if (item) {
+        const n = inv.count(item);
+        return hud.set(i, { id: id!, name: ITEMS[item].name, icon: iconFor(item), tip: itemTip(item), missing: !n, count: n });
+      }
       const a = id && ACTIVES[id];
       if (!a) return hud.set(i, null);
       const rank = progress.skillRank(id);
@@ -820,6 +823,7 @@ async function boot(): Promise<void> {
 
   // Drink a potion from bag slot i; null when it went down, else why not.
   let potionCd = 0;
+  const POTION_WAIT = 0.8; // s between sips
   function drinkAt(i: number): string | null {
     const stack = inv.slots[i];
     const item = stack && ITEMS[stack.id];
@@ -828,7 +832,7 @@ async function boot(): Promise<void> {
     if (potionCd > 0) return "รอสักครู่";
     const r = item.restore;
     if ((!r.hp || hero.hp >= hero.stats.maxHp) && (!r.mp || hero.mp >= hero.stats.maxMp)) return "เต็มอยู่แล้ว";
-    potionCd = 0.8;
+    potionCd = POTION_WAIT;
     sound.play(r.hp ? "potion-hp" : "potion-mp", i);
     const boost = 1 + hero.stats.potion; // the alchemy flask
     if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(r.hp * boost))}`, "heal");
@@ -850,7 +854,9 @@ async function boot(): Promise<void> {
     return !!pick && drinkAt(pick[1]) === null;
   }
 
-  const invUI = new InventoryUI(inv, iconFor, (i) => {
+  // Use what is in bag slot i (a double-click or the item menu in the bag, or the item's shortcut
+  // on the bar); returns what to say. Anything but a potion gets her up from a rest.
+  function useBagSlot(i: number): string {
     const stack = inv.slots[i];
     if (!stack) return "";
     // a poison vial: the weapon is coated (an enchant: the poison element, and its stats) for a while
@@ -860,6 +866,7 @@ async function boot(): Promise<void> {
       const name = ITEMS[stack.id].name;
       hero.addBuff("coating", `เคลือบ${name}`, coat.stats, coat.time * (1 + hero.stats.buffTime), coat.element);
       skills.sparkleUp(player.x, player.y, tex.glowFor("#8fdc4a"), 18);
+      stand();
       inv.discard(i, 1);
       return `เคลือบอาวุธด้วย${name}แล้ว`;
     }
@@ -869,6 +876,7 @@ async function boot(): Promise<void> {
       const id = ITEMS[stack.id].style!, styles = (look.styles ??= ["bob"]);
       if (styles.includes(id)) return "เรียนทรงผมนี้ไปแล้ว";
       styles.push(id);
+      stand();
       look.hair = id;
       saveLook(look);
       void applyLook();
@@ -880,18 +888,28 @@ async function boot(): Promise<void> {
     }
     const read = progress.readBook(stack.id);
     if (!read.ok) return read.text;
+    stand();
     stack.count -= 1;
     if (stack.count <= 0) inv.slots[i] = null;
     inv.changed();
     statusUI.render();
     skillUI.render();
     return read.text;
-  }, (id) => {
+  }
+  const invUI = new InventoryUI(inv, iconFor, useBagSlot, (id) => {
     // gear of a higher level (armour fits every build: the outfit seen is the job's)
     const item = ITEMS[id];
     if (item.lv && progress.level < item.lv) return `ต้องเลเวล ${item.lv} จึงใส่ได้`;
     return null;
   });
+  // a usable item dragged from the bag onto the bar: a shortcut to it there (it stays in the bag)
+  invUI.onDropOut = (i, x, y) => {
+    const slot = hud.slotAt(x, y), id = inv.slots[i]?.id;
+    if (slot < 0 || !id) return false;
+    if (!usable(id)) invUI.flash("ใส่แถบสกิลได้เฉพาะยาและตำราที่ใช้ได้");
+    else progress.setSlot(slot, ITEM_PREFIX + id);
+    return true;
+  };
 
   // ---- character windows ----
   const vitals = new Vitals(document.getElementById("vitals")!, progress, hero, entry?.name ?? "");
@@ -1100,6 +1118,7 @@ async function boot(): Promise<void> {
       return false;
     }
     w3d.load(current.level);
+    stand();
     monsters.length = 0;
     monsters.push(...(await populate(current)));
     ground.clear();
@@ -1300,7 +1319,10 @@ async function boot(): Promise<void> {
 
   function useSlot(i: number): void {
     const id = progress.hotbar[i];
+    const item = slotItem(id);
+    if (item) return useItemSlot(i, id!, item);
     chase = null;
+    if (id) stand(); // a skill gets her up from a rest
     if (id && ACTIVES[id] && !isTouch()) {
       if (aim?.slot === i) return castAim(false);
       const kind = aimKind(castSkill(id));
@@ -1317,6 +1339,20 @@ async function boot(): Promise<void> {
     // aim: the mouse, else the target, else (touch) the nearest monster in sight
     const at = aimPoint() ?? (player.target?.alive ? player.target : null) ?? nearestMonster(900);
     report(i, id, id ? skills.use(id, at) : "ช่องว่าง");
+  }
+  // An item's shortcut on the bar: one is used from the bag (the smallest stack first, as the bag
+  // takes them) just as a double-click there would, with its sounds and sparkles and the potions'
+  // wait between sips; with none left it says so.
+  function useItemSlot(i: number, entry: string, id: string): void {
+    chase = null;
+    stopAiming();
+    const stacks = inv.slots.map((s, j) => [s, j] as const).filter(([s]) => s?.id === id).sort((a, b) => a[0]!.count - b[0]!.count);
+    if (!stacks.length) return report(i, entry, `ไม่มี${ITEMS[id].name}เหลือ`);
+    const before = inv.count(id), text = useBagSlot(stacks[0][1]);
+    if (inv.count(id) >= before) return report(i, entry, text || "ใช้ไม่ได้");
+    report(i, entry, null);
+    // (a potion shows what it gave; a book or a vial says what it did)
+    if (!ITEMS[id].restore && text) floaters.add(player.x, player.y, 150, text, "info");
   }
   // Each frame: the aimed skill's preview on the ground and the cursor (let go when she falls,
   // the map changes, a talk opens, the skill leaves its slot or the phone controls take over),
@@ -1402,6 +1438,45 @@ async function boot(): Promise<void> {
     else player.startAttack(swingWeapon(), null);
   }
 
+  // ---- resting (X, or the rest button on a phone): she sits still and HP and MP come back fast
+  // (hero.rest, the bot's own rest) until she moves, attacks, uses a skill or an item that isn't
+  // a potion, is hurt, talks to someone, falls or changes map. Not with a monster after her. ----
+  let resting = false, restClock = 0;
+  const restBtn = document.getElementById("btn-rest")!;
+  restBtn.append(icon("heal", "#9df0b4"));
+  function toggleRest(): void {
+    if (resting) return stand();
+    if (!hero.alive) return;
+    if (bot.threats().length) return void floaters.add(player.x, player.y, 150, "มีศัตรูอยู่ใกล้ ๆ", "info");
+    bot.noteManual();
+    stopAiming();
+    chase = null;
+    walkTo = null;
+    player.target = null;
+    player.attack = null;
+    if (skills.pending) skills.interrupt();
+    resting = true;
+    restClock = 0;
+    restBtn.classList.add("on");
+    floaters.add(player.x, player.y, 150, "นั่งพักฟื้น", "heal");
+  }
+  function stand(): void {
+    if (!resting) return;
+    resting = false;
+    restBtn.classList.remove("on");
+    hero.standUp();
+  }
+  // Each frame, after where she'd walk is known: up on any of the above, else the rest kept going.
+  function restFrame(dt: number, move: { x: number; y: number }): void {
+    if (!resting) return;
+    if (move.x || move.y || player.target || player.attack || skills.pending || hero.hurt > 0 || talkDialog.open || !hero.alive) return stand();
+    if ((restClock -= dt) <= 0) {
+      restClock = 0.5;
+      hero.rest();
+    }
+  }
+  restBtn.addEventListener("click", () => toggleRest());
+
   // ---- input ----
   const held = new Set<string>();
   // keys typed into a number box or a menu are not game keys (checkboxes and sliders are)
@@ -1414,7 +1489,7 @@ async function boot(): Promise<void> {
       e.preventDefault();
       return;
     }
-    const slot = slotForCode(e.code);
+    const slot = slotForCode(e.code, e.shiftKey); // Shift: the second row
     if (slot >= 0) {
       e.preventDefault();
       if (!e.repeat) useSlot(slot);
@@ -1437,6 +1512,7 @@ async function boot(): Promise<void> {
     if (e.code === "KeyJ" && !e.repeat) questLog.toggle();
     if (e.code === "KeyC" && !e.repeat) codexUI.toggle();
     if (e.code === "KeyM" && !e.repeat) mapUI.cycle();
+    if (e.code === "KeyX" && !e.repeat) toggleRest();
     if (e.code === "KeyF" && !e.repeat) {
       if (shopUI.open) shopUI.toggle(false);
       else if (workshopUI.open) workshopUI.toggle(false);
@@ -1837,6 +1913,7 @@ async function boot(): Promise<void> {
       else if (there) walkTo = null;
       else move = { x: next.x - player.x, y: next.y - player.y };
     }
+    restFrame(dt, move);
     for (const n of npcs) n.update(dt, player);
     if (shopUI.open && shopKeeper && shopKeeper.distance(player) > TALK_RANGE * 2.5) shopUI.toggle(false);
     if (workshopUI.open && workshopUI.smith && smithAt && smithAt.distance(player) > TALK_RANGE * 2.5) workshopUI.toggle(false);
@@ -1929,7 +2006,13 @@ async function boot(): Promise<void> {
     fx.update(dt);
     motes.update(dt, { x: player.x, y: player.y });
     // (an invoke: the cooldown and the name of the spell it would cast now; the orbs beside the bar)
+    // (a potion's shortcut: the wait between sips)
     progress.hotbar.forEach((id, i) => {
+      const item = slotItem(id);
+      if (item) {
+        hud.setCooldown(i, ITEMS[item].restore ? potionCd : 0, POTION_WAIT);
+        return hud.setNote(i, "");
+      }
       const a = id ? ACTIVES[id] : null, sp = a ? skills.spellFor(id!) : null, key = sp?.key ?? id;
       hud.setCooldown(i, key ? hero.cooldowns.get(key) ?? 0 : 0, key ? hero.cdTotal.get(key) ?? 1 : 1);
       if (a?.skill.type === "invoke") hud.setNote(i, sp?.name ?? (hero.orbKey ? "ไม่มีเวท" : ""), sp?.s.color ?? "#b8b8b8");

@@ -51,26 +51,36 @@ kbd {
 }
 
 .hud { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; justify-content: center; pointer-events: none; }
+/* two rows of ten (src/hud.ts): keys 1-0 on top, Shift+1-0 under them */
 .skillbar {
-  display: grid; grid-template-columns: repeat(10, 54px); gap: 6px; padding: 8px;
-  border-radius: 14px; background: var(--panel); border: 1px solid var(--rim); pointer-events: auto;
+  display: grid; grid-template-columns: repeat(10, 42px); gap: 4px; padding: 6px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--rim); pointer-events: auto;
 }
 .slot {
-  position: relative; width: 54px; height: 54px; border-radius: 10px; padding: 0; cursor: pointer;
+  position: relative; width: 42px; height: 42px; border-radius: 8px; padding: 0; cursor: pointer;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.25));
-  border: 1px solid rgba(255, 255, 255, 0.18); color: inherit; font: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.18); color: inherit; font: inherit; touch-action: none; user-select: none;
 }
+.slot.row2 { background: linear-gradient(180deg, rgba(160, 200, 255, 0.08), rgba(0, 0, 0, 0.28)); }
+.slot.dragging { opacity: 0.35; }
 .slot:hover { border-color: var(--gold); }
 .slot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .slot.empty { cursor: default; opacity: 0.7; }
 .slot.empty:hover { border-color: rgba(255, 255, 255, 0.18); }
-.slot img, .slot-art canvas { position: absolute; inset: 5px; width: 44px; height: 44px; image-rendering: auto; border-radius: 8px; }
+.slot img, .slot-art canvas { position: absolute; inset: 3px; width: 34px; height: 34px; image-rendering: auto; border-radius: 6px; }
 /* the art fills the slot: its filter (unlearned skills) makes it the box the icon sits in */
 .slot-art { position: absolute; inset: 0; border-radius: inherit; }
 .slot.missing .slot-art { filter: grayscale(1); opacity: 0.5; }
 .slot .key {
-  position: absolute; left: 4px; top: 2px; font-size: 12px; font-weight: 600; color: var(--gold);
-  text-shadow: 0 1px 0 #000;
+  position: absolute; left: 3px; top: 0; font-size: 10px; font-weight: 600; color: var(--gold);
+  text-shadow: 0 1px 0 #000, 0 0 2px #000; pointer-events: none;
+}
+.slot.row2 .key { color: #a8d4ff; }
+.slot .key b { font: 700 12px/1 "Segoe UI Symbol", "Apple Symbols", sans-serif; margin-right: 1px; }
+/* an item's shortcut: how many the bag holds */
+.slot-count {
+  position: absolute; right: 3px; bottom: 0; font-size: 11px; font-weight: 600; color: var(--text);
+  text-shadow: 0 1px 2px #000, 0 0 2px #000; pointer-events: none;
 }
 /* Cooldown sweep: --cd runs 1 -> 0 while the skill recharges. */
 .slot .cd {
@@ -78,7 +88,7 @@ kbd {
   background: conic-gradient(rgba(10, 12, 8, 0.72) calc(var(--cd, 0) * 360deg), transparent 0);
 }
 .slot .cdtext {
-  position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; font-weight: 600;
+  position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 600;
   text-shadow: 0 1px 2px #000; pointer-events: none;
 }
 .slot.flash { animation: flash 0.35s ease-out; }
@@ -95,13 +105,14 @@ kbd {
 }
 
 .tooltip {
-  position: absolute; bottom: 64px; left: 0; width: max-content; max-width: 300px; padding: 10px 12px;
+  position: absolute; bottom: calc(100% + 8px); left: 0; width: max-content; max-width: 300px; padding: 10px 12px;
   border-radius: 10px; background: rgba(16, 22, 14, 0.94); border: 1px solid var(--rim);
   font-size: 13px; line-height: 1.45; color: var(--muted); text-align: left; pointer-events: none;
   opacity: 0; transition: opacity 0.15s;
 }
 .tooltip strong { display: block; color: var(--mint); font-size: 15px; font-weight: 600; }
 .slot:hover .tooltip, .slot:focus-visible .tooltip { opacity: 1; }
+.tooltip:empty { display: none; } /* an empty slot has nothing to say */
 
 /* the element orbs an invoker holds (src/hud.ts), left of the bar, oldest first; a caption over a
    slot (the spell an invoke would cast now) */
@@ -121,7 +132,7 @@ kbd {
   text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px #000; pointer-events: none;
 }
 .slot-note:empty { display: none; }
-body.touch .orbs { right: auto; bottom: auto; left: -160px; top: -252px; }
+body.touch .orbs { right: auto; left: 0; bottom: calc(100% + 6px); padding: 5px 7px; }
 
 .loading { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; background: var(--ink); transition: opacity 0.5s; }
 .loading:not(.done) { transition: none; } /* up at once, fades away when done */
@@ -663,9 +674,9 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
   .inv-cell { width: 38px; height: 38px; }
   .inv-icon { width: 32px; height: 32px; }
   .menu { flex-direction: row; }
-  .skillbar { grid-template-columns: repeat(5, 48px); gap: 5px; }
-  .slot { width: 48px; height: 48px; }
-  .slot img { inset: 4px; width: 40px; height: 40px; }
+  .skillbar { grid-template-columns: repeat(10, 36px); gap: 3px; padding: 5px; }
+  .slot { width: 36px; height: 36px; }
+  .slot img, .slot-art canvas { width: 28px; height: 28px; }
   }
 
 /* ---- phones and tablets (body.touch, src/touch.ts): landscape only, on-screen controls ---- */
@@ -722,7 +733,8 @@ body.touch .joystick.on { opacity: 1; }
   background: radial-gradient(circle at 35% 30%, #fff8e0, #f4d27a 55%, #b8902e); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
 }
 
-/* attack button bottom right; the ten skill slots on two arcs around it (1-5 inside, 6-0 outside) */
+/* attack button bottom right; over it a column of rest and the two potions; the skill bar's two
+   rows of ten along the bottom between the joystick's side (left 38%) and the attack button */
 body.touch .touch-attack {
   position: fixed; z-index: 3; right: calc(22px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom));
   width: 78px; height: 78px; padding: 0; border-radius: 50%; align-items: center; justify-content: center; cursor: pointer;
@@ -732,27 +744,20 @@ body.touch .touch-attack {
 body.touch .touch-attack:active { transform: scale(0.94); }
 .touch-attack canvas { width: 52px; height: 52px; pointer-events: none; }
 body.touch .skillbar {
-  position: fixed; z-index: 3; display: block; width: 0; height: 0; padding: 0; border: 0; background: none;
-  right: calc(61px + env(safe-area-inset-right)); bottom: calc(57px + env(safe-area-inset-bottom));
+  /* a slot: what is left of the width past the joystick's side and the attack button, over ten */
+  --s: clamp(28px, calc((62vw - 166px - env(safe-area-inset-right)) / 10), 44px);
+  position: fixed; z-index: 3; left: calc(38vw + 6px); bottom: calc(8px + env(safe-area-inset-bottom));
+  grid-template-columns: repeat(10, var(--s)); gap: 4px; padding: 4px; background: rgba(20, 28, 18, 0.55);
 }
-body.touch .slot { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(20, 28, 18, 0.72); }
-body.touch .slot img, body.touch .slot-art canvas { inset: 4px; width: 34px; height: 34px; border-radius: 50%; }
+body.touch .slot { width: var(--s); height: var(--s); background: rgba(20, 28, 18, 0.72); }
+body.touch .slot img, body.touch .slot-art canvas { inset: 2px; width: calc(var(--s) - 6px); height: calc(var(--s) - 6px); }
 body.touch .slot.empty { opacity: 0.35; }
-body.touch .slot .cdtext { font-size: 14px; }
-body.touch .slot:nth-child(1) { left: -122px; top: 0; }
-body.touch .slot:nth-child(2) { left: -112.7px; top: -46.7px; }
-body.touch .slot:nth-child(3) { left: -86.3px; top: -86.3px; }
-body.touch .slot:nth-child(4) { left: -46.7px; top: -112.7px; }
-body.touch .slot:nth-child(5) { left: 0; top: -122px; }
-body.touch .slot:nth-child(6) { left: -180px; top: 0; }
-body.touch .slot:nth-child(7) { left: -166.3px; top: -68.9px; }
-body.touch .slot:nth-child(8) { left: -127.3px; top: -127.3px; }
-body.touch .slot:nth-child(9) { left: -68.9px; top: -166.3px; }
-body.touch .slot:nth-child(10) { left: 0; top: -180px; }
+body.touch .slot .cdtext { font-size: 13px; }
 
-/* potions, left of the skill arcs */
+/* rest and the potions, a column over the attack button */
 body.touch .touch-potions {
-  position: fixed; z-index: 3; gap: 8px; right: calc(282px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom));
+  position: fixed; z-index: 3; flex-direction: column; gap: 6px;
+  right: calc(38px + env(safe-area-inset-right)); bottom: calc(104px + env(safe-area-inset-bottom));
 }
 .touch-potion {
   position: relative; width: 46px; height: 46px; padding: 0; border-radius: 50%; cursor: pointer;
@@ -763,6 +768,8 @@ body.touch .touch-potions {
   position: absolute; right: -2px; bottom: -3px; min-width: 18px; padding: 0 4px; border-radius: 9px; font: 600 11px/16px var(--font);
   color: var(--text); background: #10160d; border: 1px solid var(--rim); pointer-events: none;
 }
+/* resting: the button glows while she sits */
+.touch-rest.on { border-color: #9df0b4; background: rgba(40, 90, 56, 0.85); box-shadow: 0 0 12px rgba(157, 240, 180, 0.6); }
 
 /* windows open one at a time as a sheet in the middle, scrolling inside */
 body.touch .window {
@@ -772,6 +779,8 @@ body.touch .window {
   max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overscroll-behavior: contain; display: block; overflow: auto;
 }
+/* (a shut window stays shut: the display above outranks .window.hidden) */
+body.touch .window.hidden { display: none; }
 body.touch .window-body { overflow: visible; }
 body.touch .window-collapse, body.touch .window-grip { display: none; }
 body.touch .window-bar { cursor: default; position: sticky; top: 0; z-index: 2; background: rgba(28, 36, 24, 0.98); }

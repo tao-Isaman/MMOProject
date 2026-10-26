@@ -2,7 +2,8 @@
 //
 // Touch mode turns on for devices whose main pointer is a finger, or on the first touch. In it
 // the HUD swaps to on-screen controls (style.css, body.touch): the joystick on the left, the
-// attack button with the skill slots around it on the right, and windows open one at a time.
+// attack button with rest and the potions over it on the right, the skill bar's two rows along
+// the bottom between them, and windows open one at a time.
 
 export function isTouch(): boolean {
   return document.body.classList.contains("touch");

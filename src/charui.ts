@@ -3,6 +3,7 @@
 
 import { el, makeWindow, HAIRSTYLES } from "./ui";
 import { resetLayout } from "./windows";
+import { slotLabel } from "./hud";
 import type { Look } from "./ui";
 import { skillIcon, hasArt, icon } from "./icons";
 import {
@@ -846,7 +847,7 @@ export class SkillUI {
     if (n.kind === "active" && (real.ranks[n.id] ?? 0) > 0) {
       const slot = el("button", "wr-choice", act);
       slot.type = "button";
-      slot.textContent = real.hotbar.includes(n.id) ? `อยู่ในแถบสกิลช่อง ${(real.hotbar.indexOf(n.id) + 1) % 10}` : "ใส่แถบสกิล";
+      slot.textContent = real.hotbar.includes(n.id) ? `อยู่ในแถบสกิลช่อง ${slotLabel(real.hotbar.indexOf(n.id))}` : "ใส่แถบสกิล";
       slot.disabled = real.hotbar.includes(n.id);
       slot.addEventListener("click", () => {
         real.autoSlot(n.id);

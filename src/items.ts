@@ -206,6 +206,10 @@ export const FALLBACK_SHAPE: Record<Gender, string> = { female: "mage", male: "w
 
 export type ItemKind = "weapon" | "offhand" | "top" | "bottom" | "hat" | "shoes" | "ring" | "trinket" | "potion" | "book" | "style" | "material";
 export type EquipSlot = "weapon" | "offhand" | "top" | "bottom" | "hat" | "shoes" | "ring1" | "ring2" | "trinket1" | "trinket2";
+// What the bag can use (drink a potion, coat with a vial, read a book or a hairstyle): these
+// also go on the skill bar as shortcuts; gear is worn instead.
+export const usable = (id: string | null | undefined): boolean =>
+  !!id && ["potion", "book", "style"].includes(ITEMS[id]?.kind);
 // The slots that only add stats (nothing of them is drawn on the character).
 export const GEAR_SLOTS: EquipSlot[] = ["hat", "shoes", "ring1", "ring2", "trinket1", "trinket2"];
 

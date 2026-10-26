@@ -312,7 +312,7 @@ export class Bot {
         this.restTick -= dt;
         if (this.restTick <= 0) {
           this.restTick = 0.5;
-          hero.addBuff("bot_rest", "พักฟื้น", { hpRegen: hero.stats.maxHp * 0.025, mpRegen: hero.stats.maxMp * 0.025 }, 0.7);
+          hero.rest(); // the same sitting as the player's own rest (X)
         }
         this.useSupport(false);
         return none;

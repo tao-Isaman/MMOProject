@@ -5,7 +5,7 @@
 // menu with what it does.
 
 import { saveKey } from "./save";
-import { ITEMS, EQUIP_SLOTS, describe, itemSlot, fitsSlot, isTwoHanded } from "./items";
+import { ITEMS, EQUIP_SLOTS, describe, itemSlot, fitsSlot, isTwoHanded, usable } from "./items";
 import type { EquipSlot } from "./items";
 import { COLS } from "./inventory";
 import type { Inventory } from "./inventory";
@@ -62,6 +62,9 @@ export class InventoryUI {
   gold: HTMLElement;
   menu: HTMLElement;
   wearable: (id: string) => string | null;
+  // A bag item dropped outside the bag at (x, y): whether someone took it (main.ts: onto the skill
+  // bar as a shortcut); if not, a drop onto the game asks to throw it away.
+  onDropOut: (index: number, x: number, y: number) => boolean = () => false;
 
   // icons(id) -> canvas or image for an item; use(index) reads a book, drinks a potion or
   // uses another item and returns a message
@@ -176,7 +179,7 @@ export class InventoryUI {
     if (confirm) ask(s.count);
     else {
       this.menuHead(s.id, info);
-      if (item.kind === "potion" || item.kind === "book" || item.kind === "style") button(item.kind === "potion" ? (item.restore ? "ดื่ม" : "ใช้") : "อ่าน", () => this.flash(this.use(index), true));
+      if (usable(s.id)) button(item.kind === "potion" ? (item.restore ? "ดื่ม" : "ใช้") : "อ่าน", () => this.flash(this.use(index), true));
       else if (itemSlot(s.id)) {
         button(item.kind === "weapon" ? "ใส่มือหลัก" : "สวมใส่", () => this.wear(index));
         if (item.kind === "weapon" && fitsSlot(s.id, "offhand")) button("ใส่มือรอง", () => this.wear(index, "offhand"));
@@ -219,7 +222,7 @@ export class InventoryUI {
     const used = this.inv.slots.filter(Boolean).length;
     this.status.textContent = isTouch()
       ? `${used} / ${this.inv.slots.length} ช่อง · แตะไอเท็มเพื่อดูว่าทำอะไรได้ · ลากเพื่อย้ายหรือใส่`
-      : `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
+      : `${used} / ${this.inv.slots.length} ช่อง · ลากเพื่อย้าย · ดับเบิลคลิกเพื่อใส่ ถอด ดื่ม หรืออ่าน · ลากยาหรือตำราไปใส่แถบสกิลได้ · คลิกขวาหรือลากออกนอกกระเป๋าเพื่อทิ้ง`;
     this.gold.innerHTML = `<img src="assets/skills/gold_coin.png" alt="">${this.inv.gold.toLocaleString()} ทอง`;
   }
 
@@ -266,8 +269,7 @@ export class InventoryUI {
       }
       else if (this.inv.slots[Number(c.dataset.index)]) {
         const i = Number(c.dataset.index);
-        const kind = ITEMS[this.inv.slots[i]!.id].kind;
-        if (kind === "book" || kind === "potion" || kind === "style") this.flash(this.use(i), true);
+        if (usable(this.inv.slots[i]!.id)) this.flash(this.use(i), true);
         else this.wear(i);
       }
       this.tip.classList.add("hidden");
@@ -318,6 +320,7 @@ export class InventoryUI {
         return;
       }
       const over = document.elementFromPoint(e.clientX, e.clientY);
+      if (!d.from.dataset.equip && !(over instanceof Element && this.win.contains(over)) && this.onDropOut(Number(d.from.dataset.index), e.clientX, e.clientY)) return;
       // dropped outside the bag, onto the game: ask before throwing it away
       if (!d.from.dataset.equip && over instanceof Element && !this.win.contains(over) && over.id === "game") {
         this.openMenu(Number(d.from.dataset.index), e.clientX, e.clientY, true);

@@ -9,7 +9,7 @@
 // stats.js turns this into numbers, skills.js runs the actives.
 
 import { saveKey } from "./save";
-import { ITEMS, offhandKind } from "./items";
+import { ITEMS, offhandKind, usable } from "./items";
 import type { WeaponId } from "./items";
 import { pct, lin } from "./trees/util";
 import { RANGER_TREES } from "./trees/ranger";
@@ -1642,6 +1642,17 @@ export function mpCost(id: string, rank: number, mp = ACTIVES[id]?.skill.mp ?? 0
 }
 
 
+// The skill bar: two rows of ten. A slot holds an active skill's id, or "item:<id>" for a
+// shortcut to something in the bag (items.ts usable); null when empty.
+export const HOTBAR_SIZE = 20;
+export const ITEM_PREFIX = "item:";
+// The item a slot is a shortcut to, or null (a skill, or empty).
+export const slotItem = (entry: string | null | undefined): string | null =>
+  entry?.startsWith(ITEM_PREFIX) ? entry.slice(ITEM_PREFIX.length) : null;
+// Whether a slot entry is still something the bar can hold (a skill, or an item that can be used).
+const slotValid = (entry: unknown): entry is string =>
+  typeof entry === "string" && (!!ACTIVES[entry] || usable(slotItem(entry)));
+
 interface SaveData {
   cls?: ClassId | null;
   level?: number;
@@ -1680,7 +1691,7 @@ export class Progress {
   elements: Record<string, number> = {}; // element id -> level
   unlocked: { trees: string[]; masteries: string[]; elements: string[] } = { trees: [], masteries: [], elements: [] }; // learned: picked at the start, or from books
   extended: string[] = [];               // second books read: "mastery:<id>", "element:<id>"
-  hotbar: (string | null)[] = new Array(10).fill(null);
+  hotbar: (string | null)[] = new Array(HOTBAR_SIZE).fill(null);
   bonus = 0;                             // skill points from quests and jobs, on top of one a level
   job: JobId | null = null;              // the second job, and the branch picked with it
   branch: string | null = null;
@@ -1704,7 +1715,7 @@ export class Progress {
     this.elements = {};
     this.unlocked = { trees: [], masteries: [], elements: [] };
     this.extended = [];
-    this.hotbar = new Array(10).fill(null);
+    this.hotbar = new Array(HOTBAR_SIZE).fill(null);
     this.bonus = 0;
     this.job = null;
     this.branch = null;
@@ -1800,7 +1811,7 @@ export class Progress {
   // the tree's first skill waits in the first slot of the skill bar.
   start(tree: string, element: string, mastery: string): void {
     this.unlocked = { trees: [tree], masteries: [mastery], elements: [element] };
-    this.hotbar = new Array(10).fill(null);
+    this.hotbar = new Array(HOTBAR_SIZE).fill(null);
     this.hotbar[0] = firstActive(tree);
     this.changed();
   }
@@ -1996,10 +2007,24 @@ export class Progress {
     if (i >= 0) this.hotbar[i] = skillId;
   }
 
-  setSlot(i: number, skillId: string): void {
-    const j = this.hotbar.indexOf(skillId);
+  // Put a skill or an item shortcut ("item:<id>") in slot i; if it was in another slot already,
+  // what was in i goes there (one shortcut to a thing, as one skill).
+  setSlot(i: number, entry: string): void {
+    const j = this.hotbar.indexOf(entry);
     if (j >= 0) this.hotbar[j] = this.hotbar[i];
-    this.hotbar[i] = skillId;
+    this.hotbar[i] = entry;
+    this.changed();
+  }
+
+  // Slot a dragged onto slot b: the two change places.
+  swapSlots(a: number, b: number): void {
+    if (a === b) return;
+    [this.hotbar[a], this.hotbar[b]] = [this.hotbar[b], this.hotbar[a]];
+    this.changed();
+  }
+
+  clearSlot(i: number): void {
+    this.hotbar[i] = null;
     this.changed();
   }
 
@@ -2068,9 +2093,11 @@ export class Progress {
       add(this.unlocked.masteries, Object.keys(MASTERIES).filter((m) => MASTERIES[m].kind === "weapon"));
       add(this.unlocked.elements, Object.keys(ELEMENTS).filter((e) => !ELEMENTS[e].book));
     }
-    this.hotbar = Array.from({ length: 10 }, (_, i) => {
-      const id = saved.hotbar?.[i];
-      return id && ACTIVES[id] ? id : null;
+    // (a bar saved with one row of ten fills the first row; what is no longer a skill or a usable
+    // item is dropped)
+    this.hotbar = Array.from({ length: HOTBAR_SIZE }, (_, i) => {
+      const entry = saved.hotbar?.[i];
+      return slotValid(entry) ? entry : null;
     });
     // a save from before the current trees, or one that doesn't fit them, gets its tree points back
     if (d.treesV !== TREES_VERSION || Object.keys(this.ranks).some((id) => this.missing(NODES[id].node).length || this.ranks[id] > NODES[id].node.max)) this.ranks = {};
