@@ -1,9 +1,9 @@
 // The shinobi's branches (third job, from any second job): the spy (kunai and shuriken thrown
-// from the belt, quick feet and a shadow's dash, hiding in plain sight or in a smoke bomb, and
-// the first throw from hiding landing far harder) and the blade (a dagger or a one-handed sword,
-// fast cuts in forms that chain, shadow clones that fight beside her, hands so quick a cut lands
-// twice). Ten skills a branch, four of them passives. The spy asks for no weapon, so a shinobi from any second job
-// can throw; the blade's cuts ask for the dagger or the one-handed sword, its clones swing
+// from the belt, quick feet and a shadow's dash, hiding in a smoke bomb, and the first throw
+// from hiding landing far harder) and the blade (a dagger or a one-handed sword, fast cuts in
+// forms that chain, shadow clones that fight beside her). Seven skills a branch, two of them
+// passives: both fight with many moves. The spy asks for no weapon, so a shinobi from any
+// second job can throw; the blade's cuts ask for the dagger or the one-handed sword, its clones swing
 // whatever she holds.
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
@@ -14,7 +14,7 @@ export const SHINOBI_TREES: Record<string, Tree> = {
   // ---- the spy: thrown steel, quick feet, a blow from hiding ----
   shinobi_spy: {
     name: "นินจาสายลับ", cls: null, job3: "shinobi", color: "#8aa0c8", glyph: "eye",
-    note: "ไม่ต้องใช้อาวุธเฉพาะ ซัดคุไนและดาวกระจายจากระยะไกล เดินเร็ว พุ่งเป็นเงาผ่านศัตรู ซ่อนตัวหรือปาระเบิดควันลงเท้าแล้วลอบโจมตีจากที่ซ่อนให้แรงเป็นพิเศษ ท่าซัดต่อกันแรงขึ้น: ซัดคุไนหรือวิชาก้าวเงา → ดาวกระจายห้าแฉก → คุไนสังหารเงาจันทร์",
+    note: "ไม่ต้องใช้อาวุธเฉพาะ ซัดคุไนและดาวกระจายจากระยะไกล เดินเร็ว พุ่งเป็นเงาผ่านศัตรู ปาระเบิดควันลงเท้าซ่อนตัวแล้วลอบโจมตีจากที่ซ่อนให้แรงเป็นพิเศษ ท่าซัดต่อกันแรงขึ้น: ซัดคุไนหรือวิชาก้าวเงา → ดาวกระจายห้าแฉก → คุไนสังหารเงาจันทร์",
     nodes: [
       { id: "shinobi_spy_kunai", name: "ซัดคุไน", kind: "active", max: 10, pos: [1, 0], glyph: "pierce",
         skill: { type: "bolt", stat: "atk", mult: lin(2.0, 0.2), mp: 12, cd: 4, motion: "thrust", speed: 1500, range: 700, radius: 24, color: "#d8dce4" },
@@ -22,11 +22,7 @@ export const SHINOBI_TREES: Record<string, Tree> = {
       { id: "shinobi_spy_steps", name: "ฝีเท้าไร้เสียง", kind: "passive", max: 10, pos: [0, 0], glyph: "shoes",
         stats: (r) => ({ move: 0.006 * r, ambush: 0.03 * r }),
         desc: (r) => `ความเร็วเดิน +${pct(0.006 * r)} การโจมตีจากที่ซ่อนแรงขึ้น ${pct(0.03 * r)}` },
-      // hidden, the spy keeps her pace (the thief's hiding slows)
-      { id: "shinobi_spy_conceal", name: "วิชาอำพรางกาย", kind: "active", max: 5, pos: [2, 0], glyph: "eye",
-        skill: { type: "buff", mp: 18, cd: 16, motion: "cast", duration: 18, buff: (r) => ({ stealth: 1, ambush: 0.3 + 0.1 * r, move: 0.04 * r }), color: "#6a7ca8" },
-        desc: (r) => `ซ่อนตัว 18 วิ: มอนสเตอร์มองไม่เห็นและเลิกไล่ เดินเร็วขึ้น ${pct(0.04 * r)} การโจมตีครั้งแรกขณะซ่อนตัวแรงขึ้น ${pct(0.3 + 0.1 * r)} แล้วออกจากที่ซ่อน` },
-      { id: "shinobi_spy_step", name: "วิชาก้าวเงา", kind: "active", max: 10, pos: [3, 0], glyph: "dash",
+      { id: "shinobi_spy_step", name: "วิชาก้าวเงา", kind: "active", max: 10, pos: [2, 0], glyph: "dash",
         skill: { type: "dash", stat: "atk", mult: lin(1.9, 0.19), mp: 14, cd: 6, motion: "thrust", distance: 380, width: 70, color: "#9ab0d8" },
         desc: (r) => `พุ่งเป็นเงาไปทางที่เล็ง 3.8 ม. ฟันทุกตัวที่ผ่าน ${pct(lin(1.9, 0.19)(r))} ของพลังโจมตี` },
       // a small cloud at her feet, quick to throw again: away from a fight, or back into hiding
@@ -40,13 +36,7 @@ export const SHINOBI_TREES: Record<string, Tree> = {
       { id: "shinobi_spy_wrist", name: "ข้อมือซัดแม่น", kind: "passive", max: 10, pos: [2, 1], req: [["shinobi_spy_kunai", 3]], glyph: "target",
         stats: (r) => ({ hit: 2 * r, critDmg: 0.02 * r }),
         desc: (r) => `ความแม่นยำ +${2 * r} แรงคริติคอล +${pct(0.02 * r)}` },
-      { id: "shinobi_spy_sense", name: "ประสาทเงา", kind: "passive", max: 5, pos: [3, 1], req: [["shinobi_spy_step", 3]], glyph: "wing",
-        stats: (r) => ({ flee: 3 * r, magicDodge: 0.01 * r }),
-        desc: (r) => `หลบหลีก +${3 * r} หลบเวท +${pct(0.01 * r)}` },
-      { id: "shinobi_spy_patience", name: "ใจนิ่งรอจังหวะ", kind: "passive", max: 10, pos: [0, 2], req: [["shinobi_spy_smoke", 1]], glyph: "swirl",
-        stats: (r) => ({ cdr: 0.005 * r, mpRegen: 0.2 * r }),
-        desc: (r) => `ลดคูลดาวน์ +${pct(0.005 * r)} ฟื้น MP +${+(0.2 * r).toFixed(1)}/วิ` },
-      { id: "shinobi_spy_moon", name: "คุไนสังหารเงาจันทร์", kind: "active", max: 5, pos: [1, 2], req: [["shinobi_spy_shuriken", 5], ["shinobi_spy_conceal", 1]], glyph: "skull",
+      { id: "shinobi_spy_moon", name: "คุไนสังหารเงาจันทร์", kind: "active", max: 5, pos: [1, 2], req: [["shinobi_spy_shuriken", 5], ["shinobi_spy_smoke", 1]], glyph: "skull",
         skill: { type: "bolt", stat: "atk", mult: lin(5.2, 0.65), mp: 42, cd: 15, motion: "thrust", speed: 1700, range: 800, radius: 30,
           combo: { after: ["shinobi_spy_shuriken", "shinobi_spy_step"], within: 3, more: () => 0.35 }, color: "#e8ecff" },
         desc: (r) => `ซัดคุไนเงาจันทร์ใส่ตัวที่ล็อกไว้ระยะ 8 ม. ${pct(lin(5.2, 0.65)(r))} ของพลังโจมตี ใช้ต่อจากดาวกระจายห้าแฉกหรือวิชาก้าวเงาภายใน 3 วิ แรงขึ้น 35% (ซัดจากที่ซ่อนได้โบนัสซ่อนตัวด้วย)` },
@@ -55,7 +45,7 @@ export const SHINOBI_TREES: Record<string, Tree> = {
   // ---- the blade: dagger or sword, forms that chain, shadow clones ----
   shinobi_combat: {
     name: "นินจาต่อสู้", cls: null, job3: "shinobi", color: "#a0b8e0", glyph: "twin",
-    note: "ถือมีดสั้นหรือดาบมือเดียว ฟันเร็วหลายจังหวะเป็นกระบวนท่าที่แรงขึ้นเมื่อใช้ต่อกัน: จันทร์เสี้ยวหรือพริบตาฟันผ่าน → ลมหวนกรีด → พันเงาพิฆาต แยกเงาเป็นร่างแยกที่ฟันตามเรา และเร่งมือจนตีปกติฟันซ้ำได้",
+    note: "ถือมีดสั้นหรือดาบมือเดียว ฟันเร็วหลายจังหวะเป็นกระบวนท่าที่แรงขึ้นเมื่อใช้ต่อกัน: จันทร์เสี้ยวหรือพริบตาฟันผ่าน → ลมหวนกรีด → พันเงาพิฆาต และแยกเงาเป็นร่างแยกที่ฟันตามเรา",
     nodes: [
       { id: "shinobi_combat_crescent", name: "จันทร์เสี้ยว", kind: "active", max: 10, pos: [1, 0], glyph: "fan", need: BLADES,
         skill: { type: "cone", stat: "atk", mult: lin(1.0, 0.1), hits: 2, mp: 12, cd: 3, motion: "swing", reach: 160, arc: 110, color: "#c8d8f8" },
@@ -70,23 +60,14 @@ export const SHINOBI_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(0.8, 0.08), hits: 3, mp: 16, cd: 5, motion: "swing", reach: 170, arc: 50,
           combo: { after: ["shinobi_combat_crescent", "shinobi_combat_flash"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#d0e0ff" },
         desc: (r) => `ฟันวนกลับใส่ตัวที่ล็อกไว้ 3 ครั้ง ครั้งละ ${pct(lin(0.8, 0.08)(r))} ของพลังโจมตี ใช้ต่อจากจันทร์เสี้ยวหรือพริบตาฟันผ่านภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)} ใช้ได้เมื่อถือมีดสั้นหรือดาบมือเดียว` },
-      { id: "shinobi_combat_focus", name: "จิตไวไร้เงา", kind: "active", max: 5, pos: [2, 1], req: [["shinobi_combat_way", 3]], glyph: "wing", need: BLADES,
-        skill: { type: "buff", mp: 26, cd: 35, motion: "cast", duration: 23, buff: (r) => ({ aspd: 0.06 + 0.02 * r, doubleHit: 0.04 + 0.02 * r }), color: "#a8c0f0" },
-        desc: (r) => `23 วิ: ความเร็วโจมตี +${pct(0.06 + 0.02 * r)} ตีปกติมีโอกาส ${pct(0.04 + 0.02 * r)} ฟันซ้ำอีกครั้งทันที ใช้ได้เมื่อถือมีดสั้นหรือดาบมือเดียว` },
       // her look, cutting at her target with whatever she holds (`mult` of her normal hit)
-      { id: "shinobi_combat_clones", name: "วิชาแยกเงา", kind: "active", max: 10, pos: [3, 1], req: [["shinobi_combat_way", 1]], glyph: "person",
+      { id: "shinobi_combat_clones", name: "วิชาแยกเงา", kind: "active", max: 10, pos: [2, 1], req: [["shinobi_combat_way", 1]], glyph: "person",
         skill: { type: "summon", ally: "clone", mult: lin(0.45, 0.045), base: lin(0.25, 0.025), count: 2, duration: 18, mp: 26, cd: 14, motion: "cast", color: "#8aa0d8" },
         desc: (r) => `แยกเงาออกมาเป็นร่างแยก อยู่ 18 วิ (มีได้ 2 ร่าง) ฟันตัวที่เราตีด้วยอาวุธที่ถืออยู่ แรง ${pct(lin(0.45, 0.045)(r))} ของการตีปกติ HP ${pct(lin(0.25, 0.025)(r))} ของ HP สูงสุด` },
-      { id: "shinobi_combat_grip", name: "กุมคมแน่น", kind: "passive", max: 10, pos: [0, 0], glyph: "sword", need: BLADES,
-        stats: (r) => ({ atkPct: 0.008 * r, hit: 1.5 * r }),
-        desc: (r) => `พลังโจมตี +${pct(0.008 * r)} ความแม่นยำ +${+(1.5 * r).toFixed(1)} เมื่อถือมีดสั้นหรือดาบมือเดียว` },
-      { id: "shinobi_combat_sway", name: "ร่างไหวพลิ้ว", kind: "passive", max: 10, pos: [0, 2], req: [["shinobi_combat_flash", 3]], glyph: "shoes", need: BLADES,
-        stats: (r) => ({ flee: 2 * r, move: 0.006 * r }),
-        desc: (r) => `หลบหลีก +${2 * r} ความเร็วเดิน +${pct(0.006 * r)} เมื่อถือมีดสั้นหรือดาบมือเดียว` },
-      { id: "shinobi_combat_kinship", name: "เงาร่วมใจ", kind: "passive", max: 5, pos: [3, 2], req: [["shinobi_combat_clones", 3]], glyph: "twin",
+      { id: "shinobi_combat_kinship", name: "เงาร่วมใจ", kind: "passive", max: 5, pos: [2, 2], req: [["shinobi_combat_clones", 3]], glyph: "twin",
         stats: (r) => ({ allyPct: 0.03 * r }),
         desc: (r) => `ร่างแยก (ผู้ช่วยทุกแบบ) HP และแรงตี +${pct(0.03 * r)}` },
-      { id: "shinobi_combat_thousand", name: "พันเงาพิฆาต", kind: "active", max: 5, pos: [1, 2], req: [["shinobi_combat_whirl", 5], ["shinobi_combat_focus", 1]], glyph: "star", need: BLADES,
+      { id: "shinobi_combat_thousand", name: "พันเงาพิฆาต", kind: "active", max: 5, pos: [1, 2], req: [["shinobi_combat_whirl", 5], ["shinobi_combat_clones", 1]], glyph: "star", need: BLADES,
         skill: { type: "cone", stat: "atk", mult: lin(0.9, 0.11), hits: 6, mp: 45, cd: 15, motion: "swing", reach: 180, arc: 50,
           combo: { after: ["shinobi_combat_whirl"], within: 3, more: () => 0.35 }, color: "#e0e8ff" },
         desc: (r) => `ร่างเงานับพันฟันตัวที่ล็อกไว้ 6 ครั้งรวด ครั้งละ ${pct(lin(0.9, 0.11)(r))} ของพลังโจมตี ใช้ต่อจากลมหวนกรีดภายใน 3 วิ แรงขึ้น 35% ใช้ได้เมื่อถือมีดสั้นหรือดาบมือเดียว` },
