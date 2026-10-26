@@ -12,7 +12,7 @@ export const RANGER_TREES: Record<string, Tree> = {
     nodes: [
       { id: "falcon_bond", name: "เหยี่ยวคู่ใจ", kind: "passive", max: 10, pos: [0, 0], glyph: "wing",
         stats: (r) => ({ falconChance: 0.021 * r, falconPower: 0.35 + 0.035 * r }),
-        desc: (r) => `เหยี่ยวคู่ใจบินตาม ตีปกติมีโอกาส ${pct(0.021 * r)} ให้เหยี่ยวโฉบลงมาช่วยตี ดาเมจ ${pct(0.35 + 0.035 * r)} ของพลังโจมตี` },
+        desc: (r) => `เหยี่ยวคู่ใจบินตาม ตีปกติมีโอกาส ${pct(0.021 * r)} ให้เหยี่ยวโฉบลงมาช่วยตี 5 ครั้ง ครั้งละ ${pct(0.35 + 0.035 * r)} ของพลังโจมตี` },
       { id: "falcon_dive", name: "เหยี่ยวโฉบ", kind: "active", max: 10, pos: [1, 0], glyph: "wing",
         skill: { type: "falcon", stat: "atk", mult: lin(0.91, 0.091), hits: 2, range: 650, mp: 12, cd: 3, motion: "thrust", color: "#ffd8a8" },
         desc: (r) => `สั่งเหยี่ยวโฉบใส่เป้าหมายที่ล็อกไว้ (ระยะ 6.5 ม.) 2 ครั้ง ครั้งละ ${pct(lin(0.91, 0.091)(r))} ของพลังโจมตี` },

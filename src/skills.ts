@@ -124,6 +124,7 @@ function castOf(key: string): { id: string; spell?: { name: string; skill: Skill
 }
 
 const LEAD = 0.22; // s from the start of the animation to the hit
+const FALCON_HITS = 5; // the falcon's rakes when it dives in after a normal hit
 const RELEASE = 0.45; // s the caster's hands come down after a cast
 
 // A spell being cast: what it was aimed at, and the monster it follows (its mark).
@@ -1115,14 +1116,19 @@ export class Skills {
     });
   }
 
-  // The falcon dives in after a normal hit (falconChance): falconPower x attack, through the
-  // armour as a blow, never missing.
+  // The falcon dives in after a normal hit (falconChance) and rakes it FALCON_HITS times, each
+  // falconPower x attack, through the armour as a blow, never missing.
   falconStrike(m: Monster): void {
     const st = this.hero.stats;
     this.dive(m, () => {
-      const dmg = Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), m.def)));
-      const dx = m.x - this.player.x, dy = m.y - this.player.y, d = Math.hypot(dx, dy) || 1;
-      this.combat.apply(m, { dmg, crit: false, magic: false, miss: false }, { x: dx / d, y: dy / d });
+      for (let i = 0; i < FALCON_HITS; i++) {
+        this.later(i * 0.1, () => {
+          if (!m.alive) return;
+          const dmg = Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), m.def)));
+          const dx = m.x - this.player.x, dy = m.y - this.player.y, d = Math.hypot(dx, dy) || 1;
+          this.combat.apply(m, { dmg, crit: false, magic: false, miss: false }, { x: dx / d, y: dy / d });
+        });
+      }
     });
   }
 
