@@ -4,11 +4,12 @@
 // Ragnarok job changes its sprite.
 //
 // Each job and build is getting a body of its own from Oriverse (src/items.ts SHAPES marked
-// `job`), worn as it was drawn: so far the swordsman's, the wizard's, the knight's and the
-// bishop's, female and male, and the ranger's male one. Until a job's body for a build is in,
-// its outfit is one of the other bodies in that job's colours: a female character the mage coat, the priestess robe or the
+// `job`), worn as it was drawn: so far the swordsman's, the wizard's, the knight's, the
+// bishop's, the ranger's, the thief's and the jester's, female and male, the warlord's male one
+// and the battlemage's female one. Until a job's body for a build is in, its outfit is one of the
+// other bodies in that job's colours: a female character the mage coat, the priestess robe or the
 // adventurer vest, a male one the warrior jacket. A job line keeps its class's shape and moves on
-// in colour (the battlemage a sky-blue coat, the archmage a midnight one).
+// in colour (the male battlemage a sky-blue jacket, the archmage a midnight one).
 //
 // The look code (src/look.ts) reads a slot holding "@shape/dye" as that garment itself, so an
 // outfit goes in place of the worn top and bottom without being an item anybody can hold.
@@ -29,13 +30,13 @@ const OUTFITS: Record<"none" | ClassId | JobId | Job3Id, Outfit> = {
   priest: { female: [["priestess", null], ["priestess", null]], male: [["warrior", "white"], ["warrior", "navy"]] },
   // the second jobs
   wizard: { female: [["wizard_f", null], ["wizard_f", null]], male: [["wizard_m", null], ["wizard_m", null]] },
-  battlemage: { female: [["mage", "sky"], ["mage", "wine"]], male: [["warrior", "sky"], ["warrior", "wine"]] },
+  battlemage: { female: [["battlemage_f", null], ["battlemage_f", null]], male: [["warrior", "sky"], ["warrior", "wine"]] },
   bishop: { female: [["bishop_f", null], ["bishop_f", null]], male: [["bishop_m", null], ["bishop_m", null]] },
-  ranger: { female: [["adventurer", "teal"], ["adventurer", "cocoa"]], male: [["ranger_m", null], ["ranger_m", null]] },
+  ranger: { female: [["ranger_f", null], ["ranger_f", null]], male: [["ranger_m", null], ["ranger_m", null]] },
   swordsman: { female: [["swordsman_f", null], ["swordsman_f", null]], male: [["swordsman_m", null], ["swordsman_m", null]] },
-  warlord: { female: [["adventurer", "crimson"], ["adventurer", "black"]], male: [["warrior", "crimson"], ["warrior", "black"]] },
-  thief: { female: [["adventurer", "plum"], ["adventurer", "black"]], male: [["warrior", "plum"], ["warrior", "black"]] },
-  jester: { female: [["mage", "rose"], ["mage", "plum"]], male: [["warrior", "rose"], ["warrior", "plum"]] },
+  warlord: { female: [["adventurer", "crimson"], ["adventurer", "black"]], male: [["warlord_m", null], ["warlord_m", null]] },
+  thief: { female: [["thief_f", null], ["thief_f", null]], male: [["thief_m", null], ["thief_m", null]] },
+  jester: { female: [["jester_f", null], ["jester_f", null]], male: [["jester_m", null], ["jester_m", null]] },
   mercenary: { female: [["adventurer", "ochre"], ["adventurer", "wine"]], male: [["warrior", "ochre"], ["warrior", "wine"]] },
   inventor: { female: [["adventurer", "cocoa"], ["adventurer", "ochre"]], male: [["warrior", "cocoa"], ["warrior", "ochre"]] },
   merchant: { female: [["adventurer", "ochre"], ["adventurer", "cocoa"]], male: [["warrior", "ochre"], ["warrior", "cocoa"]] },

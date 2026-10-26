@@ -80,14 +80,25 @@ BOXES = {
         [[51, 32, 55, 35]],
         [[45, 32, 49, 35], [56, 32, 59, 35]],
     ],
+    "jester_m": [
+        [[40, 33, 44, 36], [51, 33, 55, 36]],
+        [[37, 33, 40, 36], [46, 33, 50, 36]],
+        [[41, 32, 44, 35]],
+        [], [], [],
+        [[51, 32, 55, 35]],
+        [[44, 33, 49, 36], [55, 33, 58, 36]],
+    ],
 }
+# warlord_m and thief_m have none: their eyes are drawn near-black (warlord) or in greys with
+# hardly any blue (thief), with no colour of an iris to dye
 NATURAL = {"plainm": "amber", "warrior": "amber", "swordsman_m": "blue", "ranger_m": "teal",
-           "knight_m": "crimson", "bishop_m": "crimson", "wizard_m": "blue"}  # the EYE_COLORS id they are drawn in
+           "knight_m": "crimson", "bishop_m": "crimson", "wizard_m": "blue",
+           "jester_m": "crimson"}  # the EYE_COLORS id they are drawn in
 IRIS = {  # the colour of that iris
     "amber": {"h": [18, 45], "s": [0.6, 1], "l": [0.28, 0.66]},
     "blue": {"h": [195, 240], "s": [0.35, 1], "l": [0.15, 0.8]},
     "teal": {"h": [115, 225], "s": [0.2, 1], "l": [0.08, 0.5]},  # down to the green at the iris's foot
-    # the knight's and the bishop's red eyes share their hair's reds but for their darkest one:
+    # the knight's, the bishop's and the jester's red eyes share their hair's reds but for their darkest one:
     # only that one is looked for around the boxes, so the hair over their eyes keeps its colour
     "crimson": {"h": [318, 334], "s": [0.5, 1], "l": [0.08, 0.3]},
 }

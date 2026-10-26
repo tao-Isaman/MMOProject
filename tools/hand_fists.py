@@ -39,6 +39,11 @@ INWARD = 6    # px an arm followed past its wrapping may come in toward the midd
 # so that a piece of the face passes for a raised fist: (clip, direction, frame) -> the frame of
 # the same direction whose weapon hand (moved with the neck) is taken instead
 SLASHED = {"wizard_m": {("thrust", 0, 1): 2}}
+# directions where the weapon arm's fist comes apart from what was taken for that arm (the ranger's
+# knuckles past a dark glove, the jester's hand past a white ruffled cuff), so the fist passes for
+# the other hand: there the hand farther out to the side the figure faces is the weapon hand (and
+# what it was taken for no hand at all)
+OUTER = {"ranger_f": {("thrust", 6)}, "jester_m": {("thrust", 5)}}
 
 
 def skin_mask(cell, gloves=None, waist=None):
@@ -256,6 +261,8 @@ def main():
                                  GLOVES.get(name), body.get("waist"))
                     if d in REACH.get(name, ()) and clip == "thrust" and SIDE[d]:
                         r = h["r"]  # the fist hand_anchors.py found out in front, which no skin marks
+                    if (clip, d) in OUTER.get(name, ()) and r and l and (l[0] - r[0]) * SIDE[d] > 0:
+                        r, l = l, None
                     h["r"] = [round(v, 1) for v in r] if r else None
                     h["l"] = [round(v, 1) for v in l] if l else None
                     h.pop("lh", None)

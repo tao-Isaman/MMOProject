@@ -164,6 +164,13 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     bishop_m: { name: "เสื้อคลุมบาทหลวง", body: "bishop_m", gender: "male", note: "เสื้อคลุมยาวสีขาว ขลิบทอง ผ้าคลุมไหล่ ผ้าสโตลปักทอง", job: true },
     wizard_f: { name: "เสื้อคลุมจอมเวท", body: "wizard_f", gender: "female", note: "เสื้อคลุมยาวมีฮู้ดสีม่วง ขลิบทอง เข็มกลัดทอง ผ้าคาดเอวสีกรมท่า", job: true },
     wizard_m: { name: "เสื้อคลุมจอมเวท", body: "wizard_m", gender: "male", note: "เสื้อคลุมยาวมีฮู้ดสีม่วง ขลิบทอง ตราทองที่หลัง ผ้าคาดเอวสีเข้ม", job: true },
+    ranger_f: { name: "เสื้อนายพราน", body: "ranger_f", gender: "female", note: "เสื้อสีเขียวหัวเป็ด ปลอกแขนหนัง เข็มขัดหนัง กระบอกลูกธนูสะพายหลัง", job: true },
+    warlord_m: { name: "เสื้อนักรบคลั่ง", body: "warlord_m", gender: "male", note: "ทูนิกสีดำขลิบทองแดง ผ้าคลุมยาวขนสัตว์สีเทา ปลอกแขนเหล็ก เข็มขัดหนัง", job: true },
+    thief_f: { name: "เสื้อหัวขโมย", body: "thief_f", gender: "female", note: "เสื้อสีม่วงพลัม ผ้าพันคอสีดำ ถุงมือดำ มีดสั้นที่เอว", job: true },
+    thief_m: { name: "เสื้อหัวขโมย", body: "thief_m", gender: "male", note: "เสื้อฮู้ดสีม่วงพลัม ผ้าพันคอสีดำ ถุงมือดำ มีดสั้นที่เอว", job: true },
+    battlemage_f: { name: "เสื้อคลุมจอมเวทนักสู้", body: "battlemage_f", gender: "female", note: "เสื้อคลุมยาวสีฟ้า ข้อมือขาว เข็มขัดหนัง กระเป๋าสะพาย", job: true },
+    jester_f: { name: "เสื้อตัวตลก", body: "jester_f", gender: "female", note: "เสื้อลายตารางสีชมพู ปกระบายสีขาว กระดิ่งทอง", job: true },
+    jester_m: { name: "เสื้อตัวตลก", body: "jester_m", gender: "male", note: "เสื้อลายทางสีม่วงแดง ปกระบายสีขาว กระดุมทอง", job: true },
   },
   bottom: {
     mage: { name: "กางเกงจอมเวท", body: "mageb", gender: "female", note: "กางเกงขายาว บูทหนัง ใส่กับเสื้อคลุมจอมเวทมีชายเสื้อคลุมยาวคลุมทับ" },
@@ -181,6 +188,13 @@ export const SHAPES: Record<"top" | "bottom", Record<string, Shape>> = {
     bishop_m: { name: "ชายเสื้อคลุมบาทหลวง", body: "bishop_m", gender: "male", note: "ชายเสื้อคลุมยาวสีขาว ขลิบทอง รองเท้าสีเงิน", job: true },
     wizard_f: { name: "ชายเสื้อคลุมจอมเวท", body: "wizard_f", gender: "female", note: "ชายเสื้อคลุมยาวสีม่วง ขลิบทอง กางเกงกรมท่า บูทหนัง", job: true },
     wizard_m: { name: "ชายเสื้อคลุมจอมเวท", body: "wizard_m", gender: "male", note: "ชายเสื้อคลุมยาวสีม่วง ขลิบทอง บูทหนัง", job: true },
+    ranger_f: { name: "กางเกงนายพราน", body: "ranger_f", gender: "female", note: "กางเกงสีเขียวเข้ม บูทหนัง", job: true },
+    warlord_m: { name: "กางเกงนักรบคลั่ง", body: "warlord_m", gender: "male", note: "กางเกงสีดำ บูทหนัง", job: true },
+    thief_f: { name: "กางเกงหัวขโมย", body: "thief_f", gender: "female", note: "กางเกงสีดำ บูทหนัง", job: true },
+    thief_m: { name: "กางเกงหัวขโมย", body: "thief_m", gender: "male", note: "กางเกงสีดำ บูทหนัง", job: true },
+    battlemage_f: { name: "กางเกงจอมเวทนักสู้", body: "battlemage_f", gender: "female", note: "ชายเสื้อคลุมสีฟ้า กางเกงสีขาว บูทหนัง", job: true },
+    jester_f: { name: "กางเกงตัวตลก", body: "jester_f", gender: "female", note: "กระโปรงพองกระดิ่งทอง ถุงน่องลายทาง รองเท้าปลายงอน", job: true },
+    jester_m: { name: "กางเกงตัวตลก", body: "jester_m", gender: "male", note: "กางเกงพองลายทางสีม่วงแดง รองเท้าสีม่วง", job: true },
   },
 };
 
