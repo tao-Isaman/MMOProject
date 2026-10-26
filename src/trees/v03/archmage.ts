@@ -4,7 +4,8 @@
 // convergence of them all; the earth's quake, cast at once, keeps the monsters off while the
 // others are read out) and metal (a caster who stands in front: a staff and a shield, steel
 // spells round herself, a guard and a mirror that hold while the shield is in hand, the bites
-// she takes sent back at the biter). Seven skills a branch, a little stronger than the wizard's;
+// she takes sent back at the biter). Ten skills on the high elements and nine on metal (four
+// passives each), a little stronger than the wizard's;
 // the spells carry cast times like the mage trees', the defences are instant.
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
@@ -12,6 +13,7 @@ import { pct, lin } from "../util";
 const SHIELD: Need = { shield: true };
 // The six elements of the high spells, and what the sage's passive raises.
 const SIX = (v: number) => ({ fireAtk: v, iceAtk: v, waterAtk: v, windAtk: v, lightningAtk: v, earthAtk: v });
+const n1 = (v: number) => +v.toFixed(1);
 
 export const ARCHMAGE_TREES: Record<string, Tree> = {
   // ---- the high elements: wide spells of many elements, each a step towards the next ----
@@ -26,8 +28,8 @@ export const ARCHMAGE_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "matk", element: "fire", mult: lin(1.5, 0.15), hits: 3, every: 0.4, mp: 30, cd: 8, cast: 1.5, motion: "cast", range: 580, radius: 250, delay: 0.4, color: "#ff8a4a" },
         desc: (r) => `ร่ายฝนไฟตกลงจุดที่เล็ง รัศมี 2.5 ม. 3 ระลอก ระลอกละ ${pct(lin(1.5, 0.15)(r))} ของพลังเวท` },
       { id: "archmage_elements_maelstrom", name: "วังวนมหาสมุทร", kind: "active", max: 10, pos: [2, 0], glyph: "swirl",
-        skill: { type: "storm", stat: "matk", element: "water", mult: lin(0.95, 0.095), pulses: 4, every: 0.4, slow: lin(1.5, 0.1), mp: 28, cd: 8, cast: 1, motion: "cast", radius: 280, color: "#5ab4ff" },
-        desc: (r) => `ร่ายวังน้ำวนรอบตัวรัศมี 2.8 ม. 4 ระลอก ระลอกละ ${pct(lin(0.95, 0.095)(r))} ของพลังเวท ศัตรูช้าลง ${lin(1.5, 0.1)(r).toFixed(1)} วิ` },
+        skill: { type: "storm", stat: "matk", element: "water", mult: lin(0.95, 0.095), pulses: 4, every: 0.4, slow: lin(2.25, 0.15), mp: 28, cd: 8, cast: 1, motion: "cast", radius: 280, color: "#5ab4ff" },
+        desc: (r) => `ร่ายวังน้ำวนรอบตัวรัศมี 2.8 ม. 4 ระลอก ระลอกละ ${pct(lin(0.95, 0.095)(r))} ของพลังเวท ศัตรูช้าลง ${lin(2.25, 0.15)(r).toFixed(1)} วิ` },
       { id: "archmage_elements_quake", name: "ธรณีสะท้าน", kind: "active", max: 10, pos: [3, 0], glyph: "earth",
         skill: { type: "nova", stat: "matk", element: "earth", mult: lin(1.9, 0.19), stun: lin(0.8, 0.06), mp: 22, cd: 10, motion: "cast", radius: 240, knock: 110, color: "#d0a060" },
         desc: (r) => `ให้แผ่นดินรอบตัวสะท้าน รัศมี 2.4 ม. ผลักศัตรูออก ${pct(lin(1.9, 0.19)(r))} ของพลังเวท มึน ${lin(0.8, 0.06)(r).toFixed(1)} วิ ร่ายได้ทันที` },
@@ -43,6 +45,15 @@ export const ARCHMAGE_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "matk", mult: lin(10.0, 1.25), stun: lin(1, 0.15), mp: 50, cd: 16, cast: 2.6, motion: "cast", range: 600, radius: 300, delay: 0.8,
           combo: { after: ["archmage_elements_firestorm", "archmage_elements_thunder"], within: 5, more: () => 0.35 }, color: "#f0e0ff" },
         desc: (r) => `ร่ายให้ทุกธาตุบรรจบกันตรงจุดที่เล็ง รัศมี 3 ม. ${pct(lin(10.0, 1.25)(r))} ของพลังเวท มึน ${lin(1, 0.15)(r).toFixed(1)} วิ ใช้ต่อจากวายุอัคคีหรืออัสนีผ่าสมุทรภายใน 5 วิ แรงขึ้น 35%` },
+      { id: "archmage_elements_focus", name: "สมาธิร่ายยาว", kind: "passive", max: 10, pos: [0, 1], req: [["archmage_elements_sage", 3]], glyph: "scroll",
+        stats: (r) => ({ castRed: 0.015 * r, maxMpPct: 0.015 * r }),
+        desc: (r) => `ลดเวลาร่าย ${pct(0.015 * r)} MP สูงสุด +${pct(0.015 * r)}` },
+      { id: "archmage_elements_flow", name: "กระแสมานาหกธาตุ", kind: "passive", max: 5, pos: [0, 2], req: [["archmage_elements_focus", 3]], glyph: "swirl",
+        stats: (r) => ({ mpRegen: n1(0.4 * r), cdr: 0.01 * r }),
+        desc: (r) => `ฟื้น MP +${n1(0.4 * r)}/วิ ลดคูลดาวน์ ${pct(0.01 * r)}` },
+      { id: "archmage_elements_ward", name: "ม่านธาตุคุ้มกาย", kind: "passive", max: 5, pos: [3, 1], req: [["archmage_elements_quake", 3]], glyph: "shield",
+        stats: (r) => ({ mdefPct: 0.03 * r, maxHpPct: 0.02 * r }),
+        desc: (r) => `ต้านเวท +${pct(0.03 * r)} HP สูงสุด +${pct(0.02 * r)}` },
     ],
   },
   // ---- metal: a caster in the front line, a shield in the off hand, the blows sent back ----
@@ -57,8 +68,8 @@ export const ARCHMAGE_TREES: Record<string, Tree> = {
         skill: { type: "bolt", stat: "matk", element: "metal", mult: lin(3.0, 0.3), pierce: true, mp: 16, cd: 3, cast: 0.8, motion: "cast", speed: 1000, range: 600, radius: 34, color: "#cfd6e0" },
         desc: (r) => `ร่ายปรอทให้แข็งเป็นหอกเหล็ก พุ่งทะลุทุกตัวในแนว 6 ม. ${pct(lin(3.0, 0.3)(r))} ของพลังเวท` },
       { id: "archmage_metal_quicksilver", name: "เกราะปรอท", kind: "active", max: 10, pos: [2, 0], glyph: "drop",
-        skill: { type: "shield", stat: "matk", mult: lin(0.92, 0.115), base: lin(0.17, 0.023), mp: 24, cd: 14, motion: "cast", duration: 12, color: "#d8e0ea" },
-        desc: (r) => `ปรอทไหลห่อตัวเป็นเกราะ ดูดซับ ${pct(lin(0.17, 0.023)(r))} ของ MP สูงสุด + ${pct(lin(0.92, 0.115)(r))} ของพลังเวท นาน 12 วิ` },
+        skill: { type: "shield", stat: "matk", mult: lin(0.92, 0.115), base: lin(0.17, 0.023), mp: 24, cd: 14, motion: "cast", duration: 18, color: "#d8e0ea" },
+        desc: (r) => `ปรอทไหลห่อตัวเป็นเกราะ ดูดซับ ${pct(lin(0.17, 0.023)(r))} ของ MP สูงสุด + ${pct(lin(0.92, 0.115)(r))} ของพลังเวท นาน 18 วิ` },
       { id: "archmage_metal_mirror", name: "โล่กระจกเงิน", kind: "passive", max: 5, pos: [0, 1], req: [["archmage_metal_body", 3]], glyph: "ring", need: SHIELD,
         stats: (r) => ({ reflect: 0.02 * r, mdefPct: 0.03 * r }),
         desc: (r) => `สะท้อนความเสียหาย +${pct(0.02 * r)} ต้านเวท +${pct(0.03 * r)} เมื่อถือโล่` },
@@ -67,12 +78,18 @@ export const ARCHMAGE_TREES: Record<string, Tree> = {
           combo: { after: ["archmage_metal_spike"], within: 5, more: (r) => 0.25 + 0.03 * r }, color: "#e0e6ee" },
         desc: (r) => `ร่ายใบมีดเหล็กให้หมุนรอบตัวรัศมี 2.3 ม. 5 ครั้ง ครั้งละ ${pct(lin(0.8, 0.08)(r))} ของพลังเวท ใช้ต่อจากหอกปรอทภายใน 5 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
       { id: "archmage_metal_bulwark", name: "ปราการโลหะ", kind: "active", max: 5, pos: [2, 1], req: [["archmage_metal_quicksilver", 3]], glyph: "shield", need: SHIELD,
-        skill: { type: "buff", mp: 28, cd: 35, motion: "cast", duration: 20, buff: (r) => ({ defPct: 0.1 + 0.03 * r, mdefPct: 0.06 + 0.02 * r, reflect: 0.03 + 0.01 * r }), color: "#c0ccdc" },
-        desc: (r) => `20 วิ: ป้องกัน +${pct(0.1 + 0.03 * r)} ต้านเวท +${pct(0.06 + 0.02 * r)} สะท้อนความเสียหาย +${pct(0.03 + 0.01 * r)} ใช้ได้เมื่อถือโล่` },
+        skill: { type: "buff", mp: 28, cd: 35, motion: "cast", duration: 30, buff: (r) => ({ defPct: 0.1 + 0.03 * r, mdefPct: 0.06 + 0.02 * r, reflect: 0.03 + 0.01 * r }), color: "#c0ccdc" },
+        desc: (r) => `30 วิ: ป้องกัน +${pct(0.1 + 0.03 * r)} ต้านเวท +${pct(0.06 + 0.02 * r)} สะท้อนความเสียหาย +${pct(0.03 + 0.01 * r)} ใช้ได้เมื่อถือโล่` },
       { id: "archmage_metal_thorns", name: "หนามเหล็กพันเล่ม", kind: "active", max: 5, pos: [1, 2], req: [["archmage_metal_bladestorm", 5], ["archmage_metal_bulwark", 1]], glyph: "thorn",
         skill: { type: "nova", stat: "matk", element: "metal", mult: lin(8.8, 1.1), stun: lin(1, 0.15), mp: 48, cd: 16, cast: 2, motion: "cast", radius: 260,
           combo: { after: ["archmage_metal_bladestorm"], within: 5, more: () => 0.35 }, color: "#eef2f8" },
         desc: (r) => `ร่ายให้หนามเหล็กนับพันพุ่งจากพื้นรอบตัว รัศมี 2.6 ม. ${pct(lin(8.8, 1.1)(r))} ของพลังเวท มึน ${lin(1, 0.15)(r).toFixed(1)} วิ ใช้ต่อจากพายุใบมีดเหล็กภายใน 5 วิ แรงขึ้น 35%` },
+      { id: "archmage_metal_temper", name: "ชุบแข็งกายเหล็ก", kind: "passive", max: 5, pos: [0, 2], req: [["archmage_metal_mirror", 3]], glyph: "shield", need: SHIELD,
+        stats: (r) => ({ dmgRed: 0.008 * r, statusRes: 0.02 * r }),
+        desc: (r) => `ลดความเสียหาย ${pct(0.008 * r)} ต้านสถานะ +${pct(0.02 * r)} เมื่อถือโล่` },
+      { id: "archmage_metal_conduct", name: "ตัวนำโลหะ", kind: "passive", max: 10, pos: [2, 2], req: [["archmage_metal_spike", 3]], glyph: "ring",
+        stats: (r) => ({ matkPct: 0.01 * r, metalAtk: r }),
+        desc: (r) => `พลังเวท +${pct(0.01 * r)} พลังโจมตีธาตุโลหะ +${r}` },
     ],
   },
 };
