@@ -4,8 +4,8 @@
 // of them far harder on the undead, ghosts among them, and on demons) and the summoning (black
 // spells from afar, smoke that blinds and shadow that cuts, with the dead and the damned called up
 // to fight beside her: ghosts that float at her shoulder and shoot, shadow imps that bite like a
-// pack, a demon knight that walks up and draws the blows). Eight skills a branch, a little
-// stronger than the third jobs' (the high bishop's exorcist, the sculptor's giant and the hunter's
+// pack, a demon knight that walks up and draws the blows). Eleven skills a branch, five of them
+// passives (v0.6: three passives added to each), a little stronger than the third jobs' (the high bishop's exorcist, the sculptor's giant and the hunter's
 // wolves are the measure). Coming from any third job, no skill asks for a weapon; the blows are on
 // attack and magic attack together (stat "both"), the spells and the summoned on magic attack.
 import type { Tree } from "../../progression";
@@ -29,25 +29,35 @@ export const SHAMAN_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "both", element: "light", mult: lin(2.2, 0.22), vs: { undead: 0.5, demon: 0.5 }, mp: 14, cd: 4, motion: "thrust", reach: 170, arc: 60, color: "#fff0c0" },
         desc: (r) => `ตบฝ่ามือที่ลงอาคมใส่ศัตรูด้านหน้า 1.7 ม. ${pct(lin(2.2, 0.22)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงขึ้น 50%` },
       { id: "shaman_consecrate_yantra", name: "สักยันต์เกราะเพชร", kind: "active", max: 5, pos: [2, 0], glyph: "shield",
-        skill: { type: "buff", mp: 26, cd: 30, motion: "cast", duration: 60, buff: (r) => ({ defPct: 0.08 + 0.03 * r, dmgRed: 0.02 + 0.01 * r, maxHpPct: 0.04 + 0.015 * r }), color: "#f0d890" },
-        desc: (r) => `60 วิ: ปลุกยันต์เกราะเพชรที่สักไว้ หนังเหนียวดั่งเพชร ป้องกัน +${pct(0.08 + 0.03 * r)} ลดความเสียหาย ${pct(0.02 + 0.01 * r)} HP สูงสุด +${pct(0.04 + 0.015 * r)}` },
+        skill: { type: "buff", mp: 26, cd: 30, motion: "cast", duration: 90, buff: (r) => ({ defPct: 0.08 + 0.03 * r, dmgRed: 0.02 + 0.01 * r, maxHpPct: 0.04 + 0.015 * r }), color: "#f0d890" },
+        desc: (r) => `90 วิ: ปลุกยันต์เกราะเพชรที่สักไว้ หนังเหนียวดั่งเพชร ป้องกัน +${pct(0.08 + 0.03 * r)} ลดความเสียหาย ${pct(0.02 + 0.01 * r)} HP สูงสุด +${pct(0.04 + 0.015 * r)}` },
       { id: "shaman_consecrate_blade", name: "ปลุกเสกศาสตรา", kind: "active", max: 10, pos: [3, 0], glyph: "sword",
-        skill: { type: "buff", mp: 18, cd: 20, motion: "cast", duration: 180, enchant: "light", buff: (r) => ({ lightAtk: n1(2.7 * r), hit: 2 * r }), color: "#fff6d0" },
-        desc: (r) => `3 นาที: ปลุกเสกอาวุธในมือ ตีปกติและสกิลกายภาพที่ไม่มีธาตุกลายเป็นธาตุแสง พลังโจมตีธาตุแสง +${n1(2.7 * r)} ความแม่นยำ +${2 * r} (อาบได้ทีละธาตุ)` },
+        skill: { type: "buff", mp: 18, cd: 20, motion: "cast", duration: 270, enchant: "light", buff: (r) => ({ lightAtk: n1(2.7 * r), hit: 2 * r }), color: "#fff6d0" },
+        desc: (r) => `4 นาที 30 วิ: ปลุกเสกอาวุธในมือ ตีปกติและสกิลกายภาพที่ไม่มีธาตุกลายเป็นธาตุแสง พลังโจมตีธาตุแสง +${n1(2.7 * r)} ความแม่นยำ +${2 * r} (อาบได้ทีละธาตุ)` },
       { id: "shaman_consecrate_charm", name: "คาถาคงกระพัน", kind: "passive", max: 5, pos: [0, 1], req: [["shaman_consecrate_ward", 3]], glyph: "ring",
         stats: (r) => ({ darkDef: 6 * r, shadowDef: 6 * r, maxHpPct: 0.012 * r }),
         desc: (r) => `ภูตผีปีศาจทำร้ายได้ยาก: ป้องกันธาตุมืดและธาตุเงา +${6 * r} HP สูงสุด +${pct(0.012 * r)}` },
       { id: "shaman_consecrate_takrut", name: "ตะกรุดสะกดวิญญาณ", kind: "active", max: 10, pos: [1, 1], req: [["shaman_consecrate_palm", 4]], glyph: "slam",
-        skill: { type: "cone", stat: "both", element: "light", mult: lin(2.6, 0.26), vs: { undead: 0.6, demon: 0.6 }, stun: () => 0.8, expose: lin(0.1, 0.01), debuff: 6, mp: 18, cd: 6, motion: "thrust", reach: 180, arc: 40,
+        skill: { type: "cone", stat: "both", element: "light", mult: lin(2.6, 0.26), vs: { undead: 0.6, demon: 0.6 }, stun: () => 0.8, expose: lin(0.1, 0.01), debuff: 9, mp: 18, cd: 6, motion: "thrust", reach: 180, arc: 40,
           combo: { after: ["shaman_consecrate_palm"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#ffe8a8" },
-        desc: (r) => `กดตะกรุดลงบนตัวที่ล็อกไว้ ${pct(lin(2.6, 0.26)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงขึ้น 60% มึน 0.8 วิ แล้ว 6 วิ: รับดาเมจเพิ่ม ${pct(lin(0.1, 0.01)(r))} ใช้ต่อจากฝ่ามือปลุกเสกภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
+        desc: (r) => `กดตะกรุดลงบนตัวที่ล็อกไว้ ${pct(lin(2.6, 0.26)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงขึ้น 60% มึน 0.8 วิ แล้ว 9 วิ: รับดาเมจเพิ่ม ${pct(lin(0.1, 0.01)(r))} ใช้ต่อจากฝ่ามือปลุกเสกภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
       { id: "shaman_consecrate_thread", name: "วงสายสิญจน์", kind: "active", max: 10, pos: [3, 1], req: [["shaman_consecrate_blade", 3]], glyph: "spin",
-        skill: { type: "nova", stat: "both", element: "light", mult: lin(1.2, 0.12), hits: 2, vs: { undead: 0.6, demon: 0.6 }, slow: () => 2, mp: 22, cd: 7, motion: "cast", radius: 240, color: "#fff8e0" },
-        desc: (r) => `โยงสายสิญจน์เป็นวงรอบตัวรัศมี 2.4 ม. 2 ครั้ง ครั้งละ ${pct(lin(1.2, 0.12)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงขึ้น 60% ศัตรูในวงเดินช้าลงครึ่งหนึ่ง 2 วิ` },
+        skill: { type: "nova", stat: "both", element: "light", mult: lin(1.2, 0.12), hits: 2, vs: { undead: 0.6, demon: 0.6 }, slow: () => 3, mp: 22, cd: 7, motion: "cast", radius: 240, color: "#fff8e0" },
+        desc: (r) => `โยงสายสิญจน์เป็นวงรอบตัวรัศมี 2.4 ม. 2 ครั้ง ครั้งละ ${pct(lin(1.2, 0.12)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงขึ้น 60% ศัตรูในวงเดินช้าลงครึ่งหนึ่ง 3 วิ` },
       { id: "shaman_consecrate_exorcism", name: "ฝ่ามือปัดรังควาน", kind: "active", max: 5, pos: [1, 2], req: [["shaman_consecrate_takrut", 5], ["shaman_consecrate_yantra", 1]], glyph: "burst",
         skill: { type: "cone", stat: "both", element: "light", mult: lin(6.0, 0.75), vs: { undead: 1, demon: 1 }, stun: () => 1, mp: 50, cd: 16, motion: "thrust", reach: 190, arc: 40,
           combo: { after: ["shaman_consecrate_takrut"], within: 4, more: () => 0.4 }, color: "#fffbe8" },
         desc: (r) => `ปัดรังควานด้วยฝ่ามือที่ปลุกเสกเต็มกำลังใส่ตัวที่ล็อกไว้ ${pct(lin(6.0, 0.75)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงเป็นสองเท่า มึน 1 วิ ใช้ต่อจากตะกรุดสะกดวิญญาณภายใน 4 วิ แรงขึ้น 40%` },
+      // v0.6: three more passives (holy water, an amulet, the light in the blessed weapon)
+      { id: "shaman_consecrate_holywater", name: "น้ำมนต์ประพรมกาย", kind: "passive", max: 5, pos: [2, 1], req: [["shaman_consecrate_yantra", 3]], glyph: "drop",
+        stats: (r) => ({ hpRegen: r, statusRes: 0.02 * r }),
+        desc: (r) => `ฟื้น HP +${r}/วิ ต้านสถานะ ${pct(0.02 * r)}` },
+      { id: "shaman_consecrate_amulet", name: "พระเครื่องคุ้มกาย", kind: "passive", max: 5, pos: [0, 2], req: [["shaman_consecrate_charm", 3]], glyph: "ring",
+        stats: (r) => ({ dmgRed: 0.006 * r, mdefPct: 0.015 * r }),
+        desc: (r) => `ลดความเสียหาย ${pct(0.006 * r)} ต้านเวท +${pct(0.015 * r)}` },
+      { id: "shaman_consecrate_radiance", name: "อาคมแสงศักดิ์สิทธิ์", kind: "passive", max: 5, pos: [3, 2], req: [["shaman_consecrate_thread", 3]], glyph: "star",
+        stats: (r) => ({ lightAtk: 2 * r, aspd: 0.01 * r }),
+        desc: (r) => `พลังโจมตีธาตุแสง +${2 * r} ความเร็วโจมตี +${pct(0.01 * r)}` },
     ],
   },
   // ---- the summoning: ghosts, imps and a demon knight beside her, smoke and shadow from afar ----
@@ -72,9 +82,9 @@ export const SHAMAN_TREES: Record<string, Tree> = {
         skill: { type: "summon", ally: "wolf", look: IMP, stat: "matk", element: "shadow", mult: lin(0.45, 0.045), base: lin(0.25, 0.03), every: 1, count: 3, duration: 40, mp: 22, cd: 5, motion: "cast", color: "#8a6ac0" },
         desc: (r) => `อัญเชิญอิมป์เงามาครั้งละตน มีพร้อมกันได้ 3 ตน อยู่ 40 วิ HP ${pct(lin(0.25, 0.03)(r))} ของ HP สูงสุด ตามตัวเรา รุมกัดตัวที่เราตีหรือตัวที่ไล่เรา ทุก 1 วิ ครั้งละ ${pct(lin(0.45, 0.045)(r))} ของพลังเวท (ธาตุเงา)` },
       { id: "shaman_summon_smog", name: "หมอกควันทมิฬ", kind: "active", max: 10, pos: [2, 1], req: [["shaman_summon_shade", 4]], glyph: "cloud",
-        skill: { type: "blast", stat: "matk", element: "smoke", mult: lin(1.05, 0.105), hits: 4, every: 0.35, blind: lin(1.5, 0.1), mp: 28, cd: 8, cast: 1, motion: "cast", range: 600, radius: 230, delay: 0.3,
+        skill: { type: "blast", stat: "matk", element: "smoke", mult: lin(1.05, 0.105), hits: 4, every: 0.35, blind: lin(2.25, 0.15), mp: 28, cd: 8, cast: 1, motion: "cast", range: 600, radius: 230, delay: 0.3,
           combo: { after: ["shaman_summon_shade"], within: 4, more: (r) => 0.25 + 0.03 * r }, color: "#787088" },
-        desc: (r) => `ร่ายหมอกควันทมิฬลงจุดที่เล็ง รัศมี 2.3 ม. 4 ระลอก ระลอกละ ${pct(lin(1.05, 0.105)(r))} ของพลังเวท (ธาตุควัน) ควันเข้าตาให้ศัตรูกัดพลาดครึ่งหนึ่ง ${n1(lin(1.5, 0.1)(r))} วิ ใช้ต่อจากศรเงาสาปภายใน 4 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
+        desc: (r) => `ร่ายหมอกควันทมิฬลงจุดที่เล็ง รัศมี 2.3 ม. 4 ระลอก ระลอกละ ${pct(lin(1.05, 0.105)(r))} ของพลังเวท (ธาตุควัน) ควันเข้าตาให้ศัตรูกัดพลาดครึ่งหนึ่ง ${n1(lin(2.25, 0.15)(r))} วิ ใช้ต่อจากศรเงาสาปภายใน 4 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
       { id: "shaman_summon_knight", name: "อัญเชิญอัศวินอสูร", kind: "active", max: 5, pos: [0, 2], req: [["shaman_summon_imp", 3]], glyph: "person",
         skill: { type: "summon", ally: "golem", look: KNIGHT, stat: "matk", element: "shadow", mult: lin(2.4, 0.28), base: lin(1.1, 0.15), every: 2, duration: 25, range: 300, mp: 40, cd: 30, motion: "cast", color: "#a04870" },
         desc: (r) => `อัญเชิญอัศวินอสูรขึ้นจากยมโลกตรงจุดที่เล็ง (ไกลสุด 3 ม.) อยู่ 25 วิ HP ${pct(lin(1.1, 0.15)(r))} ของ HP สูงสุด ป้องกันหนา เดินไปฟันมอนสเตอร์ตัวที่ใกล้ที่สุดทุก 2 วิ ครั้งละ ${pct(lin(2.4, 0.28)(r))} ของพลังเวท (ธาตุเงา) และดึงมอนสเตอร์ให้มาตีมันแทนเรา` },
@@ -82,6 +92,16 @@ export const SHAMAN_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "matk", element: "shadow", mult: lin(2.2, 0.28), hits: 3, every: 0.35, mp: 50, cd: 18, cast: 2, motion: "cast", range: 600, radius: 280, delay: 0.6,
           combo: { after: ["shaman_summon_smog"], within: 4, more: () => 0.35 }, color: "#c0a0ff" },
         desc: (r) => `ร่ายเปิดประตูยมโลกตรงจุดที่เล็ง รัศมี 2.8 ม. เงาจากยมโลกฉุดกระชาก 3 ครั้ง ครั้งละ ${pct(lin(2.2, 0.28)(r))} ของพลังเวท (ธาตุเงา) ใช้ต่อจากหมอกควันทมิฬภายใน 4 วิ แรงขึ้น 35%` },
+      // v0.6: three more passives (offerings to the called, incense for the spells, a shadow cloak)
+      { id: "shaman_summon_offering", name: "เครื่องเซ่นไหว้", kind: "passive", max: 5, pos: [1, 1], req: [["shaman_summon_ghost", 3]], glyph: "heart",
+        stats: (r) => ({ allyPct: 0.03 * r, maxHpPct: 0.01 * r }),
+        desc: (r) => `เซ่นไหว้ผีและปีศาจที่อัญเชิญมา ผู้ช่วยทุกตัว HP และแรงตี +${pct(0.03 * r)} HP สูงสุด +${pct(0.01 * r)}` },
+      { id: "shaman_summon_incense", name: "ธูปกำยานเรียกวิญญาณ", kind: "passive", max: 5, pos: [3, 1], req: [["shaman_summon_lore", 3]], glyph: "swirl",
+        stats: (r) => ({ castRed: 0.02 * r, mpRegen: n1(0.3 * r) }),
+        desc: (r) => `ลดเวลาร่าย ${pct(0.02 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
+      { id: "shaman_summon_veil", name: "ผ้าคลุมเงา", kind: "passive", max: 5, pos: [1, 2], req: [["shaman_summon_imp", 3]], glyph: "cloud",
+        stats: (r) => ({ magicDodge: 0.01 * r, flee: 3 * r }),
+        desc: (r) => `หลบเวท +${pct(0.01 * r)} หลบหลีก +${3 * r}` },
     ],
   },
 };

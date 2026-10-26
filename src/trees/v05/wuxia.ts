@@ -4,7 +4,8 @@
 // wave of sword qi from afar, a parry and a stance that give him attack and defence in turn) and
 // the bare fist (knuckles: quick flurries, two dashes that carry him through and past the enemy,
 // and the counter: a blow that lands on him from close by may be struck straight back, the
-// counter stat, a passive and a stance). Eight skills a branch, a little stronger than the third
+// counter stat, a passive and a stance). Eleven skills a branch, five of them passives (v0.6:
+// three passives added to each), a little stronger than the third
 // jobs' (the knight's blade and the monk's martial art are the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
@@ -30,8 +31,8 @@ export const WUXIA_TREES: Record<string, Tree> = {
         skill: { type: "dash", stat: "atk", mult: lin(2.1, 0.21), mp: 16, cd: 7, motion: "thrust", distance: 350, width: 80, color: "#ffe0b0" },
         desc: (r) => `ก้าวผ่านศัตรูดั่งเงาไปข้างหน้า 3.5 ม. ฟันทุกตัวที่ผ่าน ${pct(lin(2.1, 0.21)(r))} ของพลังโจมตี ใช้ได้เมื่อถือดาบมือเดียว` },
       { id: "wuxia_sword_parry", name: "กระบี่ไร้รูปปัดป้อง", kind: "active", max: 5, pos: [3, 0], glyph: "shield", need: LONE,
-        skill: { type: "buff", mp: 26, cd: 30, motion: "swing", duration: 15, buff: (r) => ({ defPct: 0.06 + 0.02 * r, mdefPct: 0.06 + 0.02 * r, dmgRed: 0.04 + 0.01 * r, flee: 4 * r }), color: "#f8e8c0" },
-        desc: (r) => `15 วิ: กระบี่หมุนปัดป้องจนไม่เห็นรูป ป้องกันและต้านเวท +${pct(0.06 + 0.02 * r)} ลดความเสียหาย ${pct(0.04 + 0.01 * r)} หลบหลีก +${4 * r} ใช้ได้เมื่อถือดาบมือเดียวและมือรองว่าง` },
+        skill: { type: "buff", mp: 26, cd: 30, motion: "swing", duration: 23, buff: (r) => ({ defPct: 0.06 + 0.02 * r, mdefPct: 0.06 + 0.02 * r, dmgRed: 0.04 + 0.01 * r, flee: 4 * r }), color: "#f8e8c0" },
+        desc: (r) => `23 วิ: กระบี่หมุนปัดป้องจนไม่เห็นรูป ป้องกันและต้านเวท +${pct(0.06 + 0.02 * r)} ลดความเสียหาย ${pct(0.04 + 0.01 * r)} หลบหลีก +${4 * r} ใช้ได้เมื่อถือดาบมือเดียวและมือรองว่าง` },
       { id: "wuxia_sword_heart", name: "ใจกระบี่รุกรับ", kind: "passive", max: 5, pos: [0, 1], req: [["wuxia_sword_lone", 3]], glyph: "up", need: SWORD,
         stats: (r) => ({ aspd: 0.02 * r, defPct: 0.02 * r, mdefPct: 0.02 * r }),
         desc: (r) => `ความเร็วโจมตี +${pct(0.02 * r)} ป้องกันและต้านเวท +${pct(0.02 * r)} เมื่อถือดาบมือเดียว` },
@@ -40,12 +41,22 @@ export const WUXIA_TREES: Record<string, Tree> = {
           combo: { after: ["wuxia_sword_triple", "wuxia_sword_step"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#fff4d8" },
         desc: (r) => `ฟันส่งปราณกระบี่พุ่งเป็นแนวยาว 6 ม. ทุกตัวในแนว ${pct(lin(2.3, 0.23)(r))} ของพลังโจมตี ใช้ต่อจากกระบี่สามประกายหรือก้าวเงาพเนจรภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)} ใช้ได้เมื่อถือดาบมือเดียว` },
       { id: "wuxia_sword_wander", name: "กระบี่ท่องยุทธภพ", kind: "active", max: 5, pos: [2, 1], req: [["wuxia_sword_step", 3]], glyph: "wing", need: LONE,
-        skill: { type: "buff", mp: 28, cd: 35, motion: "swing", duration: 15, buff: (r) => ({ atkPct: 0.06 + 0.02 * r, aspd: 0.06 + 0.02 * r, move: 0.05 + 0.01 * r }), color: "#ffd8a0" },
-        desc: (r) => `15 วิ: ตั้งท่ากระบี่ท่องยุทธภพ พลังโจมตี +${pct(0.06 + 0.02 * r)} ความเร็วโจมตี +${pct(0.06 + 0.02 * r)} ความเร็วเดิน +${pct(0.05 + 0.01 * r)} ใช้ได้เมื่อถือดาบมือเดียวและมือรองว่าง` },
+        skill: { type: "buff", mp: 28, cd: 35, motion: "swing", duration: 23, buff: (r) => ({ atkPct: 0.06 + 0.02 * r, aspd: 0.06 + 0.02 * r, move: 0.05 + 0.01 * r }), color: "#ffd8a0" },
+        desc: (r) => `23 วิ: ตั้งท่ากระบี่ท่องยุทธภพ พลังโจมตี +${pct(0.06 + 0.02 * r)} ความเร็วโจมตี +${pct(0.06 + 0.02 * r)} ความเร็วเดิน +${pct(0.05 + 0.01 * r)} ใช้ได้เมื่อถือดาบมือเดียวและมือรองว่าง` },
       { id: "wuxia_sword_peerless", name: "กระบี่ไร้เทียมทาน", kind: "active", max: 5, pos: [1, 2], req: [["wuxia_sword_qi", 5], ["wuxia_sword_wander", 1]], glyph: "star", need: SWORD,
         skill: { type: "cone", stat: "atk", mult: lin(1.13, 0.15), hits: 5, mp: 48, cd: 16, motion: "swing", reach: 200, arc: 70,
           combo: { after: ["wuxia_sword_qi"], within: 3, more: () => 0.35 }, color: "#fffbe8" },
         desc: (r) => `ร่ายกระบวนท่ากระบี่ไร้เทียมทาน ฟัน 5 ครั้งใส่ศัตรูด้านหน้า 2 ม. ครั้งละ ${pct(lin(1.13, 0.15)(r))} ของพลังโจมตี ใช้ต่อจากปราณกระบี่พันลี้ภายใน 3 วิ แรงขึ้น 35% ใช้ได้เมื่อถือดาบมือเดียว` },
+      // v0.6: three more passives (light feet, the breath that circles, a mind sharp as the blade)
+      { id: "wuxia_sword_feet", name: "ฝีเท้าจอมยุทธ์", kind: "passive", max: 5, pos: [3, 1], req: [["wuxia_sword_parry", 3]], glyph: "shoes", need: LONE,
+        stats: (r) => ({ move: 0.01 * r, flee: 3 * r }),
+        desc: (r) => `ความเร็วเดิน +${pct(0.01 * r)} หลบหลีก +${3 * r} เมื่อถือดาบมือเดียวและมือรองว่าง` },
+      { id: "wuxia_sword_breath", name: "ลมปราณหมุนเวียน", kind: "passive", max: 5, pos: [0, 2], req: [["wuxia_sword_heart", 3]], glyph: "swirl", need: SWORD,
+        stats: (r) => ({ mpRegen: n1(0.4 * r), hpRegen: r }),
+        desc: (r) => `ฟื้น MP +${n1(0.4 * r)}/วิ ฟื้น HP +${r}/วิ เมื่อถือดาบมือเดียว` },
+      { id: "wuxia_sword_mind", name: "จิตกระบี่ทะลวง", kind: "passive", max: 5, pos: [2, 2], req: [["wuxia_sword_wander", 1]], glyph: "eye", need: LONE,
+        stats: (r) => ({ critDmg: 0.04 * r, hit: 3 * r }),
+        desc: (r) => `แรงคริติคอล +${pct(0.04 * r)} ความแม่นยำ +${3 * r} เมื่อถือดาบมือเดียวและมือรองว่าง` },
     ],
   },
   // ---- the bare fist: flurries, dashes, and the blow struck back ----
@@ -66,8 +77,8 @@ export const WUXIA_TREES: Record<string, Tree> = {
         stats: (r) => ({ aspd: 0.015 * r, move: 0.008 * r }),
         desc: (r) => `ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.008 * r)} เมื่อถือสนับมือ` },
       { id: "wuxia_fist_stance", name: "ตั้งท่าสวนกลับ", kind: "active", max: 5, pos: [0, 1], req: [["wuxia_fist_counter", 3]], glyph: "shield", need: KNUCKLE,
-        skill: { type: "buff", mp: 26, cd: 30, motion: "thrust", duration: 15, buff: (r) => ({ counter: 0.1 + 0.03 * r, dmgRed: 0.03 + 0.01 * r, flee: 3 * r }), color: "#ffc890" },
-        desc: (r) => `15 วิ: ตั้งท่ารอรับ โอกาสสวนกลับ +${pct(0.1 + 0.03 * r)} (รวมสูงสุด 60%) ลดความเสียหาย ${pct(0.03 + 0.01 * r)} หลบหลีก +${3 * r} ใช้ได้เมื่อถือสนับมือ` },
+        skill: { type: "buff", mp: 26, cd: 30, motion: "thrust", duration: 23, buff: (r) => ({ counter: 0.1 + 0.03 * r, dmgRed: 0.03 + 0.01 * r, flee: 3 * r }), color: "#ffc890" },
+        desc: (r) => `23 วิ: ตั้งท่ารอรับ โอกาสสวนกลับ +${pct(0.1 + 0.03 * r)} (รวมสูงสุด 60%) ลดความเสียหาย ${pct(0.03 + 0.01 * r)} หลบหลีก +${3 * r} ใช้ได้เมื่อถือสนับมือ` },
       { id: "wuxia_fist_dragon", name: "หมัดมังกรผงาดฟ้า", kind: "active", max: 10, pos: [1, 1], req: [["wuxia_fist_flurry", 4]], glyph: "slam", need: KNUCKLE,
         skill: { type: "cone", stat: "atk", mult: lin(1.4, 0.14), hits: 2, stun: () => 0.5, mp: 18, cd: 5, motion: "thrust", reach: 150, arc: 50,
           combo: { after: ["wuxia_fist_flurry", "wuxia_fist_blink"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#ffcf98" },
@@ -79,6 +90,16 @@ export const WUXIA_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(6.1, 0.77), mp: 50, cd: 16, motion: "thrust", reach: 180, arc: 40,
           combo: { after: ["wuxia_fist_dragon"], within: 4, more: () => 0.4 }, color: "#ffa860" },
         desc: (r) => `รวมลมปราณทั้งร่างเป็นหมัดเดียวใส่ตัวที่ล็อกไว้ ${pct(lin(6.1, 0.77)(r))} ของพลังโจมตี ใช้ต่อจากหมัดมังกรผงาดฟ้าภายใน 4 วิ แรงขึ้น 40% ใช้ได้เมื่อถือสนับมือ` },
+      // v0.6: three more passives (a second blow, an iron body, the meridians opened)
+      { id: "wuxia_fist_twin", name: "หมัดซ้อนเงา", kind: "passive", max: 5, pos: [3, 1], req: [["wuxia_fist_swift", 3]], glyph: "twin", need: KNUCKLE,
+        stats: (r) => ({ doubleHit: 0.015 * r, crit: 0.004 * r }),
+        desc: (r) => `ตีปกติมีโอกาส ${pct(0.015 * r)} ตีซ้ำอีกครั้ง โอกาสคริติคอล +${pct(0.004 * r)} เมื่อถือสนับมือ` },
+      { id: "wuxia_fist_iron", name: "กายเหล็กไหล", kind: "passive", max: 5, pos: [0, 2], req: [["wuxia_fist_stance", 1]], glyph: "shield", need: KNUCKLE,
+        stats: (r) => ({ dmgRed: 0.006 * r, maxHpPct: 0.01 * r }),
+        desc: (r) => `ลดความเสียหาย ${pct(0.006 * r)} HP สูงสุด +${pct(0.01 * r)} เมื่อถือสนับมือ` },
+      { id: "wuxia_fist_meridian", name: "เปิดจุดชีพจร", kind: "passive", max: 5, pos: [2, 2], req: [["wuxia_fist_cloud", 3]], glyph: "up", need: KNUCKLE,
+        stats: (r) => ({ cdr: 0.01 * r, mpRegen: n1(0.4 * r) }),
+        desc: (r) => `ลดคูลดาวน์ ${pct(0.01 * r)} ฟื้น MP +${n1(0.4 * r)}/วิ เมื่อถือสนับมือ` },
     ],
   },
 };
