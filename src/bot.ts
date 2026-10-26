@@ -529,7 +529,7 @@ export class Bot {
         else if (s.type === "orb") go = hero.orbs.length < MAX_ORBS;
         else if (s.type === "form") go = !hero.form;
         else go = !hero.buffs.some((b) => b.id === r.id);
-      } else if (fighting && s.type === "buff" && (s.duration ?? 8) >= LONG_BUFF) {
+      } else if (fighting && s.type === "buff" && (s.duration ?? 12) >= LONG_BUFF) {
         // a blessing that lasts minutes is kept up between fights too, not left to lapse until
         // the next one starts
         go = !hero.buffs.some((b) => b.id === r.id);
