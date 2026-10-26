@@ -3,7 +3,8 @@
 // it stands, harder on whatever is crippled, and a hunting chain down to the last shot) and the
 // beast (a pack of up to three wolves that follow her and bite what she hits, leap at her prey on
 // her word, and now and then on a normal hit by themselves; a bow or any weapon in hand will do).
-// Nine skills a branch (four of them passives), a little stronger than the second jobs'. The pack's strike is a falcon-
+// Seven skills a branch: two passives on the bow, which lives by its shots, three on the beast,
+// whose pack grows with them; a little stronger than the second jobs'. The pack's strike is a falcon-
 // type skill with `ally: "wolf"`: the wolves standing land it instead of the falcon (skills.ts).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
@@ -40,26 +41,17 @@ export const HUNTER_TREES: Record<string, Tree> = {
         skill: { type: "bolt", stat: "atk", mult: lin(5.3, 0.66), stun: () => 1, arrow: true, mp: 48, cd: 15, motion: "shoot", speed: 2100, range: 1100, radius: 30,
           combo: { after: ["hunter_bow_quarry"], within: 4, more: () => 0.35 }, color: "#fffbe0" },
         desc: (r) => `ยิงศรสุดแรงใส่ตัวที่ล็อกไว้ระยะ 11 ม. ${pct(lin(5.3, 0.66)(r))} ของพลังโจมตี มึน 1 วิ ใช้ต่อจากศรล่าเหยื่อภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือธนู` },
-      { id: "hunter_bow_eagle", name: "ตาเหยี่ยว", kind: "passive", max: 10, pos: [0, 2], req: [["hunter_bow_trail", 3]], glyph: "eye", need: BOW,
-        stats: (r) => ({ hit: 2 * r, crit: 0.004 * r }),
-        desc: (r) => `ความแม่นยำ +${2 * r} โอกาสคริติคอล +${pct(0.004 * r)} เมื่อถือธนู` },
-      { id: "hunter_bow_stalk", name: "ย่องตามรอย", kind: "passive", max: 5, pos: [2, 2], req: [["hunter_bow_stare", 1]], glyph: "shoes", need: BOW,
-        stats: (r) => ({ move: 0.012 * r, flee: 3 * r }),
-        desc: (r) => `ความเร็วเดิน +${pct(0.012 * r)} หลบหลีก +${3 * r} เมื่อถือธนู` },
     ],
   },
   // ---- the beast: the pack follows, bites what she hits, leaps on her word ----
   hunter_beast: {
     name: "สัตว์ล่าเหยื่อ", cls: null, job3: "hunter", color: "#d0b080", glyph: "paw",
-    note: "ออกล่ากับฝูงหมาป่าได้ทั้งถือธนูและอาวุธระยะประชิด หมาป่ามีพร้อมกันได้ 3 ตัว ตามตัวและกัดตัวที่เราตี สั่งฝูงขย้ำให้ทุกตัวกระโจนใส่เหยื่อพร้อมกัน ตีปกติแล้วฝูงขย้ำตามเอง ลูกดอกกลิ่นเลือดทำให้เหยื่อโดนแรงขึ้น ปิดท้ายด้วยฝูงหมาป่าทึ้งเหยื่อ หมาป่าแรงและทนตามพลังโจมตีและ HP ของเรา",
+    note: "ออกล่ากับฝูงหมาป่าได้ทั้งถือธนูและอาวุธระยะประชิด หมาป่ามีพร้อมกันได้ 3 ตัว ตามตัวและกัดตัวที่เราตี สั่งฝูงขย้ำให้ทุกตัวกระโจนใส่เหยื่อพร้อมกัน ตีปกติแล้วฝูงขย้ำตามเอง ปิดท้ายด้วยฝูงหมาป่าทึ้งเหยื่อ หมาป่าแรงและทนตามพลังโจมตีและ HP ของเรา",
     nodes: [
       { id: "hunter_beast_call", name: "เรียกฝูงหมาป่า", kind: "active", max: 10, pos: [0, 0], glyph: "paw",
         skill: { type: "summon", ally: "wolf", stat: "atk", mult: lin(0.4, 0.04), base: lin(0.25, 0.03), count: 3, duration: 45, every: 1, mp: 18, cd: 4, motion: "cast", color: "#d0b080" },
         desc: (r) => `เรียกหมาป่ามาร่วมล่าครั้งละตัว มีพร้อมกันได้ 3 ตัว อยู่ 45 วิ HP ${pct(lin(0.25, 0.03)(r))} ของ HP สูงสุด เดินตามเรา กัดตัวที่เราตีหรือตัวที่ไล่เรา ทุก 1 วิ ครั้งละ ${pct(lin(0.4, 0.04)(r))} ของพลังโจมตี` },
-      { id: "hunter_beast_scent", name: "ลูกดอกกลิ่นเลือด", kind: "active", max: 10, pos: [1, 0], glyph: "target",
-        skill: { type: "bolt", stat: "atk", mult: lin(2.0, 0.2), expose: (r) => 0.08 + 0.012 * r, debuff: 12, mp: 14, cd: 5, motion: "shoot", speed: 1400, range: 700, radius: 26, color: "#e07a5a" },
-        desc: (r) => `ปาลูกดอกชุบเลือดใส่ตัวที่ล็อกไว้ระยะ 7 ม. ${pct(lin(2.0, 0.2)(r))} ของพลังโจมตี กลิ่นเลือดทำให้มันโดนแรงขึ้น ${pct(0.08 + 0.012 * r)} 12 วิ ทั้งจากเราและหมาป่า` },
-      { id: "hunter_beast_blood", name: "สายเลือดจ่าฝูง", kind: "passive", max: 10, pos: [2, 0], glyph: "heart",
+      { id: "hunter_beast_blood", name: "สายเลือดจ่าฝูง", kind: "passive", max: 10, pos: [1, 0], glyph: "heart",
         stats: (r) => ({ atkPct: 0.012 * r, maxHpPct: 0.012 * r }),
         desc: (r) => `พลังโจมตี +${pct(0.012 * r)} HP สูงสุด +${pct(0.012 * r)} (หมาป่ากัดแรงและทนขึ้นตามไปด้วย)` },
       { id: "hunter_beast_pounce", name: "สั่งฝูงขย้ำ", kind: "active", max: 10, pos: [0, 1], req: [["hunter_beast_call", 3]], glyph: "dash",
@@ -78,9 +70,6 @@ export const HUNTER_TREES: Record<string, Tree> = {
       { id: "hunter_beast_bond", name: "สายใยฝูง", kind: "passive", max: 10, pos: [1, 1], req: [["hunter_beast_call", 3]], glyph: "paw",
         stats: (r) => ({ allyPct: 0.02 * r, hpRegen: n1(0.4 * r) }),
         desc: (r) => `หมาป่า (ผู้ช่วยทุกตัว) HP และแรงตี +${pct(0.02 * r)} ฟื้น HP +${n1(0.4 * r)}/วิ` },
-      { id: "hunter_beast_wild", name: "สัญชาตญาณป่า", kind: "passive", max: 5, pos: [2, 2], req: [["hunter_beast_howl", 1]], glyph: "leaf",
-        stats: (r) => ({ statusRes: 0.03 * r, move: 0.01 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.03 * r)} ความเร็วเดิน +${pct(0.01 * r)}` },
     ],
   },
 };

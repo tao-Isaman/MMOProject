@@ -4,8 +4,8 @@
 // vials brewed from monster hides and refined, used from the bag to coat the weapon so its
 // cuts turn to poison; stings, a blow that sets the poison off, a poisoned dance round her) and
 // the spell (a dagger against casters: it slips their spells, burns their mana, silences them,
-// and cuts with attack and magic together). Nine or ten skills a branch (four of them passives),
-// a little stronger than the second jobs'.
+// and cuts with attack and magic together). Seven skills a branch, two of them passives: each
+// branch lives by its moves. A little stronger than the second jobs'.
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -43,12 +43,6 @@ export const ASSASSIN_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(0.9, 0.11), hits: 6, mp: 48, cd: 15, motion: "thrust", reach: 160, arc: 50,
           combo: { after: ["assassin_blade_phantom"], within: 3, more: () => 0.35 }, color: "#e0d0ff" },
         desc: (r) => `ฉีกกระหน่ำตัวที่ล็อกไว้ 6 ครั้ง ครั้งละ ${pct(lin(0.9, 0.11)(r))} ของพลังโจมตี ใช้ต่อจากพุ่งทะลุเงาภายใน 3 วิ แรงขึ้น 35% ใช้ได้เมื่อถือกรงเล็บ` },
-      { id: "assassin_blade_vital", name: "แทงจุดตาย", kind: "passive", max: 5, pos: [2, 1], req: [["assassin_blade_intent", 1]], glyph: "target", need: CLAW,
-        stats: (r) => ({ pierce: 0.02 * r, critDmg: 0.03 * r }),
-        desc: (r) => `เจาะเกราะ +${pct(0.02 * r)} แรงคริติคอล +${pct(0.03 * r)} เมื่อถือกรงเล็บ` },
-      { id: "assassin_blade_bloodsip", name: "ลิ้มรสเลือด", kind: "passive", max: 10, pos: [0, 2], req: [["assassin_blade_quick", 3]], glyph: "drop", need: CLAW,
-        stats: (r) => ({ lifesteal: 0.003 * r, move: 0.006 * r }),
-        desc: (r) => `ดูด HP ${pct(0.003 * r)} ของดาเมจที่ทำ ความเร็วเดิน +${pct(0.006 * r)} เมื่อถือกรงเล็บ` },
     ],
   },
   // ---- the venom: brew the vials, coat the blade, poison and set it off ----
@@ -68,26 +62,17 @@ export const ASSASSIN_TREES: Record<string, Tree> = {
       { id: "assassin_venom_distill", name: "กลั่นพิษร้าย", kind: "active", max: 5, pos: [0, 1], req: [["assassin_venom_brew", 3]], glyph: "swirl",
         skill: { type: "make", make: { item: "poison_vial_strong", count: (r) => 1 + Math.floor(r / 3), from: [["poison_vial", 2], ["gem_shard", 1]] }, mp: 14, cd: 3, motion: "cast", color: "#5fb82e" },
         desc: (r) => `กลั่นขวดยาพิษ 2 ขวดกับเศษอัญมณี 1 ชิ้นเป็นขวดยาพิษเข้มข้น ${1 + Math.floor(r / 3)} ขวด ใช้จากกระเป๋าแล้วเคลือบอาวุธ 90 วิ: ตีเป็นธาตุพิษ ตีปกติมีโอกาส 30% ติดพิษ พลังโจมตีธาตุพิษ +30 พิษแรงขึ้น 15%` },
-      { id: "assassin_venom_frenzy", name: "พิษเดือดพล่าน", kind: "active", max: 5, pos: [1, 1], req: [["assassin_venom_lore", 3]], glyph: "up",
-        skill: { type: "buff", mp: 26, cd: 35, motion: "cast", duration: 23, buff: (r) => ({ poisonPct: 0.1 + 0.03 * r, poisonHit: 0.05 + 0.02 * r, huntDmg: 0.04 + 0.012 * r }), color: "#b0f070" },
-        desc: (r) => `23 วิ: พิษแรงขึ้น ${pct(0.1 + 0.03 * r)} ตีปกติมีโอกาสติดพิษ +${pct(0.05 + 0.02 * r)} ดาเมจใส่ศัตรูที่ติดสถานะผิดปกติ +${pct(0.04 + 0.012 * r)}` },
       { id: "assassin_venom_rupture", name: "บีบพิษเข้าหัวใจ", kind: "active", max: 10, pos: [2, 1], req: [["assassin_venom_sting", 4]], glyph: "burst", need: SHORT,
         skill: { type: "cone", stat: "atk", mult: lin(2.3, 0.23), detonate: lin(0.8, 0.08), mp: 18, cd: 6, motion: "thrust", reach: 130, arc: 45,
           combo: { after: ["assassin_venom_sting"], within: 3, more: (r) => 0.2 + 0.03 * r }, color: "#d0ff70" },
         desc: (r) => `แทงตัวที่ล็อกไว้ ${pct(lin(2.3, 0.23)(r))} ของพลังโจมตี แล้วพิษที่ค้างในตัวมันระเบิดทันที แรง ${pct(lin(0.8, 0.08)(r))} ของพิษที่เหลือ (พิษหมดไป) ใช้ต่อจากเขี้ยวงูเห่าภายใน 3 วิ แรงขึ้น ${pct(0.2 + 0.03 * r)} ใช้ได้เมื่อถือมีดสั้นหรือกรงเล็บ` },
-      { id: "assassin_venom_dance", name: "ระบำอสรพิษ", kind: "active", max: 5, pos: [2, 2], req: [["assassin_venom_rupture", 5], ["assassin_venom_frenzy", 1]], glyph: "spin", need: SHORT,
+      { id: "assassin_venom_dance", name: "ระบำอสรพิษ", kind: "active", max: 5, pos: [2, 2], req: [["assassin_venom_rupture", 5]], glyph: "spin", need: SHORT,
         skill: { type: "storm", stat: "atk", mult: lin(0.9, 0.11), pulses: 5, every: 0.25, poison: lin(0.2, 0.04), weaken: () => 0.2, debuff: 12, mp: 45, cd: 16, motion: "swing", radius: 230,
           combo: { after: ["assassin_venom_rupture"], within: 4, more: () => 0.3 }, color: "#98e060" },
         desc: (r) => `หมุนตัวกรีดพิษรอบตัว 2.3 ม. 5 ครั้ง ครั้งละ ${pct(lin(0.9, 0.11)(r))} ของพลังโจมตี พิษกัดอีก ${pct(lin(0.2, 0.04)(r))} ของดาเมจทุกครั้ง ศัตรูตีเบาลง 20% 12 วิ ใช้ต่อจากบีบพิษเข้าหัวใจภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือมีดสั้นหรือกรงเล็บ` },
-      { id: "assassin_venom_immune", name: "ภูมิต้านพิษ", kind: "passive", max: 10, pos: [1, 2], req: [["assassin_venom_lore", 3]], glyph: "leaf",
-        stats: (r) => ({ statusRes: 0.015 * r, poisonDef: 2 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.015 * r)} ป้องกันธาตุพิษ +${2 * r}` },
-      { id: "assassin_venom_fang", name: "เขี้ยวอาบพิษ", kind: "passive", max: 5, pos: [3, 1], req: [["assassin_venom_sting", 3]], glyph: "thorn", need: SHORT,
+      { id: "assassin_venom_fang", name: "เขี้ยวอาบพิษ", kind: "passive", max: 5, pos: [1, 1], req: [["assassin_venom_sting", 3]], glyph: "thorn", need: SHORT,
         stats: (r) => ({ poisonAtk: 3 * r, huntDmg: 0.02 * r }),
         desc: (r) => `พลังโจมตีธาตุพิษ +${3 * r} ดาเมจใส่ศัตรูที่ติดสถานะผิดปกติ +${pct(0.02 * r)} เมื่อถือมีดสั้นหรือกรงเล็บ` },
-      { id: "assassin_venom_antidote", name: "สมุนไพรถอนพิษ", kind: "passive", max: 5, pos: [0, 2], req: [["assassin_venom_distill", 1]], glyph: "heal",
-        stats: (r) => ({ hpRegen: r, potion: 0.04 * r }),
-        desc: (r) => `ฟื้น HP +${r}/วิ ยาฟื้นฟูได้ผลมากขึ้น ${pct(0.04 * r)}` },
     ],
   },
   // ---- the spell: a dagger for the casters, sure hits of attack and magic ----
@@ -117,12 +102,6 @@ export const ASSASSIN_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "both", mult: lin(5.3, 0.66), manaBurn: lin(0.4, 0.06), silence: 6, mp: 48, cd: 15, motion: "thrust", reach: 140, arc: 40,
           combo: { after: ["assassin_spell_sever", "assassin_spell_hexblade"], within: 4, more: () => 0.35 }, color: "#d0d8ff" },
         desc: (r) => `แทงทะลุร่างตัวที่ล็อกไว้ ${pct(lin(5.3, 0.66)(r))} ของพลังโจมตีและพลังเวท ใส่พวกร่ายเวทแรงขึ้นอีก ${pct(lin(0.4, 0.06)(r))} และตัวที่โดนร่ายเวทหรือยิงไม่ได้ 6 วิ ใช้ต่อจากมีดตัดมนตราหรือมีดบินผนึกเวทภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือมีดสั้น` },
-      { id: "assassin_spell_focus", name: "สมาธิมือสังหาร", kind: "passive", max: 10, pos: [0, 2], req: [["assassin_spell_mirage", 1]], glyph: "eye", need: DAGGER,
-        stats: (r) => ({ mpRegen: +(0.2 * r).toFixed(1), cdr: 0.005 * r }),
-        desc: (r) => `ฟื้น MP +${+(0.2 * r).toFixed(1)}/วิ ลดคูลดาวน์ ${pct(0.005 * r)} เมื่อถือมีดสั้น` },
-      { id: "assassin_spell_null", name: "ทลายอาคม", kind: "passive", max: 5, pos: [2, 2], req: [["assassin_spell_seal", 1]], glyph: "ring",
-        stats: (r) => ({ statusRes: 0.03 * r, maxMpPct: 0.03 * r }),
-        desc: (r) => `ต้านสถานะ +${pct(0.03 * r)} MP สูงสุด +${pct(0.03 * r)}` },
     ],
   },
 };

@@ -1,11 +1,11 @@
 // The high bishop's branches (third job, from the bishop): grace (long blessings on the weapon,
-// the mind and the body, edicts that weaken, expose and silence monsters, little attack of its
-// own), restoration (strong heals that land harder right after a light spell, a rain of healing,
-// light spells that heal back what they hurt) and the exorcist (a mace whose normal hits call
+// the mind and the body, a judgement that stuns, weakens and exposes monsters, little attack of
+// its own), restoration (strong heals that land harder right after a light spell, a rain of
+// healing, light spells that heal back what they hurt) and the exorcist (a mace whose normal hits call
 // down its light by themselves, hardest on the undead and demons). The blessings last three to
 // four and a half minutes, as the priest line's do, so they can be cast on a party later; their
-// cooldowns stay short. Nine or ten skills a branch (four of them passives), a little stronger
-// than the bishop's.
+// cooldowns stay short. Seven skills a branch: three passives on grace and restoration, the
+// supports, two on the exorcist, who fights by his moves; a little stronger than the bishop's.
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -15,10 +15,10 @@ const MIX = "พลังผสม (60% ของพลังโจมตี + 6
 const n1 = (v: number) => +v.toFixed(1);
 
 export const HIGH_BISHOP_TREES: Record<string, Tree> = {
-  // ---- grace: blessings that last, edicts on the monsters ----
+  // ---- grace: blessings that last, a judgement on the monsters ----
   high_bishop_grace: {
     name: "พรศักดิ์สิทธิ์", cls: null, job3: "high_bishop", color: "#fff0b0", glyph: "up",
-    note: "ผู้ให้พร บัฟอยู่นาน 3–4.5 นาที: อาวุธอาบน้ำมนต์ธาตุแสง ร่ายไวขึ้น และม่านคุ้มภัยที่ลดความเสียหายและต้านสถานะ ประกาศิตทำให้มอนสเตอร์รับดาเมจเพิ่ม ตีเบาลง และร่ายเวทไม่ได้ ปิดท้ายด้วยตราพิพากษาที่มึนและสาปทั้งฝูง โจมตีเองน้อย",
+    note: "ผู้ให้พร บัฟอยู่นาน 3–4.5 นาที: อาวุธอาบน้ำมนต์ธาตุแสง ร่ายไวขึ้น และม่านคุ้มภัยที่ลดความเสียหายและต้านสถานะ ปิดท้ายด้วยตราพิพากษาที่มึนและสาปทั้งฝูงให้ตีเบาลงและรับดาเมจเพิ่ม โจมตีเองน้อย",
     nodes: [
       { id: "high_bishop_grace_meditation", name: "จิตภาวนา", kind: "passive", max: 10, pos: [0, 0], glyph: "drop",
         stats: (r) => ({ mpRegen: 0.3 * r, maxMpPct: 0.015 * r }),
@@ -26,44 +26,33 @@ export const HIGH_BISHOP_TREES: Record<string, Tree> = {
       { id: "high_bishop_grace_aspersio", name: "น้ำมนต์อาบศาสตรา", kind: "active", max: 10, pos: [1, 0], glyph: "sword",
         skill: { type: "buff", mp: 18, cd: 20, motion: "cast", duration: 270, enchant: "light", buff: (r) => ({ lightAtk: n1(2.4 * r), hit: 2 * r }), color: "#fff6d0" },
         desc: (r) => `4.5 นาที: ประพรมน้ำมนต์บนอาวุธ ตีปกติและสกิลกายภาพที่ไม่มีธาตุกลายเป็นธาตุแสง พลังโจมตีธาตุแสง +${n1(2.4 * r)} ความแม่นยำ +${2 * r} (อาบได้ทีละธาตุ)` },
-      { id: "high_bishop_grace_lex", name: "ประกาศิตนิรันดร์", kind: "active", max: 10, pos: [2, 0], glyph: "target",
-        skill: { type: "bolt", stat: "matk", element: "light", mult: lin(1.0, 0.1), expose: lin(0.15, 0.017), debuff: 15, mp: 16, cd: 8, cast: 0.5, motion: "cast", speed: 1100, range: 640, radius: 32, color: "#fff2b8" },
-        desc: (r) => `ร่ายประกาศิตใส่ตัวที่ล็อกไว้ ดาเมจ ${pct(lin(1.0, 0.1)(r))} ของพลังเวท แล้ว 15 วิ: มันรับดาเมจทุกอย่างเพิ่ม ${pct(lin(0.15, 0.017)(r))}` },
       { id: "high_bishop_grace_wisdom", name: "บทสวดหนุนปัญญา", kind: "active", max: 5, pos: [0, 1], req: [["high_bishop_grace_meditation", 3]], glyph: "scroll",
         skill: { type: "buff", mp: 20, cd: 20, motion: "cast", duration: 270, buff: (r) => ({ castRed: 0.04 + 0.02 * r, matkPct: 0.04 + 0.02 * r, mpRegen: n1(0.6 * r) }), color: "#f8f0c8" },
         desc: (r) => `4.5 นาที: ลดเวลาร่าย ${pct(0.04 + 0.02 * r)} พลังเวท +${pct(0.04 + 0.02 * r)} ฟื้น MP +${n1(0.6 * r)}/วิ` },
       { id: "high_bishop_grace_kyrie", name: "ม่านคุ้มภัยศักดิ์สิทธิ์", kind: "active", max: 5, pos: [1, 1], req: [["high_bishop_grace_aspersio", 3]], glyph: "shield",
         skill: { type: "buff", mp: 28, cd: 25, motion: "cast", duration: 180, buff: (r) => ({ dmgRed: 0.03 + 0.01 * r, statusRes: 0.06 + 0.03 * r, maxHpPct: 0.04 + 0.012 * r }), color: "#fff8e0" },
         desc: (r) => `3 นาที: ม่านแสงคุ้มกาย ลดความเสียหาย ${pct(0.03 + 0.01 * r)} ต้านสถานะ ${pct(0.06 + 0.03 * r)} HP สูงสุด +${pct(0.04 + 0.012 * r)}` },
-      { id: "high_bishop_grace_silence", name: "ประกาศิตสงบ", kind: "active", max: 10, pos: [2, 1], req: [["high_bishop_grace_lex", 4]], glyph: "down",
-        skill: { type: "blast", stat: "matk", element: "light", mult: lin(0.8, 0.08), weaken: lin(0.12, 0.015), slow: lin(2.25, 0.225), manaBurn: lin(0.2, 0.02), silence: 6, debuff: 12,
-          mp: 22, cd: 10, cast: 0.6, motion: "cast", range: 560, radius: 220, delay: 0.25, color: "#f0e8b0" },
-        desc: (r) => `ประกาศิตให้ศัตรูตรงจุดที่เล็งสงบลง รัศมี 2.2 ม. ดาเมจ ${pct(lin(0.8, 0.08)(r))} ของพลังเวท พวกร่ายเวทโดนแรงขึ้น ${pct(lin(0.2, 0.02)(r))} ตัวที่ร่ายเวทหรือยิงได้หยุดร่ายหยุดยิง 6 วิ ศัตรูตีเบาลง ${pct(lin(0.12, 0.015)(r))} 12 วิ และช้าลง ${lin(2.25, 0.225)(r).toFixed(1)} วิ` },
-      { id: "high_bishop_grace_judgement", name: "ตราพิพากษาสวรรค์", kind: "active", max: 5, pos: [2, 2], req: [["high_bishop_grace_silence", 5], ["high_bishop_grace_kyrie", 1]], glyph: "cross",
+      { id: "high_bishop_grace_judgement", name: "ตราพิพากษาสวรรค์", kind: "active", max: 5, pos: [2, 2], req: [["high_bishop_grace_kyrie", 3]], glyph: "cross",
         skill: { type: "blast", stat: "matk", element: "light", mult: lin(2.6, 0.32), stun: lin(1, 0.2), weaken: () => 0.2, expose: lin(0.18, 0.03), debuff: 15,
-          mp: 50, cd: 18, cast: 1.5, motion: "cast", range: 580, radius: 300, delay: 0.5,
-          combo: { after: ["high_bishop_grace_silence", "high_bishop_grace_lex"], within: 4, more: () => 0.3 }, color: "#fffbe0" },
-        desc: (r) => `ประทับตราพิพากษาลงจุดที่เล็ง รัศมี 3 ม. ดาเมจ ${pct(lin(2.6, 0.32)(r))} ของพลังเวท มึน ${lin(1, 0.2)(r).toFixed(1)} วิ แล้ว 15 วิ: ตีเบาลง 20% รับดาเมจเพิ่ม ${pct(lin(0.18, 0.03)(r))} ใช้ต่อจากประกาศิตสงบหรือประกาศิตนิรันดร์ภายใน 4 วิ แรงขึ้น 30%` },
+          mp: 50, cd: 18, cast: 1.5, motion: "cast", range: 580, radius: 300, delay: 0.5, color: "#fffbe0" },
+        desc: (r) => `ประทับตราพิพากษาลงจุดที่เล็ง รัศมี 3 ม. ดาเมจ ${pct(lin(2.6, 0.32)(r))} ของพลังเวท มึน ${lin(1, 0.2)(r).toFixed(1)} วิ แล้ว 15 วิ: ตีเบาลง 20% รับดาเมจเพิ่ม ${pct(lin(0.18, 0.03)(r))}` },
       { id: "high_bishop_grace_devotion", name: "ศรัทธาแน่วแน่", kind: "passive", max: 10, pos: [0, 2], req: [["high_bishop_grace_wisdom", 1]], glyph: "scroll",
         stats: (r) => ({ castRed: 0.01 * r, cdr: 0.005 * r }),
         desc: (r) => `ลดเวลาร่าย ${pct(0.01 * r)} ลดคูลดาวน์ ${pct(0.005 * r)}` },
       { id: "high_bishop_grace_halo", name: "รัศมีศักดิ์สิทธิ์", kind: "passive", max: 5, pos: [1, 2], req: [["high_bishop_grace_kyrie", 1]], glyph: "ring",
         stats: (r) => ({ mdefPct: 0.03 * r, statusRes: 0.02 * r }),
         desc: (r) => `ต้านเวท +${pct(0.03 * r)} ต้านสถานะ +${pct(0.02 * r)}` },
-      { id: "high_bishop_grace_edict", name: "วาจาสิทธิ์", kind: "passive", max: 5, pos: [3, 1], req: [["high_bishop_grace_lex", 3]], glyph: "star",
-        stats: (r) => ({ matkPct: 0.02 * r, lightAtk: 2 * r }),
-        desc: (r) => `พลังเวท +${pct(0.02 * r)} พลังโจมตีธาตุแสง +${2 * r}` },
     ],
   },
   // ---- restoration: heals that follow the light, light that heals back ----
   high_bishop_restore: {
     name: "พรฟื้นพลัง", cls: null, job3: "high_bishop", color: "#fff8d0", glyph: "heal",
-    note: "ผู้เยียวยาที่ถือแสงเป็นอาวุธ ฮีลแรงที่แรงขึ้นอีกเมื่อใช้ต่อจากเวทแสง สายฝนพรที่ฟื้นทั้ง HP และ MP ต่อเนื่อง และเวทแสงหลายแบบ ทั้งศร พัด วงล้อ และแสงอรุณ ที่ฟื้น HP คืนจากดาเมจที่ทำ",
+    note: "ผู้เยียวยาที่ถือแสงเป็นอาวุธ ฮีลแรงที่แรงขึ้นอีกเมื่อใช้ต่อจากเวทแสง สายฝนพรที่ฟื้นทั้ง HP และ MP ต่อเนื่อง และเวทแสง ทั้งศรแสงและแสงอรุณ ที่ฟื้น HP คืนจากดาเมจที่ทำ",
     nodes: [
       { id: "high_bishop_restore_heal", name: "ฮีลพรสวรรค์", kind: "active", max: 10, pos: [0, 0], glyph: "heal",
         skill: { type: "heal", stat: "matk", mult: lin(1.35, 0.165), heal: lin(0.11, 0.013), mp: 20, cd: 3, motion: "cast",
-          combo: { after: ["high_bishop_restore_ray", "high_bishop_restore_fan", "high_bishop_restore_wheel", "high_bishop_restore_dawn"], within: 4, more: () => 0.3 }, color: "#fff6c8" },
-        desc: (r) => `ฟื้น HP ${pct(lin(0.11, 0.013)(r))} ของ HP สูงสุด + ${pct(lin(1.35, 0.165)(r))} ของพลังเวท ใช้ต่อจากเวทแสงของสายนี้ภายใน 4 วิ ส่วนจากพลังเวทแรงขึ้น 30%` },
+          combo: { after: ["high_bishop_restore_ray", "high_bishop_restore_dawn"], within: 4, more: () => 0.3 }, color: "#fff6c8" },
+        desc: (r) => `ฟื้น HP ${pct(lin(0.11, 0.013)(r))} ของ HP สูงสุด + ${pct(lin(1.35, 0.165)(r))} ของพลังเวท ใช้ต่อจากศรแสงชุบชีวิตหรือรุ่งอรุณสวรรค์ภายใน 4 วิ ส่วนจากพลังเวทแรงขึ้น 30%` },
       { id: "high_bishop_restore_heart", name: "หัวใจผู้เยียวยา", kind: "passive", max: 10, pos: [1, 0], glyph: "heart",
         stats: (r) => ({ healPct: 0.015 * r, matkPct: 0.012 * r }),
         desc: (r) => `สกิลรักษาแรงขึ้น ${pct(0.015 * r)} พลังเวท +${pct(0.012 * r)}` },
@@ -73,25 +62,16 @@ export const HIGH_BISHOP_TREES: Record<string, Tree> = {
       { id: "high_bishop_restore_rain", name: "สายฝนพรชีวา", kind: "active", max: 5, pos: [0, 1], req: [["high_bishop_restore_heal", 5]], glyph: "drop",
         skill: { type: "buff", mp: 36, cd: 14, motion: "cast", duration: 23, heal: lin(0.16, 0.025), buff: (r) => ({ hpRegen: 4 + 3 * r, mpRegen: n1(0.5 * r) }), color: "#fffce8" },
         desc: (r) => `สายฝนแสงโปรยลงรอบตัว ฟื้น HP ทันที ${pct(lin(0.16, 0.025)(r))} ของ HP สูงสุด แล้ว 23 วิ: ฟื้น HP +${4 + 3 * r}/วิ ฟื้น MP +${n1(0.5 * r)}/วิ` },
-      { id: "high_bishop_restore_wheel", name: "วงล้อแสงพิทักษ์", kind: "active", max: 10, pos: [1, 1], req: [["high_bishop_restore_heart", 3]], glyph: "spin",
-        skill: { type: "storm", stat: "matk", element: "light", mult: lin(1.0, 0.11), pulses: 4, every: 0.3, drain: () => 0.03, mp: 26, cd: 8, cast: 0.6, motion: "cast", radius: 230, color: "#fff4c0" },
-        desc: (r) => `ร่ายแล้ววงล้อแสงหมุนรอบตัวรัศมี 2.3 ม. 4 ครั้ง ครั้งละ ${pct(lin(1.0, 0.11)(r))} ของพลังเวท ฟื้น HP 3% ของดาเมจที่ทำ` },
-      { id: "high_bishop_restore_fan", name: "พัดแสงเจ็ดสาย", kind: "active", max: 10, pos: [2, 1], req: [["high_bishop_restore_ray", 4]], glyph: "fan",
-        skill: { type: "fan", stat: "matk", element: "light", mult: lin(1.15, 0.115), count: 7, spread: 60, mp: 24, cd: 6, cast: 1, motion: "cast", speed: 1050, range: 600, radius: 28, color: "#fff0b8" },
-        desc: (r) => `ร่ายแล้วกางแสงเป็นรูปพัด 7 สาย สายละ ${pct(lin(1.15, 0.115)(r))} ของพลังเวท` },
-      { id: "high_bishop_restore_dawn", name: "รุ่งอรุณสวรรค์", kind: "active", max: 5, pos: [1, 2], req: [["high_bishop_restore_fan", 5], ["high_bishop_restore_rain", 1]], glyph: "burst",
+      { id: "high_bishop_restore_dawn", name: "รุ่งอรุณสวรรค์", kind: "active", max: 5, pos: [1, 2], req: [["high_bishop_restore_ray", 5], ["high_bishop_restore_rain", 1]], glyph: "burst",
         skill: { type: "blast", stat: "matk", element: "light", mult: lin(1.9, 0.24), hits: 3, every: 0.35, drain: () => 0.04, mp: 50, cd: 20, cast: 2.2, motion: "cast", range: 580, radius: 280, delay: 0.5,
-          combo: { after: ["high_bishop_restore_fan", "high_bishop_restore_wheel"], within: 4, more: () => 0.3 }, color: "#fffbe0" },
-        desc: (r) => `ร่ายแสงอรุณลงจุดที่เล็ง รัศมี 2.8 ม. 3 ครั้ง ครั้งละ ${pct(lin(1.9, 0.24)(r))} ของพลังเวท ฟื้น HP 4% ของดาเมจที่ทำ ใช้ต่อจากพัดแสงเจ็ดสายหรือวงล้อแสงพิทักษ์ภายใน 4 วิ แรงขึ้น 30%` },
+          combo: { after: ["high_bishop_restore_ray"], within: 4, more: () => 0.3 }, color: "#fffbe0" },
+        desc: (r) => `ร่ายแสงอรุณลงจุดที่เล็ง รัศมี 2.8 ม. 3 ครั้ง ครั้งละ ${pct(lin(1.9, 0.24)(r))} ของพลังเวท ฟื้น HP 4% ของดาเมจที่ทำ ใช้ต่อจากศรแสงชุบชีวิตภายใน 4 วิ แรงขึ้น 30%` },
       { id: "high_bishop_restore_font", name: "ธารพลังชีวิต", kind: "passive", max: 10, pos: [0, 2], req: [["high_bishop_restore_rain", 1]], glyph: "drop",
         stats: (r) => ({ mpRegenPct: 0.03 * r, maxMpPct: 0.012 * r }),
         desc: (r) => `ฟื้น MP +${pct(0.03 * r)} MP สูงสุด +${pct(0.012 * r)}` },
       { id: "high_bishop_restore_sanctuary", name: "กายศักดิ์สิทธิ์", kind: "passive", max: 5, pos: [0, 3], req: [["high_bishop_restore_font", 3]], glyph: "heart",
         stats: (r) => ({ hpRegen: n1(1.2 * r), statusRes: 0.02 * r }),
         desc: (r) => `ฟื้น HP +${n1(1.2 * r)}/วิ ต้านสถานะ +${pct(0.02 * r)}` },
-      { id: "high_bishop_restore_radiance", name: "แสงเจิดจ้า", kind: "passive", max: 5, pos: [2, 2], req: [["high_bishop_restore_fan", 3]], glyph: "star",
-        stats: (r) => ({ lightAtk: 3 * r, castRed: 0.02 * r }),
-        desc: (r) => `พลังโจมตีธาตุแสง +${3 * r} ลดเวลาร่าย ${pct(0.02 * r)}` },
     ],
   },
   // ---- the exorcist: a mace whose blows call the light down by themselves ----
@@ -105,7 +85,7 @@ export const HIGH_BISHOP_TREES: Record<string, Tree> = {
       { id: "high_bishop_exorcist_hammer", name: "ค้อนชำระบาป", kind: "active", max: 10, pos: [1, 0], glyph: "bash", need: MACE,
         skill: { type: "cone", stat: "both", element: "light", mult: lin(1.9, 0.19), vs: { undead: 0.5, demon: 0.5 }, mp: 14, cd: 4, motion: "thrust", reach: 170, arc: 50, color: "#fff0b0" },
         desc: (r) => `ทุบตัวที่ล็อกไว้ด้วยค้อนอาบแสง ดาเมจ ${pct(lin(1.9, 0.19)(r))} ของ${MIX} อันเดดและปีศาจโดนแรงขึ้น 50% ใช้ได้เมื่อถือค้อน` },
-      { id: "high_bishop_exorcist_cross", name: "กางเขนสวรรค์", kind: "active", max: 10, pos: [3, 0], glyph: "cross",
+      { id: "high_bishop_exorcist_cross", name: "กางเขนสวรรค์", kind: "active", max: 10, pos: [2, 0], glyph: "cross",
         skill: { type: "blast", stat: "matk", element: "light", mult: lin(2.0, 0.2), vs: { undead: 0.6, demon: 0.6 }, mp: 16, cd: 5, cast: 0.8, motion: "cast", range: 520, radius: 160, delay: 0.25, color: "#fff4c0" },
         desc: (r) => `กางเขนแสงตกลงจุดที่เล็ง รัศมี 1.6 ม. ดาเมจ ${pct(lin(2.0, 0.2)(r))} ของพลังเวท อันเดดและปีศาจโดนแรงขึ้น 60%` },
       { id: "high_bishop_exorcist_calling", name: "ค้อนเรียกแสง", kind: "passive", max: 5, pos: [0, 1], req: [["high_bishop_exorcist_zeal", 3]], glyph: "star", need: MACE,
@@ -115,7 +95,7 @@ export const HIGH_BISHOP_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "both", element: "light", mult: lin(2.3, 0.23), vs: { undead: 0.6, demon: 0.6 }, stun: () => 0.8, expose: lin(0.1, 0.01), debuff: 9, mp: 18, cd: 6, motion: "thrust", reach: 180, arc: 40,
           combo: { after: ["high_bishop_exorcist_hammer"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#ffe8a0" },
         desc: (r) => `ทุบผนึกตัวที่ล็อกไว้ ดาเมจ ${pct(lin(2.3, 0.23)(r))} ของ${MIX} อันเดดและปีศาจโดนแรงขึ้น 60% มึน 0.8 วิ แล้ว 9 วิ: รับดาเมจเพิ่ม ${pct(lin(0.1, 0.01)(r))} ใช้ต่อจากค้อนชำระบาปภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)} ใช้ได้เมื่อถือค้อน` },
-      { id: "high_bishop_exorcist_vow", name: "ปณิธานนักล่าปีศาจ", kind: "active", max: 5, pos: [3, 1], req: [["high_bishop_exorcist_cross", 3]], glyph: "horns", need: MACE,
+      { id: "high_bishop_exorcist_vow", name: "ปณิธานนักล่าปีศาจ", kind: "active", max: 5, pos: [2, 1], req: [["high_bishop_exorcist_cross", 3]], glyph: "horns", need: MACE,
         skill: { type: "buff", mp: 30, cd: 30, motion: "cast", duration: 180,
           buff: (r) => ({ undeadDmg: 0.05 + 0.03 * r, demonDmg: 0.05 + 0.03 * r, aspd: 0.04 + 0.02 * r, autocast_high_bishop_exorcist_cross: 0.03 + 0.015 * r }), color: "#ffd870" },
         desc: (r) => `3 นาที: ดาเมจใส่อันเดดและปีศาจ +${pct(0.05 + 0.03 * r)} ความเร็วโจมตี +${pct(0.04 + 0.02 * r)} ตีปกติโดนแล้วมีโอกาส ${pct(0.03 + 0.015 * r)} ร่ายกางเขนสวรรค์เองฟรี ใช้ได้เมื่อถือค้อน` },
@@ -123,12 +103,6 @@ export const HIGH_BISHOP_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "both", element: "light", mult: lin(1.3, 0.16), hits: 4, every: 0.3, vs: { undead: 0.8, demon: 0.8 }, mp: 48, cd: 16, motion: "thrust", range: 450, radius: 260, delay: 0.3,
           combo: { after: ["high_bishop_exorcist_seal"], within: 4, more: () => 0.35 }, color: "#fffbe0" },
         desc: (r) => `ฟาดค้อนเปิดวงพิธีตรงจุดที่เล็ง รัศมี 2.6 ม. แสงขับไล่ 4 ครั้ง ครั้งละ ${pct(lin(1.3, 0.16)(r))} ของ${MIX} อันเดดและปีศาจโดนแรงขึ้น 80% ใช้ต่อจากค้อนผนึกมารภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือค้อน` },
-      { id: "high_bishop_exorcist_bane", name: "ภัยของมาร", kind: "passive", max: 10, pos: [2, 0], glyph: "horns",
-        stats: (r) => ({ undeadDmg: 0.012 * r, demonDmg: 0.012 * r }),
-        desc: (r) => `ดาเมจใส่อันเดดและปีศาจ +${pct(0.012 * r)}` },
-      { id: "high_bishop_exorcist_faith", name: "เกราะศรัทธา", kind: "passive", max: 5, pos: [0, 2], req: [["high_bishop_exorcist_calling", 3]], glyph: "shield",
-        stats: (r) => ({ defPct: 0.03 * r, darkDef: 3 * r }),
-        desc: (r) => `ป้องกัน +${pct(0.03 * r)} ป้องกันธาตุมืด +${3 * r}` },
     ],
   },
 };
