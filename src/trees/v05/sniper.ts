@@ -4,15 +4,15 @@
 // at once fire a burst of their own) and the bow (one prey at a time, shots heavy enough to break
 // its armour, and a draw that makes the normal shots and the skills alike go through the armour
 // and hit harder; a normal shot now and then lets the armour-piercing arrow fly by itself).
-// Eleven skills on the gun, ten on the bow (five passives each, v0.6), a little stronger than
-// the third jobs' (the hunter's bow is the measure).
+// Eight skills a branch (two passives on the gun, all moves; three on the bow, whose idea is the
+// normal shot made as strong as the skills), a little stronger than the third jobs' (the
+// hunter's bow is the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
 const GUNS: Need = { weapons: ["pistol", "rifle"] };
 const PISTOLS: Need = { dual: ["pistol"] };
 const BOW: Need = { weapons: ["bow"] };
-const n1 = (v: number) => +v.toFixed(1);
 
 export const SNIPER_TREES: Record<string, Tree> = {
   // ---- the gun: bursts, bullets by the handful, a wide sweep ----
@@ -47,16 +47,6 @@ export const SNIPER_TREES: Record<string, Tree> = {
         skill: { type: "storm", stat: "atk", mult: lin(0.85, 0.105), pulses: 6, every: 0.18, mp: 52, cd: 16, motion: "thrust", radius: 300,
           combo: { after: ["sniper_gun_sweep"], within: 4, more: () => 0.35 }, color: "#fff2c8" },
         desc: (r) => `หมุนตัวกราดยิงรอบทิศรัศมี 3 ม. 6 ระลอก ระลอกละ ${pct(lin(0.85, 0.105)(r))} ของพลังโจมตี ใช้ต่อจากกราดยิงถล่มภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือปืน` },
-      // v0.6: three more passives (the branch's five)
-      { id: "sniper_gun_akimbo", name: "สองมือสองกระบอก", kind: "passive", max: 5, pos: [3, 1], req: [["sniper_gun_twin", 1]], glyph: "twin", need: PISTOLS,
-        stats: (r) => ({ aspd: 0.02 * r, crit: 0.006 * r }),
-        desc: (r) => `ความเร็วยิง +${pct(0.02 * r)} โอกาสคริติคอล +${pct(0.006 * r)} เมื่อถือปืนสั้นทั้งสองมือ` },
-      { id: "sniper_gun_reload", name: "บรรจุกระสุนไว", kind: "passive", max: 5, pos: [0, 2], req: [["sniper_gun_trigger", 3]], glyph: "spin", need: GUNS,
-        stats: (r) => ({ cdr: 0.012 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `ลดคูลดาวน์ ${pct(0.012 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ เมื่อถือปืน` },
-      { id: "sniper_gun_footwork", name: "ฝีเท้ามือปืน", kind: "passive", max: 5, pos: [2, 2], req: [["sniper_gun_drill", 1]], glyph: "dash", need: GUNS,
-        stats: (r) => ({ move: 0.015 * r, flee: 3 * r }),
-        desc: (r) => `ยิงไปถอยไป: ความเร็วเดิน +${pct(0.015 * r)} หลบหลีก +${3 * r} เมื่อถือปืน` },
     ],
   },
   // ---- the bow: one prey, through its armour, the normal shots as strong as the skills ----
@@ -91,13 +81,6 @@ export const SNIPER_TREES: Record<string, Tree> = {
         skill: { type: "bolt", stat: "atk", mult: lin(6.0, 0.75), stun: () => 1, arrow: true, mp: 54, cd: 15, motion: "shoot", speed: 2200, range: 1200, radius: 30,
           combo: { after: ["sniper_bow_shatter"], within: 4, more: () => 0.4 }, color: "#fffbe0" },
         desc: (r) => `ยิงศรสุดแรงใส่ตัวที่ล็อกไว้ระยะ 12 ม. ${pct(lin(6.0, 0.75)(r))} ของพลังโจมตี มึน 1 วิ ใช้ต่อจากศรทลายเกราะภายใน 4 วิ แรงขึ้น 40% ใช้ได้เมื่อถือธนู` },
-      // v0.6: two more passives (the branch's five)
-      { id: "sniper_bow_prey", name: "พรานสุดขอบฟ้า", kind: "passive", max: 5, pos: [3, 1], req: [["sniper_bow_lance", 3]], glyph: "target", need: BOW,
-        stats: (r) => ({ huntDmg: 0.02 * r, reach: 0.02 * r }),
-        desc: (r) => `ดาเมจใส่ศัตรูที่ติดสถานะผิดปกติ (เกราะร้าว มึน ฯลฯ) +${pct(0.02 * r)} ระยะยิงปกติ +${pct(0.02 * r)} เมื่อถือธนู` },
-      { id: "sniper_bow_patience", name: "ลมหายใจนักซุ่ม", kind: "passive", max: 5, pos: [0, 2], req: [["sniper_bow_follow", 3]], glyph: "eye", need: BOW,
-        stats: (r) => ({ hit: 3 * r, cdr: 0.012 * r }),
-        desc: (r) => `ความแม่นยำ +${3 * r} ลดคูลดาวน์ ${pct(0.012 * r)} เมื่อถือธนู` },
     ],
   },
 };

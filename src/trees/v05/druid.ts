@@ -4,8 +4,9 @@
 // bear's close blows with HP and defence, the steppe eagle's quick shots from afar, the crimson
 // stag's blows that heal; each shape has its own skill, and each of those hits far harder right
 // after another shape's, so the way to fight is to change shape). The druid comes from casters:
-// every blow and spell of hers is on magic attack, the shapes' too. Eleven skills a branch (five
-// of them passives, v0.6), a little stronger than the third jobs' at the same rank.
+// every blow and spell of hers is on magic attack, the shapes' too. Eight skills a branch (two of
+// them passives: spells, heals and shapes are moves), a little stronger than the third jobs' at
+// the same rank.
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -54,16 +55,6 @@ export const DRUID_TREES: Record<string, Tree> = {
         skill: { type: "storm", stat: "matk", element: "plant", mult: lin(1.9, 0.24), pulses: 5, every: 0.35, drain: () => 0.04, slow: () => 2.3, mp: 50, cd: 16, cast: 1.6, motion: "cast", radius: 300,
           combo: { after: ["druid_nature_stone", "druid_nature_thorn"], within: 4, more: () => 0.35 }, color: "#90e070" },
         desc: (r) => `ร่ายพายุใบไม้และหนามหมุนรอบตัวรัศมี 3 ม. 5 ระลอก ระลอกละ ${pct(lin(1.9, 0.24)(r))} ของพลังเวท ศัตรูช้าลง 2.3 วิ ฟื้น HP 4% ของดาเมจที่ทำ ใช้ต่อจากศิลาผุดพสุธาหรือหนามพฤกษาภายใน 4 วิ แรงขึ้น 35%` },
-      // v0.6: three more passives (the branch's five)
-      { id: "druid_nature_grove", name: "ป่าศักดิ์สิทธิ์", kind: "passive", max: 5, pos: [3, 1], req: [["druid_nature_heart", 3]], glyph: "leaf",
-        stats: (r) => ({ castRed: 0.015 * r, cdr: 0.01 * r }),
-        desc: (r) => `ลดเวลาร่าย ${pct(0.015 * r)} ลดคูลดาวน์ ${pct(0.01 * r)}` },
-      { id: "druid_nature_moss", name: "พรมตะไคร่ชุ่มชื้น", kind: "passive", max: 5, pos: [0, 2], req: [["druid_nature_bark", 1]], glyph: "drop",
-        stats: (r) => ({ healPct: 0.03 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `สกิลรักษาแรงขึ้น ${pct(0.03 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
-      { id: "druid_nature_seed", name: "เมล็ดพันธุ์ผูกพัน", kind: "passive", max: 5, pos: [2, 2], req: [["druid_nature_sprite", 1]], glyph: "flower",
-        stats: (r) => ({ allyPct: 0.03 * r, statusRes: 0.03 * r }),
-        desc: (r) => `ผู้ช่วยทุกตัว (ภูตพฤกษาด้วย) HP และแรงตี +${pct(0.03 * r)} ต้านสถานะ +${pct(0.03 * r)}` },
     ],
   },
   // ---- the wild: three shapes, a skill for each, and the change between them ----
@@ -107,16 +98,6 @@ export const DRUID_TREES: Record<string, Tree> = {
         req: [["druid_wild_maul", 3], ["druid_wild_gale", 3], ["druid_wild_antler", 3]], glyph: "star",
         stats: (r) => ({ autocast_druid_wild_maul: 0.025 * r, autocast_druid_wild_gale: 0.025 * r, autocast_druid_wild_antler: 0.025 * r, aspd: 0.02 * r }),
         desc: (r) => `ตีปกติในร่างใดโดนแล้วมีโอกาส ${pct(0.025 * r)} ใช้สกิลของร่างนั้นเองฟรี (หมี: ตะปบหมีคำราม · นก: พายุขนนกคม · กวาง: เขากวางชุบชีวา) ความเร็วโจมตี +${pct(0.02 * r)}` },
-      // v0.6: three more passives (the branch's five), one for each shape: each counts only in it
-      { id: "druid_wild_sky", name: "เนตรเหนือเมฆา", kind: "passive", max: 5, pos: [3, 1], req: [["druid_wild_spirit", 3]], glyph: "wing", need: BIRD,
-        stats: (r) => ({ crit: 0.006 * r, flee: 3 * r }),
-        desc: (r) => `โอกาสคริติคอล +${pct(0.006 * r)} หลบหลีก +${3 * r} เมื่ออยู่ในร่างนก` },
-      { id: "druid_wild_hide", name: "หนังหมีหนา", kind: "passive", max: 5, pos: [0, 2], req: [["druid_wild_maul", 3]], glyph: "paw", need: BEAR,
-        stats: (r) => ({ mdefPct: 0.02 * r, statusRes: 0.03 * r }),
-        desc: (r) => `ต้านเวท +${pct(0.02 * r)} ต้านสถานะ +${pct(0.03 * r)} เมื่ออยู่ในร่างหมี` },
-      { id: "druid_wild_herd", name: "สายใยฝูงกวาง", kind: "passive", max: 5, pos: [2, 2], req: [["druid_wild_antler", 3]], glyph: "heart", need: DEER,
-        stats: (r) => ({ maxHpPct: 0.02 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `HP สูงสุด +${pct(0.02 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ เมื่ออยู่ในร่างกวาง` },
     ],
   },
 };
