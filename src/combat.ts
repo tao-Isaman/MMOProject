@@ -59,7 +59,12 @@ export function attackRange(w: WeaponType): number {
 }
 
 // Floating numbers and short labels that rise and fade over a world point.
-export type FloaterStyle = "damage" | "crit" | "loot" | "info" | "hurt" | "heal" | "level" | "shield" | "magic" | "miss";
+export type FloaterStyle = "damage" | "crit" | "loot" | "info" | "hurt" | "heal" | "level" | "shield" | "magic" | "miss" | "total";
+
+// The running total of a skill that lands many times, as Ragnarok shows it: a yellow number over
+// the monster that adds each hit as it lands and pops, then fades TALLY_LIFE s after the last.
+const TALLY_GAP = 0.8; // s between two hits of one skill that still count as the same flurry
+const TALLY_LIFE = 1.1;
 
 interface Floater {
   x: number;
@@ -89,10 +94,27 @@ function burst(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, 
 
 export class Floaters {
   list: Floater[] = [];
+  // the totals still counting: of which skill (key) on which monster, how much so far, its floater
+  tallies: { key: string; on: object; total: number; f: Floater }[] = [];
 
   add(x: number, y: number, z: number, text: string, style: FloaterStyle = "damage"): void {
     const long = style === "loot" || style === "level";
     this.list.push({ x, y, z, text, style, t: 0, life: long ? 1.8 : 0.9, dx: style === "level" ? 0 : rand(-14, 14), seed: Math.random() });
+  }
+
+  // One more hit of a many-hit skill (`key`) on a monster: its yellow total grows by dmg (a new
+  // one starts if the last hit was more than TALLY_GAP ago).
+  tally(m: { x: number; y: number; height: number }, key: string, dmg: number): void {
+    let t = this.tallies.find((x) => x.on === m && x.key === key && x.f.t < TALLY_GAP);
+    if (!t) {
+      // above where the white numbers of the hits rise to, so they never cover it
+      const f: Floater = { x: m.x, y: m.y, z: m.height + 100, text: "", style: "total", t: 0, life: TALLY_LIFE, dx: 0, seed: 0 };
+      this.list.push(f);
+      t = { key, on: m, total: 0, f };
+      this.tallies.push(t);
+    }
+    t.total += dmg;
+    Object.assign(t.f, { x: m.x, y: m.y, text: t.total.toLocaleString(), t: 0 });
   }
 
   update(dt: number): void {
@@ -101,6 +123,7 @@ export class Floaters {
       f.t += dt;
       if (f.t >= f.life) this.list.splice(i, 1);
     }
+    this.tallies = this.tallies.filter((x) => x.f.t < x.f.life);
   }
 
   draw(ctx: CanvasRenderingContext2D, view: View): void {
@@ -108,14 +131,15 @@ export class Floaters {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.textAlign = "center";
     ctx.lineJoin = "round";
-    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffe14a", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff", miss: "#d6d6d6" };
+    const colors: Record<FloaterStyle, string> = { damage: "#fff6d8", crit: "#ffe14a", loot: "#c9ffe0", info: "#ffd0c8", hurt: "#ff6b5e", heal: "#7dff9a", level: "#ffe27a", shield: "#cbbcff", magic: "#cfe0ff", miss: "#d6d6d6", total: "#ffd23a" };
     for (const f of this.list) {
       const u = f.t / f.life;
-      const rise = f.style === "loot" || f.style === "level" ? 40 * u : 60 * Math.sqrt(u);
+      // a total stays put over the monster (it pops on each hit instead of rising)
+      const rise = f.style === "total" ? 6 * u : f.style === "loot" || f.style === "level" ? 40 * u : 60 * Math.sqrt(u);
       const px = (mapX(f.x, f.y) + f.dx * u) * k + ox;
       const py = mapY(f.x, f.y, f.z + rise) * k + oy;
-      const big = f.style === "crit" || f.style === "level";
-      const size = (big ? 30 : f.style === "loot" ? 17 : 22) * k * (big ? 1 + 0.3 * Math.max(0, 1 - u * 4) : 1);
+      const big = f.style === "crit" || f.style === "level" || f.style === "total";
+      const size = (big ? 30 : f.style === "loot" ? 17 : 22) * k * (big ? 1 + 0.3 * Math.max(0, 1 - f.t * (f.style === "total" ? 6 : 4 / f.life)) : 1);
       ctx.globalAlpha = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;
       ctx.font = `600 ${size}px Kanit, system-ui, sans-serif`;
       if (f.style === "crit") {

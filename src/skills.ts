@@ -157,6 +157,12 @@ export function lockReach(s: SkillDef): number {
   return s.type === "bolt" ? s.range ?? 500 : s.type === "falcon" || s.type === "mimic" ? s.range ?? 600 : (s.reach ?? 150) + 40;
 }
 
+// A skill that can land on one monster more than once (several hits, pulses or shots): its hits
+// add up in a yellow total over the monster (Floaters.tally), as Ragnarok's do.
+function manyHits(s: SkillDef): boolean {
+  return (s.hits ?? 1) > 1 || s.type === "storm" || (s.type === "fan" && (s.count ?? 3) > 1) || s.type === "flower";
+}
+
 // A monster's attack copied by a mimic: its shot (and element) or its bite, for `uses` uses
 // until `until` (game clock), fired by the mimic's own slot.
 interface Copy {
@@ -636,6 +642,8 @@ export class Skills {
     if (s.expose) m.exposeTo((s.debuff ?? 9) * earth, s.expose(rank));
     if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank) * poisonScale(this.hero.stats, this.el)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock, false, hitSound);
+    // (apply settled the damage: what it adds to a many-hit skill's yellow total)
+    if (manyHits(skill)) this.floaters.tally(m, skillId || skill.type, r.dmg);
     if (skillId) this.skillImpactVfx(skillId, skill, m, dir);
     // a stealing blow: once a monster, gold or one of its drops
     if (s.steal && !m.stolen && lucky(at(s.stealChance, rank) ?? 0, this.hero.stats)) {
@@ -1124,9 +1132,10 @@ export class Skills {
       for (let i = 0; i < FALCON_HITS; i++) {
         this.later(i * 0.1, () => {
           if (!m.alive) return;
-          const dmg = Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), m.def)));
+          const r = { dmg: Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), m.def))), crit: false, magic: false, miss: false };
           const dx = m.x - this.player.x, dy = m.y - this.player.y, d = Math.hypot(dx, dy) || 1;
-          this.combat.apply(m, { dmg, crit: false, magic: false, miss: false }, { x: dx / d, y: dy / d });
+          this.combat.apply(m, r, { x: dx / d, y: dy / d });
+          this.floaters.tally(m, "falcon", r.dmg);
         });
       }
     });
