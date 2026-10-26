@@ -4,9 +4,9 @@
 // wave of sword qi from afar, a parry and a stance that give him attack and defence in turn) and
 // the bare fist (knuckles: quick flurries, two dashes that carry him through and past the enemy,
 // and the counter: a blow that lands on him from close by may be struck straight back, the
-// counter stat, a passive and a stance). Eleven skills a branch, five of them passives (v0.6:
-// three passives added to each), a little stronger than the third
-// jobs' (the knight's blade and the monk's martial art are the measure).
+// counter stat, a passive and a stance). Eight skills a branch, two of them passives (both are
+// all moves, stances and combos), a little stronger than the third jobs' (the knight's blade and
+// the monk's martial art are the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -47,16 +47,6 @@ export const WUXIA_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(1.13, 0.15), hits: 5, mp: 48, cd: 16, motion: "swing", reach: 200, arc: 70,
           combo: { after: ["wuxia_sword_qi"], within: 3, more: () => 0.35 }, color: "#fffbe8" },
         desc: (r) => `ร่ายกระบวนท่ากระบี่ไร้เทียมทาน ฟัน 5 ครั้งใส่ศัตรูด้านหน้า 2 ม. ครั้งละ ${pct(lin(1.13, 0.15)(r))} ของพลังโจมตี ใช้ต่อจากปราณกระบี่พันลี้ภายใน 3 วิ แรงขึ้น 35% ใช้ได้เมื่อถือดาบมือเดียว` },
-      // v0.6: three more passives (light feet, the breath that circles, a mind sharp as the blade)
-      { id: "wuxia_sword_feet", name: "ฝีเท้าจอมยุทธ์", kind: "passive", max: 5, pos: [3, 1], req: [["wuxia_sword_parry", 3]], glyph: "shoes", need: LONE,
-        stats: (r) => ({ move: 0.01 * r, flee: 3 * r }),
-        desc: (r) => `ความเร็วเดิน +${pct(0.01 * r)} หลบหลีก +${3 * r} เมื่อถือดาบมือเดียวและมือรองว่าง` },
-      { id: "wuxia_sword_breath", name: "ลมปราณหมุนเวียน", kind: "passive", max: 5, pos: [0, 2], req: [["wuxia_sword_heart", 3]], glyph: "swirl", need: SWORD,
-        stats: (r) => ({ mpRegen: n1(0.4 * r), hpRegen: r }),
-        desc: (r) => `ฟื้น MP +${n1(0.4 * r)}/วิ ฟื้น HP +${r}/วิ เมื่อถือดาบมือเดียว` },
-      { id: "wuxia_sword_mind", name: "จิตกระบี่ทะลวง", kind: "passive", max: 5, pos: [2, 2], req: [["wuxia_sword_wander", 1]], glyph: "eye", need: LONE,
-        stats: (r) => ({ critDmg: 0.04 * r, hit: 3 * r }),
-        desc: (r) => `แรงคริติคอล +${pct(0.04 * r)} ความแม่นยำ +${3 * r} เมื่อถือดาบมือเดียวและมือรองว่าง` },
     ],
   },
   // ---- the bare fist: flurries, dashes, and the blow struck back ----
@@ -90,16 +80,6 @@ export const WUXIA_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(6.1, 0.77), mp: 50, cd: 16, motion: "thrust", reach: 180, arc: 40,
           combo: { after: ["wuxia_fist_dragon"], within: 4, more: () => 0.4 }, color: "#ffa860" },
         desc: (r) => `รวมลมปราณทั้งร่างเป็นหมัดเดียวใส่ตัวที่ล็อกไว้ ${pct(lin(6.1, 0.77)(r))} ของพลังโจมตี ใช้ต่อจากหมัดมังกรผงาดฟ้าภายใน 4 วิ แรงขึ้น 40% ใช้ได้เมื่อถือสนับมือ` },
-      // v0.6: three more passives (a second blow, an iron body, the meridians opened)
-      { id: "wuxia_fist_twin", name: "หมัดซ้อนเงา", kind: "passive", max: 5, pos: [3, 1], req: [["wuxia_fist_swift", 3]], glyph: "twin", need: KNUCKLE,
-        stats: (r) => ({ doubleHit: 0.015 * r, crit: 0.004 * r }),
-        desc: (r) => `ตีปกติมีโอกาส ${pct(0.015 * r)} ตีซ้ำอีกครั้ง โอกาสคริติคอล +${pct(0.004 * r)} เมื่อถือสนับมือ` },
-      { id: "wuxia_fist_iron", name: "กายเหล็กไหล", kind: "passive", max: 5, pos: [0, 2], req: [["wuxia_fist_stance", 1]], glyph: "shield", need: KNUCKLE,
-        stats: (r) => ({ dmgRed: 0.006 * r, maxHpPct: 0.01 * r }),
-        desc: (r) => `ลดความเสียหาย ${pct(0.006 * r)} HP สูงสุด +${pct(0.01 * r)} เมื่อถือสนับมือ` },
-      { id: "wuxia_fist_meridian", name: "เปิดจุดชีพจร", kind: "passive", max: 5, pos: [2, 2], req: [["wuxia_fist_cloud", 3]], glyph: "up", need: KNUCKLE,
-        stats: (r) => ({ cdr: 0.01 * r, mpRegen: n1(0.4 * r) }),
-        desc: (r) => `ลดคูลดาวน์ ${pct(0.01 * r)} ฟื้น MP +${n1(0.4 * r)}/วิ เมื่อถือสนับมือ` },
     ],
   },
 };

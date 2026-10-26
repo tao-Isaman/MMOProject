@@ -4,9 +4,10 @@
 // of them far harder on the undead, ghosts among them, and on demons) and the summoning (black
 // spells from afar, smoke that blinds and shadow that cuts, with the dead and the damned called up
 // to fight beside her: ghosts that float at her shoulder and shoot, shadow imps that bite like a
-// pack, a demon knight that walks up and draws the blows). Eleven skills a branch, five of them
-// passives (v0.6: three passives added to each), a little stronger than the third jobs' (the high bishop's exorcist, the sculptor's giant and the hunter's
-// wolves are the measure). Coming from any third job, no skill asks for a weapon; the blows are on
+// pack, a demon knight that walks up and draws the blows). Eight skills a branch, two of them
+// passives (both are many moves: rites and blows, spells and summons), a little stronger than
+// the third jobs' (the high bishop's exorcist, the sculptor's giant and the hunter's wolves are
+// the measure). Coming from any third job, no skill asks for a weapon; the blows are on
 // attack and magic attack together (stat "both"), the spells and the summoned on magic attack.
 import type { Tree } from "../../progression";
 import { pct, lin } from "../util";
@@ -48,16 +49,6 @@ export const SHAMAN_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "both", element: "light", mult: lin(6.0, 0.75), vs: { undead: 1, demon: 1 }, stun: () => 1, mp: 50, cd: 16, motion: "thrust", reach: 190, arc: 40,
           combo: { after: ["shaman_consecrate_takrut"], within: 4, more: () => 0.4 }, color: "#fffbe8" },
         desc: (r) => `ปัดรังควานด้วยฝ่ามือที่ปลุกเสกเต็มกำลังใส่ตัวที่ล็อกไว้ ${pct(lin(6.0, 0.75)(r))} ของพลังโจมตีและพลังเวท (ธาตุแสง) อันเดดและปีศาจโดนแรงเป็นสองเท่า มึน 1 วิ ใช้ต่อจากตะกรุดสะกดวิญญาณภายใน 4 วิ แรงขึ้น 40%` },
-      // v0.6: three more passives (holy water, an amulet, the light in the blessed weapon)
-      { id: "shaman_consecrate_holywater", name: "น้ำมนต์ประพรมกาย", kind: "passive", max: 5, pos: [2, 1], req: [["shaman_consecrate_yantra", 3]], glyph: "drop",
-        stats: (r) => ({ hpRegen: r, statusRes: 0.02 * r }),
-        desc: (r) => `ฟื้น HP +${r}/วิ ต้านสถานะ ${pct(0.02 * r)}` },
-      { id: "shaman_consecrate_amulet", name: "พระเครื่องคุ้มกาย", kind: "passive", max: 5, pos: [0, 2], req: [["shaman_consecrate_charm", 3]], glyph: "ring",
-        stats: (r) => ({ dmgRed: 0.006 * r, mdefPct: 0.015 * r }),
-        desc: (r) => `ลดความเสียหาย ${pct(0.006 * r)} ต้านเวท +${pct(0.015 * r)}` },
-      { id: "shaman_consecrate_radiance", name: "อาคมแสงศักดิ์สิทธิ์", kind: "passive", max: 5, pos: [3, 2], req: [["shaman_consecrate_thread", 3]], glyph: "star",
-        stats: (r) => ({ lightAtk: 2 * r, aspd: 0.01 * r }),
-        desc: (r) => `พลังโจมตีธาตุแสง +${2 * r} ความเร็วโจมตี +${pct(0.01 * r)}` },
     ],
   },
   // ---- the summoning: ghosts, imps and a demon knight beside her, smoke and shadow from afar ----
@@ -92,16 +83,6 @@ export const SHAMAN_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "matk", element: "shadow", mult: lin(2.2, 0.28), hits: 3, every: 0.35, mp: 50, cd: 18, cast: 2, motion: "cast", range: 600, radius: 280, delay: 0.6,
           combo: { after: ["shaman_summon_smog"], within: 4, more: () => 0.35 }, color: "#c0a0ff" },
         desc: (r) => `ร่ายเปิดประตูยมโลกตรงจุดที่เล็ง รัศมี 2.8 ม. เงาจากยมโลกฉุดกระชาก 3 ครั้ง ครั้งละ ${pct(lin(2.2, 0.28)(r))} ของพลังเวท (ธาตุเงา) ใช้ต่อจากหมอกควันทมิฬภายใน 4 วิ แรงขึ้น 35%` },
-      // v0.6: three more passives (offerings to the called, incense for the spells, a shadow cloak)
-      { id: "shaman_summon_offering", name: "เครื่องเซ่นไหว้", kind: "passive", max: 5, pos: [1, 1], req: [["shaman_summon_ghost", 3]], glyph: "heart",
-        stats: (r) => ({ allyPct: 0.03 * r, maxHpPct: 0.01 * r }),
-        desc: (r) => `เซ่นไหว้ผีและปีศาจที่อัญเชิญมา ผู้ช่วยทุกตัว HP และแรงตี +${pct(0.03 * r)} HP สูงสุด +${pct(0.01 * r)}` },
-      { id: "shaman_summon_incense", name: "ธูปกำยานเรียกวิญญาณ", kind: "passive", max: 5, pos: [3, 1], req: [["shaman_summon_lore", 3]], glyph: "swirl",
-        stats: (r) => ({ castRed: 0.02 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `ลดเวลาร่าย ${pct(0.02 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
-      { id: "shaman_summon_veil", name: "ผ้าคลุมเงา", kind: "passive", max: 5, pos: [1, 2], req: [["shaman_summon_imp", 3]], glyph: "cloud",
-        stats: (r) => ({ magicDodge: 0.01 * r, flee: 3 * r }),
-        desc: (r) => `หลบเวท +${pct(0.01 * r)} หลบหลีก +${3 * r}` },
     ],
   },
 };

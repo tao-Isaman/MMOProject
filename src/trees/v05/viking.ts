@@ -2,9 +2,9 @@
 // criticals that go through the armour, a great deal of HP, and that HP turned into attack: the
 // hpToAtk stat, a share of max HP added to attack, on a passive and on the berserker's rage) and
 // the mace (maces, heavy blows that daze, normal hits that daze now and then, a body with the HP
-// and the defence of a glacier). Ten skills a branch, five of them passives (v0.6: two passives
-// added to each), a little stronger than the third jobs'
-// (the knight's axe is the measure).
+// and the defence of a glacier). Eight skills a branch, three of them passives (a body of HP
+// and armour that is half the point), a little stronger than the third jobs' (the knight's axe
+// is the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -45,13 +45,6 @@ export const VIKING_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(6.2, 0.78), mp: 55, cd: 16, motion: "swing", reach: 200, arc: 40,
           combo: { after: ["viking_axe_split"], within: 4, more: () => 0.4 }, color: "#ffd0b0" },
         desc: (r) => `ฟันขวานสุดแรงส่งตัวที่ล็อกไว้ไปวัลฮัลลา ${pct(lin(6.2, 0.78)(r))} ของพลังโจมตี ใช้ต่อจากขวานทลายโล่ภายใน 4 วิ แรงขึ้น 40% ใช้ได้เมื่อถือขวาน` },
-      // v0.6: two more passives (no fear of the end, a raider's quick arm)
-      { id: "viking_axe_doom", name: "ไม่หวั่นวันสิ้นโลก", kind: "passive", max: 5, pos: [3, 1], req: [["viking_axe_bite", 3]], glyph: "skull", need: AXES,
-        stats: (r) => ({ lowHpDmg: 0.03 * r, statusRes: 0.02 * r }),
-        desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.03 * r)} เมื่อ HP ใกล้หมด ต้านสถานะ ${pct(0.02 * r)} เมื่อถือขวาน` },
-      { id: "viking_axe_raider", name: "นักปล้นทะเลเหนือ", kind: "passive", max: 5, pos: [0, 2], req: [["viking_axe_fury", 3]], glyph: "rage", need: AXES,
-        stats: (r) => ({ aspd: 0.015 * r, hpRegen: r }),
-        desc: (r) => `ความเร็วโจมตี +${pct(0.015 * r)} ฟื้น HP +${r}/วิ เมื่อถือขวาน` },
     ],
   },
   // ---- the mace: blows that daze, a body like a glacier ----
@@ -85,13 +78,6 @@ export const VIKING_TREES: Record<string, Tree> = {
         skill: { type: "nova", stat: "atk", mult: lin(1.95, 0.24), hits: 3, stun: lin(1.5, 0.1), mp: 55, cd: 18, motion: "thrust", radius: 280,
           combo: { after: ["viking_mace_skull"], within: 4, more: () => 0.3 }, color: "#fff4c0" },
         desc: (r) => `ทุบค้อนอัสนีลงพื้นสะท้านรอบตัวรัศมี 2.8 ม. 3 ระลอก ระลอกละ ${pct(lin(1.95, 0.24)(r))} ของพลังโจมตี ทุกตัวมึน ${n1(lin(1.5, 0.1)(r))} วิ ใช้ต่อจากค้อนทลายหัวภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือค้อน` },
-      // v0.6: two more passives (a haft of cast iron, the cold of the fjords)
-      { id: "viking_mace_haft", name: "ด้ามเหล็กหล่อ", kind: "passive", max: 5, pos: [3, 1], req: [["viking_mace_weight", 3]], glyph: "bash", need: MACE,
-        stats: (r) => ({ aspd: 0.012 * r, hit: 3 * r }),
-        desc: (r) => `ความเร็วโจมตี +${pct(0.012 * r)} ความแม่นยำ +${3 * r} เมื่อถือค้อน` },
-      { id: "viking_mace_fjord", name: "ลมหนาวฟยอร์ด", kind: "passive", max: 5, pos: [0, 2], req: [["viking_mace_bear", 3]], glyph: "freeze",
-        stats: (r) => ({ iceDef: 5 * r, waterDef: 5 * r, hpRegen: r }),
-        desc: (r) => `ป้องกันธาตุน้ำแข็งและธาตุน้ำ +${5 * r} ฟื้น HP +${r}/วิ` },
     ],
   },
 };
