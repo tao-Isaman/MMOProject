@@ -171,6 +171,37 @@ export function clearLine(a: Vec2, b: Vec2, r: number): boolean {
   return true;
 }
 
+// The kinds of solid a shot (an arrow, a bullet, a spell) can't go through: walls and buildings.
+// It flies over everything else: the cliffs between one level of the ground and the next, the
+// banks of water, trees, rocks, fences, stalls.
+const SHOT_PROOF = new Set(["wall", "building", "house", "shed", "shops", "palace", "temple", "tower", "gate", "mill", "igloo", "aqueduct"]);
+
+// Whether a point is inside solid s.
+function inside(p: Vec2, s: Solid): boolean {
+  if ("r" in s) return Math.hypot(p.x - s.x, p.y - s.y) < s.r;
+  const rx = p.x - s.x, ry = p.y - s.y;
+  return Math.abs(rx * s.cos + ry * s.sin) < s.w / 2 && Math.abs(-rx * s.sin + ry * s.cos) < s.d / 2;
+}
+
+// Whether a shot from a to b would get there: no wall or building in the way (a cliff, up or
+// down, is no matter: what is above or below it is shot at as if the ground were flat).
+export function clearShot(a: Vec2, b: Vec2): boolean {
+  const d = Math.hypot(b.x - a.x, b.y - a.y), n = Math.ceil(d / 15);
+  for (let k = 1; k < n; k++) {
+    const p = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n };
+    if (near(p, 0).some((s) => SHOT_PROOF.has(s.kind) && inside(p, s))) return false;
+  }
+  return true;
+}
+
+// Where to walk to get within `keep` cm of `to` coming from `from`: that far short of it on the
+// straight line between (or `from` itself, already that close). A shooter heads there and not
+// to the target itself, which may stand up on a ledge with the way up round by a ramp far off.
+export function shortOf(from: Vec2, to: Vec2, keep: number): Vec2 {
+  const dx = from.x - to.x, dy = from.y - to.y, d = Math.hypot(dx, dy);
+  return d <= keep ? { x: from.x, y: from.y } : { x: to.x + (dx / d) * keep, y: to.y + (dy / d) * keep };
+}
+
 // Waypoints (not including `from`) for a circle of radius r to walk to `to`, going around the
 // solids; ends at the open point nearest `to`. Null when there is no way.
 export function findPath(from: Vec2, to: Vec2, r: number): Vec2[] | null {

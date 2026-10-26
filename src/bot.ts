@@ -10,7 +10,7 @@ import { ACTIVES, mpCost } from "./progression";
 import { saveKey } from "./save";
 import { MAX_ORBS } from "./hero";
 import type { ElementId, Progress, SkillDef } from "./progression";
-import { findPath, clearLine } from "./world";
+import { findPath, clearLine, clearShot, shortOf } from "./world";
 import { attackRange } from "./combat";
 import { RADIUS } from "./player";
 import { VARIANTS } from "./monsters";
@@ -72,6 +72,9 @@ const SUPPORT = new Set(["heal", "shield", "buff", "decoy", "summon", "smoke", "
 // A buff lasting at least this long (s) is worth keeping up out of a fight as well.
 const LONG_BUFF = 60;
 export const isSupport = (s: SkillDef) => SUPPORT.has(s.type);
+// An offensive skill that reaches out from her (a shot, a spell on a spot, a beam), not a blow,
+// a rush or one round herself: it goes up a cliff or down off one as if the ground were flat.
+const isShot = (s: SkillDef) => !skillReach(s).self && s.type !== "dash";
 
 // A new rule for a skill, with a sensible default condition for its type.
 export function defaultRule(id: string): SkillRule {
@@ -354,10 +357,14 @@ export class Bot {
       return none;
     }
 
-    // walk up to the target, then let the player's own chase-and-attack take over
-    const want = this.engageRange();
+    // walk up to the target, then let the player's own chase-and-attack take over. A shooter
+    // (a bow, a staff, spells) fights from wherever it can shoot, up a cliff or down off one,
+    // and walks only till it is in range (not round by a ramp to the monster itself); one with
+    // a blade has to get there.
+    const { range: want, shoots } = this.engageRange();
     const dist = Math.hypot(t.x - player.x, t.y - player.y) - t.radius;
-    if (dist <= want + 25 && clearLine(player, t, RADIUS * 0.6)) {
+    const shot = shoots && clearShot(player, t);
+    if (dist <= want + 25 && (shoots ? shot : clearLine(player, t, RADIUS * 0.6))) {
       this.state = "fight";
       this.path = [];
       this.stuck.t = 0;
@@ -367,7 +374,7 @@ export class Bot {
     }
     this.state = "approach";
     if (player.target === t) player.target = null;
-    return this.walkTo(t, dt);
+    return this.walkTo(shot ? shortOf(player, t, want * 0.8 + t.radius) : t, dt);
   }
 
   inFight(): boolean {
@@ -411,17 +418,17 @@ export class Bot {
   }
 
   // How close to stand: the weapon's reach with normal attacks on, else the shortest reach
-  // of the offensive skills in use.
-  engageRange(): number {
-    const w = this.d.weapon();
-    if (this.settings.basic) return attackRange(w);
-    let best = Infinity;
+  // of the offensive skills in use; shoots: whether what reaches that far is a shot.
+  engageRange(): { range: number; shoots: boolean } {
+    const w = this.d.weapon(), basic = { range: attackRange(w), shoots: !!w.projectile };
+    if (this.settings.basic) return basic;
+    let best = Infinity, shoots = false;
     for (const r of this.settings.rules) {
       if (!r.on || !this.d.progress.skillRank(r.id)) continue;
-      const sk = ACTIVES[r.id].skill;
-      if (!isSupport(sk)) best = Math.min(best, skillReach(sk).reach);
+      const sk = ACTIVES[r.id].skill, reach = skillReach(sk).reach;
+      if (!isSupport(sk) && reach < best) [best, shoots] = [reach, isShot(sk)];
     }
-    return Number.isFinite(best) ? best * 0.9 : attackRange(w);
+    return Number.isFinite(best) ? { range: best * 0.9, shoots } : basic;
   }
 
   walkTo(goal: Vec2, dt: number): Vec2 {
@@ -547,7 +554,10 @@ export class Bot {
     const { hero, player } = this.d;
     const hpPct = (hero.hp / hero.stats.maxHp) * 100;
     const dist = Math.hypot(t.x - player.x, t.y - player.y) - t.radius;
-    if (!clearLine(player, t, RADIUS * 0.6) && dist > 120) return false;
+    // a shot or a spell flies up or down a cliff to it (not through a wall); a blow, a rush or
+    // a ring round her needs a way there
+    const shot = clearShot(player, t), walk = dist <= 120 || clearLine(player, t, RADIUS * 0.6);
+    if (!shot && !walk) return false;
     // the list goes top first: a skill that would go but for its MP keeps that MP from the ones
     // under it (else cheap spells spent it as it came back and the big one never went)
     let reserve = 0;
@@ -555,7 +565,7 @@ export class Bot {
       const a = ACTIVES[r.id];
       if (!r.on || !a || isSupport(a.skill) || a.skill.type === "workshop" || a.skill.type === "make" || !this.usable(r.id)) continue;
       const { reach, area, self } = skillReach(a.skill);
-      if (dist > reach) continue;
+      if (dist > reach || !(isShot(a.skill) ? shot : walk)) continue;
       let go = r.cond === "ready";
       if (r.cond === "hp") go = hpPct < r.value;
       else if (r.cond === "mobs") go = this.count(self ? player : t, area) >= r.value;

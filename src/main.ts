@@ -51,7 +51,7 @@ import { loadMap, MAP_NAMES, TOWNS } from "./maps";
 import { MapUI, mapArea, travelFee } from "./mapui";
 import { closeTop, setCloser } from "./windows";
 import type { GameMap, MapId, TownId } from "./maps";
-import { findPath, blocked, SOLIDS } from "./world";
+import { findPath, blocked, SOLIDS, clearShot, shortOf } from "./world";
 import { RADIUS } from "./player";
 import { BotUI } from "./botui";
 import { garmentIcon } from "./garments";
@@ -1343,13 +1343,21 @@ async function boot(): Promise<void> {
       walkTo = null;
       player.target = c.m;
       report(c.slot, c.id, skills.use(c.id, { x: c.m.x, y: c.m.y }));
-    } else if ((c.left -= dt) <= 0 || c.still > CHASE_STALL || ((c.clock -= dt) <= 0 && !walkToward(c.m))) {
+    } else if ((c.left -= dt) <= 0 || c.still > CHASE_STALL || ((c.clock -= dt) <= 0 && !walkToward(chaseGoal(c.id, c.m)))) {
       // no way up to it, or the way ends short of its reach (a monster on a cell she can't
       // stand on), or it keeps away from her
       chase = null;
       walkTo = null;
       floaters.add(player.x, player.y, 150, "เดินไปไม่ถึง", "info");
     } else if (c.clock <= 0) c.clock = 0.25;
+  }
+  // Where a chase walks: for a shot (a bolt, the falcon, a mimic's copy), only into its reach
+  // straight toward the monster, which may be up on a ledge or down below one (it flies there
+  // all the same; the way round by a ramp would take her off the other way); for a blow, the
+  // monster itself.
+  function chaseGoal(id: string, m: Monster): { x: number; y: number } {
+    const s = castSkill(id);
+    return s.type !== "cone" && clearShot(player, m) ? shortOf(player, m, lockReach(s) * 0.8 + m.radius) : m;
   }
 
   // Space: lock on to the monster by the mouse pointer and keep attacking it (none there: a

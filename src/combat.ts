@@ -2,7 +2,7 @@
 // bolts and skill shots), the counter, burning, and the floating numbers. Damage numbers come
 // from stats.js.
 
-import { fromView, mapX, mapY, S2, toView } from "./projection";
+import { fromView, heightAt, mapX, mapY, S2, toView } from "./projection";
 import { sound } from "./audio";
 import type { HitSoundCue } from "./audio";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
@@ -190,7 +190,9 @@ export interface ShotSpec {
 interface Projectile {
   x: number;
   y: number;
-  z: number;
+  z: number;      // cm over the ground under it (what it is drawn by)
+  h: number;      // cm over the map's zero: where it really flies
+  lift: number;   // how high over the ground it was let go
   vx: number;
   vy: number;
   left: number;
@@ -375,7 +377,7 @@ export class Combat {
       y += right.y;
     }
     this.projectiles.push({
-      x, y, z, vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
+      x, y, z, h: heightAt(origin.x, origin.y) + z, lift: z, vx: aim.x * p.speed, vy: aim.y * p.speed, left: p.range, kind: p.kind, radius: p.radius,
       color: p.color, vfxTheme: p.vfxTheme, glyph: p.glyph, vfxSignature: p.vfxSignature, weaponSound: p.weaponSound,
       pierce: !!p.pierce, onHit: p.onHit, hitSet: new Set(), age: 0, target: p.target ?? null,
     });
@@ -509,15 +511,24 @@ export class Combat {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       // locked on: it turns to its target wherever that goes (and flies on if it fell)
+      let toGo = 0;
       if (p.target?.alive) {
         const dx = p.target.x - p.x, dy = p.target.y - p.y, d = Math.hypot(dx, dy) || 1, v = Math.hypot(p.vx, p.vy);
         p.vx = (dx / d) * v;
         p.vy = (dy / d) * v;
         p.left = Math.max(p.left, d + 60);
+        toGo = d;
       }
       const step = Math.hypot(p.vx, p.vy) * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      // how high it flies: locked on, on a straight line to as high over the target's ground as
+      // it left hers (up to a ledge or down off one bit by bit, not with a jump at the edge);
+      // else as high over the ground below as it left, eased over a step of the ground
+      const ground = heightAt(p.x, p.y);
+      if (toGo) p.h += (heightAt(p.target!.x, p.target!.y) + p.lift - p.h) * Math.min(1, step / toGo);
+      else p.h += (ground + p.lift - p.h) * Math.min(1, dt * 8);
+      p.z = p.h - ground;
       p.left -= step;
       p.age += dt;
       if ((p.kind !== "bullet" || p.vfxSignature !== undefined) && (p.kind !== "arrow" || !!p.color)) {

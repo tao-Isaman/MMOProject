@@ -1056,6 +1056,8 @@ export interface Shot {
   x: number;
   y: number;
   z: number;     // cm above the ground
+  h?: number;    // a shot: cm over the map's zero, where it really flies (z follows from it)
+  lift?: number; // and how high over the ground it was let go
   vx: number;
   vy: number;
   left: number;  // s until it's spent
@@ -1080,9 +1082,16 @@ export function updateShots(dt: number, ctx: MonsterCtx): void {
     s.t += dt;
     s.left -= dt;
     if (!s.ring) {
+      const at = s.foe ?? ctx.player, there = s.foe ? s.foe.alive : ctx.hero.alive;
+      // on a straight line from as high as it left to as high over her ground: thrown up onto a
+      // ledge or down off one, it climbs or drops on the way, not at the edge
+      const toGo = Math.hypot(at.x - s.x, at.y - s.y), step = Math.hypot(s.vx, s.vy) * dt;
+      s.lift ??= s.z;
+      s.h ??= heightAt(s.x, s.y) + s.z;
+      s.h += (heightAt(at.x, at.y) + s.lift - s.h) * Math.min(1, step / Math.max(toGo, 1));
       s.x += s.vx * dt;
       s.y += s.vy * dt;
-      const at = s.foe ?? ctx.player, there = s.foe ? s.foe.alive : ctx.hero.alive;
+      s.z = s.h - heightAt(s.x, s.y);
       if (there && Math.hypot(at.x - s.x, at.y - s.y) < 55) {
         s.owner.land(ctx, 1, s.foe ?? null);
         s.left = 0;
