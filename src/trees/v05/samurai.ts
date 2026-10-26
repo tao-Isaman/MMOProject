@@ -5,9 +5,9 @@
 // blows that leave the monsters hitting weaker, guards that stand fast for a long fight) and
 // the ranged (a bow or a gun, near and far: a shot that pushes back, a blast at close quarters
 // that throws them off, a step like the wind and quick feet to keep the distance). The ranged
-// skills shoot plain shots in their colour, the same with a bow or a gun. Ten or eleven skills a
-// branch, five of them passives (v0.6: passives added), a little stronger than the third jobs'
-// (the knight's is the measure).
+// skills shoot plain shots in their colour, the same with a bow or a gun. Eight skills a branch:
+// the blade and the vanguard three passives (a body that heals, a wall that stands), the ranged
+// two (all moves); a little stronger than the third jobs' (the knight's is the measure).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -50,13 +50,6 @@ export const SAMURAI_TREES: Record<string, Tree> = {
         skill: { type: "storm", stat: "atk", mult: lin(0.85, 0.105), pulses: 6, every: 0.18, drain: () => 0.05, mp: 52, cd: 16, motion: "swing", radius: 260,
           combo: { after: ["samurai_blade_gale"], within: 4, more: () => 0.35 }, color: "#ffc8dc" },
         desc: (r) => `ฟันรอบตัวรัศมี 2.6 ม. 6 ครั้งรวดดั่งกลีบซากุระร่วง ครั้งละ ${pct(lin(0.85, 0.105)(r))} ของพลังโจมตี ฟื้น HP 5% ของดาเมจที่ทำ ใช้ต่อจากฟันลมกรดสามจังหวะภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือดาบ ขวาน หรือหอกสองมือ` },
-      // v0.6: two more passives (a deeper stillness, an edge without doubt)
-      { id: "samurai_blade_depth", name: "สมาธิลึกล้ำ", kind: "passive", max: 5, pos: [3, 1], req: [["samurai_blade_zen", 3]], glyph: "heal",
-        stats: (r) => ({ healPct: 0.03 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `สกิลรักษาแรงขึ้น ${pct(0.03 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
-      { id: "samurai_blade_resolve", name: "คมดาบไร้ลังเล", kind: "passive", max: 5, pos: [0, 2], req: [["samurai_blade_thirst", 3]], glyph: "sword", need: TWO_HANDED,
-        stats: (r) => ({ critDmg: 0.04 * r }),
-        desc: (r) => `แรงคริติคอล +${pct(0.04 * r)} เมื่อถือดาบ ขวาน หรือหอกสองมือ` },
     ],
   },
   // ---- the vanguard: the front line, a wall of HP and armour ----
@@ -90,15 +83,7 @@ export const SAMURAI_TREES: Record<string, Tree> = {
       { id: "samurai_vanguard_breaker", name: "ทลายทัพกลางสมรภูมิ", kind: "active", max: 5, pos: [1, 2], req: [["samurai_vanguard_hilt", 5], ["samurai_vanguard_laststand", 1]], glyph: "burst", need: TWO_HANDED,
         skill: { type: "nova", stat: "atk", mult: lin(1.8, 0.22), hits: 3, stun: () => 1, weaken: () => 0.2, debuff: 12, mp: 54, cd: 18, motion: "swing", radius: 270,
           combo: { after: ["samurai_vanguard_hilt"], within: 4, more: () => 0.3 }, color: "#fff0e0" },
-        desc: (r) => `ฟาดอาวุธทลายทัพรอบตัวรัศมี 2.7 ม. 3 ระลอก ระลอกละ ${pct(lin(1.8, 0.22)(r))} ของพลังโจมตี ทุกตัวมึน 1 วิ และตีเบาลง 20% 12 วิ ใช้ต่อจากกระแทกด้ามดาบภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือดาบ ขวาน หรือหอกสองมือ` },
-      // v0.6: two more passives (a glare that cows the line, armour under armour)
-      { id: "samurai_vanguard_glare", name: "ข่มขวัญศัตรู", kind: "passive", max: 5, pos: [3, 1], req: [["samurai_vanguard_resolve", 3]], glyph: "eye", need: TWO_HANDED,
-        stats: (r) => ({ atkPct: 0.012 * r, hit: 3 * r }),
-        desc: (r) => `พลังโจมตี +${pct(0.012 * r)} ความแม่นยำ +${3 * r} เมื่อถือดาบ ขวาน หรือหอกสองมือ` },
-      { id: "samurai_vanguard_oyoroi", name: "เกราะโอโยโรย", kind: "passive", max: 5, pos: [0, 2], req: [["samurai_vanguard_root", 3]], glyph: "shield",
-        stats: (r) => ({ defPct: 0.015 * r, mdefPct: 0.015 * r }),
-        desc: (r) => `ป้องกันและต้านเวท +${pct(0.015 * r)}` },
-    ],
+        desc: (r) => `ฟาดอาวุธทลายทัพรอบตัวรัศมี 2.7 ม. 3 ระลอก ระลอกละ ${pct(lin(1.8, 0.22)(r))} ของพลังโจมตี ทุกตัวมึน 1 วิ และตีเบาลง 20% 12 วิ ใช้ต่อจากกระแทกด้ามดาบภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือดาบ ขวาน หรือหอกสองมือ` },    ],
   },
   // ---- the ranged: near and far with a bow or a gun, the distance kept ----
   samurai_ranged: {
@@ -133,16 +118,6 @@ export const SAMURAI_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "atk", mult: lin(2.1, 0.26), hits: 3, every: 0.25, mp: 54, cd: 16, motion: "shoot", range: 800, radius: 240, delay: 0.3,
           combo: { after: ["samurai_ranged_pin"], within: 4, more: () => 0.35 }, color: "#fff4e0" },
         desc: (r) => `ยิงขึ้นฟ้าให้ห่าเหล็กตกลงจุดที่เล็ง (ไกลสุด 8 ม.) รัศมี 2.4 ม. 3 ระลอก ระลอกละ ${pct(lin(2.1, 0.26)(r))} ของพลังโจมตี ใช้ต่อจากยิงตรึงเงาภายใน 4 วิ แรงขึ้น 35% ใช้ได้เมื่อถือธนูหรือปืน` },
-      // v0.6: three more passives (a quick draw, the vital spot, a marksman's breath)
-      { id: "samurai_ranged_draw", name: "ง้างไวยิงไว", kind: "passive", max: 5, pos: [3, 1], req: [["samurai_ranged_step", 1]], glyph: "arrow", need: RANGED,
-        stats: (r) => ({ aspd: 0.015 * r }),
-        desc: (r) => `ความเร็วโจมตี +${pct(0.015 * r)} เมื่อถือธนูหรือปืน` },
-      { id: "samurai_ranged_vital", name: "เล็งจุดตาย", kind: "passive", max: 5, pos: [0, 2], req: [["samurai_ranged_feet", 3]], glyph: "target", need: RANGED,
-        stats: (r) => ({ crit: 0.006 * r, critDmg: 0.02 * r }),
-        desc: (r) => `โอกาสคริติคอล +${pct(0.006 * r)} แรงคริติคอล +${pct(0.02 * r)} เมื่อถือธนูหรือปืน` },
-      { id: "samurai_ranged_breath", name: "ลมหายใจผู้เล็ง", kind: "passive", max: 5, pos: [2, 2], req: [["samurai_ranged_pin", 3]], glyph: "eye", need: RANGED,
-        stats: (r) => ({ hit: 4 * r, mpRegen: n1(0.4 * r) }),
-        desc: (r) => `ความแม่นยำ +${4 * r} ฟื้น MP +${n1(0.4 * r)}/วิ เมื่อถือธนูหรือปืน` },
     ],
   },
 };

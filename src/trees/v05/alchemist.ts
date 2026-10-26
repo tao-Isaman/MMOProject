@@ -5,10 +5,11 @@
 // (heavy bombs of metal that tears the armour, stone that stuns and mud that holds, a powder that
 // makes them burn hotter, down to the great transmutation blast) and the synthesis (the four
 // elements of alchemy made into crystals: four-and-a-half-minute blessings of elemental attack and defence
-// a team can be given later, a draught that heals over time, a made body with a great deal of HP
-// and blows of matter at close quarters). Eleven skills a branch, five of them passives (v0.6:
-// three passives added to each), a little stronger than the third
-// jobs' (the sculptor's golems, the hunter's wolves and the knight's blows are the measure).
+// a team can be given later, crystals set in the skin, a made body with a great deal of HP and
+// blows of matter at close quarters). Eight skills a branch: the homunculus and the bomb, many
+// moves, keep two passives; the synthesis, a made body, has three (v0.6: the crystals in the skin
+// took the draught's place). A little stronger than the third jobs' (the sculptor's golems, the
+// hunter's wolves and the knight's blows are the measure).
 // Coming from any third job, the alchemist fights with whatever she holds, on attack and magic
 // attack together (stat "both"), and no skill asks for a weapon.
 import type { Tree } from "../../progression";
@@ -55,16 +56,6 @@ export const ALCHEMIST_TREES: Record<string, Tree> = {
         skill: { type: "beam", stat: "both", mult: lin(1.9, 0.24), hits: 3, mp: 48, cd: 16, motion: "cast", length: 650, width: 90,
           combo: { after: ["alchemist_homunculus_acid"], within: 4, more: () => 0.35 }, color: "#c8fff0" },
         desc: (r) => `เทสสารบริสุทธิ์จากขวดพุ่งเป็นสายยาว 6.5 ม. ทะลุทุกตัวในแนว 3 ครั้ง ครั้งละ ${pct(lin(1.9, 0.24)(r))} ของพลังโจมตีและพลังเวท ใช้ต่อจากขวดกรดสังเคราะห์ภายใน 4 วิ แรงขึ้น 35%` },
-      // v0.6: three more passives (sustain for the maker, a sturdier guard, a coat against the acid)
-      { id: "alchemist_homunculus_flask", name: "มือชำนาญหลอมขวด", kind: "passive", max: 5, pos: [3, 0], glyph: "drop",
-        stats: (r) => ({ mpRegen: n1(0.4 * r), cdr: 0.01 * r }),
-        desc: (r) => `ฟื้น MP +${n1(0.4 * r)}/วิ ลดคูลดาวน์ ${pct(0.01 * r)} (ปั้นโฮมุนครุสได้ถี่ขึ้น)` },
-      { id: "alchemist_homunculus_kin", name: "สายเลือดสไลม์", kind: "passive", max: 5, pos: [1, 2], req: [["alchemist_homunculus_guard", 3]], glyph: "shield",
-        stats: (r) => ({ allyPct: 0.02 * r, defPct: 0.02 * r }),
-        desc: (r) => `ผู้ช่วยทุกตัว HP และแรงตี +${pct(0.02 * r)} ป้องกัน +${pct(0.02 * r)}` },
-      { id: "alchemist_homunculus_coat", name: "น้ำยาเคลือบกาย", kind: "passive", max: 5, pos: [3, 1], req: [["alchemist_homunculus_acid", 3]], glyph: "ring",
-        stats: (r) => ({ statusRes: 0.02 * r, mdefPct: 0.02 * r }),
-        desc: (r) => `ทาน้ำยาเคลือบผิวกันกรดและพิษ ต้านสถานะ ${pct(0.02 * r)} ต้านเวท +${pct(0.02 * r)}` },
     ],
   },
   // ---- the bomb: metal that tears, stone that stuns, mud that holds ----
@@ -98,22 +89,12 @@ export const ALCHEMIST_TREES: Record<string, Tree> = {
         skill: { type: "blast", stat: "both", mult: lin(6.2, 0.78), stun: lin(1, 0.15), mp: 50, cd: 16, cast: 1, motion: "cast", range: 550, radius: 300, delay: 0.8,
           combo: { after: ["alchemist_bomb_cluster"], within: 4, more: () => 0.35 }, color: "#fff0c8" },
         desc: (r) => `ร่ายแล้วปาระเบิดที่ผสานเหล็ก หิน และโคลนลงจุดที่เล็ง รัศมี 3 ม. ${pct(lin(6.2, 0.78)(r))} ของพลังโจมตีและพลังเวท มึน ${n1(lin(1, 0.15)(r))} วิ ใช้ต่อจากระเบิดพวงสามลูกภายใน 4 วิ แรงขึ้น 35%` },
-      // v0.6: three more passives (a quicker fuse, an apron against the blasts, the same spot again)
-      { id: "alchemist_bomb_fuse", name: "ชนวนสั้น", kind: "passive", max: 5, pos: [3, 1], req: [["alchemist_bomb_mud", 3]], glyph: "flame",
-        stats: (r) => ({ castRed: 0.03 * r, mpRegen: n1(0.3 * r) }),
-        desc: (r) => `ลดเวลาร่าย ${pct(0.03 * r)} ฟื้น MP +${n1(0.3 * r)}/วิ` },
-      { id: "alchemist_bomb_apron", name: "ผ้ากันสะเก็ด", kind: "passive", max: 5, pos: [0, 2], req: [["alchemist_bomb_recipe", 3]], glyph: "shield",
-        stats: (r) => ({ dmgRed: 0.006 * r, maxHpPct: 0.012 * r }),
-        desc: (r) => `ลดความเสียหาย ${pct(0.006 * r)} HP สูงสุด +${pct(0.012 * r)}` },
-      { id: "alchemist_bomb_demolish", name: "ช่างรื้อถอน", kind: "passive", max: 5, pos: [2, 2], req: [["alchemist_bomb_cluster", 3]], glyph: "burst",
-        stats: (r) => ({ critDmg: 0.04 * r, ...BOMBS(r) }),
-        desc: (r) => `แรงคริติคอล +${pct(0.04 * r)} พลังโจมตีธาตุโลหะ หิน และโคลน +${r}` },
     ],
   },
   // ---- the synthesis: crystals of the four elements, a draught, a made body that fights close ----
   alchemist_synth: {
     name: "ธาตุสังเคราะห์", cls: null, job4: "alchemist", color: "#a0c8e8", glyph: "drop",
-    note: "สังเคราะห์ธาตุทั้งสี่ของการแปรธาตุ (ดิน น้ำ ลม ไฟ) เป็นผลึก บัฟพลังโจมตีธาตุและป้องกันธาตุนาน 4 นาที 30 วิที่ให้ทั้งทีมได้ ยาสังเคราะห์ชีวิตที่ค่อย ๆ ฟื้น HP กายสังเคราะห์ที่ HP สูงและทนทาน แล้วเข้าตีประชิดด้วยสสารที่สังเคราะห์ไว้ (ได้โบนัสธาตุจากผลึกทุกครั้ง): ฟาดสสารสังเคราะห์ → คลื่นสสารแปรธาตุ → มหาสังเคราะห์ ใช้ได้กับทุกอาวุธ สกิลใช้ทั้งพลังโจมตีและพลังเวท",
+    note: "สังเคราะห์ธาตุทั้งสี่ของการแปรธาตุ (ดิน น้ำ ลม ไฟ) เป็นผลึก บัฟพลังโจมตีธาตุและป้องกันธาตุนาน 4 นาที 30 วิที่ให้ทั้งทีมได้ ผลึกที่ฝังในกายกันธาตุไว้ตลอดเวลา กายสังเคราะห์ที่ HP สูงและทนทาน แล้วเข้าตีประชิดด้วยสสารที่สังเคราะห์ไว้ (ได้โบนัสธาตุจากผลึกทุกครั้ง): ฟาดสสารสังเคราะห์ → คลื่นสสารแปรธาตุ → มหาสังเคราะห์ ใช้ได้กับทุกอาวุธ สกิลใช้ทั้งพลังโจมตีและพลังเวท",
     nodes: [
       { id: "alchemist_synth_flesh", name: "กายสังเคราะห์", kind: "passive", max: 10, pos: [0, 0], glyph: "heart",
         stats: (r) => ({ maxHpPct: 0.018 * r, hpRegen: n1(0.8 * r) }),
@@ -134,24 +115,14 @@ export const ALCHEMIST_TREES: Record<string, Tree> = {
         skill: { type: "nova", stat: "both", mult: lin(1.2, 0.12), hits: 2, mp: 20, cd: 6, motion: "swing", radius: 240,
           combo: { after: ["alchemist_synth_strike"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#d0ecff" },
         desc: (r) => `แปรสสารเป็นคลื่นซัดรอบตัวรัศมี 2.4 ม. 2 ระลอก ระลอกละ ${pct(lin(1.2, 0.12)(r))} ของพลังโจมตีและพลังเวท ใช้ต่อจากฟาดสสารสังเคราะห์ภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
-      // heals over five seconds (hot): a draught, not a light
-      { id: "alchemist_synth_elixir", name: "ยาสังเคราะห์ชีวิต", kind: "active", max: 5, pos: [2, 1], req: [["alchemist_synth_edge", 3]], glyph: "heal",
-        skill: { type: "heal", stat: "matk", mult: lin(1.2, 0.15), heal: lin(0.16, 0.025), hot: true, ticks: 5, mp: 28, cd: 12, motion: "cast", color: "#b8ffd8" },
-        desc: (r) => `ดื่มยาสังเคราะห์ชีวิต ฟื้น HP รวม ${pct(lin(0.16, 0.025)(r))} ของ HP สูงสุด + ${pct(lin(1.2, 0.15)(r))} ของพลังเวท ค่อย ๆ ฟื้นทีละส่วนตลอด 5 วิ` },
-      { id: "alchemist_synth_grand", name: "มหาสังเคราะห์", kind: "active", max: 5, pos: [1, 2], req: [["alchemist_synth_wave", 5], ["alchemist_synth_elixir", 1]], glyph: "star",
+      // (v0.6: the crystals set in the skin, a passive, took the draught's place)
+      { id: "alchemist_synth_inlay", name: "ผลึกฝังกาย", kind: "passive", max: 5, pos: [2, 1], req: [["alchemist_synth_ward", 3]], glyph: "ring",
+        stats: (r) => ({ ...FOUR("Def", 2 * r), mdefPct: 0.015 * r }),
+        desc: (r) => `ป้องกันธาตุดิน น้ำ ลม และไฟ +${2 * r} ต้านเวท +${pct(0.015 * r)}` },
+      { id: "alchemist_synth_grand", name: "มหาสังเคราะห์", kind: "active", max: 5, pos: [1, 2], req: [["alchemist_synth_wave", 5], ["alchemist_synth_edge", 1]], glyph: "star",
         skill: { type: "cone", stat: "both", mult: lin(6.1, 0.76), stun: () => 1, mp: 50, cd: 16, motion: "swing", reach: 190, arc: 50,
           combo: { after: ["alchemist_synth_wave"], within: 4, more: () => 0.4 }, color: "#f0f8ff" },
         desc: (r) => `สังเคราะห์ธาตุทั้งสี่เป็นก้อนเดียวแล้วฟาดใส่ตัวที่ล็อกไว้ ${pct(lin(6.1, 0.76)(r))} ของพลังโจมตีและพลังเวท มึน 1 วิ ใช้ต่อจากคลื่นสสารแปรธาตุภายใน 4 วิ แรงขึ้น 40%` },
-      // v0.6: three more passives (crystals set in the skin, a made heart, dense matter)
-      { id: "alchemist_synth_inlay", name: "ผลึกฝังกาย", kind: "passive", max: 5, pos: [3, 1], req: [["alchemist_synth_ward", 3]], glyph: "ring",
-        stats: (r) => ({ ...FOUR("Def", 2 * r), mdefPct: 0.015 * r }),
-        desc: (r) => `ป้องกันธาตุดิน น้ำ ลม และไฟ +${2 * r} ต้านเวท +${pct(0.015 * r)}` },
-      { id: "alchemist_synth_heart", name: "หัวใจสังเคราะห์", kind: "passive", max: 5, pos: [0, 2], req: [["alchemist_synth_blood", 3]], glyph: "heal",
-        stats: (r) => ({ hpRegen: r, healPct: 0.03 * r }),
-        desc: (r) => `ฟื้น HP +${r}/วิ สกิลรักษาแรงขึ้น ${pct(0.03 * r)}` },
-      { id: "alchemist_synth_dense", name: "สสารหนาแน่น", kind: "passive", max: 5, pos: [2, 2], req: [["alchemist_synth_wave", 3]], glyph: "bash",
-        stats: (r) => ({ aspd: 0.015 * r, ...FOUR("Atk", r) }),
-        desc: (r) => `ความเร็วโจมตี +${pct(0.015 * r)} พลังโจมตีธาตุดิน น้ำ ลม และไฟ +${r}` },
     ],
   },
 };
