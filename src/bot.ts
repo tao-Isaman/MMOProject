@@ -101,7 +101,7 @@ export function skillReach(s: SkillDef): { reach: number; area: number; self: bo
     case "cone": return { reach: (s.reach ?? 150) * 0.9, area: (s.reach ?? 150) * 0.9, self: true };
     case "nova": case "storm": return { reach: (s.radius ?? 200) * 0.85, area: (s.radius ?? 200) * 0.85, self: true };
     case "flower": return { reach: (s.radius ?? 450) * 0.75, area: (s.radius ?? 450) * 0.75, self: true };
-    case "mimic": return { reach: (s.range ?? 600) * 0.9, area: 160, self: false };
+    case "mimic": case "falcon": return { reach: (s.range ?? 600) * 0.9, area: 160, self: false };
     // an invoke as far as the nearest-reaching of its spells
     case "invoke": return { reach: Math.min(...Object.values(s.invoke ?? {}).map((x) => skillReach(x.skill).reach)), area: 160, self: false };
     default: return { reach: Infinity, area: 300, self: true };
@@ -565,7 +565,7 @@ export class Bot {
         if (this.mp(r.id) + this.floor(false) <= hero.stats.maxMp) reserve = Math.max(reserve, this.mp(r.id));
         continue;
       }
-      if (a.skill.type === "invoke" ? this.invoke(r.id, t, dist, reserve) : this.cast(r.id, t)) return true;
+      if (a.skill.type === "invoke" ? this.invoke(r.id, t, dist, reserve) : this.cast(r.id, t, t)) return true;
     }
     return false;
   }
@@ -593,7 +593,7 @@ export class Bot {
       if (best?.length === 0) break;
     }
     if (!best) return false;
-    if (!best.length) return this.cast(id, t);
+    if (!best.length) return this.cast(id, t, t);
     const next = orbs.get(best[0])!;
     return this.ready(next, false, reserve) && this.cast(next, null);
   }
@@ -611,8 +611,11 @@ export class Bot {
     return null;
   }
 
-  cast(id: string, aim: Vec2 | null): boolean {
-    const why = this.d.skills.use(id, aim ? { x: aim.x, y: aim.y } : null);
+  // A skill at `aim`; one that locks on (a shot, a falcon) takes `only` that monster, the bot's
+  // own target, never another nearer the aim (else a crab beside the pirate it was told to leave
+  // would get the arrow, turn on her and be fought as a threat).
+  cast(id: string, aim: Vec2 | null, only: Monster | null = null): boolean {
+    const why = this.d.skills.use(id, aim ? { x: aim.x, y: aim.y } : null, only);
     if (why) return false;
     this.d.onSkill?.(id);
     return true;

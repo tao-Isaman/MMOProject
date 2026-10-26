@@ -340,9 +340,11 @@ export class Skills {
   }
 
   // The monster a single-target skill locks on to: the player's target, else the one nearest
-  // the aimed spot, else the nearest in front, within its reach.
-  lockFor(s: SkillDef, aim: Vec2 | null, dir: Vec2): Monster | null {
+  // the aimed spot, else the nearest in front, within its reach. Told `only` one (the bot's
+  // target), that one in reach or none.
+  lockFor(s: SkillDef, aim: Vec2 | null, dir: Vec2, only: Monster | null = null): Monster | null {
     const p = this.player, reach = lockReach(s);
+    if (only) return only.alive && this.monsters.includes(only) && Math.hypot(only.x - p.x, only.y - p.y) - only.radius <= reach ? only : null;
     const t = p.target as Monster | null;
     if (t?.alive && this.monsters.includes(t) && Math.hypot(t.x - p.x, t.y - p.y) - t.radius <= reach) return t;
     if (aim) {
@@ -365,11 +367,12 @@ export class Skills {
   }
 
   // Try a skill toward a world point. Returns null when it goes off (or its cast starts), or why
-  // not. (An invoke casts its spell: from here on `id` is the spell's key, spellFor.)
-  use(slot: string, aim: Vec2 | null): string | null {
+  // not. (An invoke casts its spell: from here on `id` is the spell's key, spellFor.) `only`: a
+  // single-target skill may lock on to that monster alone (lockFor).
+  use(slot: string, aim: Vec2 | null, only: Monster | null = null): string | null {
     const no = this.why(slot);
     if (no) return no;
-    if (this.copy?.id === slot) return this.fireCopy(aim);
+    if (this.copy?.id === slot) return this.fireCopy(aim, only);
     // a form she is in: herself again, free (main.ts shows her change back)
     if (ACTIVES[slot].skill.type === "form" && this.hero.form?.id === slot) {
       this.hero.endForm();
@@ -382,7 +385,7 @@ export class Skills {
       const dx = aim.x - this.player.x, dy = aim.y - this.player.y, d = Math.hypot(dx, dy);
       if (d > 1) dir0 = { x: dx / d, y: dy / d };
     }
-    const lock = singleTarget(s) ? this.lockFor(s, aim, dir0) : null;
+    const lock = singleTarget(s) ? this.lockFor(s, aim, dir0, only) : null;
     if (singleTarget(s) && !lock) return "ไม่มีเป้าหมายในระยะ";
     const p = this.player;
     const dir = lock ? toward(p, lock) ?? dir0 : dir0;
@@ -999,11 +1002,11 @@ export class Skills {
   }
 
   // The slot fires the copy: no MP, a short gap, one use less.
-  fireCopy(aim: Vec2 | null): string | null {
+  fireCopy(aim: Vec2 | null, only: Monster | null = null): string | null {
     const c = this.copy!, s = ACTIVES[c.id].skill, cs = this.copySkill(c), p = this.player;
     let dir0 = p.facing();
     if (aim) dir0 = toward(p, aim) ?? dir0;
-    const lock = this.lockFor(cs, aim, dir0);
+    const lock = this.lockFor(cs, aim, dir0, only);
     if (!lock) return "ไม่มีเป้าหมายในระยะ";
     const dir = toward(p, lock) ?? dir0, gap = (s.every ?? 0.8) * (1 - this.hero.stats.cdr);
     this.hero.cooldowns.set(c.id, gap);
