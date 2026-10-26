@@ -1,15 +1,16 @@
 // The historian's branches (third job, from any second job): the naturalist and the
 // archaeologist. A historian may have been anything before, so nothing here asks for a weapon and
 // every blow is on attack and magic attack together (stat "both"). The naturalist knows where a
-// monster is weak: a pin that opens it up, spores that weaken and blind a crowd, a lens that burns
-// through a line, field notes that make every blow on the kinds they cover land harder (the
-// monster races, <race>Dmg) for three minutes, and more drops from what falls. The archaeologist
+// monster is weak: a pin that opens it up, spores that weaken and blind a crowd, field notes
+// that make every blow on the kinds they cover land harder (the monster races, <race>Dmg) for
+// three minutes, and more drops from what falls. The archaeologist
 // knows the land (src/terrain.ts): a passive and two buffs whose stats change with the kind of map
 // underfoot (the ruins most of all), the land's own element to guard with and the one its
 // monsters don't guard against to hit with, a dig, a quicksand pit and an ancient inscription
 // that falls from the sky; and an eye for old things that buys cheap and sells dear. The field
 // notes and the land buffs last three minutes (a party will share them later), on short
-// cooldowns. Nine or ten skills a branch, four of them passives.
+// cooldowns. Seven skills a branch, two of them passives: both work through what they do
+// (pins, spores, notes, digs, readings of the land), not through a way of being.
 import type { StatBag, TerrainKind, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -60,27 +61,17 @@ export const HISTORIAN_TREES: Record<string, Tree> = {
         skill: { type: "buff", mp: 30, cd: 20, motion: "cast", duration: 180, color: "#c0e098",
           buff: (r) => { const v = 0.05 + 0.03 * r; return { bruteDmg: v, insectDmg: v, fishDmg: v, plantDmg: v }; } },
         desc: (r) => `3 นาที: ดาเมจใส่สัตว์ แมลง สัตว์น้ำ และพืช +${pct(0.05 + 0.03 * r)}` },
-      { id: "historian_nature_lens", name: "แว่นขยายรวมแสง", kind: "active", max: 10, pos: [1, 1], req: [["historian_nature_pin", 4]], glyph: "beam",
-        skill: { type: "beam", stat: "both", mult: lin(2.2, 0.22), mp: 18, cd: 6, motion: "cast", length: 560, width: 60,
-          combo: { after: ["historian_nature_pin"], within: 3, more: (r) => 0.25 + 0.03 * r }, color: "#fff4b0" },
-        desc: (r) => `รวมแสงผ่านแว่นขยายเป็นลำยาว 5.6 ม. ทะลุทุกตัว ${pct(lin(2.2, 0.22)(r))} ของพลังโจมตีและพลังเวท ใช้ต่อจากปักหมุดจุดอ่อนภายใน 3 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)}` },
       { id: "historian_nature_occult", name: "บันทึกสิ่งเร้นลับ", kind: "active", max: 5, pos: [2, 1], req: [["historian_nature_spores", 3]], glyph: "horns",
         skill: { type: "buff", mp: 30, cd: 20, motion: "cast", duration: 180, color: "#b8a0d8",
           buff: (r) => { const v = 0.05 + 0.03 * r; return { undeadDmg: v, demonDmg: v, formlessDmg: v, dragonDmg: v, angelDmg: v }; } },
         desc: (r) => `3 นาที: ดาเมจใส่อันเดด ปีศาจ ไร้รูป มังกร และเทวะ +${pct(0.05 + 0.03 * r)}` },
-      { id: "historian_nature_fieldwork", name: "ชีวิตภาคสนาม", kind: "passive", max: 10, pos: [3, 0], glyph: "leaf",
-        stats: (r) => ({ maxHpPct: 0.01 * r, hpRegen: 0.4 * r }),
-        desc: (r) => `HP สูงสุด +${pct(0.01 * r)} ฟื้น HP +${n1(0.4 * r)}/วิ` },
       { id: "historian_nature_anatomy", name: "ตำรากายวิภาค", kind: "passive", max: 10, pos: [3, 1], req: [["historian_nature_spores", 3]], glyph: "target",
         stats: (r) => ({ crit: 0.004 * r, critDmg: 0.015 * r }),
         desc: (r) => `โอกาสคริติคอล +${pct(0.004 * r)} แรงคริติคอล +${pct(0.015 * r)}` },
-      { id: "historian_nature_taxonomy", name: "อนุกรมวิธาน", kind: "passive", max: 5, pos: [0, 2], req: [["historian_nature_bestiary", 1]], glyph: "letter",
-        stats: (r) => ({ buffTime: 0.03 * r, xpPct: 0.02 * r }),
-        desc: (r) => `บัฟทุกอย่างอยู่นานขึ้น ${pct(0.03 * r)} (รวมบันทึกสัตว์ป่าและบันทึกสิ่งเร้นลับ) ค่าประสบการณ์ +${pct(0.02 * r)}` },
-      { id: "historian_nature_fang", name: "เขี้ยวดึกดำบรรพ์", kind: "active", max: 5, pos: [1, 2], req: [["historian_nature_lens", 5], ["historian_nature_bestiary", 1]], glyph: "dragon",
+      { id: "historian_nature_fang", name: "เขี้ยวดึกดำบรรพ์", kind: "active", max: 5, pos: [1, 2], req: [["historian_nature_pin", 5], ["historian_nature_bestiary", 1]], glyph: "dragon",
         skill: { type: "bolt", stat: "both", mult: lin(5.2, 0.65), expose: (r) => 0.1 + 0.02 * r, weaken: (r) => 0.1 + 0.02 * r, debuff: 12, mp: 48, cd: 15, motion: "cast",
-          speed: 1100, range: 650, radius: 40, combo: { after: ["historian_nature_lens"], within: 4, more: () => 0.35 }, color: "#e8f0c0" },
-        desc: (r) => `ปล่อยวิญญาณสัตว์ดึกดำบรรพ์ขย้ำตัวที่ล็อกไว้ ${pct(lin(5.2, 0.65)(r))} ของพลังโจมตีและพลังเวท เป้ารับดาเมจเพิ่ม ${pct(0.1 + 0.02 * r)} และตีเบาลง ${pct(0.1 + 0.02 * r)} 12 วิ ใช้ต่อจากแว่นขยายรวมแสงภายใน 4 วิ แรงขึ้น 35%` },
+          speed: 1100, range: 650, radius: 40, combo: { after: ["historian_nature_pin"], within: 4, more: () => 0.35 }, color: "#e8f0c0" },
+        desc: (r) => `ปล่อยวิญญาณสัตว์ดึกดำบรรพ์ขย้ำตัวที่ล็อกไว้ ${pct(lin(5.2, 0.65)(r))} ของพลังโจมตีและพลังเวท เป้ารับดาเมจเพิ่ม ${pct(0.1 + 0.02 * r)} และตีเบาลง ${pct(0.1 + 0.02 * r)} 12 วิ ใช้ต่อจากปักหมุดจุดอ่อนภายใน 4 วิ แรงขึ้น 35%` },
     ],
   },
   // ---- the archaeologist: the land underfoot, old things, an inscription from the past ----
@@ -128,13 +119,6 @@ export const HISTORIAN_TREES: Record<string, Tree> = {
           terrain: (r) => Object.fromEntries(LAND_ELEMENTS.map(([kind, , hit, guard]) => [kind, { [`${hit}Atk`]: 12 * r, [`${guard}Def`]: 10 * r }])) },
         desc: (r) => `3 นาที: พลังโจมตีธาตุที่มอนสเตอร์แถวนั้นไม่ทน +${12 * r} และป้องกันธาตุของแผ่นดิน +${10 * r} ตามพื้นที่ที่ยืน (โจมตี/ป้องกัน): `
           + LAND_ELEMENTS.map(([, words, hit, guard]) => `${words} ${ELEMENT_WORDS[hit]}/${ELEMENT_WORDS[guard]}`).join(" · ") + " (ในเมืองไม่มีผล)" },
-      { id: "historian_archaeo_relic", name: "เครื่องรางโบราณ", kind: "passive", max: 10, pos: [0, 1], req: [["historian_archaeo_appraise", 3]], glyph: "trinket",
-        stats: (r) => ({ mdefPct: 0.012 * r, goldPct: 0.02 * r }),
-        desc: (r) => `ต้านเวท +${pct(0.012 * r)} เงินจากมอนสเตอร์ +${pct(0.02 * r)}` },
-      { id: "historian_archaeo_stratum", name: "ขุดถึงชั้นหิน", kind: "passive", max: 5, pos: [3, 1], req: [["historian_archaeo_scout", 3]], glyph: "down",
-        stats: (r) => ({ pierce: 0.012 * r, cdr: 0.006 * r }),
-        terrain: (r) => ({ ruins: { pierce: 0.012 * r } }),
-        desc: (r) => `เจาะเกราะ +${pct(0.012 * r)} ลดคูลดาวน์ +${pct(0.006 * r)} ในซากโบราณเจาะเกราะอีก +${pct(0.012 * r)}` },
       { id: "historian_archaeo_epoch", name: "จารึกแห่งกาลเวลา", kind: "active", max: 5, pos: [1, 2], req: [["historian_archaeo_quicksand", 5], ["historian_archaeo_wisdom", 1]], glyph: "letter",
         skill: { type: "blast", stat: "both", mult: lin(5.0, 0.62), stun: () => 1.5, mp: 50, cd: 16, motion: "cast", range: 520, radius: 220, delay: 0.5,
           combo: { after: ["historian_archaeo_quicksand"], within: 4, more: () => 0.3 }, color: "#f0dca0" },
