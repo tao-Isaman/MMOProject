@@ -176,14 +176,18 @@ for (const [id, t] of Object.entries(P.TREES)) {
   if (!glyphs.has(t.glyph)) bad(id, `tree glyph "${t.glyph}" unknown`);
   if (!t.name || !t.note || !/^#[0-9a-f]{6}$/i.test(t.color || "")) bad(id, "tree needs name, note and a #rrggbb color");
   const spots = new Set(), byId = Object.fromEntries(t.nodes.map((n) => [n.id, n]));
-  // a class tree has TREE_SKILLS[1] skills, a job branch TREE_SKILLS[2], a third job's
-  // TREE_SKILLS[3], a fourth's TREE_SKILLS[4]; a book tree 6-16; a stub what it has so far (only
-  // a job's branch may be one)
-  const want = t.cls ? P.TREE_SKILLS[1] : t.job ? P.TREE_SKILLS[2] : t.job3 ? P.TREE_SKILLS[3] : t.job4 ? P.TREE_SKILLS[4] : null;
+  // a class tree has at least TREE_SKILLS[1] skills, TREE_PASSIVES[1] of them passives; a job
+  // branch TREE_SKILLS[2] and TREE_PASSIVES[2], a third job's [3], a fourth's [4]; at most 16 (the
+  // 4 x 4 grid); a book tree 6-16; a stub what it has so far (only a job's branch may be one)
+  const tier = t.cls ? 1 : t.job ? 2 : t.job3 ? 3 : t.job4 ? 4 : 0;
+  const want = tier ? P.TREE_SKILLS[tier] : null, wantPassives = tier ? P.TREE_PASSIVES[tier] : 0;
+  const what = ["", "class tree", "job branch", "third job's branch", "fourth job's branch"][tier];
+  const passives = t.nodes.filter((n) => n.kind === "passive").length;
   if (t.stub && !t.job && !t.job3 && !t.job4) bad(id, "only a job's branch can be a stub");
   if (t.stub && (t.job ? P.jobOpen(t.job) : t.job3 ? P.job3Open(t.job3) : t.job4 && P.job4Open(t.job4))) bad(id, "a stub, but its job is open");
-  if (t.stub) { if (t.nodes.length > (want || 16)) bad(id, `${t.nodes.length} nodes`); }
-  else if (want && t.nodes.length !== want) bad(id, `${t.nodes.length} nodes (a ${t.cls ? "class tree" : t.job ? "job branch" : t.job3 ? "third job's branch" : "fourth job's branch"} has ${want})`);
+  if (t.stub) { if (t.nodes.length > 16) bad(id, `${t.nodes.length} nodes`); }
+  else if (want && (t.nodes.length < want || t.nodes.length > 16)) bad(id, `${t.nodes.length} nodes (a ${what} has ${want}-16)`);
+  else if (want && passives < wantPassives) bad(id, `${passives} passives (a ${what} has at least ${wantPassives})`);
   else if (!want && (t.nodes.length < 6 || t.nodes.length > 16)) bad(id, `${t.nodes.length} nodes (6-16 fit the window)`);
   for (const n of t.nodes) {
     const where = `${id}.${n.id}`;
