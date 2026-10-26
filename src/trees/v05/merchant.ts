@@ -1,6 +1,6 @@
 // The merchant's branches (second job, docs/v05_jobs.md): merchant_trade and merchant_cart.
-// At least six skills a branch (TREE_SKILLS[2]) and three of them passives (TREE_PASSIVES[2]),
-// like the other second jobs' (v0.6 gave the cart a seventh skill for it). The stall comes with the job
+// Six skills a branch (TREE_SKILLS[2]), two to four of them passives (TREE_PASSIVES) as the branch's
+// idea asks: trade is mostly passive (four), the cart a fighter (two). The stall comes with the job
 // itself (JOBS.merchant.skill), not with a branch.
 //   trade  the wandering merchant's book made stronger (shop prices, a bigger bag, more gold),
 //          a stall that draws customers sooner and sells dearer, and coins thrown at a cost
@@ -60,9 +60,6 @@ export const MERCHANT_TREES: Record<string, Tree> = {
       { id: "cart_invest", name: "ทุ่มทุน", kind: "active", max: 5, pos: [1, 2], req: [["cart_sweep", 5]], glyph: "coin",
         skill: { type: "cone", stat: "atk", mult: lin(6.5, 0.9), gold: lin(6, 1), mp: 30, cd: 14, motion: "thrust", reach: 160, arc: 40, color: "#ffd84a" },
         desc: (r) => `ทุ่มทุนทุบตัวที่ล็อกไว้ด้วยเกวียนเต็มแรง ${pct(lin(6.5, 0.9)(r))} ของพลังโจมตี เสียทองครั้งละ เลเวล × ${lin(6, 1)(r)}` },
-      { id: "cart_sturdy_wheels", name: "ล้อทนทาน", kind: "passive", max: 5, pos: [0, 2], req: [["cart_barricade", 1]], glyph: "shoes",
-        stats: (r) => ({ move: 0.01 * r, statusRes: 0.02 * r }),
-        desc: (r) => `ความเร็วเดิน +${pct(0.01 * r)} ต้านสถานะ +${pct(0.02 * r)}` },
     ],
   },
 };
