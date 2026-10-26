@@ -619,7 +619,7 @@ export class Skills {
       if (m.magical) more *= 1 + s.manaBurn(rank);
       if (m.magical || m.ranged) {
         if (m.silence <= 0) this.floaters.add(m.x, m.y, m.height + 50, "เผามานา!", "magic");
-        m.silence = Math.max(m.silence, s.silence ?? 3);
+        m.silence = Math.max(m.silence, s.silence ?? 4.5);
       }
     }
     r.dmg = Math.max(1, Math.round(r.dmg * more));
@@ -628,8 +628,8 @@ export class Skills {
     if (s.freeze) m.freeze = Math.max(m.freeze, s.freeze(rank) * earth);
     if (s.slow) m.slowFor(s.slow(rank) * earth, 0.5);
     if (s.blind) m.blind = Math.max(m.blind, s.blind(rank) * earth);
-    if (s.weaken) m.weaken((s.debuff ?? 6) * earth, s.weaken(rank));
-    if (s.expose) m.exposeTo((s.debuff ?? 6) * earth, s.expose(rank));
+    if (s.weaken) m.weaken((s.debuff ?? 9) * earth, s.weaken(rank));
+    if (s.expose) m.exposeTo((s.debuff ?? 9) * earth, s.expose(rank));
     if (s.poison) m.burns.push({ dps: (r.dmg * s.poison(rank) * poisonScale(this.hero.stats, this.el)) / 4, t: 4, poison: true });
     this.combat.apply(m, r, dir, knock, false, hitSound);
     if (skillId) this.skillImpactVfx(skillId, skill, m, dir);
@@ -846,7 +846,7 @@ export class Skills {
       case "shield":
         this.later(LEAD, () => {
           const amount = this.hero.stats.maxMp * at(s.base, rank) + this.hero.stats.matk * at(s.mult, rank);
-          this.hero.addShield(amount, s.duration ?? 8);
+          this.hero.addShield(amount, s.duration ?? 12);
           this.floaters.add(p.x, p.y, 130, `โล่ ${Math.round(amount)}`, "shield");
           this.skillAuraVfx(id, s, "shield");
         });
@@ -860,7 +860,7 @@ export class Skills {
             for (const [key, v = 0] of Object.entries(s.roll(rank))) stats[key] = (stats[key] ?? 0) + v * k;
             this.floaters.add(p.x, p.y, 190, `เต๋า ${die}${k > 0 ? " โชคดี!" : k < 0 ? " ซวยแล้ว" : ""}`, k > 0 ? "level" : "info");
           }
-          this.hero.addBuff(id, this.nameOf(id), stats, (s.duration ?? 8) * (1 + this.hero.stats.buffTime), s.enchant, s.terrain?.(rank));
+          this.hero.addBuff(id, this.nameOf(id), stats, (s.duration ?? 12) * (1 + this.hero.stats.buffTime), s.enchant, s.terrain?.(rank));
           if (s.heal) this.restore(id, s, this.healAmount(this.hero.stats.maxHp * at(s.heal, rank)));
           this.floaters.add(p.x, p.y, 150, this.nameOf(id), "level");
           this.skillAuraVfx(id, s, "buff");
@@ -888,7 +888,7 @@ export class Skills {
         break;
       case "form":
         if (!s.form) break;
-        this.hero.takeForm(id, ACTIVES[id].name, s.form, s.buff?.(rank) ?? {}, (s.duration ?? 60) * (1 + this.hero.stats.buffTime));
+        this.hero.takeForm(id, ACTIVES[id].name, s.form, s.buff?.(rank) ?? {}, (s.duration ?? 90) * (1 + this.hero.stats.buffTime));
         this.floaters.add(p.x, p.y, 170, ACTIVES[id].name, "level");
         this.burst(p.x, p.y, s.color, 90);
         break;

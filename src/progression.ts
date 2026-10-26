@@ -166,7 +166,7 @@ export interface SkillDef {
   weaken?: ByRank<number>;   // the target deals this much less damage for `debuff` s
   expose?: ByRank<number>;   // the target takes this much more damage for `debuff` s
   blind?: ByRank<number>;    // s the target misses half its bites
-  debuff?: number;           // how long weaken and expose last (s, default 6)
+  debuff?: number;           // how long weaken and expose last (s, default 9)
   vs?: Partial<Record<Race, number>>; // this much more damage to these kinds of monster (0.5: +50%)
   drain?: ByRank<number>;    // heals this share of the damage done
   masteryScale?: number;     // +this much damage per level of the held weapon's mastery
@@ -186,7 +186,7 @@ export interface SkillDef {
   // more damage (0.4: +40%) and says so
   combo?: { after: string[]; within?: number; more: ByRank<number> };
   manaBurn?: ByRank<number>; // this much more damage to a caster (Monster.magical), and its casting
-  silence?: number;          // and shooting stop for this many s (default 3), any monster's
+  silence?: number;          // and shooting stop for this many s (default 4.5), any monster's
   // a buff whose stats depend on where the player stands: these on top of `buff` for the kind
   // of map she is on (they change as she goes from map to map)
   terrain?: ByRank<Partial<Record<TerrainKind, StatBag>>>;
@@ -216,7 +216,7 @@ export interface SkillDef {
   //         the table for them: it can't be used (the bar says why). Over its slot the bar shows
   //         the spell it would cast now.
   invoke?: Record<string, { name: string; skill: SkillDef }>;
-  // form    turns the player into `form` for `duration` s (default 60, longer with buffTime);
+  // form    turns the player into `form` for `duration` s (default 90, longer with buffTime);
   //         used again she is herself again (free, whatever its cooldown), another form switches.
   //         She is drawn as the monster `look` (a bestiary id with a sheet: pine_bear,
   //         steppe_eagle, crimson_stag...) as tall as it stands within 130-190 cm, floating if it
@@ -808,6 +808,8 @@ export const TREES: Record<string, Tree> = {
       { id: "meteor", name: "พายุอุกกาบาต", kind: "active", max: 5, pos: [1, 2], req: [["fire_ball", 5], ["magic_bolt", 5]], glyph: "burst",
         skill: { type: "blast", stat: "matk", mult: lin(3.8, 0.45), hits: 3, every: 0.3, mp: 45, cd: 18, cast: 3, motion: "cast", range: 560, radius: 200, delay: 0.6, stun: lin(0.5, 0.1), color: "#ff8a4a" },
         desc: (r) => `อุกกาบาต 3 ลูกตกใส่จุดที่เล็ง รัศมี 2 ม. ลูกละ ${pct(lin(3.8, 0.45)(r))} ของพลังเวท มึน ${lin(0.5, 0.1)(r).toFixed(1)} วิ` },
+      { id: "arcane_flow", name: "ร่ายคล่อง", kind: "passive", max: 10, pos: [2, 1], req: [["arcane_focus", 3]], glyph: "swirl",
+        stats: (r) => ({ castRed: 0.015 * r, mpRegen: 0.2 * r }), desc: (r) => `ลดเวลาร่าย ${pct(0.015 * r)} ฟื้น MP +${(0.2 * r).toFixed(1)}/วิ` },
     ],
   },
   flora: {
@@ -825,6 +827,8 @@ export const TREES: Record<string, Tree> = {
         desc: (r) => `ดอกไม้บานรอบตัวรัศมี 4.5 ม. ดาเมจ ${pct(lin(0.6, 0.07)(r))} ของพลังเวท 4 ครั้ง และฟื้น HP ${pct(lin(0.1, 0.012)(r))}` },
       { id: "deep_roots", name: "รากหยั่งลึก", kind: "passive", max: 10, pos: [2, 0], glyph: "heart",
         stats: (r) => ({ maxHpPct: 0.025 * r }), desc: (r) => `HP สูงสุด +${pct(0.025 * r)}` },
+      { id: "flora_sap", name: "น้ำเลี้ยงพฤกษา", kind: "passive", max: 10, pos: [2, 1], req: [["deep_roots", 3]], glyph: "leaf",
+        stats: (r) => ({ healPct: 0.03 * r, hpRegen: 0.4 * r }), desc: (r) => `สกิลรักษาแรงขึ้น ${pct(0.03 * r)} ฟื้น HP +${(0.4 * r).toFixed(1)}/วิ` },
       { id: "petal_storm", name: "พายุกลีบดอก", kind: "active", max: 5, pos: [1, 2], req: [["flower_field", 5], ["seed_shot", 5]], glyph: "storm",
         skill: { type: "storm", stat: "matk", mult: lin(1.7, 0.2), pulses: 5, every: 0.25, mp: 40, cd: 18, cast: 1.5, motion: "cast", radius: 260, color: "#ffc8e8" },
         desc: (r) => `กลีบดอกหมุนรอบตัวรัศมี 2.6 ม. 5 ครั้ง ครั้งละ ${pct(lin(1.7, 0.2)(r))} ของพลังเวท` },
@@ -835,13 +839,15 @@ export const TREES: Record<string, Tree> = {
     note: "โล่ ผลักศัตรู หยุดเวลา เทเลพอร์ต เอาตัวรอดเก่ง",
     nodes: [
       { id: "mana_shield", name: "โล่มานา", kind: "active", max: 10, pos: [0, 0], glyph: "shield",
-        skill: { type: "shield", stat: "matk", mult: lin(0.5, 0.08), base: lin(0.2, 0.03), mp: 15, cd: 12, motion: "cast", duration: 8, color: "#c9b8ff" },
-        desc: (r) => `โล่ดูดซับ ${pct(lin(0.2, 0.03)(r))} ของ MP สูงสุด + ${pct(lin(0.5, 0.08)(r))} ของพลังเวท นาน 8 วิ` },
+        skill: { type: "shield", stat: "matk", mult: lin(0.5, 0.08), base: lin(0.2, 0.03), mp: 15, cd: 12, motion: "cast", duration: 12, color: "#c9b8ff" },
+        desc: (r) => `โล่ดูดซับ ${pct(lin(0.2, 0.03)(r))} ของ MP สูงสุด + ${pct(lin(0.5, 0.08)(r))} ของพลังเวท นาน 12 วิ` },
       { id: "repulse", name: "คลื่นผลัก", kind: "active", max: 10, pos: [1, 0], glyph: "wave",
         skill: { type: "nova", stat: "matk", mult: lin(1, 0.1), mp: 14, cd: 6, motion: "cast", radius: 220, knock: 160, color: "#d8ccff" },
         desc: (r) => `คลื่นรอบตัวรัศมี 2.2 ม. ผลักศัตรูกระเด็น ดาเมจ ${pct(lin(1, 0.1)(r))} ของพลังเวท` },
       { id: "mind_armor", name: "เกราะจิต", kind: "passive", max: 10, pos: [2, 0], glyph: "up",
         stats: (r) => ({ defPct: 0.03 * r, mdefPct: 0.03 * r }), desc: (r) => `ป้องกันและต้านเวท +${pct(0.03 * r)}` },
+      { id: "ward_wellspring", name: "ธารมานา", kind: "passive", max: 10, pos: [2, 1], req: [["mind_armor", 3]], glyph: "drop",
+        stats: (r) => ({ maxMpPct: 0.015 * r, statusRes: 0.01 * r }), desc: (r) => `MP สูงสุด +${pct(0.015 * r)} ต้านสถานะ +${pct(0.01 * r)}` },
       { id: "blink", name: "เทเลพอร์ต", kind: "active", max: 1, pos: [3, 0], glyph: "dash",
         skill: { type: "dash", mp: 10, cd: 8, motion: "cast", distance: 320, color: "#e8e0ff" },
         desc: () => "หายตัวไปโผล่ทางที่เล็ง 3.2 ม. ผ่านศัตรูได้" },
@@ -863,11 +869,14 @@ export const TREES: Record<string, Tree> = {
         skill: { type: "nova", stat: "atk", mult: lin(1.6, 0.18), mp: 10, cd: 4, motion: "swing", radius: 190, color: "#ffd0b8" },
         desc: (r) => `ฟันรอบตัวรัศมี 1.9 ม. ดาเมจ ${pct(lin(1.6, 0.18)(r))} ของพลังโจมตี` },
       { id: "rage", name: "โทสะ", kind: "active", max: 5, pos: [1, 1], req: [["hot_blood", 5]], glyph: "rage",
-        skill: { type: "buff", mp: 25, cd: 25, motion: "swing", duration: 8, buff: (r) => ({ atkPct: 0.2 + 0.05 * r, aspd: 0.15 }), color: "#ff8a6a" },
-        desc: (r) => `8 วิ: พลังโจมตี +${pct(0.2 + 0.05 * r)} ความเร็วโจมตี +15%` },
+        skill: { type: "buff", mp: 25, cd: 25, motion: "swing", duration: 12, buff: (r) => ({ atkPct: 0.2 + 0.05 * r, aspd: 0.15 }), color: "#ff8a6a" },
+        desc: (r) => `12 วิ: พลังโจมตี +${pct(0.2 + 0.05 * r)} ความเร็วโจมตี +15%` },
       { id: "execute", name: "ฟันประหาร", kind: "active", max: 5, pos: [0, 2], req: [["whirlwind", 5], ["rage", 1]], glyph: "sword",
         skill: { type: "cone", stat: "atk", mult: lin(5, 0.7), mp: 30, cd: 15, motion: "swing", reach: 180, arc: 40, color: "#ff6a5a" },
         desc: (r) => `ฟันเต็มแรงใส่ตัวข้างหน้า ดาเมจ ${pct(lin(5, 0.7)(r))} ของพลังโจมตี` },
+      { id: "berserker_frenzy", name: "บ้าระห่ำ", kind: "passive", max: 10, pos: [1, 2], req: [["rage", 1]], glyph: "rage",
+        stats: (r) => ({ lowHpDmg: 0.02 * r, hpRegen: 0.4 * r }),
+        desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.02 * r)} เมื่อ HP ใกล้หมด ฟื้น HP +${(0.4 * r).toFixed(1)}/วิ` },
     ],
   },
   guardian: {
@@ -875,16 +884,18 @@ export const TREES: Record<string, Tree> = {
     note: "ป้องกันหนา ฟื้นตัวเร็ว ทำให้ศัตรูมึน ใช้โล่เป็นอาวุธ",
     nodes: [
       { id: "fortify", name: "ยืนหยัด", kind: "active", max: 10, pos: [0, 0], glyph: "shield",
-        skill: { type: "buff", mp: 12, cd: 14, motion: "thrust", duration: 8, heal: lin(0.04, 0.006), buff: (r) => ({ defPct: 0.2 + 0.04 * r, mdefPct: 0.1 + 0.03 * r }), color: "#ffe2a0" },
-        desc: (r) => `8 วิ: ป้องกัน +${pct(0.2 + 0.04 * r)} ต้านเวท +${pct(0.1 + 0.03 * r)} และฟื้น HP ${pct(lin(0.04, 0.006)(r))}` },
+        skill: { type: "buff", mp: 12, cd: 14, motion: "thrust", duration: 12, heal: lin(0.04, 0.006), buff: (r) => ({ defPct: 0.2 + 0.04 * r, mdefPct: 0.1 + 0.03 * r }), color: "#ffe2a0" },
+        desc: (r) => `12 วิ: ป้องกัน +${pct(0.2 + 0.04 * r)} ต้านเวท +${pct(0.1 + 0.03 * r)} และฟื้น HP ${pct(lin(0.04, 0.006)(r))}` },
       { id: "iron_skin", name: "ผิวเหล็ก", kind: "passive", max: 10, pos: [1, 0], glyph: "up",
         stats: (r) => ({ defPct: 0.03 * r, maxHpPct: 0.02 * r }), desc: (r) => `ป้องกัน +${pct(0.03 * r)} HP สูงสุด +${pct(0.02 * r)}` },
+      { id: "guardian_vigor", name: "พลังฟื้นตัว", kind: "passive", max: 10, pos: [0, 1], req: [["fortify", 3]], glyph: "heart",
+        stats: (r) => ({ hpRegen: 0.5 * r, statusRes: 0.015 * r }), desc: (r) => `ฟื้น HP +${(0.5 * r).toFixed(1)}/วิ ต้านสถานะ +${pct(0.015 * r)}` },
       { id: "shield_bash", name: "กระแทกโล่", kind: "active", max: 10, pos: [2, 0], glyph: "bash",
         skill: { type: "cone", stat: "atk", mult: lin(1.5, 0.15), mp: 10, cd: 6, motion: "thrust", reach: 140, arc: 70, stun: lin(1, 0.1), color: "#ffe9b8" },
         desc: (r) => `กระแทกด้านหน้า ดาเมจ ${pct(lin(1.5, 0.15)(r))} ของพลังโจมตี มึน ${lin(1, 0.1)(r).toFixed(1)} วิ` },
       { id: "war_cry", name: "คำรามศึก", kind: "active", max: 5, pos: [1, 1], req: [["iron_skin", 3]], glyph: "cry",
-        skill: { type: "buff", mp: 30, cd: 30, motion: "swing", duration: 10, heal: lin(0.15, 0.02), buff: (r) => ({ dmgRed: 0.15 + 0.03 * r }), color: "#ffd070" },
-        desc: (r) => `10 วิ: ลดความเสียหายที่ได้รับ ${pct(0.15 + 0.03 * r)} และฟื้น HP ${pct(lin(0.15, 0.02)(r))}` },
+        skill: { type: "buff", mp: 30, cd: 30, motion: "swing", duration: 15, heal: lin(0.15, 0.02), buff: (r) => ({ dmgRed: 0.15 + 0.03 * r }), color: "#ffd070" },
+        desc: (r) => `15 วิ: ลดความเสียหายที่ได้รับ ${pct(0.15 + 0.03 * r)} และฟื้น HP ${pct(lin(0.15, 0.02)(r))}` },
       { id: "guardian_cross", name: "กางเขนผู้พิทักษ์", kind: "active", max: 5, pos: [2, 1], req: [["shield_bash", 5]], glyph: "star",
         skill: { type: "nova", stat: "atk", mult: lin(3, 0.4), stun: lin(1, 0.1), mp: 40, cd: 18, motion: "thrust", radius: 240, color: "#fff0b0" },
         desc: (r) => `แสงกางเขนรอบตัวรัศมี 2.4 ม. ดาเมจ ${pct(lin(3, 0.4)(r))} ของพลังโจมตี มึน ${lin(1, 0.1)(r).toFixed(1)} วิ` },
@@ -902,6 +913,8 @@ export const TREES: Record<string, Tree> = {
         desc: (r) => `ฟันด้านหน้า 2 ครั้ง ครั้งละ ${pct(lin(1.2, 0.1)(r))} ของพลังโจมตี` },
       { id: "vital_point", name: "จุดตาย", kind: "passive", max: 10, pos: [2, 0], glyph: "pierce",
         stats: (r) => ({ crit: 0.01 * r }), desc: (r) => `โอกาสคริติคอล +${pct(0.01 * r)}` },
+      { id: "duelist_footwork", name: "ฝีเท้าพริ้ว", kind: "passive", max: 10, pos: [2, 1], req: [["vital_point", 3]], glyph: "wing",
+        stats: (r) => ({ flee: 3 * r, move: 0.015 * r }), desc: (r) => `หลบหลีก +${3 * r} ความเร็วเดิน +${pct(0.015 * r)}` },
       { id: "assassinate", name: "ลอบสังหาร", kind: "active", max: 5, pos: [0, 1], req: [["dash_strike", 5], ["vital_point", 3]], glyph: "pierce",
         skill: { type: "dash", stat: "atk", mult: lin(4, 0.5), mp: 28, cd: 14, motion: "thrust", distance: 220, width: 60, color: "#d0c0ff" },
         desc: (r) => `พุ่งทะลุไปทางที่เล็ง 2.2 ม. ดาเมจ ${pct(lin(4, 0.5)(r))} ของพลังโจมตี` },
@@ -917,6 +930,8 @@ export const TREES: Record<string, Tree> = {
     nodes: [
       { id: "aim_focus", name: "สมาธินักแม่นธนู", kind: "passive", max: 10, pos: [2, 0], glyph: "up",
         stats: (r) => ({ atkPct: 0.02 * r, hit: 3 * r }), desc: (r) => `พลังโจมตี +${pct(0.02 * r)} ความแม่นยำ +${3 * r}` },
+      { id: "marksman_steady", name: "ลมหายใจนิ่ง", kind: "passive", max: 10, pos: [2, 1], req: [["aim_focus", 3]], glyph: "eye",
+        stats: (r) => ({ cdr: 0.01 * r, critDmg: 0.03 * r }), desc: (r) => `ลดคูลดาวน์ ${pct(0.01 * r)} แรงคริติคอล +${pct(0.03 * r)}` },
       { id: "double_strafe", name: "ยิงสองดอก", kind: "active", max: 10, pos: [0, 0], glyph: "arrow",
         skill: { type: "bolt", stat: "atk", mult: lin(1, 0.1), hits: 2, every: 0.12, arrow: true, mp: 6, cd: 1.5, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#fff2c8" },
         desc: (r) => `ยิงลูกธนู 2 ดอกติดกันไปทางที่เล็ง ดอกละ ${pct(lin(1, 0.1)(r))} ของพลังโจมตี` },
@@ -943,8 +958,8 @@ export const TREES: Record<string, Tree> = {
         skill: { type: "bolt", stat: "atk", mult: lin(0.8, 0.08), hits: 3, every: 0.1, arrow: true, mp: 8, cd: 2.5, motion: "shoot", speed: 1700, range: 700, radius: 26, color: "#e0fff0" },
         desc: (r) => `ยิงรัว 3 ดอก ดอกละ ${pct(lin(0.8, 0.08)(r))} ของพลังโจมตี` },
       { id: "focus_fire", name: "สมาธิยิงรัว", kind: "active", max: 10, pos: [0, 1], req: [["quick_draw", 3]], glyph: "eye",
-        skill: { type: "buff", mp: 15, cd: 30, motion: "shoot", duration: 15, buff: (r) => ({ aspd: 0.1 + 0.02 * r, atkPct: 0.02 * r }), color: "#c8ffe0" },
-        desc: (r) => `15 วิ: ความเร็วโจมตี +${pct(0.1 + 0.02 * r)} พลังโจมตี +${pct(0.02 * r)}` },
+        skill: { type: "buff", mp: 15, cd: 30, motion: "shoot", duration: 23, buff: (r) => ({ aspd: 0.1 + 0.02 * r, atkPct: 0.02 * r }), color: "#c8ffe0" },
+        desc: (r) => `23 วิ: ความเร็วโจมตี +${pct(0.1 + 0.02 * r)} พลังโจมตี +${pct(0.02 * r)}` },
       { id: "arrow_ring", name: "ศรรอบทิศ", kind: "active", max: 5, pos: [1, 1], req: [["rapid_fire", 5], ["double_shot", 3]], glyph: "spin",
         skill: { type: "fan", stat: "atk", mult: lin(0.9, 0.12), count: 12, spread: 330, arrow: true, mp: 36, cd: 14, motion: "shoot", speed: 1500, range: 600, radius: 28, color: "#e0fff0" },
         desc: (r) => `ยิง 12 ดอกออกรอบตัว ดอกละ ${pct(lin(0.9, 0.12)(r))} ของพลังโจมตี` },
@@ -958,17 +973,21 @@ export const TREES: Record<string, Tree> = {
         skill: { type: "bolt", stat: "atk", mult: lin(1, 0.1), poison: lin(0.6, 0.06), arrow: true, mp: 8, cd: 3, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#9ee870" },
         desc: (r) => `ยิงศรอาบพิษ ดาเมจ ${pct(lin(1, 0.1)(r))} ของพลังโจมตี แล้วพิษกัดอีก ${pct(lin(0.6, 0.06)(r))} ของดาเมจใน 4 วิ` },
       { id: "slow_arrow", name: "ศรถ่วง", kind: "active", max: 10, pos: [1, 0], glyph: "swirl",
-        skill: { type: "bolt", stat: "atk", mult: lin(1.1, 0.1), slow: lin(2, 0.25), arrow: true, mp: 7, cd: 3, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#9ccfff" },
-        desc: (r) => `ยิงศรถ่วงขา ดาเมจ ${pct(lin(1.1, 0.1)(r))} ของพลังโจมตี ศัตรูช้าลง ${lin(2, 0.25)(r).toFixed(1)} วิ` },
+        skill: { type: "bolt", stat: "atk", mult: lin(1.1, 0.1), slow: lin(3, 0.375), arrow: true, mp: 7, cd: 3, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#9ccfff" },
+        desc: (r) => `ยิงศรถ่วงขา ดาเมจ ${pct(lin(1.1, 0.1)(r))} ของพลังโจมตี ศัตรูช้าลง ${lin(3, 0.375)(r).toFixed(1)} วิ` },
       { id: "toxic_cloud", name: "หมอกพิษ", kind: "active", max: 5, pos: [0, 1], req: [["poison_arrow", 4]], glyph: "storm",
         skill: { type: "blast", stat: "atk", mult: lin(0.6, 0.08), poison: lin(0.5, 0.08), hits: 3, every: 0.5, mp: 22, cd: 10, motion: "shoot", range: 650, radius: 200, delay: 0.3, color: "#8ee070" },
         desc: (r) => `ศรระเบิดเป็นหมอกพิษรัศมี 2 ม. 3 ระลอก ระลอกละ ${pct(lin(0.6, 0.08)(r))} ของพลังโจมตี และพิษ ${pct(lin(0.5, 0.08)(r))} ของดาเมจ` },
       { id: "armor_break", name: "ศรทำลายเกราะ", kind: "active", max: 10, pos: [2, 0], glyph: "target",
-        skill: { type: "bolt", stat: "atk", mult: lin(1.2, 0.12), expose: lin(0.12, 0.02), debuff: 8, arrow: true, mp: 12, cd: 6, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#ff9a7a" },
-        desc: (r) => `ยิงเจาะเกราะ ดาเมจ ${pct(lin(1.2, 0.12)(r))} ของพลังโจมตี ศัตรูโดนแรงขึ้น ${pct(lin(0.12, 0.02)(r))} 8 วิ` },
+        skill: { type: "bolt", stat: "atk", mult: lin(1.2, 0.12), expose: lin(0.12, 0.02), debuff: 12, arrow: true, mp: 12, cd: 6, motion: "shoot", speed: 1500, range: 700, radius: 26, color: "#ff9a7a" },
+        desc: (r) => `ยิงเจาะเกราะ ดาเมจ ${pct(lin(1.2, 0.12)(r))} ของพลังโจมตี ศัตรูโดนแรงขึ้น ${pct(lin(0.12, 0.02)(r))} 12 วิ` },
       { id: "doom_arrow", name: "ศรพิพากษา", kind: "active", max: 5, pos: [2, 1], req: [["armor_break", 5], ["slow_arrow", 3]], glyph: "arrow",
-        skill: { type: "bolt", stat: "atk", mult: lin(2.6, 0.35), expose: () => 0.25, weaken: () => 0.2, stun: () => 1, debuff: 10, arrow: true, pierce: true, mp: 36, cd: 16, motion: "shoot", speed: 1700, range: 760, radius: 34, color: "#ff8a6a" },
-        desc: (r) => `ศรทะลุทุกตัวในแนว ดาเมจ ${pct(lin(2.6, 0.35)(r))} ของพลังโจมตี มึน 1 วิ โดนแรงขึ้น 25% ตีเบาลง 20% นาน 10 วิ` },
+        skill: { type: "bolt", stat: "atk", mult: lin(2.6, 0.35), expose: () => 0.25, weaken: () => 0.2, stun: () => 1, debuff: 15, arrow: true, pierce: true, mp: 36, cd: 16, motion: "shoot", speed: 1700, range: 760, radius: 34, color: "#ff8a6a" },
+        desc: (r) => `ศรทะลุทุกตัวในแนว ดาเมจ ${pct(lin(2.6, 0.35)(r))} ของพลังโจมตี มึน 1 วิ โดนแรงขึ้น 25% ตีเบาลง 20% นาน 15 วิ` },
+      { id: "hunter_instinct", name: "สัญชาตญาณพราน", kind: "passive", max: 10, pos: [1, 1], req: [["slow_arrow", 3]], glyph: "eye",
+        stats: (r) => ({ huntDmg: 0.015 * r, hit: 2 * r }), desc: (r) => `ดาเมจใส่ศัตรูที่ติดสถานะผิดปกติ +${pct(0.015 * r)} ความแม่นยำ +${2 * r}` },
+      { id: "hunter_toxin", name: "พิษเข้มข้น", kind: "passive", max: 10, pos: [0, 2], req: [["toxic_cloud", 1]], glyph: "drop",
+        stats: (r) => ({ poisonPct: 0.03 * r, statusRes: 0.01 * r }), desc: (r) => `ดาเมจพิษ +${pct(0.03 * r)} ต้านสถานะ +${pct(0.01 * r)}` },
     ],
   },
   // ---- priest: heals and blessings with holy magic, a mace for the fight ----
@@ -981,15 +1000,17 @@ export const TREES: Record<string, Tree> = {
         desc: (r) => `ฟื้น HP ${pct(lin(0.1, 0.012)(r))} ของ HP สูงสุด + ${pct(lin(1.2, 0.15)(r))} ของพลังเวท` },
       { id: "devotion", name: "ศรัทธาแรงกล้า", kind: "passive", max: 10, pos: [1, 0], glyph: "heart",
         stats: (r) => ({ healPct: 0.04 * r }), desc: (r) => `สกิลรักษาแรงขึ้น ${pct(0.04 * r)}` },
+      { id: "restore_serenity", name: "จิตสงบ", kind: "passive", max: 10, pos: [1, 1], req: [["devotion", 3]], glyph: "drop",
+        stats: (r) => ({ mpRegen: 0.3 * r, maxMpPct: 0.01 * r }), desc: (r) => `ฟื้น MP +${(0.3 * r).toFixed(1)}/วิ MP สูงสุด +${pct(0.01 * r)}` },
       { id: "renew", name: "ฟื้นฟูต่อเนื่อง", kind: "active", max: 10, pos: [2, 0], glyph: "leaf",
-        skill: { type: "buff", mp: 14, cd: 15, motion: "cast", duration: 12, buff: (r) => ({ hpRegen: 3 + 2.5 * r }), color: "#f8ffd0" },
-        desc: (r) => `12 วิ: ฟื้น HP +${(3 + 2.5 * r).toFixed(1)}/วิ` },
+        skill: { type: "buff", mp: 14, cd: 15, motion: "cast", duration: 18, buff: (r) => ({ hpRegen: 3 + 2.5 * r }), color: "#f8ffd0" },
+        desc: (r) => `18 วิ: ฟื้น HP +${(3 + 2.5 * r).toFixed(1)}/วิ` },
       { id: "greater_heal", name: "ฮีลใหญ่", kind: "active", max: 5, pos: [0, 1], req: [["holy_heal", 5]], glyph: "heal",
         skill: { type: "heal", stat: "matk", mult: lin(2.5, 0.3), heal: lin(0.25, 0.03), mp: 30, cd: 10, motion: "cast", color: "#fffbe0" },
         desc: (r) => `ฟื้น HP ${pct(lin(0.25, 0.03)(r))} ของ HP สูงสุด + ${pct(lin(2.5, 0.3)(r))} ของพลังเวท` },
       { id: "miracle", name: "ปาฏิหาริย์", kind: "active", max: 5, pos: [0, 2], req: [["greater_heal", 3], ["devotion", 5]], glyph: "star",
-        skill: { type: "buff", mp: 50, cd: 45, motion: "cast", duration: 6, heal: lin(0.5, 0.1), buff: (r) => ({ dmgRed: 0.2 + 0.04 * r, hpRegen: 20 }), color: "#fffbe0" },
-        desc: (r) => `ฟื้น HP ทันที ${pct(lin(0.5, 0.1)(r))} แล้ว 6 วิ: ลดความเสียหาย ${pct(0.2 + 0.04 * r)} ฟื้น HP +20/วิ` },
+        skill: { type: "buff", mp: 50, cd: 45, motion: "cast", duration: 9, heal: lin(0.5, 0.1), buff: (r) => ({ dmgRed: 0.2 + 0.04 * r, hpRegen: 20 }), color: "#fffbe0" },
+        desc: (r) => `ฟื้น HP ทันที ${pct(lin(0.5, 0.1)(r))} แล้ว 9 วิ: ลดความเสียหาย ${pct(0.2 + 0.04 * r)} ฟื้น HP +20/วิ` },
     ],
   },
   blessing: {
@@ -997,19 +1018,21 @@ export const TREES: Record<string, Tree> = {
     note: "สายบัฟ เพิ่มพลังโจมตี ความเร็ว และเกราะ บัฟอยู่ได้นาน ปิดท้ายด้วยพรสูงสุด",
     nodes: [
       { id: "bless", name: "อวยพร", kind: "active", max: 10, pos: [0, 0], glyph: "up",
-        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 180, buff: (r) => ({ atkPct: 0.02 * r, matkPct: 0.02 * r }), color: "#d8ecff" },
-        desc: (r) => `3 นาที: พลังโจมตีและพลังเวท +${pct(0.02 * r)}` },
+        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 270, buff: (r) => ({ atkPct: 0.02 * r, matkPct: 0.02 * r }), color: "#d8ecff" },
+        desc: (r) => `4 นาที 30 วิ: พลังโจมตีและพลังเวท +${pct(0.02 * r)}` },
       { id: "agility_up", name: "เพิ่มความคล่อง", kind: "active", max: 10, pos: [1, 0], glyph: "wing",
-        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 180, buff: (r) => ({ aspd: 0.015 * r, move: 0.02 * r, flee: 2 * r }), color: "#d8ffe8" },
-        desc: (r) => `3 นาที: ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.02 * r)} หลบหลีก +${2 * r}` },
+        skill: { type: "buff", mp: 15, cd: 40, motion: "cast", duration: 270, buff: (r) => ({ aspd: 0.015 * r, move: 0.02 * r, flee: 2 * r }), color: "#d8ffe8" },
+        desc: (r) => `4 นาที 30 วิ: ความเร็วโจมตี +${pct(0.015 * r)} ความเร็วเดิน +${pct(0.02 * r)} หลบหลีก +${2 * r}` },
       { id: "angelus", name: "เกราะเทวา", kind: "active", max: 10, pos: [2, 0], glyph: "shield",
-        skill: { type: "buff", mp: 18, cd: 40, motion: "cast", duration: 180, buff: (r) => ({ defPct: 0.04 * r, mdefPct: 0.03 * r }), color: "#e8f0ff" },
-        desc: (r) => `3 นาที: ป้องกัน +${pct(0.04 * r)} ต้านเวท +${pct(0.03 * r)}` },
+        skill: { type: "buff", mp: 18, cd: 40, motion: "cast", duration: 270, buff: (r) => ({ defPct: 0.04 * r, mdefPct: 0.03 * r }), color: "#e8f0ff" },
+        desc: (r) => `4 นาที 30 วิ: ป้องกัน +${pct(0.04 * r)} ต้านเวท +${pct(0.03 * r)}` },
       { id: "buff_lore", name: "ผู้รู้แห่งพร", kind: "passive", max: 5, pos: [3, 0], glyph: "star",
         stats: (r) => ({ buffTime: 0.1 * r }), desc: (r) => `บัฟทุกอย่างอยู่นานขึ้น ${pct(0.1 * r)}` },
+      { id: "blessing_grace", name: "ผู้รับพร", kind: "passive", max: 10, pos: [2, 1], req: [["angelus", 3]], glyph: "cross",
+        stats: (r) => ({ statusRes: 0.02 * r, mpRegen: 0.2 * r }), desc: (r) => `ต้านสถานะ +${pct(0.02 * r)} ฟื้น MP +${(0.2 * r).toFixed(1)}/วิ` },
       { id: "benediction", name: "พรสูงสุด", kind: "active", max: 5, pos: [1, 1], req: [["bless", 5], ["agility_up", 3]], glyph: "star",
-        skill: { type: "buff", mp: 60, cd: 90, motion: "cast", duration: 120, heal: () => 0.2, buff: (r) => ({ atkPct: 0.1 + 0.03 * r, matkPct: 0.1 + 0.03 * r, aspd: 0.1, move: 0.1, dmgRed: 0.1 }), color: "#fffbe0" },
-        desc: (r) => `2 นาที: พลังโจมตีและพลังเวท +${pct(0.1 + 0.03 * r)} ความเร็วโจมตีและเดิน +10% ลดความเสียหาย 10% และฟื้น HP ทันที 20%` },
+        skill: { type: "buff", mp: 60, cd: 90, motion: "cast", duration: 180, heal: () => 0.2, buff: (r) => ({ atkPct: 0.1 + 0.03 * r, matkPct: 0.1 + 0.03 * r, aspd: 0.1, move: 0.1, dmgRed: 0.1 }), color: "#fffbe0" },
+        desc: (r) => `3 นาที: พลังโจมตีและพลังเวท +${pct(0.1 + 0.03 * r)} ความเร็วโจมตีและเดิน +10% ลดความเสียหาย 10% และฟื้น HP ทันที 20%` },
     ],
   },
   crusade: {
@@ -1024,6 +1047,9 @@ export const TREES: Record<string, Tree> = {
         desc: (r) => `ยิงลูกแสงไปทางที่เล็ง ดาเมจ ${pct(lin(1.5, 0.15)(r))} ของพลังเวท` },
       { id: "mace_training", name: "ชำนาญกระบอง", kind: "passive", max: 10, pos: [2, 0], glyph: "up",
         stats: (r) => ({ atkPct: 0.02 * r, defPct: 0.01 * r }), desc: (r) => `พลังโจมตี +${pct(0.02 * r)} ป้องกัน +${pct(0.01 * r)}` },
+      { id: "crusade_zeal", name: "ศรัทธาพิฆาตมาร", kind: "passive", max: 10, pos: [2, 1], req: [["mace_training", 3]], glyph: "cross",
+        stats: (r) => ({ undeadDmg: 0.02 * r, demonDmg: 0.02 * r, hpRegen: 0.3 * r }),
+        desc: (r) => `ดาเมจใส่อันเดดและปีศาจ +${pct(0.02 * r)} ฟื้น HP +${(0.3 * r).toFixed(1)}/วิ` },
       { id: "smite", name: "ทุบลงทัณฑ์", kind: "active", max: 10, pos: [0, 1], req: [["holy_strike", 4]], glyph: "slam",
         skill: { type: "cone", stat: "atk", mult: lin(2.2, 0.25), stun: lin(1, 0.1), mp: 14, cd: 6, motion: "thrust", reach: 170, arc: 80, color: "#ffe8a0" },
         desc: (r) => `ทุบหนักด้านหน้า ดาเมจ ${pct(lin(2.2, 0.25)(r))} ของพลังโจมตี มึน ${lin(1, 0.1)(r).toFixed(1)} วิ` },
@@ -1047,8 +1073,8 @@ export const TREES: Record<string, Tree> = {
       { id: "camping", name: "ตั้งแคมป์", kind: "passive", max: 5, pos: [0, 1], req: [["first_aid", 3]], glyph: "leaf",
         stats: (r) => ({ hpRegen: 1 * r, mpRegen: 0.5 * r }), desc: (r) => `ฟื้น HP +${r}/วิ ฟื้น MP +${(0.5 * r).toFixed(1)}/วิ` },
       { id: "sprint", name: "วิ่งสุดแรง", kind: "active", max: 1, pos: [1, 1], req: [["tough", 3]], glyph: "dash",
-        skill: { type: "buff", mp: 10, cd: 20, motion: "cast", duration: 6, buff: () => ({ move: 0.35 }), color: "#f4e6bf" },
-        desc: () => "6 วิ: ความเร็วเดิน +35%" },
+        skill: { type: "buff", mp: 10, cd: 20, motion: "cast", duration: 9, buff: () => ({ move: 0.35 }), color: "#f4e6bf" },
+        desc: () => "9 วิ: ความเร็วเดิน +35%" },
       { id: "scavenger", name: "นักเก็บของ", kind: "passive", max: 5, pos: [2, 1], req: [["keen_eye", 3]], glyph: "star",
         stats: (r) => ({ drop: 0.05 * r }), desc: (r) => `โอกาสได้ของ +${pct(0.05 * r)}` },
     ],
