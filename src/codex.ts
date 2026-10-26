@@ -3,12 +3,12 @@
 // job changes (who, where, what it takes, the branches), the lore (to be told later) and how the
 // towns came to be.
 
-import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, sellPrice, isFashion } from "./items";
+import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, isFashion } from "./items";
 import type { ItemKind } from "./items";
 import { MONSTERS, VISITORS, fieldMonsters, statsFor } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { VARIANTS } from "./monsters";
-import { fieldDrops, gearTierAt, TIER_DROP, matId } from "./drops";
+import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
 import type { Drop } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
 import type { MapId, TownId } from "./maps";
@@ -231,7 +231,7 @@ export class CodexUI {
         pic.append(c);
       }
       const body = this.row(`i:${id}`, pic, ITEMS[id].name, from.length ? from[0] + (from.length > 1 ? ` และอีก ${from.length - 1} ที่` : "") : "ยังไม่มีที่ให้หา");
-      if (body) body.innerHTML = `${itemTip(id)}<br><b>ที่มา:</b><br>${from.length ? from.map((t) => `· ${t}`).join("<br>") : "ยังไม่มีที่ให้หา"}${sellPrice(id) ? `<br>ขายให้ร้าน ${sellPrice(id).toLocaleString()} ทอง` : ""}`;
+      if (body) body.innerHTML = `${itemTip(id)}<br><b>ที่มา:</b><br>${from.length ? from.map((t) => `· ${t}`).join("<br>") : "ยังไม่มีที่ให้หา"}`;
     }
     if (ids.length > 400) el("p", "wr-note", this.list).textContent = `แสดง 400 จาก ${ids.length} ชิ้น พิมพ์ค้นหาเพื่อแคบลง`;
     if (!ids.length) el("p", "wr-note", this.list).textContent = "ไม่พบไอเทมชื่อนี้";
@@ -298,8 +298,8 @@ function monsterText(m: MonsterDef): string {
     if (name === "summon") return `${BEHAVE_NAMES.summon} (${MONSTERS.find((x) => x.id === arg)?.name ?? arg})`;
     return BEHAVE_NAMES[name] ?? b;
   });
-  // its own material first, with what the shop pays for it
-  const drops = fieldDrops(m).map((d) => `${itemName(d[0])} ${dropPct(d)}${d[0] === matId(m.id) ? ` (ขาย ${sellPrice(d[0]).toLocaleString()} ทอง)` : ""}`);
+  // its own material first (what a shop pays shows only in the shop)
+  const drops = fieldDrops(m).map((d) => `${itemName(d[0])} ${dropPct(d)}`);
   const tier = gearTierAt(m.levels[0]);
   if (tier) drops.push(`อุปกรณ์เลเวล ${tier} (สุ่ม 1 ชิ้น) ${pct(TIER_DROP[m.kind])}`);
   drops.push(`หมวก รองเท้า แหวน จี้ของร้าน (สุ่ม) ${pct(m.kind === "boss" ? 0.6 : m.kind === "rare" ? 0.25 : 0.012)}`);
