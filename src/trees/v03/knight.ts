@@ -1,8 +1,9 @@
 // The knight's branches (third job, from the swordsman, the warlord or the mercenary): the lance
 // (spears, many at a time, a long life), the blade (swords, quick hands and feet, chains of
 // cuts) and the axe (axes, through the armour, heavy criticals, a sunder-crush-execute chain).
-// Nine skills a branch (four of them passives), a little stronger than the second jobs'. The model for the other
-// third-job trees: the new riders show here as data (combo, manaBurn, hits on a nova).
+// Seven skills a branch: three passives on the lance, which is built to last, two on the
+// blade and the axe, which live by their moves;, a little stronger than the second jobs'. The model for the
+// other third-job trees: the new riders show here as data (combo, manaBurn, hits on a nova).
 import type { Need, Tree } from "../../progression";
 import { pct, lin } from "../util";
 
@@ -32,19 +33,13 @@ export const KNIGHT_TREES: Record<string, Tree> = {
       { id: "knight_lance_whirl", name: "พายุหอกหมุน", kind: "active", max: 10, pos: [1, 1], req: [["knight_lance_sweep", 4]], glyph: "spin", need: SPEARS,
         skill: { type: "nova", stat: "atk", mult: lin(1.15, 0.115), hits: 2, mp: 22, cd: 6, motion: "swing", radius: 260, color: "#c0d8ff" },
         desc: (r) => `หมุนหอกรอบตัว 2.6 ม. 2 รอบ รอบละ ${pct(lin(1.15, 0.115)(r))} ของพลังโจมตี ใช้ได้เมื่อถือหอก` },
-      { id: "knight_lance_oath", name: "ปณิธานอัศวิน", kind: "active", max: 5, pos: [2, 1], req: [["knight_lance_spellbreak", 3]], glyph: "up",
-        skill: { type: "buff", mp: 30, cd: 40, motion: "cast", duration: 30, buff: (r) => ({ maxHpPct: 0.08 + 0.02 * r, hpRegen: 4 + 2 * r, mdefPct: 0.05 + 0.02 * r }), color: "#e0e8ff" },
-        desc: (r) => `30 วิ: HP สูงสุด +${pct(0.08 + 0.02 * r)} ฟื้น HP +${4 + 2 * r}/วิ ต้านเวท +${pct(0.05 + 0.02 * r)}` },
-      { id: "knight_lance_skyfall", name: "หอกสวรรค์ทลายทัพ", kind: "active", max: 5, pos: [1, 2], req: [["knight_lance_whirl", 5], ["knight_lance_oath", 1]], glyph: "burst", need: SPEARS,
+      { id: "knight_lance_skyfall", name: "หอกสวรรค์ทลายทัพ", kind: "active", max: 5, pos: [1, 2], req: [["knight_lance_whirl", 5]], glyph: "burst", need: SPEARS,
         skill: { type: "blast", stat: "atk", mult: lin(1.9, 0.24), hits: 3, every: 0.25, mp: 48, cd: 16, motion: "thrust", range: 450, radius: 230,
           combo: { after: ["knight_lance_whirl"], within: 4, more: () => 0.3 }, color: "#e8f0ff" },
         desc: (r) => `พุ่งหอกลงจุดที่เล็ง รัศมี 2.3 ม. 3 ครั้ง ครั้งละ ${pct(lin(1.9, 0.24)(r))} ของพลังโจมตี ใช้ต่อจากพายุหอกหมุนภายใน 4 วิ แรงขึ้น 30% ใช้ได้เมื่อถือหอก` },
       { id: "knight_lance_steadfast", name: "ใจมั่นไม่หวั่นเวท", kind: "passive", max: 10, pos: [0, 2], req: [["knight_lance_bulwark", 3]], glyph: "ring",
         stats: (r) => ({ statusRes: 0.015 * r, mdefPct: 0.015 * r }),
         desc: (r) => `ต้านสถานะ +${pct(0.015 * r)} ต้านเวท +${pct(0.015 * r)}` },
-      { id: "knight_lance_reach", name: "ปลายหอกพิทักษ์", kind: "passive", max: 5, pos: [2, 2], req: [["knight_lance_spellbreak", 3]], glyph: "pierce", need: SPEARS,
-        stats: (r) => ({ reach: 0.03 * r, counter: 0.02 * r }),
-        desc: (r) => `ระยะตีปกติ +${pct(0.03 * r)} ศัตรูที่ตีโดนเราจากระยะประชิด (ราว 2 ม.) มีโอกาส ${pct(0.02 * r)} โดนสวนกลับทันที 150% ของพลังโจมตี เมื่อถือหอก` },
     ],
   },
   // ---- the blade: fast hands, fast feet, cuts that chain ----
@@ -75,12 +70,6 @@ export const KNIGHT_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(1.0, 0.13), hits: 5, mp: 45, cd: 16, motion: "swing", reach: 200, arc: 60,
           combo: { after: ["knight_blade_follow"], within: 3, more: () => 0.3 }, color: "#fff4e0" },
         desc: (r) => `ฟันรัว 5 ครั้งใส่ศัตรูด้านหน้า 2 ม. ครั้งละ ${pct(lin(1.0, 0.13)(r))} ของพลังโจมตี ใช้ต่อจากฟันตามจังหวะภายใน 3 วิ แรงขึ้น 30% ใช้ได้เมื่อถือดาบ` },
-      { id: "knight_blade_parry", name: "ปัดป้องคมดาบ", kind: "passive", max: 5, pos: [0, 2], req: [["knight_blade_tempo", 3]], glyph: "sword", need: SWORDS,
-        stats: (r) => ({ flee: 3 * r, counter: 0.015 * r }),
-        desc: (r) => `หลบหลีก +${3 * r} ศัตรูที่ตีโดนเราจากระยะประชิด (ราว 2 ม.) มีโอกาส ${pct(0.015 * r)} โดนสวนกลับทันที 150% ของพลังโจมตี เมื่อถือดาบ` },
-      { id: "knight_blade_flow", name: "สายธารกระบวนท่า", kind: "passive", max: 10, pos: [2, 2], req: [["knight_blade_haste", 1]], glyph: "wave", need: SWORDS,
-        stats: (r) => ({ cdr: 0.006 * r, mpRegen: n1(0.2 * r) }),
-        desc: (r) => `ลดคูลดาวน์ ${pct(0.006 * r)} ฟื้น MP +${n1(0.2 * r)}/วิ เมื่อถือดาบ` },
     ],
   },
   // ---- the axe: open the armour, crush, execute ----
@@ -111,12 +100,6 @@ export const KNIGHT_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(5.4, 0.68), mp: 48, cd: 15, motion: "swing", reach: 200, arc: 40,
           combo: { after: ["knight_axe_crush"], within: 4, more: () => 0.4 }, color: "#ff8a60" },
         desc: (r) => `ฟันประหารตัวที่ล็อกไว้ ${pct(lin(5.4, 0.68)(r))} ของพลังโจมตี ใช้ต่อจากทุบทะลวงเกราะภายใน 4 วิ แรงขึ้น 40% ใช้ได้เมื่อถือขวาน` },
-      { id: "knight_axe_bloodlust", name: "กระหายเลือด", kind: "passive", max: 5, pos: [0, 2], req: [["knight_axe_instinct", 3]], glyph: "rage", need: AXES,
-        stats: (r) => ({ lowHpDmg: 0.03 * r, lifesteal: 0.004 * r }),
-        desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.03 * r)} เมื่อ HP ใกล้หมด ดูด HP ${pct(0.004 * r)} ของดาเมจที่ทำ เมื่อถือขวาน` },
-      { id: "knight_axe_hide", name: "หนังหนานักรบ", kind: "passive", max: 10, pos: [2, 2], req: [["knight_axe_fury", 1]], glyph: "heart",
-        stats: (r) => ({ maxHpPct: 0.012 * r, hpRegen: n1(0.6 * r) }),
-        desc: (r) => `HP สูงสุด +${pct(0.012 * r)} ฟื้น HP +${n1(0.6 * r)}/วิ` },
     ],
   },
 };
