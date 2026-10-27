@@ -935,3 +935,31 @@ body.touch .mp-info:empty { display: none; }
 .qt-more { font-size: 11px; color: var(--muted); }
 body.touch .qt { left: calc(6px + env(safe-area-inset-left)); top: calc(112px + env(safe-area-inset-top)); width: 196px; padding: 6px 8px; }
 body.touch .qt-step { font-size: 11px; }
+
+/* ---- buff row under the HP/MP/EXP bars (src/buffbar.ts) ----
+   It hangs below the panel (absolute), so the bars and the HUD under it never move; the old text
+   list (.vt-buffs) gives way to it. Gold rim a buff, red an ailment; under 5 s it blinks. */
+.vitals { z-index: 4; }
+#vitals .vt-buffs { display: none; }
+.buffrow { position: absolute; left: 0; right: 0; top: calc(100% + 4px); display: flex; flex-wrap: wrap; gap: 3px; padding: 0 2px; }
+.bf {
+  position: relative; width: 26px; height: 26px; border-radius: 5px; overflow: hidden; pointer-events: auto; cursor: help;
+  background: rgba(0, 0, 0, 0.55); border: 1px solid #d9b860; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.bf.bad { border-color: #ff5a4a; background: rgba(90, 10, 6, 0.65); }
+.bf.bad::after { content: ""; position: absolute; inset: 0; background: rgba(255, 60, 40, 0.18); pointer-events: none; }
+.bf canvas { display: block; width: 100%; height: 100%; }
+.bf-t {
+  position: absolute; right: 1px; bottom: 0; font-size: 9px; line-height: 10px; font-weight: 700; color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 1px #000; pointer-events: none;
+}
+.bf.low { animation: bf-blink 0.8s ease-in-out infinite; }
+@keyframes bf-blink { 50% { opacity: 0.35; } }
+.buff-tip strong.bad { color: #ff9a8e; }
+.buff-tip b { font-weight: 600; }
+.buff-tip b.good { color: #9df0b4; }
+.buff-tip b.bad { color: #ff9a8e; }
+.buff-tip-from { display: block; margin-top: 4px; font-size: 12px; color: #c9b98a; }
+body.touch .buffrow { top: calc(100% + 3px); gap: 2px; }
+body.touch .bf { width: 22px; height: 22px; border-radius: 4px; }
+body.touch .bf-t { font-size: 8px; line-height: 9px; }
