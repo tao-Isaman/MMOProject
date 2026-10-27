@@ -125,6 +125,7 @@ function castOf(key: string): { id: string; spell?: { name: string; skill: Skill
 
 const LEAD = 0.22; // s from the start of the animation to the hit
 const FALCON_HITS = 5; // the falcon's rakes when it dives in after a normal hit
+const FALCON_WIDTH = 90; // cm: the strip along its flight that each rake strikes
 const RELEASE = 0.45; // s the caster's hands come down after a cast
 
 // A spell being cast: what it was aimed at, and the monster it follows (its mark).
@@ -1124,18 +1125,23 @@ export class Skills {
     });
   }
 
-  // The falcon dives in after a normal hit (falconChance) and rakes it FALCON_HITS times, each
-  // falconPower x attack, through the armour as a blow, never missing.
+  // The falcon dives in after a normal hit (falconChance) along the line from the player to the
+  // monster and rakes FALCON_HITS times: each rake strikes every monster on that line (a strip
+  // FALCON_WIDTH across, a little past the target), falconPower x attack, through the armour as a
+  // blow, never missing.
   falconStrike(m: Monster): void {
-    const st = this.hero.stats;
+    const st = this.hero.stats, from = { x: this.player.x, y: this.player.y };
+    const dx = m.x - from.x, dy = m.y - from.y, d = Math.hypot(dx, dy) || 1, dir = { x: dx / d, y: dy / d };
+    const reach = d + m.radius + 40;
     this.dive(m, () => {
+      this.line(from, dir, reach, "#f2d9a0");
       for (let i = 0; i < FALCON_HITS; i++) {
         this.later(i * 0.1, () => {
-          if (!m.alive) return;
-          const r = { dmg: Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), m.def))), crit: false, magic: false, miss: false };
-          const dx = m.x - this.player.x, dy = m.y - this.player.y, d = Math.hypot(dx, dy) || 1;
-          this.combat.apply(m, r, { x: dx / d, y: dy / d });
-          this.floaters.tally(m, "falcon", r.dmg);
+          for (const o of shapeTargets(from, dir, { hit: "line", reach, width: FALCON_WIDTH }, this.monsters)) {
+            const r = { dmg: Math.max(1, Math.round(mitigate(st.atk * (st.falconPower || 1), o.def))), crit: false, magic: false, miss: false };
+            this.combat.apply(o, r, dir);
+            this.floaters.tally(o, "falcon", r.dmg);
+          }
         });
       }
     });
