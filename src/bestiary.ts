@@ -704,7 +704,7 @@ export function fieldMonsters(field: string): MonsterDef[] {
 // visitors); none for a map without bestiary monsters.
 // The level a field is shown as (map, world map, codex): FIELD_BAND either side of the average
 // level of the monsters met there (its boss left out, one big one would pull it up), never under 1.
-export const FIELD_BAND = 10;
+export const FIELD_BAND = 5;
 export function fieldLevels(field: string): [number, number] | null {
   const here = fieldMonsters(field), plain = here.filter((m) => m.kind !== "boss");
   const lv = (plain.length ? plain : here).map((m) => m.level);
