@@ -553,7 +553,7 @@ async function boot(): Promise<void> {
     const pool = fieldMonsters(map.id);
     const called = pool.map((d) => behaviour(d, "summon")).filter((id): id is string => !!id && !!MONSTER_BY_ID[id]).map((id) => MONSTER_BY_ID[id]);
     await monLooks.prepare([...pool, ...called]);
-    return spawnMonsters(monLooks, { spots: map.spots, levels: map.levels, pool, spawn: map.spawn });
+    return spawnMonsters(monLooks, { spots: map.spots, pool, spawn: map.spawn });
   }
   // the list stays the same array (combat, skills and the bot hold it)
   const monsters: Monster[] = await populate(current);
@@ -1840,7 +1840,7 @@ async function boot(): Promise<void> {
     summon(m, id, n) {
       const def = MONSTER_BY_ID[id];
       for (let i = 0; i < n; i++) {
-        const a = Math.random() * Math.PI * 2, v = variantOf(def, def.levels[0]);
+        const a = Math.random() * Math.PI * 2, v = variantOf(def, def.level);
         const c = new Monster(v, { x: m.x + Math.cos(a) * (m.radius + 120), y: m.y + Math.sin(a) * (m.radius + 120) }, monLooks.of(v), monLooks.person(v));
         c.temp = true;
         c.angry = 12;

@@ -48,12 +48,10 @@ const MAT_COLOR: Record<string, string> = {
   light: "#fff2a8", dark: "#9a7cc8", plant: "#7ed06a", stone: "#a8a090", mud: "#8a6a48", lava: "#ff5a2a",
   metal: "#c0c8d8", poison: "#a0e060", smoke: "#b8b8c8", shadow: "#7060a0", gold: "#ffd24a",
 };
-const monsterLevel = (def: MonsterDef) => Math.round((def.levels[0] + def.levels[1]) / 2);
-// Into ITEMS, one per monster (its home field's level sets the price; it is the same item where
-// it visits).
+// Into ITEMS, one per monster (its level sets the price; it is the same item where it visits).
 for (const m of MONSTERS) {
   ITEMS[matId(m.id)] = {
-    kind: "material", name: m.mat, stack: 99, sell: materialSell(monsterLevel(m), m.kind),
+    kind: "material", name: m.mat, stack: 99, sell: materialSell(m.level, m.kind),
     icon: { glyph: MAT_GLYPH[m.race ?? "brute"], color: MAT_COLOR[m.element ?? ""] ?? "#d8c8a0" },
     note: `วัตถุดิบจาก${m.name} (ฟิลด์ ${MAP_NAMES[m.field]}) ขายให้ร้านค้าได้`,
   };
@@ -61,7 +59,7 @@ for (const m of MONSTERS) {
 
 // The fixed list (before the player's drop and luck bonuses).
 export function fieldDrops(def: MonsterDef): Drop[] {
-  const k = KIND_SCALE[def.kind], level = (def.levels[0] + def.levels[1]) / 2;
+  const k = KIND_SCALE[def.kind], level = def.level;
   const big = def.kind === "rare" || def.kind === "boss" ? 2 : 1;
   const round = (v: number) => +Math.min(1, v).toFixed(4);
   // its own material: about one kill in three, always from a rare one, three or four from a boss

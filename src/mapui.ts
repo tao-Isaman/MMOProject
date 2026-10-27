@@ -13,6 +13,7 @@ import { isTouch } from "./touch";
 import { PLACES, GRID, SEAS, groundAt, tileArea } from "./worldmap";
 import type { Place, Ground } from "./worldmap";
 import { FIELDS } from "./maps";
+import { fieldLevels, levelText } from "./bestiary";
 import type { GameMap } from "./maps";
 import type { Npc, NpcRole } from "./npcs";
 import type { Monster } from "./monsters";
@@ -51,8 +52,9 @@ type Hit = { x: number; y: number; text: string; npc?: Npc; to?: Vec2 };
 // each kind of townsperson's dot and label (a smith glows like a forge)
 const NPC_COLORS: Record<NpcRole, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8", travel: "#9fd4ff", smith: "#ffa45c" };
 
-// the monsters' levels each field square names (the first field's slimes are its own)
-const LEVELS: Record<string, [number, number]> = { field: [1, 8], ...Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.levels as [number, number]])) };
+// the monsters' levels each field square names: the lowest and highest of its kinds (the first
+// field's slimes are its own)
+const LEVELS: Record<string, [number, number]> = { field: [1, 8], ...Object.fromEntries(Object.keys(FIELDS).flatMap((id) => { const lv = fieldLevels(id); return lv ? [[id, lv]] : []; })) };
 // an empty square's colours: ground and marks
 const GROUND_COLORS: Record<Ground, [string, string]> = {
   "~": ["#235f82", "rgba(220, 240, 255, 0.28)"], "^": ["#d9dee0", "#8f8a7e"], "#": ["#93b46a", "#6f9150"],
@@ -479,7 +481,7 @@ export class MapUI {
       const lv = LEVELS[p.id];
       const showLv = lv && css >= 92;
       text(p.name, x + k / 2, y + k - (showLv ? size * 1.45 : size * 0.55), size, town ? "#ffe39a" : "#fff6dc");
-      if (showLv) text(`Lv ${lv[0]}–${lv[1]}`, x + k / 2, y + k - size * 0.45, size * 0.78, "#cfe8ff");
+      if (showLv) text(`Lv ${levelText(lv)}`, x + k / 2, y + k - size * 0.45, size * 0.78, "#cfe8ff");
       if (!p.open) text("ยังไม่เปิด", x + k / 2, y + k * 0.2, size * 0.8, "#f0b9a4");
     }
     // where she stands in her square

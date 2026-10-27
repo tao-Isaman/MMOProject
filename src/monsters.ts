@@ -1159,24 +1159,11 @@ export function variantOf(def: MonsterDef, level: number): Variant {
   };
 }
 
-// A variant grown (or shrunk) to another level: its HP, attack, defences and experience follow
-// the level the way a character's do, so a slime of a far field is a fair fight there.
-export function atLevel(v: Variant, level: number): Variant {
-  const r = (level + 4) / (v.level + 4), k = monsterMight(level) / monsterMight(v.level);
-  return {
-    ...v, level,
-    hp: Math.round(v.hp * r ** 1.6 * k), atk: Math.round(v.atk * r ** 1.1 * k),
-    def: Math.round(v.def * r * k), mdef: Math.round(v.mdef * r * k), xp: Math.round(v.xp * r ** 1.65),
-  };
-}
-
-// Where a map's monsters live: spots on open ground, the range of their levels (none: the
-// variants' own), its own monsters from the bestiary (none: slimes) and where players come in
-// (its boss lives as far from there as it can). The first field (the courtyard) has its own
-// spots.
+// Where a map's monsters live: spots on open ground, its own monsters from the bestiary (none:
+// slimes) and where players come in (its boss lives as far from there as it can). The first
+// field (the courtyard) has its own spots. Every monster is its kind's one level.
 export interface Spawns {
   spots?: Vec2[];
-  levels?: [number, number];
   pool?: MonsterDef[];
   spawn?: Vec2;
 }
@@ -1189,10 +1176,8 @@ function pickBy<T>(list: T[], weight: (t: T) => number): T {
 
 // One monster per spawn spot (and a green slime beside each on the first field). On a field
 // with its own monsters: the boss on the spot farthest from the way in, each rare one on a few
-// spots, the rest picked by how common their kind is, at a level in their range, a pack one
-// with a second beside it. On a field
-// without: slime colours by weight, the weaker colours at the low end of its range and the
-// violet at the top.
+// spots, the rest picked by how common their kind is, each at its kind's level, a pack one
+// with a second beside it. On a field without: slime colours by weight.
 export function spawnMonsters(looks: MonsterLooks, where: Spawns = {}): Monster[] {
   const list: Monster[] = [];
   const make = (v: Variant, home: Vec2) => list.push(new Monster(v, home, looks.of(v), looks.person(v)));
@@ -1202,7 +1187,7 @@ export function spawnMonsters(looks: MonsterLooks, where: Spawns = {}): Monster[
     const spots = [...(where.spots ?? SPAWNS)];
     const from = where.spawn ?? { x: 0, y: 0 };
     const far = (p: Vec2) => Math.hypot(p.x - from.x, p.y - from.y);
-    const at = (d: MonsterDef) => variantOf(d, d.levels[0] + Math.floor(rand(0, d.levels[1] - d.levels[0] + 1)));
+    const at = (d: MonsterDef) => variantOf(d, d.level);
     for (const d of pool.filter((b) => b.kind === "boss")) {
       if (!spots.length) break;
       const i = spots.reduce((best, p, j) => (far(p) > far(spots[best]) ? j : best), 0);
@@ -1217,16 +1202,9 @@ export function spawnMonsters(looks: MonsterLooks, where: Spawns = {}): Monster[
     }
   } else {
     const pick = () => pickBy(VARIANTS, (v) => v.weight);
-    const lv = where.levels, ranked = VARIANTS.length - 1;
     for (const home of where.spots ?? SPAWNS) {
-      if (!lv) {
-        make(pick(), home);
-        make(VARIANTS[0], { x: home.x + 80, y: home.y - 90 });
-        continue;
-      }
-      const v = pick(), at = VARIANTS.indexOf(v) / ranked;
-      const level = Math.round(lv[0] + (lv[1] - lv[0]) * Math.min(1, Math.max(0, at * 0.75 + rand(0, 0.25))));
-      make(atLevel(v, level), home);
+      make(pick(), home);
+      make(VARIANTS[0], { x: home.x + 80, y: home.y - 90 });
     }
   }
   // the others on the field: a pack comes when one is hit, its kind when one goes after the player
