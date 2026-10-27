@@ -322,10 +322,11 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 #status { left: 14px; right: auto; top: 178px; } /* the manager keeps it on screen */
 .st-body { padding: 12px 14px 14px; width: 300px; max-width: 100%; }
 .st-head { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+.st-head > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-head strong { color: var(--gold); font-size: 16px; }
 .st-table { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
 .st-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); border-bottom: 1px dashed rgba(255, 255, 255, 0.08); }
-.st-row b { color: var(--text); font-weight: 600; }
+.st-row b { color: var(--text); font-weight: 600; white-space: nowrap; }
 .st-elements { display: grid; gap: 3px; margin-top: 8px; }
 .st-sub { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
 .st-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -338,7 +339,7 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 .st-gear-text { display: flex; flex-direction: column; min-width: 0; font-size: 11px; line-height: 1.25; }
 .st-gear-text small { color: var(--muted); }
 .st-gear-text b { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.st-gear-text span { color: var(--mint); }
+.st-gear-text span { color: var(--mint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-looks { margin-bottom: 10px; }
 .st-looks .wr-swatches { margin-top: 6px; }
 .st-learned { display: grid; gap: 3px; margin-top: 10px; }
@@ -356,15 +357,35 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 /* ---- skill window ---- */
 #skills { left: 50%; right: auto; top: 60px; transform: translateX(-50%); width: min(1060px, calc(100vw - 24px)); }
 .sk-top { display: flex; align-items: center; gap: 12px; padding: 10px 14px 0; flex-wrap: wrap; }
-.sk-points { font-size: 14px; color: var(--muted); }
-.sk-points b { color: #9df0b4; font-size: 16px; }
 .sk-tabs { display: flex; gap: 6px; margin-left: auto; }
 .sk-tabs.hidden { display: none; }
+#skills .sk-tabs { margin-left: 0; }
 .sk-tab { padding: 5px 12px; border-radius: 8px; cursor: pointer; font: 600 13px var(--font); color: var(--text);
   background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.16); }
 .sk-tab.on { border-color: var(--gold); background: rgba(244, 210, 122, 0.14); color: var(--gold); }
 .sk-body { padding: 10px 14px 4px; overflow-y: auto; }
-.sk-help { padding: 0 14px 12px; }
+/* the footer, as in Ragnarok: always there at one height, so reserving a point moves nothing */
+.sk-foot {
+  flex: none; display: flex; align-items: center; gap: 10px; height: 46px; box-sizing: border-box; padding: 0 14px; white-space: nowrap;
+  border-top: 1px solid var(--rim); background: rgba(255, 255, 255, 0.03); font-size: 13px; color: var(--muted);
+}
+.sk-left b { color: #9df0b4; font-size: 15px; }
+.sk-reserved { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; cursor: help; }
+.sk-reserved.on { color: #9df0b4; font-weight: 600; }
+.sk-helpmark {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; cursor: help;
+  border: 1px solid var(--rim); color: var(--gold); font-weight: 600;
+}
+.sk-foot .title-btn { flex: none; min-width: 0; margin: 0; padding: 6px 16px; }
+.sk-foot .title-btn:disabled { opacity: 0.4; cursor: default; }
+/* tooltips: a skill's is wider; a stat with one has a dotted name */
+.inv-tip.sk-tip { max-width: 360px; }
+.inv-tip.st-tip { max-width: 300px; }
+.inv-tip b { color: var(--text); font-weight: 600; }
+.inv-tip .sk-tip-desc { color: var(--text); }
+.inv-tip .sk-tip-next i { color: #9df0b4; font-style: normal; }
+.inv-tip .sk-tip-act { display: block; margin-top: 2px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.12); font-size: 12px; }
+.st-help { text-decoration: underline dotted rgba(255, 255, 255, 0.35); text-underline-offset: 3px; cursor: help; }
 .sk-icon { position: relative; flex: none; width: 40px; height: 40px; }
 .sk-icon canvas { width: 40px; height: 40px; display: block; }
 .sk-icon.dim canvas { filter: grayscale(0.9) brightness(0.7); }
@@ -376,15 +397,19 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
   background: #9df0b4; border: 1px solid rgba(0, 0, 0, 0.3);
 }
 .sk-plus:disabled { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.35); cursor: default; }
-.sk-plus.wide { width: 100%; height: 36px; font-size: 14px; border-radius: 9px; }
+/* (a + or − with nothing to do keeps its room, unseen) */
+.sk-plus.off { visibility: hidden; }
 .sk-plus.mini { position: absolute; top: -8px; left: calc(50% + 22px); width: 24px; height: 24px; font-size: 16px; border-radius: 50%; box-shadow: 0 0 8px rgba(157, 240, 180, 0.7); }
 .sk-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .sk-info strong { font-size: 14px; font-weight: 600; color: var(--text); }
 .sk-sub { font-size: 12px; color: var(--muted); }
+/* a mastery's or element's head: one line each, cut short (the whole in its tooltip) */
+.sk-line-top .sk-info { cursor: help; }
+.sk-line-top .sk-info > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sk-sub.now { color: #b8f5c8; }
 
-/* trees: list | drawing | details */
-.sk-treeview { display: grid; grid-template-columns: 160px minmax(420px, 1fr) 300px; gap: 12px; align-items: start; }
+/* trees: list | drawing (a node's details are its tooltip) */
+.sk-treeview { display: grid; grid-template-columns: 160px minmax(420px, 1fr); gap: 12px; align-items: start; }
 .sk-treelist { display: flex; flex-direction: column; gap: 6px; }
 .sk-treetab {
   display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 8px; border-radius: 10px; cursor: pointer;
@@ -419,36 +444,19 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 .sk-tnode.learned .sk-icon { border-color: var(--tree); }
 .sk-tnode.can .sk-icon { box-shadow: 0 0 0 2px rgba(157, 240, 180, 0.3), 0 0 16px rgba(157, 240, 180, 0.35); }
 .sk-tnode.blocked .sk-icon canvas { filter: grayscale(1) brightness(0.55); }
-.sk-tnode.picked .sk-icon, .sk-tnode:focus-visible .sk-icon { outline: 2px solid var(--gold); outline-offset: 3px; }
+.sk-tnode:hover .sk-icon, .sk-tnode:focus-visible .sk-icon { outline: 2px solid var(--gold); outline-offset: 3px; }
 .sk-lockmark { position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; }
+/* the level under the icon, over its bottom edge (as in Ragnarok) */
 .sk-rank {
-  position: absolute; top: 46px; left: calc(50% + 12px); padding: 0 6px; border-radius: 7px; font: 600 11.5px/1.5 var(--font);
-  color: var(--text); background: #10160d; border: 1px solid var(--rim);
+  position: absolute; top: 52px; left: 50%; transform: translateX(-50%); min-width: 34px; box-sizing: border-box; padding: 0 6px; border-radius: 7px;
+  font: 600 11.5px/1.5 var(--font); text-align: center; white-space: nowrap; color: var(--text); background: #10160d; border: 1px solid var(--rim);
 }
 .sk-tnode.max .sk-rank { color: #10160d; background: var(--gold); }
-.sk-tname { margin-top: 5px; font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+.sk-tname { margin-top: 9px; font-size: 12.5px; font-weight: 600; line-height: 1.2; }
 .sk-tkind { font-size: 10.5px; color: var(--muted); }
 .sk-tel { font-weight: 600; }
-.sk-detail { border-radius: 12px; padding: 10px 12px; font-size: 13px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); }
-.sk-detail-head { display: flex; gap: 10px; align-items: center; }
-.sk-detail-head strong { display: block; font-size: 16px; color: var(--tree); }
-.sk-detail h4 { margin: 10px 0 3px; font-size: 13px; font-weight: 600; color: var(--gold); }
-.sk-desc { margin: 8px 0 3px; line-height: 1.45; }
-.sk-meta { margin: 2px 0; font-size: 11.5px; color: var(--muted); }
-.sk-needs p { margin: 2px 0; font-size: 12.5px; }
 .sk-ok { color: #b8f5c8; }
 .sk-miss { color: #ffb4a6; }
-.sk-next { color: var(--muted); }
-.sk-ranks table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.sk-ranks th { text-align: left; color: var(--muted); font-weight: 600; padding: 3px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
-.sk-ranks td { padding: 3px 4px; border-bottom: 1px dashed rgba(255, 255, 255, 0.07); vertical-align: top; }
-.sk-ranks tr.done td { color: rgba(251, 246, 232, 0.6); }
-.sk-ranks tr.now td { background: rgba(244, 210, 122, 0.13); color: #fff; font-weight: 600; }
-.sk-ranks tr.next td { background: rgba(157, 240, 180, 0.08); }
-.sk-ranks td.gain { color: #9df0b4; white-space: nowrap; }
-.sk-ranks td.num { color: var(--gold); white-space: nowrap; }
-.sk-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
-.sk-why { margin: 0; font-size: 12px; color: #ffb4a6; }
 
 /* masteries and elements: a line with milestone dots */
 .sk-lines { display: flex; flex-direction: column; gap: 8px; }
@@ -786,7 +794,7 @@ body.touch .window-collapse, body.touch .window-grip { display: none; }
 body.touch .window-bar { cursor: default; position: sticky; top: 0; z-index: 2; background: rgba(28, 36, 24, 0.98); }
 body.touch .window-close { width: 36px; height: 36px; font-size: 22px; }
 body.touch .sk-body { max-height: none; overflow: visible; }
-body.touch .sk-help { display: none; }
+body.touch .sk-foot { position: sticky; bottom: 0; z-index: 2; background: rgba(28, 36, 24, 0.98); }
 body.touch #skills { width: calc(100vw - 12px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
 body.touch .inv-body { flex-direction: row; align-items: flex-start; }
 body.touch .inv-equip { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
@@ -850,17 +858,7 @@ body.touch .mp-info {
 }
 body.touch .mp-info:empty { display: none; }
 
-/* asking before a skill point is spent */
-/* skill window: points planned, then confirmed together */
-.sk-plan {
-  display: flex; align-items: center; gap: 8px; margin: 8px 14px 0; padding: 6px 10px; border-radius: 10px;
-  background: rgba(157, 240, 180, 0.1); border: 1px solid rgba(157, 240, 180, 0.5);
-}
-.sk-plan.hidden { display: none; }
-.sk-plan-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12.5px; }
-.sk-plan-text strong { color: #9df0b4; font-size: 14px; }
-.sk-plan-text small { color: var(--muted); font-size: 11.5px; }
-.sk-plan .title-btn { flex: none; margin: 0; padding: 7px 16px; }
+/* skill window: points reserved, then confirmed together in the footer */
 .sk-plus.minus { background: #f3c19d; }
 .sk-plus.mini.minus { left: auto; right: calc(50% + 22px); box-shadow: 0 0 8px rgba(243, 193, 157, 0.7); }
 .sk-tnode.planned .sk-rank { color: #10160d; background: #9df0b4; white-space: nowrap; }
