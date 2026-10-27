@@ -58,6 +58,7 @@ import { garmentIcon } from "./garments";
 import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touch";
 import type { Spell } from "./spell";
 import { Quests } from "./quests";
+import { BuffBar } from "./buffbar";
 import { TalkDialog, QuestLog, QuestTracker } from "./questui";
 import type { Speaker } from "./questui";
 import { nextHop, questDest } from "./guide";
@@ -913,6 +914,8 @@ async function boot(): Promise<void> {
 
   // ---- character windows ----
   const vitals = new Vitals(document.getElementById("vitals")!, progress, hero, entry?.name ?? "");
+  // the buff and ailment icons under the bars (the burn lives in the loop below)
+  const buffBar = new BuffBar(document.getElementById("vitals")!, hero, iconFor, () => burning);
   // (a character from before classes were picked at its making picks one now, keeping its level)
   const picker = new ClassPicker((start) => {
     const level = progress.level, xp = progress.xp;
@@ -2021,6 +2024,7 @@ async function boot(): Promise<void> {
     hud.setOrbs(hero.orbs.map((o) => ({ name: ELEMENTS[o.el].name, color: ELEMENTS[o.el].color })),
       hero.orbs.length > 0 || progress.hotbar.some((id) => id && ACTIVES[id]?.skill.type === "orb"));
     vitals.update();
+    buffBar.update();
     uiClock += dt;
     if (uiClock > 0.25) {
       uiClock = 0;
