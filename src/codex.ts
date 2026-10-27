@@ -5,7 +5,7 @@
 
 import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, isFashion } from "./items";
 import type { ItemKind } from "./items";
-import { MONSTERS, VISITORS, fieldMonsters, statsFor } from "./bestiary";
+import { MONSTERS, VISITORS, fieldMonsters, fieldLevels, levelText, statsFor } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { VARIANTS } from "./monsters";
 import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
@@ -185,14 +185,14 @@ export class CodexUI {
           + `<br>${eleDefText(v.eleDef ?? {})}<br><b>ของดรอป:</b> ${v.drops.map(([id, c]) => `${itemName(id)} ${pct(c)}`).join(" · ")}`;
       }
     }
-    const fields = (Object.keys(FIELDS) as (keyof typeof FIELDS)[]).sort((a, b) => FIELDS[a].levels[0] - FIELDS[b].levels[0]);
+    const lv = (f: string) => fieldLevels(f) ?? [0, 0];
+    const fields = (Object.keys(FIELDS) as (keyof typeof FIELDS)[]).sort((a, b) => lv(a)[0] - lv(b)[0] || lv(a)[1] - lv(b)[1]);
     for (const f of fields) {
-      const here = fieldMonsters(f).filter((m) => match(m.name)).sort((a, b) => a.levels[0] - b.levels[0]);
+      const here = fieldMonsters(f).filter((m) => match(m.name)).sort((a, b) => a.level - b.level);
       if (!here.length) continue;
-      el("h4", "ws-craft", this.list).textContent = `${FIELDS[f].name} (เลเวล ${FIELDS[f].levels.join("–")})`;
+      el("h4", "ws-craft", this.list).textContent = `${FIELDS[f].name} (เลเวล ${levelText(lv(f))})`;
       for (const m of here) {
-        const lv = m.levels[0] === m.levels[1] ? `${m.levels[0]}` : m.levels.join("–");
-        const body = this.row(`m:${f}:${m.id}`, this.portrait(m.id, m.race ?? "brute"), `Lv ${lv} ${m.name}`,
+        const body = this.row(`m:${f}:${m.id}`, this.portrait(m.id, m.race ?? "brute"), `Lv ${m.level} ${m.name}`,
           `${KIND_NAMES[m.kind]} · ${RACE_NAMES[m.race ?? "brute"]}${m.element ? ` · ธาตุ${ELEMENTS[m.element].name}` : " · ไร้ธาตุ"}`);
         if (body) body.innerHTML = monsterText(m);
       }
@@ -289,10 +289,9 @@ export class CodexUI {
   }
 }
 
-// A monster's page: its numbers at both ends of its levels, its ways, its defences and its drops.
+// A monster's page: its numbers at its level, its ways, its defences and its drops.
 function monsterText(m: MonsterDef): string {
-  const lo = statsFor(m.levels[0], m.kind), hi = statsFor(m.levels[1], m.kind);
-  const range = (a: number, b: number) => (a === b ? `${a.toLocaleString()}` : `${a.toLocaleString()}–${b.toLocaleString()}`);
+  const st = statsFor(m.level, m.kind);
   const ways = m.behave.map((b) => {
     const [name, arg] = b.split(":");
     if (name === "summon") return `${BEHAVE_NAMES.summon} (${MONSTERS.find((x) => x.id === arg)?.name ?? arg})`;
@@ -300,16 +299,16 @@ function monsterText(m: MonsterDef): string {
   });
   // its own material first (what a shop pays shows only in the shop)
   const drops = fieldDrops(m).map((d) => `${itemName(d[0])} ${dropPct(d)}`);
-  const tier = gearTierAt(m.levels[0]);
+  const tier = gearTierAt(m.level);
   if (tier) drops.push(`อุปกรณ์เลเวล ${tier} (สุ่ม 1 ชิ้น) ${pct(TIER_DROP[m.kind])}`);
   drops.push(`หมวก รองเท้า แหวน จี้ของร้าน (สุ่ม) ${pct(m.kind === "boss" ? 0.6 : m.kind === "rare" ? 0.25 : 0.012)}`);
-  drops.push(`ตำราที่ยังเรียนได้ (สุ่ม) ${pct(m.kind === "boss" ? BOOK_CHANCE.boss : m.kind === "rare" ? BOOK_CHANCE.rare : BOOK_CHANCE.normal)}${m.levels[1] >= TIER2_DROP_LEVEL ? " รวมตำราขั้นสอง" : ""}`);
+  drops.push(`ตำราที่ยังเรียนได้ (สุ่ม) ${pct(m.kind === "boss" ? BOOK_CHANCE.boss : m.kind === "rare" ? BOOK_CHANCE.rare : BOOK_CHANCE.normal)}${m.level >= TIER2_DROP_LEVEL ? " รวมตำราขั้นสอง" : ""}`);
   // a monster seen in its home field also names the fields it visits, and the other way round
   const home = MONSTERS.find((x) => x.id === m.id)!;
   const elsewhere = [home, ...VISITORS.filter((v) => v.id === m.id)].filter((x) => x.field !== m.field)
-    .map((x) => `${MAP_NAMES[x.field]} (Lv ${x.levels[0]}–${x.levels[1]})`);
+    .map((x) => MAP_NAMES[x.field]);
   return `<b>ที่อยู่:</b> ${MAP_NAMES[m.field]}${elsewhere.length ? ` · พบที่${elsewhere.join(" · ")}ด้วย` : ""}<br>`
-    + `HP ${range(lo.hp, hi.hp)} · พลังโจมตี ${range(lo.atk, hi.atk)} · ป้องกัน ${range(lo.def, hi.def)} · ต้านเวท ${range(lo.mdef, hi.mdef)} · EXP ${range(lo.xp, hi.xp)}<br>`
+    + `Lv ${m.level} · HP ${st.hp.toLocaleString()} · พลังโจมตี ${st.atk.toLocaleString()} · ป้องกัน ${st.def.toLocaleString()} · ต้านเวท ${st.mdef.toLocaleString()} · EXP ${st.xp.toLocaleString()}<br>`
     + `${m.aggro ? "โจมตีก่อน" : "ไม่โจมตีก่อน"}${ways.length ? ` · ${ways.join(" · ")}` : ""}<br>`
     + `${eleDefText(m.eleDef)}<br><i>${m.look}</i><br><b>ของดรอป:</b> ${drops.join(" · ")}`;
 }
@@ -338,10 +337,10 @@ function itemSources(): Map<string, string[]> {
   for (const m of MONSTERS) for (const d of fieldDrops(m)) add(d[0], `${m.name} (${MAP_NAMES[m.field]}) ${dropPct(d)}`);
   // the monsters that visit a second field leave the same there
   for (const v of VISITORS) {
-    const m = { ...MONSTERS.find((x) => x.id === v.id)!, field: v.field, levels: v.levels };
+    const m = { ...MONSTERS.find((x) => x.id === v.id)!, field: v.field };
     for (const d of fieldDrops(m)) add(d[0], `${m.name} (${MAP_NAMES[m.field]}) ${dropPct(d)}`);
   }
-  const top = Math.max(...MONSTERS.map((m) => m.levels[1]));
+  const top = Math.max(...MONSTERS.map((m) => m.level));
   for (const t of GEAR_TIERS) for (const slot of TIER_SLOTS) {
     const id = tierId(t, slot);
     if (t <= top) add(id, `มอนสเตอร์เลเวล ${t}–${t + 29} (ตัวธรรมดา ${pct(TIER_DROP.normal)} ตัวหายาก ${pct(TIER_DROP.rare)} บอส ${pct(TIER_DROP.boss)})`);

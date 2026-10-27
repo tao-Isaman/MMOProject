@@ -21,76 +21,77 @@ import type { Vec2 } from "./types";
 
 export type TownId = "eden" | "iceberg" | "trunrada" | "kradia" | "bahamas" | "yodia" | "osaki" | "noa" | "suzhou" | "highland" | "venezia" | "palace";
 
-// The fields: name, monster levels, and the builder (src/world3d/field_<id>.ts).
+// The fields: name and the builder (src/world3d/field_<id>.ts). Their monsters and levels:
+// fieldMonsters and fieldLevels in src/bestiary.ts.
 export const FIELDS = {
-  west_woods: { name: "ป่าใหญ่ตะวันตก", levels: [8, 15], load: () => import("./world3d/field_west_woods") },
-  royal_road: { name: "ถนนหลวง", levels: [10, 18], load: () => import("./world3d/field_royal_road") },
-  snow_foothills: { name: "เชิงเขาหิมะ", levels: [35, 45], load: () => import("./world3d/field_snow_foothills") },
-  ice_pass: { name: "ช่องเขาน้ำแข็ง", levels: [45, 55], load: () => import("./world3d/field_ice_pass") },
-  north_icefield: { name: "ทุ่งน้ำแข็งเหนือ", levels: [55, 70], load: () => import("./world3d/field_north_icefield") },
-  pine_river: { name: "ป่าสนริมแม่น้ำ", levels: [20, 30], load: () => import("./world3d/field_pine_river") },
-  west_steppe: { name: "สเตปป์ตะวันตก", levels: [30, 40], load: () => import("./world3d/field_west_steppe") },
-  horse_meadow: { name: "ทุ่งเลี้ยงม้า", levels: [40, 50], load: () => import("./world3d/field_horse_meadow") },
-  stone_plain: { name: "ที่ราบหินโบราณ", levels: [50, 60], load: () => import("./world3d/field_stone_plain") },
-  border_woods: { name: "ป่าชายแดน", levels: [60, 70], load: () => import("./world3d/field_border_woods") },
-  border_line: { name: "แนวป้องกันชายแดน", levels: [70, 85], load: () => import("./world3d/field_border_line") },
-  demon_land: { name: "ดินแดนอสูร", levels: [85, 100], load: () => import("./world3d/field_demon_land") },
-  south_savanna: { name: "ทุ่งสะวันนาใต้", levels: [12, 20], load: () => import("./world3d/field_south_savanna") },
-  desert_edge: { name: "ขอบทะเลทราย", levels: [20, 30], load: () => import("./world3d/field_desert_edge") },
-  great_desert: { name: "ทะเลทรายใหญ่", levels: [30, 45], load: () => import("./world3d/field_great_desert") },
-  south_jungle: { name: "ป่าดิบแดนใต้", levels: [25, 35], load: () => import("./world3d/field_south_jungle") },
-  mangrove_coast: { name: "ชายฝั่งป่าชายเลน", levels: [35, 45], load: () => import("./world3d/field_mangrove_coast") },
-  sakura_hills: { name: "เนินซากุระและป่าไผ่", levels: [45, 60], load: () => import("./world3d/field_sakura_hills") },
-  volcano: { name: "ยอดภูเขาไฟ", levels: [60, 75], load: () => import("./world3d/field_volcano") },
+  west_woods: { name: "ป่าใหญ่ตะวันตก", load: () => import("./world3d/field_west_woods") },
+  royal_road: { name: "ถนนหลวง", load: () => import("./world3d/field_royal_road") },
+  snow_foothills: { name: "เชิงเขาหิมะ", load: () => import("./world3d/field_snow_foothills") },
+  ice_pass: { name: "ช่องเขาน้ำแข็ง", load: () => import("./world3d/field_ice_pass") },
+  north_icefield: { name: "ทุ่งน้ำแข็งเหนือ", load: () => import("./world3d/field_north_icefield") },
+  pine_river: { name: "ป่าสนริมแม่น้ำ", load: () => import("./world3d/field_pine_river") },
+  west_steppe: { name: "สเตปป์ตะวันตก", load: () => import("./world3d/field_west_steppe") },
+  horse_meadow: { name: "ทุ่งเลี้ยงม้า", load: () => import("./world3d/field_horse_meadow") },
+  stone_plain: { name: "ที่ราบหินโบราณ", load: () => import("./world3d/field_stone_plain") },
+  border_woods: { name: "ป่าชายแดน", load: () => import("./world3d/field_border_woods") },
+  border_line: { name: "แนวป้องกันชายแดน", load: () => import("./world3d/field_border_line") },
+  demon_land: { name: "ดินแดนอสูร", load: () => import("./world3d/field_demon_land") },
+  south_savanna: { name: "ทุ่งสะวันนาใต้", load: () => import("./world3d/field_south_savanna") },
+  desert_edge: { name: "ขอบทะเลทราย", load: () => import("./world3d/field_desert_edge") },
+  great_desert: { name: "ทะเลทรายใหญ่", load: () => import("./world3d/field_great_desert") },
+  south_jungle: { name: "ป่าดิบแดนใต้", load: () => import("./world3d/field_south_jungle") },
+  mangrove_coast: { name: "ชายฝั่งป่าชายเลน", load: () => import("./world3d/field_mangrove_coast") },
+  sakura_hills: { name: "เนินซากุระและป่าไผ่", load: () => import("./world3d/field_sakura_hills") },
+  volcano: { name: "ยอดภูเขาไฟ", load: () => import("./world3d/field_volcano") },
   // the west lands (docs/west_lands.md): fields next door to each other far apart in level
-  noa_meadow: { name: "ทุ่งหญ้าโนอา", levels: [30, 40], load: () => import("./world3d/field_noa_meadow") },
-  noa_plains: { name: "ที่ราบใต้โนอา", levels: [40, 50], load: () => import("./world3d/field_noa_plains") },
-  dry_plains: { name: "ที่ราบแห้งแล้ง", levels: [50, 62], load: () => import("./world3d/field_dry_plains") },
-  elder_forest: { name: "ป่าโบราณ", levels: [62, 74], load: () => import("./world3d/field_elder_forest") },
-  rice_terraces: { name: "นาขั้นบันได", levels: [74, 86], load: () => import("./world3d/field_rice_terraces") },
-  highland_downs: { name: "ที่ราบเนินเขา", levels: [86, 98], load: () => import("./world3d/field_highland_downs") },
-  karst_peaks: { name: "ภูผาหินปูน", levels: [98, 110], load: () => import("./world3d/field_karst_peaks") },
-  ancient_plain: { name: "ที่ราบโบราณ", levels: [110, 122], load: () => import("./world3d/field_ancient_plain") },
-  frozen_river: { name: "แม่น้ำเยือกแข็ง", levels: [122, 134], load: () => import("./world3d/field_frozen_river") },
-  west_pass: { name: "ช่องเขาตะวันตก", levels: [134, 146], load: () => import("./world3d/field_west_pass") },
-  tangled_hills: { name: "เนินเขาวงกต", levels: [146, 158], load: () => import("./world3d/field_tangled_hills") },
-  lagoon_marsh: { name: "บึงลากูน", levels: [158, 170], load: () => import("./world3d/field_lagoon_marsh") },
-  royal_necropolis: { name: "สุสานหลวงโบราณ", levels: [170, 182], load: () => import("./world3d/field_royal_necropolis") },
-  north_cliffs: { name: "หน้าผาทะเลเหนือ", levels: [182, 192], load: () => import("./world3d/field_north_cliffs") },
-  west_cape: { name: "แหลมทะเลตะวันตก", levels: [188, 200], load: () => import("./world3d/field_west_cape") },
+  noa_meadow: { name: "ทุ่งหญ้าโนอา", load: () => import("./world3d/field_noa_meadow") },
+  noa_plains: { name: "ที่ราบใต้โนอา", load: () => import("./world3d/field_noa_plains") },
+  dry_plains: { name: "ที่ราบแห้งแล้ง", load: () => import("./world3d/field_dry_plains") },
+  elder_forest: { name: "ป่าโบราณ", load: () => import("./world3d/field_elder_forest") },
+  rice_terraces: { name: "นาขั้นบันได", load: () => import("./world3d/field_rice_terraces") },
+  highland_downs: { name: "ที่ราบเนินเขา", load: () => import("./world3d/field_highland_downs") },
+  karst_peaks: { name: "ภูผาหินปูน", load: () => import("./world3d/field_karst_peaks") },
+  ancient_plain: { name: "ที่ราบโบราณ", load: () => import("./world3d/field_ancient_plain") },
+  frozen_river: { name: "แม่น้ำเยือกแข็ง", load: () => import("./world3d/field_frozen_river") },
+  west_pass: { name: "ช่องเขาตะวันตก", load: () => import("./world3d/field_west_pass") },
+  tangled_hills: { name: "เนินเขาวงกต", load: () => import("./world3d/field_tangled_hills") },
+  lagoon_marsh: { name: "บึงลากูน", load: () => import("./world3d/field_lagoon_marsh") },
+  royal_necropolis: { name: "สุสานหลวงโบราณ", load: () => import("./world3d/field_royal_necropolis") },
+  north_cliffs: { name: "หน้าผาทะเลเหนือ", load: () => import("./world3d/field_north_cliffs") },
+  west_cape: { name: "แหลมทะเลตะวันตก", load: () => import("./world3d/field_west_cape") },
   // the rest of the land (docs/v04_lands.md): the squares of the world map no map filled before
-  windmill_fields: { name: "ทุ่งกังหันลม", levels: [20, 28], load: () => import("./world3d/field_windmill_fields") },
-  flower_fields: { name: "ทุ่งดอกไม้หลวง", levels: [24, 32], load: () => import("./world3d/field_flower_fields") },
-  royal_hunt: { name: "ป่าล่าสัตว์หลวง", levels: [28, 36], load: () => import("./world3d/field_royal_hunt") },
-  salt_dunes: { name: "เนินทรายริมทะเลใน", levels: [30, 40], load: () => import("./world3d/field_salt_dunes") },
-  lavender_hills: { name: "ทุ่งลาเวนเดอร์", levels: [34, 44], load: () => import("./world3d/field_lavender_hills") },
-  inner_sea_cliffs: { name: "ทุ่งผาริมทะเลใน", levels: [38, 48], load: () => import("./world3d/field_inner_sea_cliffs") },
-  waterfall_gorge: { name: "หุบผาน้ำตก", levels: [42, 52], load: () => import("./world3d/field_waterfall_gorge") },
-  frozen_falls: { name: "หุบน้ำตกเยือกแข็ง", levels: [46, 56], load: () => import("./world3d/field_frozen_falls") },
-  caravan_road: { name: "ถนนคาราวานตะวันออก", levels: [52, 62], load: () => import("./world3d/field_caravan_road") },
-  windswept_heights: { name: "ที่ราบสูงลมแรง", levels: [56, 66], load: () => import("./world3d/field_windswept_heights") },
-  old_royal_mine: { name: "เหมืองหลวงเก่า", levels: [62, 72], load: () => import("./world3d/field_old_royal_mine") },
-  west_glacier: { name: "ธารน้ำแข็งตะวันตก", levels: [66, 76], load: () => import("./world3d/field_west_glacier") },
-  golden_maples: { name: "ป่าเมเปิลทอง", levels: [68, 78], load: () => import("./world3d/field_golden_maples") },
-  glass_desert: { name: "ทะเลทรายแก้ว", levels: [74, 84], load: () => import("./world3d/field_glass_desert") },
-  aurora_field: { name: "ทุ่งแสงเหนือ", levels: [78, 88], load: () => import("./world3d/field_aurora_field") },
-  witch_cape: { name: "แหลมแม่มด", levels: [84, 94], load: () => import("./world3d/field_witch_cape") },
-  floating_rocks: { name: "ทุ่งหินลอย", levels: [88, 98], load: () => import("./world3d/field_floating_rocks") },
-  storm_cape: { name: "แหลมพายุ", levels: [92, 102], load: () => import("./world3d/field_storm_cape") },
-  burnt_villages: { name: "หมู่บ้านร้างชายแดน", levels: [98, 108], load: () => import("./world3d/field_burnt_villages") },
-  thornland: { name: "ทุ่งหนามอสูร", levels: [104, 114], load: () => import("./world3d/field_thornland") },
-  demon_camp: { name: "ค่ายทัพอสูร", levels: [110, 120], load: () => import("./world3d/field_demon_camp") },
-  royal_peaks: { name: "สันเขาหลวง", levels: [114, 124], load: () => import("./world3d/field_royal_peaks") },
-  primeval_forest: { name: "ป่าดึกดำบรรพ์", levels: [120, 130], load: () => import("./world3d/field_primeval_forest") },
-  dragon_summit: { name: "ยอดเขามังกรฟ้า", levels: [124, 134], load: () => import("./world3d/field_dragon_summit") },
-  ice_queen_hollow: { name: "หุบวังน้ำแข็ง", levels: [130, 140], load: () => import("./world3d/field_ice_queen_hollow") },
-  snow_abbey: { name: "ผาอารามหิมะ", levels: [136, 146], load: () => import("./world3d/field_snow_abbey") },
-  humming_stones: { name: "หุบหินร้องเพลง", levels: [148, 158], load: () => import("./world3d/field_humming_stones") },
-  frostfang_ridge: { name: "สันเขาเขี้ยวน้ำแข็ง", levels: [160, 170], load: () => import("./world3d/field_frostfang_ridge") },
-  sunken_temple_woods: { name: "ป่าวิหารจม", levels: [170, 180], load: () => import("./world3d/field_sunken_temple_woods") },
-  sacred_banyan: { name: "ป่าไทรศักดิ์สิทธิ์", levels: [180, 190], load: () => import("./world3d/field_sacred_banyan") },
-  first_tree: { name: "ป่าต้นไม้แรก", levels: [190, 200], load: () => import("./world3d/field_first_tree") },
-} satisfies Record<string, { name: string; levels: [number, number]; load: () => Promise<{ build: (quality: { flowers: number }) => Town }> }>;
+  windmill_fields: { name: "ทุ่งกังหันลม", load: () => import("./world3d/field_windmill_fields") },
+  flower_fields: { name: "ทุ่งดอกไม้หลวง", load: () => import("./world3d/field_flower_fields") },
+  royal_hunt: { name: "ป่าล่าสัตว์หลวง", load: () => import("./world3d/field_royal_hunt") },
+  salt_dunes: { name: "เนินทรายริมทะเลใน", load: () => import("./world3d/field_salt_dunes") },
+  lavender_hills: { name: "ทุ่งลาเวนเดอร์", load: () => import("./world3d/field_lavender_hills") },
+  inner_sea_cliffs: { name: "ทุ่งผาริมทะเลใน", load: () => import("./world3d/field_inner_sea_cliffs") },
+  waterfall_gorge: { name: "หุบผาน้ำตก", load: () => import("./world3d/field_waterfall_gorge") },
+  frozen_falls: { name: "หุบน้ำตกเยือกแข็ง", load: () => import("./world3d/field_frozen_falls") },
+  caravan_road: { name: "ถนนคาราวานตะวันออก", load: () => import("./world3d/field_caravan_road") },
+  windswept_heights: { name: "ที่ราบสูงลมแรง", load: () => import("./world3d/field_windswept_heights") },
+  old_royal_mine: { name: "เหมืองหลวงเก่า", load: () => import("./world3d/field_old_royal_mine") },
+  west_glacier: { name: "ธารน้ำแข็งตะวันตก", load: () => import("./world3d/field_west_glacier") },
+  golden_maples: { name: "ป่าเมเปิลทอง", load: () => import("./world3d/field_golden_maples") },
+  glass_desert: { name: "ทะเลทรายแก้ว", load: () => import("./world3d/field_glass_desert") },
+  aurora_field: { name: "ทุ่งแสงเหนือ", load: () => import("./world3d/field_aurora_field") },
+  witch_cape: { name: "แหลมแม่มด", load: () => import("./world3d/field_witch_cape") },
+  floating_rocks: { name: "ทุ่งหินลอย", load: () => import("./world3d/field_floating_rocks") },
+  storm_cape: { name: "แหลมพายุ", load: () => import("./world3d/field_storm_cape") },
+  burnt_villages: { name: "หมู่บ้านร้างชายแดน", load: () => import("./world3d/field_burnt_villages") },
+  thornland: { name: "ทุ่งหนามอสูร", load: () => import("./world3d/field_thornland") },
+  demon_camp: { name: "ค่ายทัพอสูร", load: () => import("./world3d/field_demon_camp") },
+  royal_peaks: { name: "สันเขาหลวง", load: () => import("./world3d/field_royal_peaks") },
+  primeval_forest: { name: "ป่าดึกดำบรรพ์", load: () => import("./world3d/field_primeval_forest") },
+  dragon_summit: { name: "ยอดเขามังกรฟ้า", load: () => import("./world3d/field_dragon_summit") },
+  ice_queen_hollow: { name: "หุบวังน้ำแข็ง", load: () => import("./world3d/field_ice_queen_hollow") },
+  snow_abbey: { name: "ผาอารามหิมะ", load: () => import("./world3d/field_snow_abbey") },
+  humming_stones: { name: "หุบหินร้องเพลง", load: () => import("./world3d/field_humming_stones") },
+  frostfang_ridge: { name: "สันเขาเขี้ยวน้ำแข็ง", load: () => import("./world3d/field_frostfang_ridge") },
+  sunken_temple_woods: { name: "ป่าวิหารจม", load: () => import("./world3d/field_sunken_temple_woods") },
+  sacred_banyan: { name: "ป่าไทรศักดิ์สิทธิ์", load: () => import("./world3d/field_sacred_banyan") },
+  first_tree: { name: "ป่าต้นไม้แรก", load: () => import("./world3d/field_first_tree") },
+} satisfies Record<string, { name: string; load: () => Promise<{ build: (quality: { flowers: number }) => Town }> }>;
 export type FieldId = keyof typeof FIELDS;
 export type MapId = TownId | FieldId | "field";
 
@@ -150,7 +151,6 @@ export interface GameMap {
   height?: (x: number, y: number) => number; // ground that is not flat (world cm)
   top?: number;
   spots?: Vec2[];             // where monsters live (a field)
-  levels?: [number, number];  // and their levels
 }
 
 // The courtyard's footprints (from the Oriverse world), in sim centimetres.
@@ -197,7 +197,7 @@ export async function loadMap(id: MapId, quality: { flowers: number }): Promise<
     if (id in FIELDS) {
       const f = FIELDS[id as FieldId];
       const t = (await f.load()).build(quality);
-      map = { id, name: f.name, town: false, gates: {}, levels: f.levels as [number, number], ...t };
+      map = { id, name: f.name, town: false, gates: {}, ...t };
     } else if (id !== "field") {
       const t = (await BUILDERS[id as TownId]())(quality);
       map = { id, name: MAP_NAMES[id], town: true, gates: {}, ...t };
