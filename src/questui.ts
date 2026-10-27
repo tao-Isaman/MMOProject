@@ -227,7 +227,7 @@ export class QuestLog {
   win: HTMLElement;
   tabs: HTMLElement;
   list: HTMLElement;
-  tab: "on" | "open" | "done" = "on";
+  tab: "on" | "done" = "on";
   onGuide: ((q: QuestDef) => void) | null = null;
 
   constructor(quests: Quests) {
@@ -235,7 +235,7 @@ export class QuestLog {
     this.win = makeWindow("quests", "เควส", "J");
     const top = el("div", "shop-top", this.win);
     this.tabs = el("div", "sk-tabs", top);
-    for (const [id, name] of [["on", "กำลังทำ"], ["open", "รับได้"], ["done", "สำเร็จแล้ว"]] as const) {
+    for (const [id, name] of [["on", "กำลังทำ"], ["done", "สำเร็จแล้ว"]] as const) {
       const b = el("button", "sk-tab", this.tabs);
       b.type = "button";
       b.dataset.tab = id;
@@ -274,7 +274,7 @@ export class QuestLog {
     };
     if (this.tab === "on") {
       const on = QUESTS.filter((q) => quests.isActive(q.id));
-      if (!on.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่ทำอยู่ ดูเควสที่รับได้ในแท็บ \"รับได้\" แล้วไปคุยกับคนให้เควส";
+      if (!on.length) el("p", "ql-empty", this.list).textContent = "ยังไม่มีเควสที่ทำอยู่ ลองไปคุยกับชาวเมืองดู";
       for (const q of on) {
         const c = card(q);
         el("p", `ql-step${quests.ready(q.id) ? " ready" : ""}`, c).textContent = `ตอนนี้: ${stepLine(quests, q)}`;
@@ -301,16 +301,6 @@ export class QuestLog {
             x.textContent = "กดอีกครั้งเพื่อยืนยัน";
           }
         });
-      }
-    } else if (this.tab === "open") {
-      // the ones that can be taken now first, then the rest with why not yet
-      const all = QUESTS.filter((q) => !quests.isActive(q.id) && (q.repeat || !quests.timesDone(q.id)));
-      all.sort((a, b) => Number(!quests.available(a)) - Number(!quests.available(b)) || (a.level ?? 1) - (b.level ?? 1));
-      for (const q of all) {
-        const c = card(q), why = quests.why(q);
-        c.classList.toggle("locked", !!why);
-        el("p", "ql-step", c).textContent = why ?? q.offer;
-        el("p", "ql-reward", c).textContent = `รางวัล: ${rewardText(q.reward, itemName)}`;
       }
     } else {
       const done = QUESTS.filter((q) => quests.timesDone(q.id));
