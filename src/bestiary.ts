@@ -674,10 +674,22 @@ for (const m of MONSTERS) {
 export const MONSTER_BY_ID: Record<string, MonsterDef> = Object.fromEntries(MONSTERS.map((m) => [m.id, m]));
 
 // Monsters that live in a second field as well (docs/v04_lands.md): the same kind, look and
-// level, met further from home. A kind visits a field only when its level is within 5 of the
-// levels of that field's own kinds.
+// level, met further from home. A field's monsters (its own, its visitors and its boss) span at
+// most 20 levels, so a visit that would stretch it further is left out (the steppe eagle on the
+// windswept heights, the frost harpy at the storm cape, the skeleton soldiers in the burnt
+// villages).
 export const VISITORS: { id: string; field: MapId }[] = [
+  { id: "mill_rat", field: "windmill_fields" },
+  { id: "pine_wolf", field: "royal_hunt" },
+  { id: "sabre_seal", field: "west_glacier" },
+  { id: "pass_gargoyle", field: "humming_stones" },
+  { id: "tipsy_wasp", field: "lavender_hills" },
+  { id: "red_scorpion", field: "salt_dunes" },
   { id: "giant_gull", field: "inner_sea_cliffs" },
+  { id: "canyon_wolf", field: "caravan_road" },
+  { id: "crimson_stag", field: "golden_maples" },
+  { id: "goat_demon", field: "floating_rocks" },
+  { id: "hellhound", field: "thornland" },
 ];
 
 // The monsters of a field: its own, and the visitors from other fields (at their own level).
