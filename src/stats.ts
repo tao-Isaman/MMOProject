@@ -188,7 +188,7 @@ export function hitChance(hit: number, flee: number): number {
 }
 
 // The most a crit chance can be, luck and the weapon's own included.
-export const CRIT_CAP = 0.5;
+export const CRIT_CAP = 0.95;
 
 // A critical hit goes through this much of the armour, on top of any armour piercing.
 export const CRIT_PIERCE = 0.5;
