@@ -52,9 +52,9 @@ type Hit = { x: number; y: number; text: string; npc?: Npc; to?: Vec2 };
 // each kind of townsperson's dot and label (a smith glows like a forge)
 const NPC_COLORS: Record<NpcRole, string> = { shop: "#f4d27a", heal: "#9df0b4", talk: "#fbf6e8", travel: "#9fd4ff", smith: "#ffa45c" };
 
-// the monsters' levels each field square names: the lowest and highest of its kinds (the first
-// field's slimes are its own)
-const LEVELS: Record<string, [number, number]> = { field: [1, 8], ...Object.fromEntries(Object.keys(FIELDS).flatMap((id) => { const lv = fieldLevels(id); return lv ? [[id, lv]] : []; })) };
+// the levels each field square names: its monsters' average ± FIELD_BAND (bestiary.ts
+// fieldLevels; the first field's slimes, 1-9, average 5)
+const LEVELS: Record<string, [number, number]> = { field: [1, 15], ...Object.fromEntries(Object.keys(FIELDS).flatMap((id) => { const lv = fieldLevels(id); return lv ? [[id, lv]] : []; })) };
 // an empty square's colours: ground and marks
 const GROUND_COLORS: Record<Ground, [string, string]> = {
   "~": ["#235f82", "rgba(220, 240, 255, 0.28)"], "^": ["#d9dee0", "#8f8a7e"], "#": ["#93b46a", "#6f9150"],

@@ -702,9 +702,15 @@ export function fieldMonsters(field: string): MonsterDef[] {
 
 // A field's levels: the lowest and highest of the monsters living there (its own and its
 // visitors); none for a map without bestiary monsters.
+// The level a field is shown as (map, world map, codex): FIELD_BAND either side of the average
+// level of the monsters met there (its boss left out, one big one would pull it up), never under 1.
+export const FIELD_BAND = 10;
 export function fieldLevels(field: string): [number, number] | null {
-  const lv = fieldMonsters(field).map((m) => m.level);
-  return lv.length ? [Math.min(...lv), Math.max(...lv)] : null;
+  const here = fieldMonsters(field), plain = here.filter((m) => m.kind !== "boss");
+  const lv = (plain.length ? plain : here).map((m) => m.level);
+  if (!lv.length) return null;
+  const avg = Math.round(lv.reduce((a, b) => a + b, 0) / lv.length);
+  return [Math.max(1, avg - FIELD_BAND), avg + FIELD_BAND];
 }
 // "8–15", or "15" when they are all one level
 export const levelText = ([lo, hi]: [number, number], dash = "–") => (lo === hi ? `${lo}` : `${lo}${dash}${hi}`);
