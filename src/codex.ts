@@ -5,9 +5,10 @@
 
 import { ITEMS, GEAR_TIERS, TIER_SLOTS, tierId, isFashion } from "./items";
 import type { ItemKind } from "./items";
-import { MONSTERS, VISITORS, fieldMonsters, fieldLevels, levelText, statsFor } from "./bestiary";
-import type { MonsterDef, MonsterKind } from "./bestiary";
-import { VARIANTS } from "./monsters";
+import { MONSTERS, VISITORS, fieldMonsters, fieldLevels, levelText, statsFor, baseAim, standouts, behaviour } from "./bestiary";
+import type { MonsterDef, MonsterKind, Standout, StatProfile } from "./bestiary";
+import { VARIANTS, variantOf, walkSpeed } from "./monsters";
+import type { Variant } from "./monsters";
 import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
 import type { Drop } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
@@ -181,7 +182,11 @@ export class CodexUI {
       for (const v of slimes) {
         const body = this.row(`slime:${v.id}`, this.portrait("", "formless"), `Lv ${v.level} ${v.name}`, `สไลม์ · ไร้รูป${v.element ? ` · ธาตุ${ELEMENTS[v.element].name}` : ""}`);
         if (!body) continue;
-        body.innerHTML = `HP ${v.hp} · พลังโจมตี ${v.atk} · ป้องกัน ${v.def} · ต้านเวท ${v.mdef} · EXP ${v.xp}<br>${v.aggro ? "โจมตีก่อน" : "ไม่โจมตีก่อน"}`
+        // a slime's way, read off its numbers against a plain monster of its level
+        const st = statsFor(v.level, "normal"), aim = baseAim(v.level);
+        const way: StatProfile = { hp: v.hp / st.hp, atk: v.atk / st.atk, def: v.def / st.def, mdef: v.mdef / st.mdef,
+          accuracy: (v.accuracy ?? aim.accuracy) - aim.accuracy, flee: (v.flee ?? aim.flee) - aim.flee, crit: v.crit };
+        body.innerHTML = `HP ${v.hp} · พลังโจมตี ${v.atk} · ป้องกัน ${v.def} · ต้านเวท ${v.mdef} · EXP ${v.xp}<br>${aimText(v, 95)}<br>${standoutText(standouts(way))}<br>${v.aggro ? "โจมตีก่อน" : "ไม่โจมตีก่อน"}`
           + `<br>${eleDefText(v.eleDef ?? {})}<br><b>ของดรอป:</b> ${v.drops.map(([id, c]) => `${itemName(id)} ${pct(c)}`).join(" · ")}`;
       }
     }
@@ -289,9 +294,30 @@ export class CodexUI {
   }
 }
 
-// A monster's page: its numbers at its level, its ways, its defences and its drops.
+// What stands out in a monster's numbers (bestiary.ts standouts) and how to meet it.
+const STANDOUT_TEXT: Record<Standout, string> = {
+  strong: "ตีแรง: ใส่ป้องกัน โล่ ลดความเสียหาย หรือตีจากระยะไกล",
+  fast: "เร็ว ตีถี่: ทำให้ช้า สตัน ตรึง หรือยิงใส่ตอนมันวิ่งเข้ามา",
+  tough: "อึด HP/เกราะหนา: เจาะเกราะ ใช้ธาตุที่มันแพ้ พิษหรือไฟ",
+  magic: "ใช้เวท/ต้านเวทสูง: ใส่ต้านเวท หลบเวทด้วยควัน ทำให้ใบ้ หรือตีกายภาพ",
+  evasive: "หลบเก่ง: เพิ่มความแม่นยำ ใช้เวท สกิลวงกว้าง หรือสตันให้หยุด",
+  accurate: "ตีแม่น หลบยาก: อย่าพึ่งการหลบ เพิ่มป้องกัน HP หรือโล่แทน",
+  crit: "คริบ่อยและแรง: โชคช่วยลดคริของมัน มี HP/โล่เผื่อดาเมจกระชาก",
+};
+function standoutText(list: Standout[]): string {
+  return `<b>จุดเด่น:</b> ${list.length ? list.map((s) => STANDOUT_TEXT[s]).join(" · ") : "ไม่มีอะไรโดดเด่น ตัวมาตรฐานของเลเวล"}`;
+}
+// Its accuracy, evasion, crit chance and walking speed.
+function aimText(v: Variant, speed: number): string {
+  const aim = baseAim(v.level);
+  return `ความแม่นยำ ${Math.round(v.accuracy ?? aim.accuracy)} · หลบหลีก ${Math.round(v.flee ?? aim.flee)} · คริ ${pct(v.crit ?? aim.crit)}`
+    + `${v.critDmg && v.critDmg !== 0.5 ? ` (แรง +${Math.round(v.critDmg * 100)}%)` : ""} · ความเร็ว ${Math.round(speed)}${v.biteMul && v.biteMul !== 1 ? ` · ตีทุก ${(1.6 * v.biteMul).toFixed(1)} วิ` : ""}`;
+}
+
+// A monster's page: its numbers at its level (its kind and its own build), what stands out, its
+// ways, its defences and its drops.
 function monsterText(m: MonsterDef): string {
-  const st = statsFor(m.level, m.kind);
+  const st = variantOf(m, m.level);
   const ways = m.behave.map((b) => {
     const [name, arg] = b.split(":");
     if (name === "summon") return `${BEHAVE_NAMES.summon} (${MONSTERS.find((x) => x.id === arg)?.name ?? arg})`;
@@ -309,6 +335,7 @@ function monsterText(m: MonsterDef): string {
     .map((x) => MAP_NAMES[x.field]);
   return `<b>ที่อยู่:</b> ${MAP_NAMES[m.field]}${elsewhere.length ? ` · พบที่${elsewhere.join(" · ")}ด้วย` : ""}<br>`
     + `Lv ${m.level} · HP ${st.hp.toLocaleString()} · พลังโจมตี ${st.atk.toLocaleString()} · ป้องกัน ${st.def.toLocaleString()} · ต้านเวท ${st.mdef.toLocaleString()} · EXP ${st.xp.toLocaleString()}<br>`
+    + `${aimText(st, walkSpeed(m))}<br>${standoutText(standouts(m.stats ?? {}, behaviour(m, "dodge") !== null))}<br>`
     + `${m.aggro ? "โจมตีก่อน" : "ไม่โจมตีก่อน"}${ways.length ? ` · ${ways.join(" · ")}` : ""}<br>`
     + `${eleDefText(m.eleDef)}<br><i>${m.look}</i><br><b>ของดรอป:</b> ${drops.join(" · ")}`;
 }

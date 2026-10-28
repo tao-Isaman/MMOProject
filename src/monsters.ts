@@ -46,6 +46,10 @@ export interface Variant {
   accuracy?: number; // against the player's evasion (default: from its level)
   flee?: number;     // evasion against the player's accuracy (default: from its level)
   crit?: number;     // chance its bite crits (default: from its level)
+  critDmg?: number;  // how much harder its crit lands (default: stats.ts MONSTER_CRIT_DMG)
+  speedMul?: number; // its walking speed against its kind's (bestiary.ts StatProfile)
+  biteMul?: number;  // its time between bites against everyone's BITE_TIME
+  magical?: boolean; // its bite is a spell, whatever its kind
   element?: ElementId;                         // what its bite is made of (none: no element)
   eleDef?: Partial<Record<ElementId, number>>; // its defence in each element (stats.ts elementBonus)
   xp: number;
@@ -113,18 +117,25 @@ const BLANK = document.createElement("canvas"); // a person has no staff gem to 
 
 // level, hp, atk, def, mdef and xp feed stats.js; aggro: radius (cm) in which it attacks first.
 // The slimes round Eden are the first fights: a jelly now and then, books seldom, no clothes.
+// Each has its own way like the bestiary's monsters (bestiary.ts StatProfile): the green one is
+// plain, the pink one slippery (evasion), the blue one tough (armour, less bite), the violet one
+// crits often and hard.
 const BOOK_DROPS: [string, number][] = [["book_survivor", 0.0003], ["book_gathering", 0.0003], ["book_lightning", 0.0003]];
 export const VARIANTS: Variant[] = [
   { id: "green", name: "สไลม์เขียว", hue: 0, level: 1, hp: 60, atk: 8, def: 2, mdef: 2, xp: 8, aggro: 0, weight: 6,
+    accuracy: 11, flee: 4, crit: 0.03,
     element: "plant", eleDef: { plant: 30, mud: 20, water: 10 },
     drops: [["jelly", 0.4], ["sprout", 0.03], ...BOOK_DROPS] },
-  { id: "pink", name: "สไลม์ชมพู", hue: 185, level: 3, hp: 110, atk: 13, def: 5, mdef: 4, xp: 15, aggro: 0, weight: 4,
+  { id: "pink", name: "สไลม์ชมพู", hue: 185, level: 3, hp: 100, atk: 13, def: 4, mdef: 4, xp: 15, aggro: 0, weight: 4,
+    accuracy: 14, flee: 16, crit: 0.03,
     eleDef: { light: 20, wind: 20, plant: 10 },
     drops: [["jelly", 0.45], ...BOOK_DROPS] },
-  { id: "blue", name: "สไลม์ฟ้า", hue: 70, level: 5, hp: 170, atk: 18, def: 8, mdef: 10, xp: 24, aggro: 0, weight: 3,
+  { id: "blue", name: "สไลม์ฟ้า", hue: 70, level: 5, hp: 190, atk: 16, def: 12, mdef: 10, xp: 24, aggro: 0, weight: 3,
+    accuracy: 17, flee: 6, crit: 0.03,
     element: "ice", eleDef: { ice: 35, water: 30 },
     drops: [["jelly", 0.5], ...BOOK_DROPS] },
-  { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 320, atk: 28, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
+  { id: "violet", name: "สไลม์ม่วง", hue: 125, level: 9, hp: 300, atk: 26, def: 12, mdef: 12, xp: 48, aggro: 260, weight: 1,
+    accuracy: 23, flee: 15, crit: 0.13, critDmg: 0.8,
     element: "dark", eleDef: { dark: 40, metal: 15, stone: 10 },
     drops: [["sprout", 0.2], ["jelly", 0.6], ["book_survivor", 0.002], ["book_gathering", 0.002], ["book_lightning", 0.002]] },
 ];
@@ -139,6 +150,7 @@ for (const v of VARIANTS) {
 }
 const BITE_REACH = 95;   // cm between centres
 const BITE_TIME = 1.6;   // s between bites
+const MIN_BITE = 1;      // s between bites at the quickest (a quick build's)
 const CHASE_LEASH = 900; // gives up past this far from home (one that doesn't attack first)
 // v0.5 (docs/v05_jobs.md 2): one that attacks first notices the player SEE_MORE farther than its
 // aggro radius, and once after her doesn't let go while she is within SIGHT of it, however far
@@ -148,6 +160,8 @@ const CHASE_LEASH = 900; // gives up past this far from home (one that doesn't a
 const SIGHT = 1500;
 const SEE_MORE = 1.3;
 const CHASE_PACE = 1.5;
+// The fastest a quick build may walk: chasing, still well under the player's 380 cm/s.
+const MAX_WALK = 330 / CHASE_PACE;
 const HOME_HEAL = 0.08;
 const ANGER = 12;        // s it stays angry after being hit
 const SHOWN = 8;         // s its name and HP stay under it after the player last hurt it
@@ -338,6 +352,7 @@ export class Monster {
   accuracy = 0;
   flee = 0;
   crit = 0;
+  critDmg: number | undefined = undefined; // stats.ts monsterDamage (none: MONSTER_CRIT_DMG)
   element: ElementId | undefined = undefined;
   eleAtk = 0;   // its attack in its bite's element
   eleDef: Partial<Record<ElementId, number>> = {};
@@ -423,7 +438,7 @@ export class Monster {
       this.race = d.race ?? "brute";
       this.radius = Math.min(110, Math.max(24, d.size * 0.3));
       this.height = d.size;
-      this.speed = KINDS[d.kind].speed * (has("slowwalk") ? 0.55 : 1);
+      this.speed = walkSpeed(d, variant.speedMul);
       this.respawnT = KINDS[d.kind].respawn;
       this.fly = has("fly");
       this.ranged = behaviour(d, "ranged");
@@ -460,10 +475,10 @@ export class Monster {
     return this.variant.aggro > 0;
   }
 
-  // Its attacks are spells (a caster, or a shot of fire, frost, water, snow, a curse, foxfire):
-  // smoke can dodge them.
+  // Its attacks are spells (a caster, a magic build, or a shot of fire, frost, water, snow, a
+  // curse, foxfire): smoke can dodge them.
   get magical(): boolean {
-    return this.entry?.kind === "caster" || (!!this.ranged && !PHYSICAL_SHOTS.has(this.ranged));
+    return !!this.variant.magical || this.entry?.kind === "caster" || (!!this.ranged && !PHYSICAL_SHOTS.has(this.ranged));
   }
 
   spawn(): void {
@@ -489,6 +504,7 @@ export class Monster {
     this.accuracy = this.variant.accuracy ?? 10 + 1.4 * this.level;
     this.flee = this.variant.flee ?? 2 + 1.5 * this.level;
     this.crit = this.variant.crit ?? 0.03 + 0.0002 * this.level;
+    this.critDmg = this.variant.critDmg;
     this.element = this.variant.element;
     this.eleAtk = 10 + this.level;
     this.eleDef = this.variant.eleDef ?? {};
@@ -788,7 +804,7 @@ export class Monster {
     if (this.t >= L.swing) {
       this.state = "idle";
       this.wait = 0.15;
-      this.biteCd = (BITE_TIME * (this.blow === "shot" ? 1.4 : 1)) / (this.chill > 0 ? 1 - this.chillPct : 1);
+      this.biteCd = Math.max(MIN_BITE, BITE_TIME * (this.blow === "shot" ? 1.4 : 1) * (this.variant.biteMul ?? 1)) / (this.chill > 0 ? 1 - this.chillPct : 1);
     }
   }
 
@@ -1146,15 +1162,23 @@ export function drawShots(ctx: CanvasRenderingContext2D, view: View): void {
   }
 }
 
-// A bestiary monster at a level: its numbers from its kind (statsFor), its temper, a dodger
-// harder to hit.
+// How fast a bestiary monster walks (cm/s): its kind's pace times its build's (speedMul), never
+// over MAX_WALK, slower for a shambler.
+export function walkSpeed(def: MonsterDef, speedMul = statsFor(def.level, def.kind, def.stats).speed): number {
+  return Math.min(MAX_WALK, KINDS[def.kind].speed * speedMul) * (behaviour(def, "slowwalk") !== null ? 0.55 : 1);
+}
+
+// A bestiary monster at a level: its numbers from its kind and its own build (statsFor), its
+// temper, a dodger harder to hit (its dodge or its build's evasion, whichever is more).
 export function variantOf(def: MonsterDef, level: number): Variant {
-  const s = statsFor(level, def.kind);
+  const s = statsFor(level, def.kind, def.stats);
+  const dodge = behaviour(def, "dodge") !== null ? (2 + 1.5 * level) * 1.6 : 0;
   return {
-    id: def.id, name: def.name, hue: 0, level, ...s,
+    id: def.id, name: def.name, hue: 0, level, hp: s.hp, atk: s.atk, def: s.def, mdef: s.mdef, xp: s.xp,
+    accuracy: s.accuracy, flee: Math.max(dodge, s.flee), crit: s.crit, critDmg: s.critDmg,
+    speedMul: s.speed, biteMul: s.biteTime, magical: s.magical,
     element: def.element, eleDef: def.eleDef,
     aggro: def.aggro ? (def.kind === "boss" ? 650 : 320 + def.size * 0.4) : 0,
-    flee: behaviour(def, "dodge") !== null ? (2 + 1.5 * level) * 1.6 : undefined,
     weight: KINDS[def.kind].weight, drops: fieldDrops(def), entry: def,
   };
 }

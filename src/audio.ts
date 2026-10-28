@@ -48,6 +48,8 @@ const HIT_BANKS: Record<string, string[]> = {
 };
 
 const VOLUME_KEY = "mmoproject.sfx-volume.v1";
+const MUSIC_KEY = "mmoproject.music-volume.v1";
+const THEME_URL = "assets/audio/music/eden_theme.mp3";
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 function hash(text: string): number {
@@ -66,7 +68,12 @@ class GameAudio {
   private hitBuffers = new Map<string, AudioBuffer>();
   private hitLoadStarted = false;
   private lastHitIndex = new Map<string, number>();
-  private level = this.readVolume();
+  private level = this.readVolume(VOLUME_KEY, 0.72);
+  // The theme song: a looping <audio> element on its own bus, so its volume is set apart from
+  // the effects' (master above is the effects' volume).
+  private musicBus: GainNode | null = null;
+  private theme: HTMLAudioElement | null = null;
+  private musicLevel = this.readVolume(MUSIC_KEY, 0.5);
 
   constructor() {
     document.addEventListener("pointerdown", () => this.unlock(), { capture: true, passive: true });
@@ -91,11 +98,33 @@ class GameAudio {
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.035);
   }
 
-  private readVolume(): number {
+  get musicVolume(): number {
+    return this.musicLevel;
+  }
+
+  setMusicVolume(value: number): void {
+    this.musicLevel = clamp(value, 0, 1);
+    try { localStorage.setItem(MUSIC_KEY, String(this.musicLevel)); } catch { /* private storage */ }
+    if (this.musicBus && this.ctx) this.musicBus.gain.setTargetAtTime(this.musicLevel, this.ctx.currentTime, 0.035);
+  }
+
+  private readVolume(key: string, fallback: number): number {
     try {
-      const value = Number(localStorage.getItem(VOLUME_KEY));
-      return Number.isFinite(value) ? clamp(value, 0, 1) : 0.72;
-    } catch { return 0.72; }
+      const raw = localStorage.getItem(key);
+      const value = raw === null ? NaN : Number(raw);
+      return Number.isFinite(value) ? clamp(value, 0, 1) : fallback;
+    } catch { return fallback; }
+  }
+
+  // Starts the theme (browsers allow sound only after a first tap or key press: unlock calls this).
+  private startTheme(): void {
+    if (!this.ctx || !this.musicBus || this.theme) return;
+    const audio = new Audio(THEME_URL);
+    audio.loop = true;
+    audio.preload = "auto";
+    this.ctx.createMediaElementSource(audio).connect(this.musicBus);
+    this.theme = audio;
+    void audio.play().catch(() => { this.theme = null; }); // blocked: the next tap tries again
   }
 
   private unlock(): void {
@@ -112,12 +141,16 @@ class GameAudio {
       this.sfxBus.connect(this.master);
       this.uiBus.connect(this.master);
       this.master.connect(this.ctx.destination);
+      this.musicBus = this.ctx.createGain();
+      this.musicBus.gain.value = this.musicLevel;
+      this.musicBus.connect(this.ctx.destination);
       this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
       const channel = this.noise.getChannelData(0);
       for (let i = 0; i < channel.length; i++) channel[i] = Math.random() * 2 - 1;
     }
     void this.preloadHitSounds();
     if (this.ctx.state === "suspended") void this.ctx.resume().catch(() => undefined);
+    this.startTheme();
   }
 
   private async preloadHitSounds(): Promise<void> {

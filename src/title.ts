@@ -23,6 +23,7 @@ import type { CharEntry, Roster } from "./save";
 import type { Looks } from "./look";
 import { dressed } from "./outfits";
 import { isTouch, goLandscape } from "./touch";
+import { volumeSliders } from "./charui";
 
 const CELL = 96;
 
@@ -152,6 +153,7 @@ export class Title {
       no.textContent = "ยกเลิก";
       no.addEventListener("click", () => this.list());
     });
+    volumeSliders(el("div", "title-volumes", this.box));
     el("p", "title-note", this.box).textContent = isTouch()
       ? "แตะตัวละครสองครั้งเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากเมนูตั้งค่า"
       : "ดับเบิลคลิกที่ตัวละครเพื่อเริ่มเลย · ในเกมกลับมาหน้านี้ได้จากเมนูตั้งค่า (O)";

@@ -403,6 +403,32 @@ export class ProfileUI {
 }
 
 // ---- settings window ----
+// Two sliders: the theme song's volume and the sound effects' (also on the title screen).
+export function volumeSliders(parent: HTMLElement): HTMLElement {
+  const box = el("div", "st-volumes", parent);
+  const add = (name: string, get: () => number, set: (v: number) => void) => {
+    const label = el("label", "st-volume", box);
+    el("span", "st-volume-name", label).textContent = name;
+    const slider = el("input", "st-volume-slider", label);
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = "1";
+    slider.step = "0.01";
+    slider.value = String(get());
+    slider.setAttribute("aria-label", name);
+    const pct = el("span", "st-volume-pct", label);
+    const show = () => (pct.textContent = `${Math.round(Number(slider.value) * 100)}%`);
+    show();
+    slider.addEventListener("input", () => {
+      set(Number(slider.value));
+      show();
+    });
+  };
+  add("เพลง", () => sound.musicVolume, (v) => sound.setMusicVolume(v));
+  add("เสียงเอฟเฟกต์", () => sound.volume, (v) => sound.setVolume(v));
+  return box;
+}
+
 // Back to the character list, or out of the game.
 export class SettingsUI {
   win: HTMLElement;
@@ -410,20 +436,7 @@ export class SettingsUI {
   constructor(onSwitch: () => void, onExit: () => void) {
     this.win = makeWindow("settings", "ตั้งค่า", "O");
     const body = el("div", "st-body", this.win);
-    const volumeLabel = el("label", "st-volume", body);
-    volumeLabel.style.display = "flex";
-    volumeLabel.style.alignItems = "center";
-    volumeLabel.style.gap = "12px";
-    volumeLabel.style.margin = "0 0 12px";
-    volumeLabel.textContent = "SFX volume";
-    const volume = el("input", "st-volume-slider", volumeLabel) as HTMLInputElement;
-    volume.type = "range";
-    volume.min = "0";
-    volume.max = "1";
-    volume.step = "0.01";
-    volume.value = String(sound.volume);
-    volume.setAttribute("aria-label", "SFX volume");
-    volume.addEventListener("input", () => sound.setVolume(Number(volume.value)));
+    volumeSliders(body);
     const row = el("div", "st-actions", body);
     const sw = el("button", "wr-choice", row);
     sw.type = "button";
