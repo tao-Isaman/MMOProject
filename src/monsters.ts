@@ -31,7 +31,6 @@ import type { Hands } from "./look";
 import type { WeaponArt } from "./weapons";
 import type { Img, Vec2, View } from "./types";
 import type { Hero } from "./hero";
-import { RACE_ICONS } from "./progression";
 import type { ElementId, Race } from "./progression";
 
 export interface Variant {
@@ -1020,11 +1019,10 @@ export class Monster {
     }
   }
 
-  // Under its feet while it is the target or the player has hurt it lately: its level and name,
-  // and its HP as a bar with the numbers on it.
+  // Under its feet while it is the target or the player has hurt it lately: its name only. Its
+  // level, race and HP are not shown, so the fight is a guess.
   drawPlate(ctx: CanvasRenderingContext2D, cx: number, feet: number, k: number): void {
     if (!this.alive || !(this.focus || this.shown > 0)) return;
-    const w = (this.boss ? 150 : 104) * k, h = (this.boss ? 14 : 12) * k;
     const gold = this.boss || this.entry?.kind === "rare";
     ctx.lineJoin = "round";
     ctx.textAlign = "center";
@@ -1033,30 +1031,10 @@ export class Monster {
     ctx.lineWidth = 4.5 * k;
     ctx.strokeStyle = "rgba(10, 12, 8, 0.9)";
     ctx.fillStyle = gold ? "#ffd27a" : this.focus ? "#fff6d8" : "#e8e2cc";
-    // the level and name, and before them the badge of what kind of monster it is
-    const label = `Lv ${this.level} ${this.variant.name}`;
-    const ty = feet + 27 * k, badge = 22 * k, tw = ctx.measureText(label).width;
-    const tx = cx + (badge + 4 * k) / 2;
-    ctx.strokeText(label, tx, ty);
-    ctx.fillText(label, tx, ty);
-    const [glyph, color] = RACE_ICONS[this.race];
-    ctx.drawImage(icon(glyph, color), tx - tw / 2 - badge - 4 * k, ty - badge + 4 * k, badge, badge);
-    const y = ty + 6 * k;
-    ctx.fillStyle = "rgba(10, 12, 8, 0.85)";
-    ctx.fillRect(cx - w / 2 - k, y - k, w + 2 * k, h + 2 * k);
-    ctx.fillStyle = "#4b1c18";
-    ctx.fillRect(cx - w / 2, y, w, h);
-    ctx.fillStyle = this.angry > 0 ? "#ff6a5a" : "#e0a090";
-    ctx.fillRect(cx - w / 2, y, (w * Math.max(0, this.hp)) / this.maxHp, h);
-    ctx.font = `600 ${11 * k}px Kanit, system-ui, sans-serif`;
-    ctx.lineWidth = 3 * k;
-    ctx.textBaseline = "middle";
-    const hp = `${Math.max(0, Math.ceil(this.hp))} / ${this.maxHp}`;
-    ctx.strokeText(hp, cx, y + h / 2 + 0.5 * k);
-    ctx.fillStyle = "#fff6d8";
-    ctx.fillText(hp, cx, y + h / 2 + 0.5 * k);
+    const ty = feet + 27 * k;
+    ctx.strokeText(this.variant.name, cx, ty);
+    ctx.fillText(this.variant.name, cx, ty);
     ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
   }
 
   // Screen-space pick test for clicks (map px): an oval over its body.

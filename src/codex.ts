@@ -13,7 +13,7 @@ import { fieldDrops, gearTierAt, TIER_DROP } from "./drops";
 import type { Drop } from "./drops";
 import { FIELDS, MAP_NAMES, TOWNS } from "./maps";
 import type { MapId, TownId } from "./maps";
-import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, JOBS4, JOB_LEVEL, THIRD_JOB_LEVEL, FOURTH_JOB_LEVEL, TREES, ELEMENTS, RACE_NAMES, RACE_ICONS, job3Open, job4Open, BREW_AT } from "./progression";
+import { BOOKS, BOOK_CHANCE, TIER2_DROP_LEVEL, CLASSES, JOBS, JOBS3, JOBS4, JOB_LEVEL, THIRD_JOB_LEVEL, FOURTH_JOB_LEVEL, TREES, ELEMENTS, RACE_ICONS, job3Open, job4Open, BREW_AT } from "./progression";
 import type { ElementId, Job3Id, Job4Id, JobId } from "./progression";
 import { QUESTS } from "./quests";
 import type { QuestDef } from "./quests";
@@ -180,7 +180,7 @@ export class CodexUI {
     if (slimes.length) {
       el("h4", "ws-craft", this.list).textContent = `${MAP_NAMES.field} (เลเวล 1–9)`;
       for (const v of slimes) {
-        const body = this.row(`slime:${v.id}`, this.portrait("", "formless"), `Lv ${v.level} ${v.name}`, `สไลม์ · ไร้รูป${v.element ? ` · ธาตุ${ELEMENTS[v.element].name}` : ""}`);
+        const body = this.row(`slime:${v.id}`, this.portrait("", "formless"), v.name, `สไลม์ · ไร้รูป${v.element ? ` · ธาตุ${ELEMENTS[v.element].name}` : ""}`);
         if (!body) continue;
         // a slime's way, read off its numbers against a plain monster of its level
         const st = statsFor(v.level, "normal"), aim = baseAim(v.level);
@@ -193,12 +193,12 @@ export class CodexUI {
     const lv = (f: string) => fieldLevels(f) ?? [0, 0];
     const fields = (Object.keys(FIELDS) as (keyof typeof FIELDS)[]).sort((a, b) => lv(a)[0] - lv(b)[0] || lv(a)[1] - lv(b)[1]);
     for (const f of fields) {
-      const here = fieldMonsters(f).filter((m) => match(m.name)).sort((a, b) => a.level - b.level);
+      const here = fieldMonsters(f).filter((m) => match(m.name)).sort((a, b) => a.name.localeCompare(b.name));
       if (!here.length) continue;
       el("h4", "ws-craft", this.list).textContent = `${FIELDS[f].name} (เลเวล ${levelText(lv(f))})`;
       for (const m of here) {
-        const body = this.row(`m:${f}:${m.id}`, this.portrait(m.id, m.race ?? "brute"), `Lv ${m.level} ${m.name}`,
-          `${KIND_NAMES[m.kind]} · ${RACE_NAMES[m.race ?? "brute"]}${m.element ? ` · ธาตุ${ELEMENTS[m.element].name}` : " · ไร้ธาตุ"}`);
+        const body = this.row(`m:${f}:${m.id}`, this.portrait(m.id, m.race ?? "brute"), m.name,
+          `${KIND_NAMES[m.kind]}${m.element ? ` · ธาตุ${ELEMENTS[m.element].name}` : " · ไร้ธาตุ"}`);
         if (body) body.innerHTML = monsterText(m);
       }
     }
@@ -334,7 +334,7 @@ function monsterText(m: MonsterDef): string {
   const elsewhere = [home, ...VISITORS.filter((v) => v.id === m.id)].filter((x) => x.field !== m.field)
     .map((x) => MAP_NAMES[x.field]);
   return `<b>ที่อยู่:</b> ${MAP_NAMES[m.field]}${elsewhere.length ? ` · พบที่${elsewhere.join(" · ")}ด้วย` : ""}<br>`
-    + `Lv ${m.level} · HP ${st.hp.toLocaleString()} · พลังโจมตี ${st.atk.toLocaleString()} · ป้องกัน ${st.def.toLocaleString()} · ต้านเวท ${st.mdef.toLocaleString()} · EXP ${st.xp.toLocaleString()}<br>`
+    + `พลังโจมตี ${st.atk.toLocaleString()} · ป้องกัน ${st.def.toLocaleString()} · ต้านเวท ${st.mdef.toLocaleString()} · EXP ${st.xp.toLocaleString()}<br>`
     + `${aimText(st, walkSpeed(m))}<br>${standoutText(standouts(m.stats ?? {}, behaviour(m, "dodge") !== null))}<br>`
     + `${m.aggro ? "โจมตีก่อน" : "ไม่โจมตีก่อน"}${ways.length ? ` · ${ways.join(" · ")}` : ""}<br>`
     + `${eleDefText(m.eleDef)}<br><i>${m.look}</i><br><b>ของดรอป:</b> ${drops.join(" · ")}`;
