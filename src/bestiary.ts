@@ -794,10 +794,11 @@ export function standouts(p: StatProfile, dodge = false): Standout[] {
 
 // Monsters hit harder and last longer than the curve alone, more the higher their level, so a
 // player leans on items, skills and (later) a party: HP, attack, defence and magic defence times
-// 1.2 up to level 30, 1.4 to 70, 1.6 to 100, 1.8 to 150 and 2 to 200 (experience stays as it is).
-// Each step is spread over the four levels round its edge (+0.04 a level: level 30 is 1.28, 31
-// 1.32), so no monster is suddenly a fifth stronger than one a level below it.
-export const MIGHT_BANDS: [number, number][] = [[30, 1.2], [70, 1.4], [100, 1.6], [150, 1.8], [Infinity, 2]];
+// 1.2 up to level 30, 1.4 to 70, 1.6 to 100, 2.1 to 150 and 2.7 to 200 (experience stays as it is).
+// Past level 100 the player's gear, skills and buffs grow faster than the curve, so the steps there
+// are bigger. Each step is spread over the five levels round its edge, so no monster is suddenly
+// much stronger than one a level below it.
+export const MIGHT_BANDS: [number, number][] = [[30, 1.2], [70, 1.4], [100, 1.6], [150, 2.1], [Infinity, 2.7]];
 export function monsterMight(level: number): number {
   let k = MIGHT_BANDS[0][1];
   for (let i = 1; i < MIGHT_BANDS.length; i++) {
