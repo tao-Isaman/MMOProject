@@ -403,6 +403,7 @@ export const STAT_NAMES: Record<string, string> = {
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
   luck: "โชคดี", magicDodge: "หลบเวท", statusRes: "ต้านสถานะ", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
+  lifesteal: "ดูดเลือด",
   // v0.5: attack from max HP (hpToAtk: that share of max HP, added after atkPct; the profile
   // window shows what it adds), a blow back (counter: the chance, at most 60%, that a monster's
   // blow landing on her from within about 2 m is struck straight back for 150% of attack and the
@@ -411,11 +412,12 @@ export const STAT_NAMES: Record<string, string> = {
   // the merchant's stall (stall.ts): goods on it, how often customers come, dearer sales
   stallSlots: "ช่องวางของในร้าน", stallRate: "ลูกค้ามาถี่ขึ้น", stallMarkup: "ขายแพงกว่าราคากลางได้",
 };
-export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush",
+export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush", "lifesteal",
   "hpToAtk", "counter", "allyPct", "stallRate", "stallMarkup"]);
 // What each stat does, for the player (the profile's tooltips). The caps are the ones in
 // stats.ts computeStats, the formulas its damage functions': change them together.
 export const STAT_HELP: Record<string, string> = {
+  lifesteal: "ส่วนหนึ่งของดาเมจที่ตีออกไปกลับมาเป็น HP ของตัวเอง",
   maxHp: "พลังชีวิต ถึง 0 แล้วตาย ฟื้นเองตามค่าฟื้น HP หรือดื่มยา",
   maxMp: "พลังเวท ใช้ร่ายสกิล ฟื้นเองตามค่าฟื้น MP หรือดื่มยา",
   atk: "ดาเมจของการตีกายภาพ: ค่าสุ่มของอาวุธ + พลังโจมตี สกิลกายภาพ: % ของสกิล × (พลังโจมตี + ดาเมจเฉลี่ยของอาวุธ)",
