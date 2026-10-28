@@ -922,7 +922,7 @@ body.touch .mp-info:empty { display: none; }
 .ql-drop { margin-top: 6px; padding: 3px 9px; border-radius: 7px; border: 1px solid rgba(255, 120, 100, 0.5); background: transparent; color: #ffb3a6; font: 12px var(--font); cursor: pointer; }
 .ql-empty { margin: 4px 0; color: var(--muted); font-size: 13px; }
 .qt {
-  position: fixed; left: 14px; top: 200px; width: 250px; padding: 8px 11px; border-radius: 12px; z-index: 3;
+  position: fixed; right: 14px; top: 196px; width: 250px; padding: 8px 11px; border-radius: 12px; z-index: 3;
   background: var(--panel); border: 1px solid var(--rim); display: flex; flex-direction: column; gap: 5px; cursor: pointer;
 }
 .qt.hidden { display: none; }
@@ -937,7 +937,7 @@ body.touch .mp-info:empty { display: none; }
 .qt-guide:hover, .ql-guide:hover { background: rgba(244, 210, 122, 0.25); }
 .ql-guide { margin: 6px 8px 0 0; font-size: 12px; padding: 3px 10px; }
 .qt-more { font-size: 11px; color: var(--muted); }
-body.touch .qt { left: calc(6px + env(safe-area-inset-left)); top: calc(112px + env(safe-area-inset-top)); width: 196px; padding: 6px 8px; }
+body.touch .qt { right: calc(6px + env(safe-area-inset-right)); top: calc(196px + env(safe-area-inset-top)); width: 196px; padding: 6px 8px; }
 body.touch .qt-step { font-size: 11px; }
 
 /* ---- buff row under the HP/MP/EXP bars (src/buffbar.ts) ----
