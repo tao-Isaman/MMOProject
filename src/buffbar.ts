@@ -8,7 +8,7 @@
 
 import { el } from "./ui";
 import { icon, skillIcon } from "./icons";
-import { ACTIVES, ELEMENTS, ELEMENT_STAT_NAMES, STAT_NAMES, PERCENT_STATS, RACES, RACE_NAMES, AUTOCAST } from "./progression";
+import { ACTIVES, ELEMENTS, ELEMENT_STAT_NAMES, STAT_NAMES, PERCENT_STATS, RACES, RACE_NAMES, AUTOCAST, TREES } from "./progression";
 import type { StatBag } from "./progression";
 import { ITEMS } from "./items";
 import { COATINGS } from "./poisons";
@@ -92,8 +92,8 @@ export class BuffBar {
   effects(): Effect[] {
     const h = this.hero, good: Effect[] = [], bad: Effect[] = [];
     for (const b of h.buffs) (b.id.startsWith("ail_") ? bad : good).push(this.describe(b));
-    // the low-HP blood rage (the berserker's frenzy, or the axe book's hot blood): a passive, shown as a buff while her HP is down, with its bonus now
-    if (this.frenzy() > 0) good.push(this.describeFrenzy());
+    // the low-HP rages (the berserker's frenzy, the axe book's hot blood): passives, each shown under its own name while her HP is down
+    for (const p of this.rageParts()) if (p.v > 0) good.push(this.describeRage(p.id));
     if (h.shield) good.push({ key: "shield", name: "โล่", bad: false, left: () => h.shield?.t ?? 0, steady: false, pic: () => icon("shield", "#d6a35c"),
       lines: () => [`ดูดซับความเสียหายได้อีก <b class="good">${Math.round(h.shield?.amount ?? 0)}</b>`], from: "" });
     if (this.burn().t > 0) bad.push({ key: "ail_burn", name: "ไฟลวก", bad: true, left: () => this.burn().t, steady: false, pic: () => icon(...AIL_ICONS.burn),
@@ -103,22 +103,33 @@ export class BuffBar {
 
   // What the row is made of: changes when a buff, the shield or the burn comes or goes.
   key(): string {
-    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.frenzy() > 0 ? "F" : ""}`;
+    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.rageParts().filter((p) => p.v > 0).map((p) => p.id).join(",")}`;
   }
 
-  // The damage the frenzy adds now: its rank times how far her HP is down (0 at full HP).
-  frenzy(): number {
-    const st = this.hero.stats;
-    return st.lowHpDmg ? st.lowHpDmg * Math.max(0, 1 - this.hero.hp / st.maxHp) : 0;
+  // What each low-HP rage gives her now: its bonus at her HP (0 at full HP). The stat adds both up,
+  // so the frenzy is read from its own node and the rest is the axe's hot blood.
+  rageParts(): { id: string; name: string; v: number }[] {
+    const h = this.hero, progress = h.progress, down = Math.max(0, 1 - h.hp / h.stats.maxHp);
+    const node = (tree: string, id: string) => TREES[tree].nodes.find((n) => n.id === id)!;
+    const own = (tree: string, id: string) => {
+      const r = progress.ranks[id], n = node(tree, id);
+      return r && progress.trees().includes(tree) && n.stats ? n.stats(r).lowHpDmg ?? 0 : 0;
+    };
+    const frenzy = own("berserker", "berserker_frenzy"), axe = Math.max(0, (h.stats.lowHpDmg ?? 0) - frenzy);
+    return [
+      { id: "berserker_frenzy", name: node("berserker", "berserker_frenzy").name, v: frenzy * down },
+      { id: "berserk_axe_rage", name: node("berserk_axe", "berserk_axe_rage").name, v: axe * down },
+    ];
   }
 
-  describeFrenzy(): Effect {
-    const pct = () => `${Math.round(this.frenzy() * 100)}%`;
+  describeRage(id: string): Effect {
+    const part = () => this.rageParts().find((p) => p.id === id)!;
+    const pct = () => `${Math.round(part().v * 100)}%`;
     return {
-      key: "low_hp_rage", name: "ดาเมจเมื่อเลือดน้อย", bad: false, left: () => 0, steady: true, label: () => `+${pct()}`,
-      pic: () => skillIcon("berserker_frenzy", "rage", "#ff8a6a"),
+      key: id, name: part().name, bad: false, left: () => 0, steady: true, label: () => `+${pct()}`,
+      pic: () => skillIcon(id, "rage", "#ff8a6a"),
       lines: () => [`ดาเมจเพิ่ม <b class="good">+${pct()}</b> (HP เหลือ ${Math.round((this.hero.hp / this.hero.stats.maxHp) * 100)}%)`],
-      from: "สกิล บ้าระห่ำ หรือ เลือดเดือดของตำราขวานคลั่ง (ถือขวาน)",
+      from: `สกิล ${part().name}`,
     };
   }
 
