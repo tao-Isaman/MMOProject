@@ -752,6 +752,7 @@ async function boot(): Promise<void> {
   // an enchanted weapon's element riders, the falcon and the autocasts after a normal hit
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
+  combat.onHeal = (got) => floaters.add(player.x, player.y, 130, `+${Math.round(got)}`, "heal");
   combat.onBasicHit = (m) => skills.autocast(m);
   // In a form (a druid's) she is the form skill's look and her normal attack is its formAttack:
   // the form she is in, and what she swings.

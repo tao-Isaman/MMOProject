@@ -56,6 +56,7 @@ interface Effect {
   left: () => number;  // seconds left now
   steady: boolean;     // kept fresh while something lasts (resting, by a statue, in smoke): no countdown
   label?: () => string; // what the corner shows instead of a countdown (a value that moves)
+  until?: string;       // what the tip says instead of a countdown
   pic: () => Img;
   lines: () => string[];
   from: string;
@@ -94,6 +95,7 @@ export class BuffBar {
     for (const b of h.buffs) (b.id.startsWith("ail_") ? bad : good).push(this.describe(b));
     // the low-HP rages (the berserker's frenzy, the axe book's hot blood): passives, each shown under its own name while her HP is down
     for (const p of this.rageParts()) if (p.v > 0) good.push(this.describeRage(p.id));
+    if (h.stats.lifesteal > 0) good.push(this.describeLifesteal());
     if (h.shield) good.push({ key: "shield", name: "โล่", bad: false, left: () => h.shield?.t ?? 0, steady: false, pic: () => icon("shield", "#d6a35c"),
       lines: () => [`ดูดซับความเสียหายได้อีก <b class="good">${Math.round(h.shield?.amount ?? 0)}</b>`], from: "" });
     if (this.burn().t > 0) bad.push({ key: "ail_burn", name: "ไฟลวก", bad: true, left: () => this.burn().t, steady: false, pic: () => icon(...AIL_ICONS.burn),
@@ -103,7 +105,7 @@ export class BuffBar {
 
   // What the row is made of: changes when a buff, the shield or the burn comes or goes.
   key(): string {
-    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.rageParts().filter((p) => p.v > 0).map((p) => p.id).join(",")}`;
+    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.rageParts().filter((p) => p.v > 0).map((p) => p.id).join(",")}|${this.hero.stats.lifesteal > 0 ? "L" : ""}`;
   }
 
   // What each low-HP rage gives her now: its bonus at her HP (0 at full HP). The stat adds both up,
@@ -126,10 +128,21 @@ export class BuffBar {
     const part = () => this.rageParts().find((p) => p.id === id)!;
     const pct = () => `${Math.round(part().v * 100)}%`;
     return {
-      key: id, name: part().name, bad: false, left: () => 0, steady: true, label: () => `+${pct()}`,
+      key: id, name: part().name, bad: false, left: () => 0, steady: true, label: () => `+${pct()}`, until: "ตราบที่ HP ยังไม่เต็ม",
       pic: () => skillIcon(id, "rage", "#ff8a6a"),
       lines: () => [`ดาเมจเพิ่ม <b class="good">+${pct()}</b> (HP เหลือ ${Math.round((this.hero.hp / this.hero.stats.maxHp) * 100)}%)`],
       from: `สกิล ${part().name}`,
+    };
+  }
+
+  // Lifesteal from every skill and book that has it: a status, and the share of the blow it gives back.
+  describeLifesteal(): Effect {
+    const pct = () => `${+(this.hero.stats.lifesteal * 100).toFixed(1)}%`;
+    return {
+      key: "lifesteal", name: "ดูดเลือด", bad: false, left: () => 0, steady: true, label: () => `+${pct()}`, until: "ตลอดเวลาที่มีดูดเลือดอยู่",
+      pic: () => icon("drop", "#d94a5a"),
+      lines: () => [`ดูด HP <b class="good">${pct()}</b> ของดาเมจที่ทำ`],
+      from: "สกิลและตำราที่มีดูดเลือด",
     };
   }
 
@@ -240,7 +253,7 @@ export class BuffBar {
 
   fillTip(s: Shown): void {
     const e = s.e, lines = e.lines();
-    const time = e.label ? "ตราบที่ HP ยังไม่เต็ม" : e.steady ? "ต่อเนื่อง (ระหว่างที่ยังทำอยู่)" : `เหลือ ${clock(e.left())} วินาที`.replace(/(\d+:\d+) วินาที/, "$1 นาที");
+    const time = e.until ?? (e.steady ? "ต่อเนื่อง (ระหว่างที่ยังทำอยู่)" : `เหลือ ${clock(e.left())} วินาที`.replace(/(\d+:\d+) วินาที/, "$1 นาที"));
     this.tip.innerHTML = `<strong class="${e.bad ? "bad" : ""}">${e.name}</strong>`
       + `<span class="inv-tip-kind">${e.bad ? "สถานะผิดปกติ" : "บัฟ"} · ${time}</span>`
       + (lines.length ? lines.join("<br>") : "")

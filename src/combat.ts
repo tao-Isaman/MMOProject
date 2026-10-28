@@ -254,6 +254,7 @@ export class Combat {
   onReflect?: (m: Monster, dmg: number) => void;
   onElement?: (m: Monster, el: ElementId, dmg: number) => void; // an enchanted normal hit's element riders
   onFalcon?: (m: Monster) => void;                              // the falcon dives in after a normal hit
+  onHeal?: (got: number) => void;                               // lifesteal gave her HP back
   onBasicHit?: (m: Monster) => void;                            // a main-hand normal hit landed (autocast)
   projectiles: Projectile[] = [];
   pending: { t: number; origin: Vec2; dir: Vec2; w: WeaponType; m: Monster | null; hitSound: HitSoundCue }[] = []; // delayed second hits (weapons with hits > 1)
@@ -472,7 +473,10 @@ export class Combat {
     const died = m.hit(r.dmg, dir, knock);
     const hit = this.activeProjectileHit ?? hitSound ?? { kind: "normal", theme: "", weapon: "" };
     sound.playHit(hit, r.crit);
-    if (st.lifesteal > 0 && this.hero.alive && !ally) this.hero.heal(r.dmg * st.lifesteal);
+    if (st.lifesteal > 0 && this.hero.alive && !ally) {
+      const got = this.hero.heal(r.dmg * st.lifesteal);
+      if (got >= 1) this.onHeal?.(got);
+    }
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
       size: [[0, 24], [1, 60]], alpha: [[0, 0.8], [1, 0]] });
