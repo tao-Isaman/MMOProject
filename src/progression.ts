@@ -898,8 +898,8 @@ export const TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(5, 0.7), mp: 30, cd: 15, motion: "swing", reach: 180, arc: 40, color: "#ff6a5a" },
         desc: (r) => `ฟันเต็มแรงใส่ตัวข้างหน้า ดาเมจ ${pct(lin(5, 0.7)(r))} ของพลังโจมตี` },
       { id: "berserker_frenzy", name: "บ้าระห่ำ", kind: "passive", max: 10, pos: [1, 2], req: [["rage", 1]], glyph: "rage",
-        stats: (r) => ({ lowHpDmg: 0.02 * r, hpRegen: 0.4 * r }),
-        desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.02 * r)} เมื่อ HP ใกล้หมด ฟื้น HP +${(0.4 * r).toFixed(1)}/วิ` },
+        stats: (r) => ({ lowHpDmg: 0.03 * r, hpRegen: 0.4 * r }),
+        desc: (r) => `ยิ่ง HP เหลือน้อยยิ่งแรง ดาเมจเพิ่มได้ถึง +${pct(0.03 * r)} เมื่อ HP ใกล้หมด ฟื้น HP +${(0.4 * r).toFixed(1)}/วิ` },
     ],
   },
   guardian: {

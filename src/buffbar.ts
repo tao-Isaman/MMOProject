@@ -55,12 +55,13 @@ interface Effect {
   bad: boolean;        // an ailment
   left: () => number;  // seconds left now
   steady: boolean;     // kept fresh while something lasts (resting, by a statue, in smoke): no countdown
+  label?: () => string; // what the corner shows instead of a countdown (a value that moves)
   pic: () => Img;
   lines: () => string[];
   from: string;
 }
 
-interface Shown { e: Effect; box: HTMLElement; time: HTMLElement; sec: number; low: boolean }
+interface Shown { e: Effect; box: HTMLElement; time: HTMLElement; sec: number; low: boolean; text: string }
 
 export class BuffBar {
   hero: Hero;
@@ -91,6 +92,8 @@ export class BuffBar {
   effects(): Effect[] {
     const h = this.hero, good: Effect[] = [], bad: Effect[] = [];
     for (const b of h.buffs) (b.id.startsWith("ail_") ? bad : good).push(this.describe(b));
+    // the berserker's frenzy: a passive, shown as a buff while her HP is down, with its bonus now
+    if (this.frenzy() > 0) good.push(this.describeFrenzy());
     if (h.shield) good.push({ key: "shield", name: "โล่", bad: false, left: () => h.shield?.t ?? 0, steady: false, pic: () => icon("shield", "#d6a35c"),
       lines: () => [`ดูดซับความเสียหายได้อีก <b class="good">${Math.round(h.shield?.amount ?? 0)}</b>`], from: "" });
     if (this.burn().t > 0) bad.push({ key: "ail_burn", name: "ไฟลวก", bad: true, left: () => this.burn().t, steady: false, pic: () => icon(...AIL_ICONS.burn),
@@ -100,7 +103,23 @@ export class BuffBar {
 
   // What the row is made of: changes when a buff, the shield or the burn comes or goes.
   key(): string {
-    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}`;
+    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.frenzy() > 0 ? "F" : ""}`;
+  }
+
+  // The damage the frenzy adds now: its rank times how far her HP is down (0 at full HP).
+  frenzy(): number {
+    const st = this.hero.stats;
+    return st.lowHpDmg ? st.lowHpDmg * Math.max(0, 1 - this.hero.hp / st.maxHp) : 0;
+  }
+
+  describeFrenzy(): Effect {
+    const pct = () => `${Math.round(this.frenzy() * 100)}%`;
+    return {
+      key: "berserker_frenzy", name: "บ้าระห่ำ", bad: false, left: () => 0, steady: true, label: () => `+${pct()}`,
+      pic: () => skillIcon("berserker_frenzy", "rage", "#ff8a6a"),
+      lines: () => [`ดาเมจเพิ่ม <b class="good">+${pct()}</b> (HP เหลือ ${Math.round((this.hero.hp / this.hero.stats.maxHp) * 100)}%)`],
+      from: "สกิล บ้าระห่ำ",
+    };
   }
 
   // A buff as an icon: its picture and where it came from, by its id (a skill's own id; hot_,
@@ -163,7 +182,7 @@ export class BuffBar {
       c.width = c.height = 48;
       c.getContext("2d")!.drawImage(e.pic(), 0, 0, 48, 48);
       const time = el("span", "bf-t", box);
-      const s: Shown = { e, box, time, sec: -1, low: false };
+      const s: Shown = { e, box, time, sec: -1, low: false, text: "" };
       box.addEventListener("pointerenter", (ev) => ev.pointerType === "mouse" && this.showTip(s));
       box.addEventListener("pointerleave", (ev) => ev.pointerType === "mouse" && this.hideTip());
       // a tap: the tip, or away again
@@ -181,6 +200,13 @@ export class BuffBar {
   }
 
   tick(s: Shown): void {
+    if (s.e.label) {
+      const text = s.e.label();
+      if (text === s.text) return;
+      s.text = s.time.textContent = text;
+      if (this.open === s) this.fillTip(s);
+      return;
+    }
     const t = s.e.left(), sec = s.e.steady ? 0 : Math.ceil(t);
     if (sec === s.sec) return;
     s.sec = sec;
@@ -203,7 +229,7 @@ export class BuffBar {
 
   fillTip(s: Shown): void {
     const e = s.e, lines = e.lines();
-    const time = e.steady ? "ต่อเนื่อง (ระหว่างที่ยังทำอยู่)" : `เหลือ ${clock(e.left())} วินาที`.replace(/(\d+:\d+) วินาที/, "$1 นาที");
+    const time = e.label ? "ตราบที่ HP ยังไม่เต็ม" : e.steady ? "ต่อเนื่อง (ระหว่างที่ยังทำอยู่)" : `เหลือ ${clock(e.left())} วินาที`.replace(/(\d+:\d+) วินาที/, "$1 นาที");
     this.tip.innerHTML = `<strong class="${e.bad ? "bad" : ""}">${e.name}</strong>`
       + `<span class="inv-tip-kind">${e.bad ? "สถานะผิดปกติ" : "บัฟ"} · ${time}</span>`
       + (lines.length ? lines.join("<br>") : "")
