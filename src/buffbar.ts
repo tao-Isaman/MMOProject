@@ -8,7 +8,7 @@
 
 import { el } from "./ui";
 import { icon, skillIcon } from "./icons";
-import { ACTIVES, ELEMENTS, ELEMENT_STAT_NAMES, STAT_NAMES, PERCENT_STATS, RACES, RACE_NAMES, AUTOCAST, TREES } from "./progression";
+import { ACTIVES, ELEMENTS, ELEMENT_STAT_NAMES, STAT_NAMES, PERCENT_STATS, RACES, RACE_NAMES, AUTOCAST, TREES, needMet, offKind } from "./progression";
 import type { StatBag } from "./progression";
 import { ITEMS } from "./items";
 import { COATINGS } from "./poisons";
@@ -93,9 +93,8 @@ export class BuffBar {
   effects(): Effect[] {
     const h = this.hero, good: Effect[] = [], bad: Effect[] = [];
     for (const b of h.buffs) (b.id.startsWith("ail_") ? bad : good).push(this.describe(b));
-    // the low-HP rages (the berserker's frenzy, the axe book's hot blood): passives, each shown under its own name while her HP is down
+    // the low-HP passives (frenzy, hot blood, bloodlust...): each shown under its own skill's name while her HP is down
     for (const p of this.rageParts()) if (p.v > 0) good.push(this.describeRage(p.id));
-    if (h.stats.lifesteal > 0) good.push(this.describeLifesteal());
     if (h.shield) good.push({ key: "shield", name: "โล่", bad: false, left: () => h.shield?.t ?? 0, steady: false, pic: () => icon("shield", "#d6a35c"),
       lines: () => [`ดูดซับความเสียหายได้อีก <b class="good">${Math.round(h.shield?.amount ?? 0)}</b>`], from: "" });
     if (this.burn().t > 0) bad.push({ key: "ail_burn", name: "ไฟลวก", bad: true, left: () => this.burn().t, steady: false, pic: () => icon(...AIL_ICONS.burn),
@@ -105,23 +104,25 @@ export class BuffBar {
 
   // What the row is made of: changes when a buff, the shield or the burn comes or goes.
   key(): string {
-    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.rageParts().filter((p) => p.v > 0).map((p) => p.id).join(",")}|${this.hero.stats.lifesteal > 0 ? "L" : ""}`;
+    return `${this.hero.buffs.map((b) => `${b.id}:${b.name}`).join("|")}|${this.hero.shield ? "S" : ""}|${this.burn().t > 0 ? "B" : ""}|${this.rageParts().filter((p) => p.v > 0).map((p) => p.id).join(",")}`;
   }
 
-  // What each low-HP rage gives her now: its bonus at her HP (0 at full HP). The stat adds both up,
-  // so the frenzy is read from its own node and the rest is the axe's hot blood.
-  rageParts(): { id: string; name: string; v: number }[] {
+  // Every passive that gives low-HP damage, from the trees she has and for the weapon and shape she
+  // has now (the same rule the stats use), with the bonus it gives at her HP (0 at full HP).
+  rageParts(): { id: string; name: string; glyph: string; color: string; v: number }[] {
     const h = this.hero, progress = h.progress, down = Math.max(0, 1 - h.hp / h.stats.maxHp);
-    const node = (tree: string, id: string) => TREES[tree].nodes.find((n) => n.id === id)!;
-    const own = (tree: string, id: string) => {
-      const r = progress.ranks[id], n = node(tree, id);
-      return r && progress.trees().includes(tree) && n.stats ? n.stats(r).lowHpDmg ?? 0 : 0;
-    };
-    const frenzy = own("berserker", "berserker_frenzy"), axe = Math.max(0, (h.stats.lowHpDmg ?? 0) - frenzy);
-    return [
-      { id: "berserker_frenzy", name: node("berserker", "berserker_frenzy").name, v: frenzy * down },
-      { id: "berserk_axe_rage", name: node("berserk_axe", "berserk_axe_rage").name, v: axe * down },
-    ];
+    const weapon = ITEMS[h.weapon() ?? ""]?.weapon ?? null, off = offKind(h.offhand()), form = h.form?.form ?? null;
+    const out: { id: string; name: string; glyph: string; color: string; v: number }[] = [];
+    for (const treeId of progress.trees()) {
+      const tree = TREES[treeId];
+      for (const n of tree?.nodes ?? []) {
+        const r = progress.ranks[n.id];
+        if (!r || n.kind !== "passive" || !n.stats || !needMet(n.need, weapon, off, form)) continue;
+        const v = n.stats(r).lowHpDmg ?? 0;
+        if (v > 0) out.push({ id: n.id, name: n.name, glyph: n.glyph ?? "rage", color: tree.color, v: v * down });
+      }
+    }
+    return out;
   }
 
   describeRage(id: string): Effect {
@@ -129,20 +130,9 @@ export class BuffBar {
     const pct = () => `${Math.round(part().v * 100)}%`;
     return {
       key: id, name: part().name, bad: false, left: () => 0, steady: true, label: () => `+${pct()}`, until: "ตราบที่ HP ยังไม่เต็ม",
-      pic: () => skillIcon(id, "rage", "#ff8a6a"),
+      pic: () => skillIcon(id, part().glyph, part().color),
       lines: () => [`ดาเมจเพิ่ม <b class="good">+${pct()}</b> (HP เหลือ ${Math.round((this.hero.hp / this.hero.stats.maxHp) * 100)}%)`],
       from: `สกิล ${part().name}`,
-    };
-  }
-
-  // Lifesteal from every skill and book that has it: a status, and the share of the blow it gives back.
-  describeLifesteal(): Effect {
-    const pct = () => `${+(this.hero.stats.lifesteal * 100).toFixed(1)}%`;
-    return {
-      key: "lifesteal", name: "ดูดเลือด", bad: false, left: () => 0, steady: true, label: () => `+${pct()}`, until: "ตลอดเวลาที่มีดูดเลือดอยู่",
-      pic: () => icon("drop", "#d94a5a"),
-      lines: () => [`ดูด HP <b class="good">${pct()}</b> ของดาเมจที่ทำ`],
-      from: "สกิลและตำราที่มีดูดเลือด",
     };
   }
 
