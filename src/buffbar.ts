@@ -92,7 +92,7 @@ export class BuffBar {
   effects(): Effect[] {
     const h = this.hero, good: Effect[] = [], bad: Effect[] = [];
     for (const b of h.buffs) (b.id.startsWith("ail_") ? bad : good).push(this.describe(b));
-    // the berserker's frenzy: a passive, shown as a buff while her HP is down, with its bonus now
+    // the low-HP blood rage (the berserker's frenzy, or the axe book's hot blood): a passive, shown as a buff while her HP is down, with its bonus now
     if (this.frenzy() > 0) good.push(this.describeFrenzy());
     if (h.shield) good.push({ key: "shield", name: "โล่", bad: false, left: () => h.shield?.t ?? 0, steady: false, pic: () => icon("shield", "#d6a35c"),
       lines: () => [`ดูดซับความเสียหายได้อีก <b class="good">${Math.round(h.shield?.amount ?? 0)}</b>`], from: "" });
@@ -115,10 +115,10 @@ export class BuffBar {
   describeFrenzy(): Effect {
     const pct = () => `${Math.round(this.frenzy() * 100)}%`;
     return {
-      key: "berserker_frenzy", name: "บ้าระห่ำ", bad: false, left: () => 0, steady: true, label: () => `+${pct()}`,
+      key: "low_hp_rage", name: "ดาเมจเมื่อเลือดน้อย", bad: false, left: () => 0, steady: true, label: () => `+${pct()}`,
       pic: () => skillIcon("berserker_frenzy", "rage", "#ff8a6a"),
       lines: () => [`ดาเมจเพิ่ม <b class="good">+${pct()}</b> (HP เหลือ ${Math.round((this.hero.hp / this.hero.stats.maxHp) * 100)}%)`],
-      from: "สกิล บ้าระห่ำ",
+      from: "สกิล บ้าระห่ำ หรือ เลือดเดือดของตำราขวานคลั่ง (ถือขวาน)",
     };
   }
 
