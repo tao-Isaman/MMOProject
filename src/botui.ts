@@ -220,7 +220,7 @@ export class BotUI {
 
     el("h3", "bt-h", f).textContent = "เป้าหมาย";
     const kinds = el("div", "bt-kinds", f);
-    // the kinds living on this map with their level, one to a kind (the slimes on a map without monsters)
+    // the kinds living on this map by name (no level shown), one to a kind (the slimes on a map without monsters)
     const here = new Map<string, { name: string; level: number }>();
     for (const m of this.bot.d.monsters) if (!m.temp && !here.has(m.variant.id)) here.set(m.variant.id, { name: m.variant.name, level: m.level });
     if (!here.size) for (const v of VARIANTS) here.set(v.id, { name: v.name, level: v.level });
@@ -233,7 +233,7 @@ export class BotUI {
         s.targets[id] = box.checked;
         this.save();
       });
-      lab.append(`${k.name} Lv ${k.level}`);
+      lab.append(k.name);
     }
     const pref = el("label", "bt-row", f);
     el("span", "", pref).textContent = "เลือกตัวที่";
