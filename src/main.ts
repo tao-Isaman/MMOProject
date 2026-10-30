@@ -824,17 +824,14 @@ async function boot(): Promise<void> {
   });
 
   // Drink a potion from bag slot i; null when it went down, else why not.
-  let potionCd = 0;
-  const POTION_WAIT = 0.8; // s between sips
+  // (no cooldown: one sip after another)
   function drinkAt(i: number): string | null {
     const stack = inv.slots[i];
     const item = stack && ITEMS[stack.id];
     if (!item?.restore) return "ดื่มไม่ได้";
     if (!hero.alive) return "ล้มอยู่";
-    if (potionCd > 0) return "รอสักครู่";
     const r = item.restore;
     if ((!r.hp || hero.hp >= hero.stats.maxHp) && (!r.mp || hero.mp >= hero.stats.maxMp)) return "เต็มอยู่แล้ว";
-    potionCd = POTION_WAIT;
     sound.play(r.hp ? "potion-hp" : "potion-mp", i);
     const boost = 1 + hero.stats.potion; // the alchemy flask
     if (r.hp) floaters.add(player.x, player.y, 130, `+${Math.round(hero.heal(r.hp * boost))}`, "heal");
@@ -1895,7 +1892,6 @@ async function boot(): Promise<void> {
       chase = null; // (the aim itself stays while she walks)
     }
     if (guide && walkTo !== guideWalk && !travelling) guide = null; // walked off somewhere else
-    potionCd = Math.max(0, potionCd - dt);
     if ((noteClock -= dt) <= 0 && questNotes.length) {
       floaters.add(player.x, player.y, 165, questNotes.shift()!, "info");
       noteClock = 0.8;
@@ -2014,7 +2010,7 @@ async function boot(): Promise<void> {
     progress.hotbar.forEach((id, i) => {
       const item = slotItem(id);
       if (item) {
-        hud.setCooldown(i, ITEMS[item].restore ? potionCd : 0, POTION_WAIT);
+        hud.setCooldown(i, 0, 1);
         return hud.setNote(i, "");
       }
       const a = id ? ACTIVES[id] : null, sp = a ? skills.spellFor(id!) : null, key = sp?.key ?? id;

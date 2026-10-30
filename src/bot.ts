@@ -123,7 +123,7 @@ interface BotDeps {
   onSkill?: (id: string) => void;
   say?: (text: string) => void;  // a short line over the player
   loot?: Vec2[];                  // what lies on the ground to pick up (src/loot.ts)
-  drink?: (kind: "hp" | "mp") => boolean;   // drink the fitting potion; false if none or too soon
+  drink?: (kind: "hp" | "mp") => boolean;   // drink the fitting potion; false if none
   potions?: (kind: "hp" | "mp") => number;  // how many potions of that kind are in the bag
 }
 
