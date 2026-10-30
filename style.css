@@ -588,6 +588,9 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 .shop-list { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; overflow-y: auto; }
 .shop-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
 .shop-row { flex-wrap: wrap; }
+.ws-sock-btns { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 5px; }
+.ws-sock-btns:empty { display: none; }
+.ws-sock-btns .shop-buy { min-width: 0; padding: 4px 9px; font-size: 12px; }
 .shop-icon { flex: none; cursor: pointer; }
 .shop-info { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: pointer; }
 .shop-row.open { background: rgba(255, 255, 255, 0.08); }

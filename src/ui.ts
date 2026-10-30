@@ -46,7 +46,9 @@ export function itemTip(id: string, why: string | null = null): string {
   const item = ITEMS[id];
   const kind = { weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", hat: "หมวก", shoes: "รองเท้า", ring: "แหวน",
     trinket: "เครื่องประดับ", potion: "ยา", material: "วัตถุดิบ", book: "ตำรา", style: "ตำราทำผม" }[item.kind];
-  return `<strong>${item.name}</strong><span class="inv-tip-kind">${kind}</span>${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
+  // (what is set into gear names itself)
+  const sock = item.socket && { core: "แกนมอนสเตอร์", soul: "ชิ้นส่วนวิญญาณ", stone: "ศิลาธาตุ" }[item.socket];
+  return `<strong>${item.name}</strong><span class="inv-tip-kind">${sock || kind}</span>${describe(id)}${why ? `<span class="inv-tip-why">${why}</span>` : ""}`;
 }
 
 export class InventoryUI {

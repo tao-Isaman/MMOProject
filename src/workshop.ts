@@ -7,6 +7,7 @@
 // brewing opens its tab the same way: the strong potions from materials.
 
 import { ITEMS, WEAPON_TYPES, GEAR_TIERS, TIER_NAMES, tierId, joinId, splitId, stoneFor, refineStats, REFINE_MAX, statText, EQUIP_SLOTS, stackLimit } from "./items";
+import { CORES, SOUL, MAX_SOULS, MAX_STONES, SET_CHANCE, SLOT_NAMES, socketsOf, withSockets, socketable, coreFits, rollSoul, rollStone, soulText, statWords } from "./sockets";
 import type { EquipSlot, WeaponId } from "./items";
 import { CRAFT_TIER_AT, CRAFT_BONUS, CRAFT_REFINE, MASTERIES, BREW_AT, BREW_BONUS } from "./progression";
 import type { Progress } from "./progression";
@@ -18,9 +19,12 @@ import type { Img } from "./types";
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 // ---- refining ----
-// The chance to reach each level (+1 to +10): sure up to +4, then less and less. A failure costs
-// the stone and the gold; the piece keeps its level.
-export const REFINE_CHANCE = [1, 1, 1, 1, 0.85, 0.7, 0.55, 0.4, 0.3, 0.2];
+// The chance to reach each level (+1 to +10): sure up to +3, then less and less. A failure costs
+// the stone and the gold, and from +4 on can break the piece too (REFINE_BREAK: the chance a
+// failed try at that level breaks it, gone for good with all set in it); else it keeps its level.
+// What each level adds grows faster from +4 (items.ts refineSteps).
+export const REFINE_CHANCE = [1, 1, 1, 0.8, 0.7, 0.55, 0.45, 0.35, 0.25, 0.15];
+export const REFINE_BREAK = [0, 0, 0, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5];
 export function refineGold(id: string): number {
   const item = ITEMS[id];
   return Math.round(100 * ((item?.refine ?? 0) + 1) * (1 + (item?.tier ?? 0) / 60));
@@ -81,7 +85,7 @@ const BREW_BATCH = 10; // the second button brews this many at once (or as many 
 
 // ---- the window ----
 type Where = EquipSlot | number; // an equipped slot, or a bag slot
-type Tab = "refine" | "craft" | "brew";
+type Tab = "refine" | "socket" | "craft" | "brew";
 
 export class WorkshopUI {
   inv: Inventory;
@@ -112,7 +116,7 @@ export class WorkshopUI {
     this.title = this.win.querySelector(".window-bar h2")!;
     const top = el("div", "shop-top", this.win);
     this.tabs = el("div", "sk-tabs", top);
-    for (const [id, name] of [["refine", "ตีบวก"], ["craft", "สร้างไอเทม"]] as const) {
+    for (const [id, name] of [["refine", "ตีบวก"], ["socket", "เสริมพลัง"], ["craft", "สร้างไอเทม"]] as const) {
       const b = el("button", "sk-tab", this.tabs);
       b.type = "button";
       b.dataset.tab = id;
@@ -155,7 +159,7 @@ export class WorkshopUI {
     this.tabs.classList.toggle("hidden", !this.smith);
     this.status.textContent = brew ? "ปรุงยาจากวัตถุดิบ ไม่เสียค่าจ้าง ยิ่งความเชี่ยวชาญสูง ยิ่งมีโอกาสได้ยาเพิ่ม"
       : this.tab === "refine"
-        ? `ตีบวกด้วยหินนภา (อาวุธ แหวน) หรือหินดารา (ชุด หมวก รองเท้า จี้ มือรอง) ถึง +4 สำเร็จเสมอ พลาดแล้วเสียหิน${this.smith ? "กับค่าจ้าง" : ""} ของยังเหมือนเดิม`
+        ? `ตีบวกด้วยหินนภา (อาวุธ แหวน) หรือหินดารา (ชุด หมวก รองเท้า จี้ มือรอง) ถึง +3 สำเร็จเสมอ ตั้งแต่ +4 อาจพลาด (เสียหิน${this.smith ? "กับค่าจ้าง" : ""}) และมีโอกาสที่ไอเทมแตกหายไป แต่ได้ค่าเพิ่มมากขึ้น`
         : this.smith ? "ช่างสร้างอุปกรณ์ตามเลเวลให้จากวัตถุดิบ (ไม่เกินเลเวลของเจ้า) คิดค่าจ้างเป็นทอง" : "สร้างอุปกรณ์จากวัตถุดิบ ไม่เสียค่าจ้าง ของที่สร้างมีชื่อเจ้า";
     this.toggle(true);
   }
@@ -184,7 +188,7 @@ export class WorkshopUI {
   }
 
   button(row: HTMLElement, text: string, ok: boolean, act: () => void): void {
-    const b = el("button", "shop-buy", row);
+    const b = el("button", "shop-buy", row.querySelector<HTMLElement>(".ws-sock-btns") ?? row);
     b.type = "button";
     b.textContent = text;
     b.disabled = !ok;
@@ -201,6 +205,7 @@ export class WorkshopUI {
     this.gold.innerHTML = `<img src="assets/skills/gold_coin.png" alt="">${this.inv.gold.toLocaleString()} ทอง`;
     this.list.replaceChildren();
     if (this.tab === "refine") this.renderRefine();
+    else if (this.tab === "socket") this.renderSockets();
     else if (this.tab === "brew") this.renderBrew();
     else this.renderCraft();
   }
@@ -208,9 +213,8 @@ export class WorkshopUI {
   // ---- refining ----
   // The gear that can be refined: what is worn first, then the bag.
   // (a craft's skill refines only what that craft makes)
-  pieces(): { id: string; where: Where }[] {
+  pieces(ok = (id: string) => !!stoneFor(id) && (!!this.smith || craftOf(id) === this.only)): { id: string; where: Where }[] {
     const out: { id: string; where: Where }[] = [];
-    const ok = (id: string) => !!stoneFor(id) && (!!this.smith || craftOf(id) === this.only);
     for (const { slot } of EQUIP_SLOTS) {
       const id = this.inv.equipped[slot];
       if (id && ok(id)) out.push({ id, where: slot });
@@ -241,10 +245,14 @@ export class WorkshopUI {
         continue;
       }
       const base = ITEMS[splitId(id).base];
-      const step = refineStats(base, 1);
+      // what the next level adds over this one
+      const next = refineStats(base, plus + 1), now = refineStats(base, plus);
+      const step = Object.fromEntries(Object.entries(next).map(([k, v = 0]) => [k, v - (now[k] ?? 0)]));
       const have = this.inv.count(stone), gold = this.fee(id), chance = refineChance(id, this.progress, this.stats());
+      const crack = REFINE_BREAK[plus] ?? 0;
       sub.innerHTML = `+${plus + 1}: ${statText(step)} · <span class="${have ? "" : "ws-short"}">${ITEMS[stone].name} ${have}/1</span>`
-        + (gold ? ` · <span class="${this.inv.gold >= gold ? "" : "ws-short"}">ค่าจ้าง ${gold.toLocaleString()} ทอง</span>` : "") + ` · โอกาส ${pct(chance)}`;
+        + (gold ? ` · <span class="${this.inv.gold >= gold ? "" : "ws-short"}">ค่าจ้าง ${gold.toLocaleString()} ทอง</span>` : "") + ` · โอกาส ${pct(chance)}`
+        + (crack && chance < 1 ? ` · <span class="ws-short">ถ้าไม่สำเร็จ ไอเทมแตก ${pct(crack)}</span>` : "");
       this.button(row, "ตีบวก", have > 0 && this.inv.gold >= gold, () => this.refine(id, where));
       this.detail(row, id);
     }
@@ -257,17 +265,89 @@ export class WorkshopUI {
     if (this.inv.gold < gold) return this.say("ทองไม่พอ");
     if (!this.inv.take(stone, 1)) return this.say(`ไม่มี${ITEMS[stone].name}`);
     this.inv.gold -= gold;
-    const { base, plus, maker } = splitId(id);
+    const { base, plus, maker, sockets } = splitId(id);
     if (Math.random() < chance) {
-      const next = joinId(base, plus + 1, maker);
-      if (typeof where === "string") this.inv.equipped[where] = next;
-      else this.inv.slots[where] = { id: next, count: 1 };
-      this.inv.changed();
+      const next = joinId(base, plus + 1, maker, sockets);
+      this.put(where, next);
       this.say(`ตีบวกสำเร็จ! ได้ ${ITEMS[next].name}`, true);
+    } else if (Math.random() < (REFINE_BREAK[plus] ?? 0)) {
+      this.put(where, null);
+      this.say(`ตีบวกไม่สำเร็จ ${ITEMS[id].name} แตกหายไปแล้ว`);
     } else {
       this.inv.changed();
       this.say(`ตีบวกไม่สำเร็จ ${ITEMS[stone].name}แตกไป ${ITEMS[id].name} ยังเหมือนเดิม`);
     }
+  }
+
+  // Put a piece back where it was (null: it is gone).
+  put(where: Where, id: string | null): void {
+    if (typeof where === "string") this.inv.equipped[where] = id;
+    else this.inv.slots[where] = id ? { id, count: 1 } : null;
+    this.inv.changed();
+  }
+
+  // ---- sockets (at a smith's): monster cores, soul fragments and element stones ----
+  // The chance the next soul fragment or element stone (with n already in) takes.
+  setChance(n: number): number {
+    return n >= SET_CHANCE.length ? 0 : Math.min(1, SET_CHANCE[n] * luckFactor(this.stats()));
+  }
+
+  renderSockets(): void {
+    el("p", "wr-note", this.list).textContent = `แกนมอนสเตอร์ใส่ได้ 1 ชิ้นต่ออุปกรณ์ เฉพาะส่วนที่แกนระบุ ติดแน่นอนและติดถาวร · ชิ้นส่วนวิญญาณและศิลาธาตุใส่ได้อย่างละ ${MAX_SOULS} ชิ้น ยิ่งใส่มากยิ่งติดยาก ไม่ติดของที่ใส่จะหายไป`;
+    const list = this.pieces((id) => socketable(id));
+    if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่เสริมพลังได้";
+    const bag = [...new Set(this.inv.slots.filter((x) => x && ITEMS[x.id]?.socket).map((x) => x!.id))];
+    const cores = bag.filter((x) => ITEMS[x].socket === "core"), stones = bag.filter((x) => ITEMS[x].socket === "stone");
+    const souls = this.inv.count(SOUL);
+    for (const { id, where } of list) {
+      const s = socketsOf(id), row = this.row(id, `socket:${where}:${id}`);
+      const info = el("div", "shop-info", row);
+      el("strong", "", info).textContent = `${ITEMS[id].name}${typeof where === "string" ? " (สวมอยู่)" : ""}`;
+      el("span", "sk-sub", info).textContent = `แกน: ${s.core ? CORES[s.core]?.name ?? "-" : "ว่าง"} · ชิ้นส่วนวิญญาณ ${s.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${s.stones.length}/${MAX_STONES}`;
+      el("div", "ws-sock-btns", row);
+      for (const c of cores) if (coreFits(c, id)) this.button(row, `ใส่${ITEMS[c].name}`, true, () => this.setCore(id, where, c));
+      if (s.souls.length < MAX_SOULS) this.button(row, `ใส่ชิ้นส่วนวิญญาณ (${pct(this.setChance(s.souls.length))}) มี ${souls}`, souls > 0, () => this.setSoul(id, where));
+      if (s.stones.length < MAX_STONES)
+        for (const st of stones) this.button(row, `ใส่${ITEMS[st].name} (${pct(this.setChance(s.stones.length))})`, true, () => this.setStone(id, where, st));
+      this.detail(row, id);
+    }
+  }
+
+  // Whether the piece is still where the row said (the bag may have moved).
+  still(id: string, where: Where): boolean {
+    return (typeof where === "string" ? this.inv.equipped[where] : this.inv.slots[where]?.id) === id;
+  }
+
+  setCore(id: string, where: Where, core: string): void {
+    if (!this.still(id, where) || !coreFits(core, id) || !this.inv.take(core, 1)) return;
+    const next = withSockets(id, { ...socketsOf(id), core });
+    this.put(where, next);
+    this.say(`ใส่${ITEMS[core].name}แล้ว: ${statWords(CORES[core].stats) || SLOT_NAMES[CORES[core].slot]}`, true);
+  }
+
+  setSoul(id: string, where: Where): void {
+    const s = socketsOf(id), chance = this.setChance(s.souls.length);
+    if (!this.still(id, where) || !chance || !this.inv.take(SOUL, 1)) return;
+    if (Math.random() >= chance) {
+      this.inv.changed();
+      return this.say("ชิ้นส่วนวิญญาณไม่ติด หายไปแล้ว");
+    }
+    const part = rollSoul(id);
+    this.put(where, withSockets(id, { ...s, souls: [...s.souls, part] }));
+    this.say(`ชิ้นส่วนวิญญาณติดแล้ว: ${soulText(part)}`, true);
+  }
+
+  setStone(id: string, where: Where, stone: string): void {
+    const s = socketsOf(id), chance = this.setChance(s.stones.length);
+    if (!this.still(id, where) || !chance || !this.inv.take(stone, 1)) return;
+    if (Math.random() >= chance) {
+      this.inv.changed();
+      return this.say(`${ITEMS[stone].name}ไม่ติด หายไปแล้ว`);
+    }
+    const part = rollStone(stone.slice("elstone_".length) as never);
+    const next = withSockets(id, { ...s, stones: [...s.stones, part] });
+    this.put(where, next);
+    this.say(`${ITEMS[stone].name}ติดแล้ว +${part.split(":")[2]}`, true);
   }
 
   // ---- crafting ----

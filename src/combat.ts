@@ -346,7 +346,7 @@ export class Combat {
     const blow: SkillDef = { type: "cone", stat: fa.stat ?? "atk", element: fa.element, mult: fa.mult, mp: 0, cd: 0, motion: "swing", color };
     const origin = { x: player.x, y: player.y };
     const land = (m: Monster, d: Vec2) => {
-      const r = skillDamage(this.hero.stats, this.hero.progress.elements, blow, rank, m);
+      const r = skillDamage(this.hero.stats, this.hero.progress.elementLevels(), blow, rank, m);
       this.apply(m, r, d, 0, false, { kind: "skill", theme: fa.element ?? "", weapon: "form" });
       if (r.miss) return;
       if (fa.element) this.onElement?.(m, fa.element, r.dmg);
@@ -375,7 +375,7 @@ export class Combat {
   counter(m: Monster, from: Vec2, w: WeaponType | null): void {
     const dir = this.toward(from, m);
     this.floaters.add(from.x, from.y, 165, "สวนกลับ", "level");
-    this.apply(m, skillDamage(this.hero.stats, this.hero.progress.elements, COUNTER, 1, m, w), dir);
+    this.apply(m, skillDamage(this.hero.stats, this.hero.progress.elementLevels(), COUNTER, 1, m, w), dir);
     this.slashFx(from, dir, w ?? UNARMED);
   }
 
@@ -439,7 +439,7 @@ export class Combat {
     if (scale !== 1) r.dmg = Math.max(1, Math.round(r.dmg * scale));
     if (st.stunHit && lucky(st.stunHit, st)) m.stun = Math.max(m.stun, 1);
     if (st.poisonHit && lucky(st.poisonHit, st)) {
-      m.burns.push({ dps: (r.dmg * 0.4 * poisonScale(st, this.hero.progress.elements)) / 3, t: 3, poison: true });
+      m.burns.push({ dps: (r.dmg * 0.4 * poisonScale(st, this.hero.progress.elementLevels())) / 3, t: 3, poison: true });
     }
     this.apply(m, r, dir, 0, false, hitSound);
     if (el) this.onElement?.(m, el, r.dmg);
@@ -462,7 +462,7 @@ export class Combat {
     }
     // an exposed monster takes more; the hunter's instinct, more on any status; more on its kind;
     // more the lower the player's HP (blood rage)
-    const st = this.hero.stats, stone = this.hero.progress.elements.stone ?? 0;
+    const st = this.hero.stats, stone = this.hero.progress.elementLv("stone");
     const low = st.lowHpDmg ? 1 + st.lowHpDmg * Math.max(0, 1 - this.hero.hp / st.maxHp) : 1;
     // the first blow from hiding lands harder, and ends the hiding
     const ambush = this.hero.hidden && !ally ? 1 + st.ambush : 1;

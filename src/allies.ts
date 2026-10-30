@@ -579,7 +579,7 @@ export class Allies {
 
   // Its blow as one of the player's skill hits.
   private skillHit(a: Ally, m: Monster): ReturnType<typeof skillDamage> {
-    return skillDamage(this.d.hero.stats, this.d.hero.progress.elements, a.blow, a.rank, m, null);
+    return skillDamage(this.d.hero.stats, this.d.hero.progress.elementLevels(), a.blow, a.rank, m, null);
   }
 
   private strike(a: Ally, m: Monster, r: ReturnType<typeof skillDamage>): void {

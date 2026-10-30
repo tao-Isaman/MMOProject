@@ -10,7 +10,7 @@
 
 import { saveKey } from "./save";
 import { ITEMS, offhandKind, usable } from "./items";
-import type { WeaponId } from "./items";
+import type { WeaponId, Grants } from "./items";
 import { pct, lin } from "./trees/util";
 import { RANGER_TREES } from "./trees/ranger";
 import { BLADE_TREES } from "./trees/blades";
@@ -1645,6 +1645,10 @@ export function firstActive(treeId: string): string | null {
   return TREES[treeId].nodes.find((n) => n.kind === "active" && !n.req?.length)?.id ?? null;
 }
 
+// Every tree node's tree (gear can grant a passive from a tree its wearer never learned).
+export const NODE_TREE: Record<string, string> = {};
+for (const [treeId, tree] of Object.entries(TREES)) for (const n of tree.nodes) NODE_TREE[n.id] = treeId;
+
 // Every active skill by id: { name, glyph, color, skill, rankOf(progress) }.
 export const ACTIVES: Record<string, Active> = {};
 for (const [treeId, tree] of Object.entries(TREES)) {
@@ -1719,6 +1723,12 @@ const TREES_VERSION = 4; // 4: v0.6, passives in place of some actives
 // their class's three trees, every weapon mastery and every element without a book.
 const LEARN_VERSION = 1;
 
+function merged(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
+  const out = { ...a };
+  for (const [k, v] of Object.entries(b)) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+
 export class Progress {
   listeners = new Set<(p: Progress) => void>();
   cls: ClassId | null = null;
@@ -1738,6 +1748,10 @@ export class Progress {
   job4: Job4Id | null = null;            // the fourth job, and its branch
   branch4: string | null = null;
   limit = false;                         // the level-99 limit broken (LIMIT_LEVEL)
+  // What the gear worn now adds (its monster cores, src/sockets.ts): skill ranks (a skill not
+  // learned is granted at that rank), mastery and element levels, and the ranks its autocasts
+  // fire at. The hero sets it on every recompute; never saved.
+  gear: Required<Grants> = { ranks: {}, mastery: {}, elements: {}, auto: {} };
 
   constructor() {
     if (!this.load()) this.reset(null);
@@ -2070,9 +2084,28 @@ export class Progress {
   skillRank(id: string): number {
     const a = ACTIVES[id];
     if (!a) return 0;
-    if (a.source.tree) return this.trees().includes(a.source.tree) ? this.ranks[id] ?? 0 : 0;
-    if (a.source.job) return this.job === a.source.job ? 1 : 0;
-    return (this.mastery[a.source.mastery!] ?? 0) >= a.source.at! ? 1 : 0;
+    const extra = this.gear.ranks[id] ?? 0;
+    if (a.source.tree) return (this.trees().includes(a.source.tree) ? this.ranks[id] ?? 0 : 0) + extra;
+    if (a.source.job) return (this.job === a.source.job ? 1 : 0) + extra;
+    return ((this.masteryLv(a.source.mastery!) >= a.source.at! ? 1 : 0) + extra);
+  }
+
+  // A tree node's rank with the gear's on top (a passive's too; learned only counts in a tree she has).
+  nodeRank(treeId: string, id: string): number {
+    return (this.trees().includes(treeId) ? this.ranks[id] ?? 0 : 0) + (this.gear.ranks[id] ?? 0);
+  }
+  // Mastery and element levels with the gear's on top.
+  masteryLv(id: string): number {
+    return (this.mastery[id] ?? 0) + (this.gear.mastery[id] ?? 0);
+  }
+  elementLv(id: string): number {
+    return (this.elements[id] ?? 0) + (this.gear.elements[id] ?? 0);
+  }
+  masteryLevels(): Record<string, number> {
+    return merged(this.mastery, this.gear.mastery);
+  }
+  elementLevels(): Record<string, number> {
+    return merged(this.elements, this.gear.elements);
   }
 
   save(): void {

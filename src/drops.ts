@@ -10,6 +10,7 @@ import { MONSTERS } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import type { Race } from "./progression";
 import { MAP_NAMES } from "./maps";
+import { socketDrops } from "./sockets";
 
 // One line of a drop table: the item, the chance it drops (before the player's drop and luck
 // bonuses) and, when more than one falls at once, how many: [fewest, most].
@@ -68,6 +69,8 @@ export function fieldDrops(def: MonsterDef): Drop[] {
   const main = def.race === "dragon" ? ["gem_shard", "beast_hide"] : [MATERIAL_OF[def.race ?? "brute"]];
   const out: Drop[] = [own, ...main.map((id): Drop => [id, round(0.12 * k)]), ...GENERIC.filter((id) => !main.includes(id)).map((id): Drop => [id, round(0.03 * k)])];
   out.push(["monster_core", round((0.015 + level * 0.0003) * k * big)], ["sky_stone", STONE[def.kind]], ["star_stone", STONE[def.kind]]);
+  // its own core, a soul fragment, a stone of its element (sockets.ts)
+  out.push(...socketDrops(def.id, def.kind, def.element));
   return out;
 }
 

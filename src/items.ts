@@ -237,6 +237,10 @@ export interface Item {
   base?: string;                        // a refined or made item (variants below): the item it is
   refine?: number;                      // its refine level (+1 to +10)
   maker?: string;                       // who made it
+  sockets?: string;                     // what is set in it (src/sockets.ts): its core, soul fragments and element stones
+  grants?: Grants;                      // skill ranks and mastery / element levels its core gives while worn
+  socket?: "core" | "soul" | "stone";   // a thing set into gear (src/sockets.ts)
+  socketText?: string;                  // what its sockets give, for its tip
   icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string; art?: string; badge?: string };
 }
 
@@ -426,30 +430,47 @@ for (const tier of GEAR_TIERS) {
 for (const [id, item] of Object.entries(BASE)) if ((item.icon.glyph || item.kind === "potion") && !item.icon.art) item.icon.art = id;
 
 // ---- refined and made gear ----
-// A piece of gear can carry a refine level and its maker's name in its id, "<base>~<plus>^<maker>"
-// (either part left out when there is none): "t60_sword_1h~3^มิร่า" is a +3 silver sword made by
-// มิร่า. ITEMS builds such an item from its base the first time it is looked up: the base's
-// name with "+3" before it and the maker after it, and the refine's stats on top of the base's.
+// A piece of gear can carry a refine level, its maker's name and what is set in it in its id,
+// "<base>~<plus>^<maker>#<sockets>" (each part left out when there is none):
+// "t60_sword_1h~3^มิร่า" is a +3 silver sword made by มิร่า, "t60_axe~5#c:core_boar|e:fire:32" a +5
+// axe with the boar's core and a fire stone in it. ITEMS builds such an item from its base the
+// first time it is looked up: the base's name with "+3" before it and the maker after it, the
+// refine's stats on top of the base's, and what its sockets give (src/sockets.ts).
 export const REFINE_MAX = 10;
-const WEARABLE = new Set<ItemKind>(["weapon", "offhand", "top", "bottom", "hat", "shoes", "ring", "trinket"]);
-export function splitId(id: string): { base: string; plus: number; maker: string | null } {
-  const m = /^([^~^]+)(?:~(\d+))?(?:\^(.+))?$/.exec(id);
-  return m ? { base: m[1], plus: +(m[2] ?? 0), maker: m[3] ?? null } : { base: id, plus: 0, maker: null };
+export const WEARABLE = new Set<ItemKind>(["weapon", "offhand", "top", "bottom", "hat", "shoes", "ring", "trinket"]);
+export function splitId(id: string): { base: string; plus: number; maker: string | null; sockets: string | null } {
+  const m = /^([^~^#]+)(?:~(\d+))?(?:\^([^#]+))?(?:#(.+))?$/.exec(id);
+  return m ? { base: m[1], plus: +(m[2] ?? 0), maker: m[3] ?? null, sockets: m[4] ?? null } : { base: id, plus: 0, maker: null, sockets: null };
 }
-export function joinId(base: string, plus: number, maker: string | null): string {
-  return base + (plus > 0 ? `~${plus}` : "") + (maker ? `^${maker}` : "");
+export function joinId(base: string, plus: number, maker: string | null, sockets: string | null = null): string {
+  return base + (plus > 0 ? `~${plus}` : "") + (maker ? `^${maker}` : "") + (sockets ? `#${sockets}` : "");
+}
+// How much a refine level is worth, in steps: +1 to +3 one step each, and from +4 (where a refine
+// can fail) more and more: +4 is 4.6 steps, +7 11.8, +10 21.1.
+export function refineSteps(plus: number): number {
+  return plus <= 0 ? 0 : plus + 0.6 * Math.max(0, plus - 3) ** 1.5;
 }
 // What each refine level adds, by what the piece is and its tier.
 export function refineStats(item: Item, plus: number): Partial<Record<string, number>> {
   if (plus <= 0) return {};
-  const t = item.tier ?? 0, step = Math.round(1 + t / 90);
+  const t = item.tier ?? 0, step = Math.round(1 + t / 90), k = refineSteps(plus);
+  const r = (v: number) => Math.round(v * k);
   switch (item.kind) {
-    case "weapon": return { [item.weapon === "staff" ? "matk" : "atk"]: plus * Math.round(2 + t / 45) };
-    case "ring": return { atk: plus * step, matk: plus * step };
-    case "trinket": return { maxHp: plus * Math.round(8 + t / 9) };
-    case "offhand": return item.art === "buckler" || item.art === "kite" ? { def: plus * step, mdef: plus } : { matk: plus * 2 };
-    default: return { def: plus * step };
+    case "weapon": return { [item.weapon === "staff" ? "matk" : "atk"]: r(Math.round(2 + t / 45)) };
+    case "ring": return { atk: r(step), matk: r(step) };
+    case "trinket": return { maxHp: r(Math.round(8 + t / 9)) };
+    case "offhand": return item.art === "buckler" || item.art === "kite" ? { def: r(step), mdef: r(1) } : { matk: r(2) };
+    default: return { def: r(step) };
   }
+}
+// What a piece's sockets give (set by src/sockets.ts, which knows the cores, souls and stones):
+// stats on top of the piece's, what it grants while worn, a word for its name and lines for its tip.
+export interface Grants { ranks?: Record<string, number>; mastery?: Record<string, number>; elements?: Record<string, number>; auto?: Record<string, number> }
+export interface SocketInfo { stats: Partial<Record<string, number>>; grants?: Grants; tag?: string; text: string }
+let socketInfo: ((sockets: string, item: Item) => SocketInfo | null) | null = null;
+export function setSocketResolver(f: (sockets: string, item: Item) => SocketInfo | null): void {
+  socketInfo = f;
+  derived.clear();
 }
 // The stone that refines a piece of gear.
 export function stoneFor(id: string): "sky_stone" | "star_stone" | null {
@@ -459,18 +480,20 @@ export function stoneFor(id: string): "sky_stone" | "star_stone" | null {
 }
 const derived = new Map<string, Item | null>();
 function derive(id: string): Item | undefined {
-  if (!id.includes("~") && !id.includes("^")) return undefined;
+  if (!id.includes("~") && !id.includes("^") && !id.includes("#")) return undefined;
   let item = derived.get(id);
   if (item === undefined) {
-    const { base, plus, maker } = splitId(id);
+    const { base, plus, maker, sockets } = splitId(id);
     const b = BASE[base];
-    item = b && WEARABLE.has(b.kind) && plus <= REFINE_MAX && joinId(base, plus, maker) === id
+    const sock = b && sockets ? socketInfo?.(sockets, b) ?? null : null;
+    item = b && WEARABLE.has(b.kind) && plus <= REFINE_MAX && joinId(base, plus, maker, sockets) === id && (!sockets || sock)
       ? {
-        ...b, base, refine: plus || undefined, maker: maker ?? undefined,
-        name: `${plus ? `+${plus} ` : ""}${b.name}${maker ? ` ของ${maker}` : ""}`,
-        stats: addStats(b.stats, refineStats(b, plus)),
+        ...b, base, refine: plus || undefined, maker: maker ?? undefined, sockets: sockets ?? undefined, grants: sock?.grants,
+        name: `${plus ? `+${plus} ` : ""}${b.name}${maker ? ` ของ${maker}` : ""}${sock?.tag ? ` ${sock.tag}` : ""}`,
+        stats: addStats(addStats(b.stats, refineStats(b, plus)), sock?.stats ?? {}),
         price: Math.round((b.price ?? 0) * (1 + 0.25 * plus)),
         icon: { ...b.icon },
+        socketText: sock?.text,
       }
       : null;
     derived.set(id, item);
@@ -574,7 +597,7 @@ export function describe(id: string): string {
   const item = ITEMS[id];
   if (!item) return "";
   const extra = [item.lv ? `ต้องการเลเวล ${item.lv}` : "", item.maker ? `สร้างโดย ${item.maker}` : ""].filter(Boolean).join(" · ");
-  const text = describeBase(item);
+  const text = describeBase(item) + (item.socketText ? `<br>${item.socketText}` : "");
   return extra ? `${text}<br>${extra}` : text;
 }
 function describeBase(item: Item): string {

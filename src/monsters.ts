@@ -25,6 +25,7 @@ import { rand } from "./particles";
 import { behaviour, statsFor, monsterMight, PEOPLE } from "./bestiary";
 import type { MonsterDef, MonsterKind } from "./bestiary";
 import { fieldDrops } from "./drops";
+import { socketDrops } from "./sockets";
 import type { Drop } from "./drops";
 import { Player, directionIndex, directionVector } from "./player";
 import type { Hands } from "./look";
@@ -141,6 +142,7 @@ export const VARIANTS: Variant[] = [
 // The slimes get stronger with their level like every bestiary monster (bestiary.ts
 // monsterMight): their numbers above are the curve's, the might goes on top here.
 for (const v of VARIANTS) {
+  v.drops = [...v.drops, ...socketDrops(`slime_${v.id}`, "normal", v.element)]; // its core, soul fragments, its element's stone
   const k = monsterMight(v.level);
   v.hp = Math.round(v.hp * k);
   v.atk = Math.round(v.atk * k);

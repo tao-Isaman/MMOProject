@@ -285,7 +285,7 @@ export class Skills {
   }
 
   get el(): Record<string, number> {
-    return this.progress.elements;
+    return this.progress.elementLevels();
   }
 
   // What the off hand holds (offKind: a weapon type, "shield", "gear", null when empty).
@@ -984,7 +984,7 @@ export class Skills {
     const st = this.hero.stats as unknown as Record<string, number>;
     for (const key of Object.keys(st)) {
       if (!key.startsWith(AUTOCAST) || !(st[key] > 0)) continue;
-      const id = key.slice(AUTOCAST.length), a = ACTIVES[id], rank = this.progress.skillRank(id);
+      const id = key.slice(AUTOCAST.length), a = ACTIVES[id], rank = Math.max(this.progress.skillRank(id), this.progress.gear.auto[id] ?? 0);
       if (!a || !rank || !this.wields(id) || this.packless(a.skill) || !lucky(st[key], this.hero.stats)) continue;
       this.autoCd = AUTOCAST_GAP;
       const dir = toward(this.player, m) ?? this.player.facing();
@@ -1087,7 +1087,7 @@ export class Skills {
   masteryLevel(): number {
     const w = this.weapon();
     const id = Object.keys(MASTERIES).find((k) => MASTERIES[k].weapons?.includes(w as WeaponId));
-    return id ? this.progress.mastery[id] ?? 0 : 0;
+    return id ? this.progress.masteryLv(id) : 0;
   }
 
   // Traps tick down and pulse; the first monster to step into an armed one sets it off.

@@ -1805,7 +1805,7 @@ async function boot(): Promise<void> {
       // defence in that element, shorter with plant, none at plant 50; gold may shrug any
       // ailment off (statusRes)
       const ail = m.element ? AILMENTS[m.element] : undefined;
-      const plant = hero.progress.elements.plant ?? 0;
+      const plant = hero.progress.elementLv("plant");
       const shrug = () => {
         if (!resists(hero.stats)) return false;
         floaters.add(player.x, player.y, 140, "ต้านทาน", "miss");

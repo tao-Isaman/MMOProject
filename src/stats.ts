@@ -1,7 +1,7 @@
 // Stats and damage. computeStats folds class, level, passives, masteries, elements, the weapon
 // in hand and active buffs into one set of numbers; the damage functions use them.
 
-import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet, offKind } from "./progression";
+import { CLASSES, TREES, MASTERIES, ELEMENTS, ELEMENT_IDS, RACES, JOBS, JOB_LEVEL, needMet, offKind, NODE_TREE } from "./progression";
 import { ITEMS, OFFHAND_DAMAGE } from "./items";
 import type { ElementId, FormId, Progress, Race, SkillDef, StatBag } from "./progression";
 import type { WeaponType } from "./items";
@@ -91,17 +91,20 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
     add(bag, job.growth, Math.max(0, progress.level - JOB_LEVEL));
   }
   const offWeapon = offKind(offhandId);
-  for (const [id, lv] of Object.entries(progress.elements)) {
+  // (levels with what the gear's cores add, progress.gear)
+  for (const [id, lv] of Object.entries(progress.elementLevels())) {
     add(bag, ELEMENTS[id].per, lv);
     for (const m of ELEMENTS[id].marks) if (m.stats && lv >= m.at) add(bag, m.stats);
   }
-  for (const treeId of progress.trees()) {
+  // the passives of the trees she has, and any the gear grants from others
+  const granted = Object.keys(progress.gear.ranks).map((id) => NODE_TREE[id]).filter((t) => t && !progress.trees().includes(t));
+  for (const treeId of new Set([...progress.trees(), ...granted])) {
     for (const n of TREES[treeId].nodes) {
-      const r = progress.ranks[n.id];
+      const r = progress.nodeRank(treeId, n.id);
       if (r && n.kind === "passive" && n.stats && needMet(n.need, weaponId, offWeapon, form)) add(bag, n.stats(r));
     }
   }
-  for (const [id, lv] of Object.entries(progress.mastery)) {
+  for (const [id, lv] of Object.entries(progress.masteryLevels())) {
     const m = MASTERIES[id];
     // weapon masteries count while that weapon is in either hand
     if (m.kind === "weapon" && !m.weapons?.includes(weaponId as never) && !m.weapons?.includes(offWeapon as never)) continue;

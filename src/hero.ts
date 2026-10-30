@@ -9,6 +9,7 @@ import type { Stats } from "./stats";
 import { ACTIVES, TREES, job3Stats, job4Stats, needMet, offKind } from "./progression";
 import type { ElementId, FormId, Progress, StatBag } from "./progression";
 import { ITEMS } from "./items";
+import { gearGrants } from "./sockets";
 import type { TerrainKind } from "./terrain";
 
 export interface Buff {
@@ -78,6 +79,13 @@ export class Hero {
   }
 
   recompute(): void {
+    // what the cores in the gear worn grant (skills, mastery and element levels); a skill it
+    // newly grants that she never learned goes onto the bar
+    const gear = gearGrants([this.weapon(), this.offhand(), ...this.worn()]), before = this.progress.gear;
+    this.progress.gear = gear;
+    for (const id of Object.keys(gear.ranks)) {
+      if (!before.ranks[id] && ACTIVES[id] && this.progress.skillRank(id) === gear.ranks[id]) this.progress.autoSlot(id);
+    }
     const more = [{ stats: job3Stats(this.progress) }, { stats: job4Stats(this.progress) }, { stats: this.terrainPassives() }];
     // each orb its skill's buff at that skill's rank (two of one element: twice)
     const orbs = this.orbs.map((o) => ({ stats: ACTIVES[o.id]?.skill.buff?.(this.progress.skillRank(o.id)) ?? {} }));
