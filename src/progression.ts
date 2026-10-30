@@ -403,7 +403,7 @@ export const STAT_NAMES: Record<string, string> = {
   hit: "ความแม่นยำ", flee: "หลบหลีก", crit: "โอกาสคริติคอล", critDmg: "แรงคริติคอล", aspd: "ความเร็วโจมตี", move: "ความเร็วเดิน",
   hpRegen: "ฟื้น HP/วิ", mpRegen: "ฟื้น MP/วิ", cdr: "ลดคูลดาวน์", castRed: "ลดเวลาร่าย", dmgRed: "ลดความเสียหาย", reflect: "สะท้อนความเสียหาย",
   luck: "โชคดี", magicDodge: "หลบเวท", statusRes: "ต้านสถานะ", doubleHit: "โอกาสตีซ้ำ", ambush: "โจมตีจากที่ซ่อน", stealth: "ซ่อนตัว",
-  lifesteal: "ดูดเลือด",
+  lifesteal: "ดูดเลือด", pierce: "เจาะเกราะกายภาพ", mpierce: "เจาะต้านเวท",
   // v0.5: attack from max HP (hpToAtk: that share of max HP, added after atkPct; the profile
   // window shows what it adds), a blow back (counter: the chance, at most 60%, that a monster's
   // blow landing on her from within about 2 m is struck straight back for 150% of attack and the
@@ -412,11 +412,13 @@ export const STAT_NAMES: Record<string, string> = {
   // the merchant's stall (stall.ts): goods on it, how often customers come, dearer sales
   stallSlots: "ช่องวางของในร้าน", stallRate: "ลูกค้ามาถี่ขึ้น", stallMarkup: "ขายแพงกว่าราคากลางได้",
 };
-export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush", "lifesteal",
+export const PERCENT_STATS = new Set(["crit", "critDmg", "aspd", "move", "cdr", "castRed", "dmgRed", "reflect", "magicDodge", "statusRes", "doubleHit", "ambush", "lifesteal", "pierce", "mpierce",
   "hpToAtk", "counter", "allyPct", "stallRate", "stallMarkup"]);
 // What each stat does, for the player (the profile's tooltips). The caps are the ones in
 // stats.ts computeStats, the formulas its damage functions': change them together.
 export const STAT_HELP: Record<string, string> = {
+  pierce: "ส่วนของค่าป้องกันที่การโจมตีกายภาพ (ตีปกติ ยิง สกิลกายภาพ) ข้ามไปได้ สูงสุด 80%",
+  mpierce: "ส่วนของค่าต้านเวทที่สกิลเวทข้ามไปได้ สูงสุด 80%",
   lifesteal: "ส่วนหนึ่งของดาเมจที่ตีออกไปกลับมาเป็น HP ของตัวเอง",
   maxHp: "พลังชีวิต ถึง 0 แล้วตาย ฟื้นเองตามค่าฟื้น HP หรือดื่มยา",
   maxMp: "พลังเวท ใช้ร่ายสกิล ฟื้นเองตามค่าฟื้น MP หรือดื่มยา",
@@ -1169,10 +1171,10 @@ export const MASTERIES: Record<string, Mastery> = {
     s15: { id: "axe_spin", name: "ขวานพายุ", glyph: "spin",
       skill: { type: "nova", stat: "atk", mult: () => 3.8, mp: 15, cd: 7, motion: "swing", radius: 180, color: "#ffd9b0" },
       desc: "หมุนขวานรอบตัว ดาเมจ 380% ของพลังโจมตี" },
-    p20: { name: "ขวานผ่าเกราะ", stats: { pierce: 0.15 }, desc: "เจาะเกราะ +15% เมื่อถือขวาน" },
+    p20: { name: "ขวานผ่าเกราะ", stats: { pierce: 0.15 }, desc: "เจาะเกราะกายภาพ +15% เมื่อถือขวาน" },
     p30: { name: "เจ้าแห่งขวาน", stats: { atkPct: 0.15, critDmg: 0.35 }, desc: "พลังโจมตี +15% แรงคริติคอล +35% เมื่อถือขวาน" },
     p40: { name: "แขนเหล็ก", stats: { atkPct: 0.06, critDmg: 0.2 }, desc: "พลังโจมตี +6% แรงคริติคอล +20% เมื่อถือขวาน" },
-    p50: { name: "ผ่าภูผา", stats: { pierce: 0.1, crit: 0.02 }, desc: "เจาะเกราะ +10% โอกาสคริติคอล +2% เมื่อถือขวาน" },
+    p50: { name: "ผ่าภูผา", stats: { pierce: 0.1, crit: 0.02 }, desc: "เจาะเกราะกายภาพ +10% โอกาสคริติคอล +2% เมื่อถือขวาน" },
     p60: { name: "ราชันขวาน", stats: { atkPct: 0.15, critDmg: 0.4 }, desc: "พลังโจมตี +15% แรงคริติคอล +40% เมื่อถือขวาน" },
   }),
   // sturdy: stuns, toughness and blows that go through
@@ -1184,24 +1186,24 @@ export const MASTERIES: Record<string, Mastery> = {
       skill: { type: "cone", stat: "atk", mult: () => 3.5, mp: 15, cd: 8, motion: "thrust", reach: 200, arc: 120, stun: () => 1.5, color: "#ffe4b0" },
       desc: "ทุบพื้นด้านหน้า ดาเมจ 350% ของพลังโจมตี มึน 1.5 วิ" },
     p20: { name: "ศรัทธาเหล็ก", stats: { maxHpPct: 0.08, dmgRed: 0.05 }, desc: "HP สูงสุด +8% ลดความเสียหาย 5% เมื่อถือค้อน" },
-    p30: { name: "ค้อนพิฆาต", stats: { atkPct: 0.15, pierce: 0.2 }, desc: "พลังโจมตี +15% เจาะเกราะ +20% เมื่อถือค้อน" },
+    p30: { name: "ค้อนพิฆาต", stats: { atkPct: 0.15, pierce: 0.2 }, desc: "พลังโจมตี +15% เจาะเกราะกายภาพ +20% เมื่อถือค้อน" },
     p40: { name: "กายเหล็ก", stats: { defPct: 0.15, mdefPct: 0.1 }, desc: "ป้องกัน +15% ต้านเวท +10% เมื่อถือค้อน" },
-    p50: { name: "ทุบสะท้าน", stats: { stunHit: 0.07, pierce: 0.1 }, desc: "โอกาสตีให้มึน +7% เจาะเกราะ +10% เมื่อถือค้อน" },
+    p50: { name: "ทุบสะท้าน", stats: { stunHit: 0.07, pierce: 0.1 }, desc: "โอกาสตีให้มึน +7% เจาะเกราะกายภาพ +10% เมื่อถือค้อน" },
     p60: { name: "ค้อนเทพ", stats: { atkPct: 0.15, maxHpPct: 0.1, dmgRed: 0.05 }, desc: "พลังโจมตี +15% HP สูงสุด +10% ลดความเสียหาย 5% เมื่อถือค้อน" },
   }),
   // keeps its distance: reach and aim
   spear: weaponMastery("หอก", ["spear_1h", "spear_2h"], "spear", {
     per: { atk: 2.2, hit: 2.2 }, perDesc: "พลังโจมตี +2.2 ความแม่นยำ +2.2",
     p5: { name: "ระยะหอก", stats: { reach: 0.2 }, desc: "ระยะโจมตี +20% เมื่อถือหอก" },
-    p10: { name: "แทงแม่น", stats: { pierce: 0.08, hit: 15 }, desc: "เจาะเกราะ +8% ความแม่นยำ +15 เมื่อถือหอก" },
+    p10: { name: "แทงแม่น", stats: { pierce: 0.08, hit: 15 }, desc: "เจาะเกราะกายภาพ +8% ความแม่นยำ +15 เมื่อถือหอก" },
     s15: { id: "spear_lance", name: "แทงทะลวง", glyph: "pierce",
       skill: { type: "beam", stat: "atk", mult: () => 4, mp: 14, cd: 7, motion: "thrust", length: 420, width: 60, color: "#f0f6ff" },
       desc: "แทงทะลุแนวยาว 4.2 ม. ดาเมจ 400% ของพลังโจมตี" },
     p20: { name: "รักษาระยะ", stats: { reach: 0.15, flee: 15 }, desc: "ระยะโจมตี +15% หลบหลีก +15 เมื่อถือหอก" },
-    p30: { name: "เทพหอก", stats: { atkPct: 0.15, pierce: 0.15 }, desc: "พลังโจมตี +15% เจาะเกราะ +15% เมื่อถือหอก" },
+    p30: { name: "เทพหอก", stats: { atkPct: 0.15, pierce: 0.15 }, desc: "พลังโจมตี +15% เจาะเกราะกายภาพ +15% เมื่อถือหอก" },
     p40: { name: "หอกพายุ", stats: { aspd: 0.06, reach: 0.1 }, desc: "ความเร็วโจมตี +6% ระยะโจมตี +10% เมื่อถือหอก" },
-    p50: { name: "ทะลวงฟ้า", stats: { pierce: 0.1, critDmg: 0.2 }, desc: "เจาะเกราะ +10% แรงคริติคอล +20% เมื่อถือหอก" },
-    p60: { name: "มังกรหอก", stats: { atkPct: 0.15, pierce: 0.15, hit: 30 }, desc: "พลังโจมตี +15% เจาะเกราะ +15% ความแม่นยำ +30 เมื่อถือหอก" },
+    p50: { name: "ทะลวงฟ้า", stats: { pierce: 0.1, critDmg: 0.2 }, desc: "เจาะเกราะกายภาพ +10% แรงคริติคอล +20% เมื่อถือหอก" },
+    p60: { name: "มังกรหอก", stats: { atkPct: 0.15, pierce: 0.15, hit: 30 }, desc: "พลังโจมตี +15% เจาะเกราะกายภาพ +15% ความแม่นยำ +30 เมื่อถือหอก" },
   }),
   // quick and slippery: speed, criticals, dodging and poison
   dagger: weaponMastery("มีด", ["dagger"], "dagger", {
@@ -1253,10 +1255,10 @@ export const MASTERIES: Record<string, Mastery> = {
     s15: { id: "gun_buckshot", name: "ยิงลูกปราย", glyph: "fan",
       skill: { type: "fan", stat: "atk", mult: () => 1.3, count: 5, spread: 36, mp: 14, cd: 6, motion: "thrust", speed: 1900, range: 560, radius: 20, bullet: true, color: "#ffe0a0" },
       desc: "ยิงกระสุน 5 นัดเป็นรูปพัด นัดละ 130% ของพลังโจมตี" },
-    p20: { name: "กระสุนเจาะเกราะ", stats: { pierce: 0.1 }, desc: "ทะลุเกราะ +10% เมื่อถือปืน" },
+    p20: { name: "กระสุนเจาะเกราะ", stats: { pierce: 0.1 }, desc: "เจาะเกราะกายภาพ +10% เมื่อถือปืน" },
     p30: { name: "มือปืน", stats: { atkPct: 0.12, critDmg: 0.3 }, desc: "พลังโจมตี +12% แรงคริติคอล +30% เมื่อถือปืน" },
     p40: { name: "ลั่นไกไว", stats: { aspd: 0.06, hit: 20 }, desc: "ความเร็วโจมตี +6% ความแม่นยำ +20 เมื่อถือปืน" },
-    p50: { name: "นัดเดียวจอด", stats: { pierce: 0.08, crit: 0.02 }, desc: "ทะลุเกราะ +8% โอกาสคริติคอล +2% เมื่อถือปืน" },
+    p50: { name: "นัดเดียวจอด", stats: { pierce: 0.08, crit: 0.02 }, desc: "เจาะเกราะกายภาพ +8% โอกาสคริติคอล +2% เมื่อถือปืน" },
     p60: { name: "เทพปืน", stats: { atkPct: 0.15, critDmg: 0.3, reach: 0.1 }, desc: "พลังโจมตี +15% แรงคริติคอล +30% ระยะยิง +10% เมื่อถือปืน" },
   }),
   // the fist fighter's: quick blunt blows that daze and go through armour, a sturdy body
@@ -1267,10 +1269,10 @@ export const MASTERIES: Record<string, Mastery> = {
     s15: { id: "knuckle_barrage", name: "หมัดพายุ", glyph: "bash",
       skill: { type: "cone", stat: "atk", mult: () => 1.3, hits: 3, mp: 14, cd: 6, motion: "thrust", reach: 140, arc: 60, color: "#ffd9a0" },
       desc: "ต่อยรัวใส่ด้านหน้า 3 ครั้ง ครั้งละ 130% ของพลังโจมตี" },
-    p20: { name: "กำปั้นเหล็ก", stats: { pierce: 0.15, maxHpPct: 0.05 }, desc: "เจาะเกราะ +15% HP สูงสุด +5% เมื่อถือสนับมือ" },
+    p20: { name: "กำปั้นเหล็ก", stats: { pierce: 0.15, maxHpPct: 0.05 }, desc: "เจาะเกราะกายภาพ +15% HP สูงสุด +5% เมื่อถือสนับมือ" },
     p30: { name: "ปรมาจารย์หมัด", stats: { atkPct: 0.12, stunHit: 0.05 }, desc: "พลังโจมตี +12% โอกาสตีให้มึน +5% เมื่อถือสนับมือ" },
     p40: { name: "หมัดสายฟ้า", stats: { aspd: 0.06, hit: 20 }, desc: "ความเร็วโจมตี +6% ความแม่นยำ +20 เมื่อถือสนับมือ" },
-    p50: { name: "หมัดทะลวง", stats: { pierce: 0.1, critDmg: 0.2 }, desc: "เจาะเกราะ +10% แรงคริติคอล +20% เมื่อถือสนับมือ" },
+    p50: { name: "หมัดทะลวง", stats: { pierce: 0.1, critDmg: 0.2 }, desc: "เจาะเกราะกายภาพ +10% แรงคริติคอล +20% เมื่อถือสนับมือ" },
     p60: { name: "เทพหมัด", stats: { atkPct: 0.15, aspd: 0.06, dmgRed: 0.05 }, desc: "พลังโจมตี +15% ความเร็วโจมตี +6% ลดความเสียหาย 5% เมื่อถือสนับมือ" },
   }),
   // the beast's: quick slashes, criticals that tear, wounds that bleed, a light step

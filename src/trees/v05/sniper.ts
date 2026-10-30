@@ -56,7 +56,7 @@ export const SNIPER_TREES: Record<string, Tree> = {
     nodes: [
       { id: "sniper_bow_weakpoint", name: "เล็งช่องเกราะ", kind: "passive", max: 10, pos: [0, 0], glyph: "eye", need: BOW,
         stats: (r) => ({ pierce: 0.013 * r, critDmg: 0.03 * r }),
-        desc: (r) => `เจาะเกราะ +${pct(0.013 * r)} แรงคริติคอล +${pct(0.03 * r)} ทั้งยิงปกติและสกิล เมื่อถือธนู` },
+        desc: (r) => `เจาะเกราะกายภาพ +${pct(0.013 * r)} แรงคริติคอล +${pct(0.03 * r)} ทั้งยิงปกติและสกิล เมื่อถือธนู` },
       { id: "sniper_bow_pierce", name: "ศรเจาะเกราะ", kind: "active", max: 10, pos: [1, 0], glyph: "pierce", need: BOW,
         skill: { type: "bolt", stat: "atk", mult: lin(2.3, 0.23), expose: (r) => 0.05 + 0.007 * r, debuff: 9, arrow: true, mp: 16, cd: 4, motion: "shoot", speed: 1800, range: 900, radius: 26, color: "#e8f0c0" },
         desc: (r) => `ยิงศรหัวเหล็กกล้าใส่ตัวที่ล็อกไว้ระยะ 9 ม. ${pct(lin(2.3, 0.23)(r))} ของพลังโจมตี เกราะของมันร้าวจนรับดาเมจเพิ่ม ${pct(0.05 + 0.007 * r)} 9 วิ ใช้ได้เมื่อถือธนู` },
@@ -76,7 +76,7 @@ export const SNIPER_TREES: Record<string, Tree> = {
         desc: (r) => `ยิงศรหนักใส่ตัวที่ล็อกไว้ระยะ 9.5 ม. ${pct(lin(2.5, 0.25)(r))} ของพลังโจมตี มึน 0.5 วิ เกราะแตกจนรับดาเมจเพิ่ม ${pct(0.08 + 0.012 * r)} 12 วิ ใช้ต่อจากศรเจาะเกราะหรือศรทะลวงแนวภายใน 4 วิ แรงขึ้น ${pct(0.25 + 0.03 * r)} ใช้ได้เมื่อถือธนู` },
       { id: "sniper_bow_focus", name: "สมาธิพลซุ่มยิง", kind: "active", max: 5, pos: [2, 1], req: [["sniper_bow_draw", 3]], glyph: "eye", need: BOW,
         skill: { type: "buff", mp: 28, cd: 35, motion: "cast", duration: 23, buff: (r) => ({ pierce: 0.08 + 0.02 * r, atkPct: 0.06 + 0.02 * r, critDmg: 0.1 + 0.03 * r }), color: "#e0f0a8" },
-        desc: (r) => `23 วิ: เจาะเกราะ +${pct(0.08 + 0.02 * r)} พลังโจมตี +${pct(0.06 + 0.02 * r)} แรงคริติคอล +${pct(0.1 + 0.03 * r)} ทั้งยิงปกติและสกิล ใช้ได้เมื่อถือธนู` },
+        desc: (r) => `23 วิ: เจาะเกราะกายภาพ +${pct(0.08 + 0.02 * r)} พลังโจมตี +${pct(0.06 + 0.02 * r)} แรงคริติคอล +${pct(0.1 + 0.03 * r)} ทั้งยิงปกติและสกิล ใช้ได้เมื่อถือธนู` },
       { id: "sniper_bow_horizon", name: "ศรสังหารสุดขอบฟ้า", kind: "active", max: 5, pos: [1, 2], req: [["sniper_bow_shatter", 5], ["sniper_bow_focus", 1]], glyph: "skull", need: BOW,
         skill: { type: "bolt", stat: "atk", mult: lin(6.0, 0.75), stun: () => 1, arrow: true, mp: 54, cd: 15, motion: "shoot", speed: 2200, range: 1200, radius: 30,
           combo: { after: ["sniper_bow_shatter"], within: 4, more: () => 0.4 }, color: "#fffbe0" },

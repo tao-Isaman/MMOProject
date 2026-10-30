@@ -22,7 +22,7 @@ export const HIGH_KNIGHT_TREES: Record<string, Tree> = {
     nodes: [
       { id: "high_knight_lance_edge", name: "คมหอกราชันย์", kind: "passive", max: 10, pos: [0, 0], glyph: "up", need: SPEARS,
         stats: (r) => ({ atkPct: 0.013 * r, pierce: 0.01 * r }),
-        desc: (r) => `พลังโจมตี +${pct(0.013 * r)} เจาะเกราะ +${pct(0.01 * r)} เมื่อถือหอก` },
+        desc: (r) => `พลังโจมตี +${pct(0.013 * r)} เจาะเกราะกายภาพ +${pct(0.01 * r)} เมื่อถือหอก` },
       { id: "high_knight_lance_thrust", name: "แทงทะลวงใจ", kind: "active", max: 10, pos: [1, 0], glyph: "pierce", need: SPEARS,
         skill: { type: "cone", stat: "atk", mult: lin(2.3, 0.23), mp: 16, cd: 4, motion: "thrust", reach: 260, arc: 40, color: "#d8e4ff" },
         desc: (r) => `แทงตัวที่ล็อกไว้ไกลถึง 2.6 ม. ${pct(lin(2.3, 0.23)(r))} ของพลังโจมตี ใช้ได้เมื่อถือหอก` },
@@ -43,7 +43,7 @@ export const HIGH_KNIGHT_TREES: Record<string, Tree> = {
         desc: (r) => `ขว้างหอกสุดแรงพุ่งทะลุทุกตัวในแนวยาว 8.5 ม. ตัวละ ${pct(lin(2.2, 0.22)(r))} ของพลังโจมตี ใช้ต่อจากขว้างหอกพิฆาตภายใน 4 วิ แรงขึ้น ${pct(0.2 + 0.03 * r)} ใช้ได้เมื่อถือหอก` },
       { id: "high_knight_lance_valor", name: "ปณิธานทวนเหล็ก", kind: "active", max: 5, pos: [3, 1], req: [["high_knight_lance_throw", 3]], glyph: "rage", need: SPEARS,
         skill: { type: "buff", mp: 30, cd: 40, motion: "thrust", duration: 23, buff: (r) => ({ atkPct: 0.1 + 0.022 * r, pierce: 0.06 + 0.02 * r }), color: "#d0dcff" },
-        desc: (r) => `23 วิ: พลังโจมตี +${pct(0.1 + 0.022 * r)} เจาะเกราะ +${pct(0.06 + 0.02 * r)} ใช้ได้เมื่อถือหอก` },
+        desc: (r) => `23 วิ: พลังโจมตี +${pct(0.1 + 0.022 * r)} เจาะเกราะกายภาพ +${pct(0.06 + 0.02 * r)} ใช้ได้เมื่อถือหอก` },
       { id: "high_knight_lance_rain", name: "ห่าฝนหอกเทวา", kind: "active", max: 5, pos: [2, 2], req: [["high_knight_lance_storm", 5], ["high_knight_lance_valor", 1]], glyph: "burst", need: SPEARS,
         skill: { type: "blast", stat: "atk", mult: lin(1.6, 0.2), hits: 4, every: 0.25, mp: 55, cd: 16, motion: "thrust", range: 650, radius: 240, delay: 0.3,
           combo: { after: ["high_knight_lance_storm", "high_knight_lance_rend"], within: 4, more: () => 0.3 }, color: "#eef4ff" },

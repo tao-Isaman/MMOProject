@@ -92,12 +92,12 @@ export const HISTORIAN_TREES: Record<string, Tree> = {
             [["ruins"], { atkPct: 0.02 * r, matkPct: 0.02 * r }],
             [["grassland", "coast"], { aspd: 0.016 * r, castRed: 0.016 * r }],
             [["forest", "jungle"], { cdr: 0.016 * r }],
-            [["snow", "mountain"], { pierce: 0.03 * r }],
+            [["snow", "mountain"], { pierce: 0.03 * r, mpierce: 0.03 * r }],
             [["desert", "volcano"], { dmg: 0.02 * r }],
           ]) },
         desc: (r) => `3 นาที: พลังโจมตีและพลังเวท +${pct(0.02 * r)} และตามพื้นที่ที่ยืน: ซากโบราณ พลังโจมตีและพลังเวทอีก +${pct(0.02 * r)}`
           + ` · ทุ่งหญ้าและชายฝั่ง ความเร็วโจมตี +${pct(0.016 * r)} ลดเวลาร่าย ${pct(0.016 * r)} · ป่าและป่าดิบ ลดคูลดาวน์ ${pct(0.016 * r)}`
-          + ` · หิมะและภูเขา เจาะเกราะ +${pct(0.03 * r)} · ทะเลทรายและภูเขาไฟ ดาเมจ +${pct(0.02 * r)}` },
+          + ` · หิมะและภูเขา เจาะเกราะกายภาพและเจาะต้านเวท +${pct(0.03 * r)} · ทะเลทรายและภูเขาไฟ ดาเมจ +${pct(0.02 * r)}` },
       { id: "historian_archaeo_scout", name: "เท้านักสำรวจ", kind: "passive", max: 5, pos: [3, 0], glyph: "shoes",
         stats: (r) => ({ maxHpPct: 0.012 * r }),
         terrain: (r) => lands([

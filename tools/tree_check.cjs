@@ -59,7 +59,7 @@ const INVOKABLE = new Set(["bolt", "fan", "blast", "nova", "storm", "cone", "bea
 const lookOk = (look) => /^slime:\d+$/.test(look) ? Number(look.slice(6)) <= 360 : !!MONSTER_BY_ID[look] && !!sheets[look];
 const statKeys = new Set([
   "maxHp", "maxMp", "atk", "matk", "def", "mdef", "hit", "flee", "crit", "critDmg", "aspd", "move", "hpRegen", "mpRegen", "cdr", "dmgRed", "castRed",
-  "dmg", "reach", "stunHit", "xpPct", "drop", "pierce", "potion", "healPct", "multiShot", "poisonHit", "huntDmg", "buffTime", "reflect",
+  "dmg", "reach", "stunHit", "xpPct", "drop", "pierce", "mpierce", "potion", "healPct", "multiShot", "poisonHit", "huntDmg", "buffTime", "reflect",
   "atkPct", "matkPct", "defPct", "mdefPct", "maxHpPct", "maxMpPct", "mpRegenPct", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "poisonPct",
   "buyDisc", "sellBonus", "bagSlots", "goldPct", "fareDisc", "luck", "magicDodge", "statusRes", "doubleHit", "stealth", "ambush",
   "hpToAtk", "counter", "allyPct",
@@ -299,9 +299,9 @@ const ELEMENT_WORTH = {
   atk: 1, matk: 1, def: 1, mdef: 1, maxHp: 10, maxMp: 6, hit: 1.5, flee: 1.5, hpRegen: 0.25, mpRegen: 0.15,
   crit: 0.004, critDmg: 0.015, aspd: 0.004, move: 0.005, cdr: 0.0035, castRed: 0.004, atkPct: 0.004, matkPct: 0.004,
   defPct: 0.004, mdefPct: 0.004, maxHpPct: 0.004, maxMpPct: 0.004, mpRegenPct: 0.01, healPct: 0.008, dmgRed: 0.003, dmg: 0.003,
-  reflect: 0.006, magicDodge: 0.004, statusRes: 0.006, huntDmg: 0.006, poisonPct: 0.01, pierce: 0.004,
+  reflect: 0.006, magicDodge: 0.004, statusRes: 0.006, huntDmg: 0.006, poisonPct: 0.01, pierce: 0.004, mpierce: 0.004,
 };
-const ATTACK_STATS = new Set(["atk", "matk", "hit", "crit", "critDmg", "aspd", "cdr", "castRed", "atkPct", "matkPct", "dmg", "huntDmg", "poisonPct", "pierce"]);
+const ATTACK_STATS = new Set(["atk", "matk", "hit", "crit", "critDmg", "aspd", "cdr", "castRed", "atkPct", "matkPct", "dmg", "huntDmg", "poisonPct", "pierce", "mpierce"]);
 // What each element's effect (its skill line and the milestones without stats) is worth a level:
 // on every skill 1.2 (wind's own share is its cooldown stat), on its own element's hits 0.6; the
 // four whose speciality is a stat have it in their numbers. Their own stats, not weighed for the

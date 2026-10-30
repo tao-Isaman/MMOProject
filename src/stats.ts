@@ -13,7 +13,7 @@ const ZERO = {
   // a share off every cast time (skills.ts), apart from the cooldowns
   castRed: 0,
   // extras: weapon damage bonus, reach, stun chance on hit, exp and drop bonus, defence ignored
-  dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0, potion: 0,
+  dmg: 0, reach: 0, stunHit: 0, xpPct: 0, drop: 0, pierce: 0, mpierce: 0, potion: 0,
   // healing power, a second arrow on a bow shot, poison on a normal hit, damage to monsters
   // under any status, longer buffs
   healPct: 0, multiShot: 0, poisonHit: 0, huntDmg: 0, buffTime: 0,
@@ -131,6 +131,7 @@ export function computeStats(progress: Progress, weaponItem: string | null, buff
   s.dmgRed = Math.min(0.75, s.dmgRed);
   s.aspd = Math.min(1.5, s.aspd);
   s.pierce = Math.min(0.8, s.pierce);
+  s.mpierce = Math.min(0.8, s.mpierce);
   s.multiShot = Math.min(0.8, s.multiShot);
   s.poisonHit = Math.min(0.6, s.poisonHit);
   s.reflect = Math.min(0.6, s.reflect);
@@ -216,7 +217,7 @@ export function lightPierce(level: number): number {
 
 // Magic always lands and never crits. `through`: armour it goes through besides piercing.
 function spellHit(raw: number, stats: Stats, target: Defender, through = 0): Hit {
-  const pierce = 1 - (1 - stats.pierce) * (1 - through);
+  const pierce = 1 - (1 - stats.mpierce) * (1 - through);
   return { dmg: Math.max(1, Math.round(mitigate(raw, target.mdef, pierce))), crit: false, magic: true, miss: false };
 }
 

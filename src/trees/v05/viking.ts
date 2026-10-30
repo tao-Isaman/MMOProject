@@ -29,7 +29,7 @@ export const VIKING_TREES: Record<string, Tree> = {
         desc: (r) => `เหวี่ยงขวานหมุนรอบตัวรัศมี 2.4 ม. 2 รอบ รอบละ ${pct(lin(1.1, 0.11)(r))} ของพลังโจมตี ใช้ได้เมื่อถือขวาน` },
       { id: "viking_axe_bite", name: "คมขวานไม่สนเกราะ", kind: "passive", max: 10, pos: [3, 0], glyph: "up", need: AXES,
         stats: (r) => ({ pierce: 0.012 * r, critDmg: 0.03 * r }),
-        desc: (r) => `เจาะเกราะ +${pct(0.012 * r)} แรงคริติคอล +${pct(0.03 * r)} เมื่อถือขวาน` },
+        desc: (r) => `เจาะเกราะกายภาพ +${pct(0.012 * r)} แรงคริติคอล +${pct(0.03 * r)} เมื่อถือขวาน` },
       // the HP turned into attack: hpToAtk, a share of max HP on top of attack
       { id: "viking_axe_fury", name: "โลหิตเป็นคมขวาน", kind: "passive", max: 5, pos: [0, 1], req: [["viking_axe_blood", 3]], glyph: "drop", need: AXES,
         stats: (r) => ({ hpToAtk: 0.003 * r, crit: 0.006 * r }),

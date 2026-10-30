@@ -464,7 +464,7 @@ export class SettingsUI {
 // Stat bag keys as shown to the player, and which of them are fractions.
 const BAG_NAMES: Record<string, string> = {
   ...STAT_NAMES, ...ELEMENT_STAT_NAMES, atkPct: "พลังโจมตี", matkPct: "พลังเวท", defPct: "ป้องกัน", mdefPct: "ต้านเวท", maxHpPct: "HP สูงสุด",
-  maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", pierce: "เจาะเกราะ", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ",
+  maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ",
   dmg: "ดาเมจ", reach: "ระยะโจมตี", stunHit: "โอกาสตีให้มึน",
   healPct: "พลังรักษา", multiShot: "โอกาสยิงซ้อน", poisonHit: "โอกาสตีติดพิษ", huntDmg: "ดาเมจใส่ศัตรูติดสถานะ", buffTime: "เวลาบัฟ",
   lifesteal: "ดูดเลือด", lowHpDmg: "ดาเมจเมื่อเลือดน้อย", falconChance: "โอกาสเหยี่ยวโจมตี", falconPower: "พลังเหยี่ยว", poisonPct: "พลังพิษ",
@@ -472,7 +472,7 @@ const BAG_NAMES: Record<string, string> = {
   ...Object.fromEntries(RACES.map((r) => [`${r}Dmg`, `ดาเมจใส่${RACE_NAMES[r]}`])),
 };
 const isPct = (k: string) => k.endsWith("Pct") || k.endsWith("Dmg") && k !== "critDmg" && !k.endsWith("Atk") || PERCENT_STATS.has(k)
-  || ["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "buyDisc", "sellBonus", "fareDisc"].includes(k);
+  || ["pierce", "mpierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "buyDisc", "sellBonus", "fareDisc"].includes(k);
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const num = (v: number) => `${+v.toFixed(1)}`;
 const signed = (k: string, v: number) => `${v < 0 ? "−" : "+"}${isPct(k) ? pct(Math.abs(v)) : num(Math.abs(v))}`;

@@ -18,13 +18,13 @@ import type { Img } from "./types";
 // Stat bag keys as the player reads them (as the skill window words them).
 const NAMES: Record<string, string> = {
   ...STAT_NAMES, ...ELEMENT_STAT_NAMES, atkPct: "พลังโจมตี", matkPct: "พลังเวท", defPct: "ป้องกัน", mdefPct: "ต้านเวท", maxHpPct: "HP สูงสุด",
-  maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", pierce: "เจาะเกราะ", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ", dmg: "ดาเมจ", reach: "ระยะโจมตี",
+  maxMpPct: "MP สูงสุด", mpRegenPct: "ฟื้น MP", xpPct: "ค่าประสบการณ์", drop: "โอกาสได้ของ", dmg: "ดาเมจ", reach: "ระยะโจมตี",
   stunHit: "โอกาสตีให้มึน", healPct: "พลังรักษา", multiShot: "โอกาสยิงซ้อน", poisonHit: "โอกาสตีติดพิษ", huntDmg: "ดาเมจใส่ศัตรูติดสถานะ",
   buffTime: "เวลาบัฟ", lifesteal: "ดูดเลือด", lowHpDmg: "ดาเมจเมื่อเลือดน้อย", falconChance: "โอกาสเหยี่ยวโจมตี", falconPower: "พลังเหยี่ยว",
   poisonPct: "พลังพิษ", potion: "ยาฟื้นแรงขึ้น", goldPct: "ทองจากมอนสเตอร์",
   ...Object.fromEntries(RACES.map((r) => [`${r}Dmg`, `ดาเมจใส่${RACE_NAMES[r]}`])),
 };
-const PCT = new Set(["pierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "potion"]);
+const PCT = new Set(["pierce", "mpierce", "drop", "dmg", "reach", "stunHit", "multiShot", "poisonHit", "huntDmg", "buffTime", "lifesteal", "lowHpDmg", "falconChance", "falconPower", "potion"]);
 const isPct = (k: string) => k.endsWith("Pct") || (k.endsWith("Dmg") && k !== "critDmg") || PERCENT_STATS.has(k) || PCT.has(k);
 const num = (k: string, v: number) => (isPct(k) ? `${+(Math.abs(v) * 100).toFixed(1)}%` : `${+Math.abs(v).toFixed(1)}`);
 // One line a stat ("ความเร็วโจมตี −20%"); stealth is a state, not a number.

@@ -79,7 +79,7 @@ export const KNIGHT_TREES: Record<string, Tree> = {
     nodes: [
       { id: "knight_axe_edge", name: "คมขวานผ่าเกราะ", kind: "passive", max: 10, pos: [0, 0], glyph: "up", need: AXES,
         stats: (r) => ({ pierce: 0.012 * r, critDmg: 0.025 * r }),
-        desc: (r) => `เจาะเกราะ +${pct(0.012 * r)} แรงคริติคอล +${pct(0.025 * r)} เมื่อถือขวาน` },
+        desc: (r) => `เจาะเกราะกายภาพ +${pct(0.012 * r)} แรงคริติคอล +${pct(0.025 * r)} เมื่อถือขวาน` },
       { id: "knight_axe_sunder", name: "ผ่าเกราะ", kind: "active", max: 10, pos: [1, 0], glyph: "pierce", need: AXES,
         skill: { type: "cone", stat: "atk", mult: lin(2.1, 0.21), expose: (r) => 0.08 + 0.012 * r, debuff: 9, mp: 14, cd: 5, motion: "swing", reach: 170, arc: 50, color: "#ffc0a0" },
         desc: (r) => `ผ่าเกราะตัวที่ล็อกไว้ ${pct(lin(2.1, 0.21)(r))} ของพลังโจมตี เป้ารับดาเมจเพิ่ม ${pct(0.08 + 0.012 * r)} 9 วิ ใช้ได้เมื่อถือขวาน` },
@@ -95,7 +95,7 @@ export const KNIGHT_TREES: Record<string, Tree> = {
         desc: (r) => `ทุบตัวที่ล็อกไว้ ${pct(lin(2.4, 0.24)(r))} ของพลังโจมตี มึน 0.5 วิ ใช้ต่อจากผ่าเกราะภายใน 4 วิ แรงขึ้น ${pct(0.4 + 0.02 * r)} ใช้ได้เมื่อถือขวาน` },
       { id: "knight_axe_fury", name: "โลหิตนักรบขวาน", kind: "active", max: 5, pos: [2, 1], req: [["knight_axe_whirl", 3]], glyph: "rage", need: AXES,
         skill: { type: "buff", mp: 30, cd: 35, motion: "swing", duration: 18, buff: (r) => ({ crit: 0.03 + 0.006 * r, pierce: 0.08 + 0.02 * r, critDmg: 0.1 + 0.03 * r }), color: "#ff8a60" },
-        desc: (r) => `18 วิ: โอกาสคริติคอล +${pct(0.03 + 0.006 * r)} เจาะเกราะ +${pct(0.08 + 0.02 * r)} แรงคริติคอล +${pct(0.1 + 0.03 * r)} ใช้ได้เมื่อถือขวาน` },
+        desc: (r) => `18 วิ: โอกาสคริติคอล +${pct(0.03 + 0.006 * r)} เจาะเกราะกายภาพ +${pct(0.08 + 0.02 * r)} แรงคริติคอล +${pct(0.1 + 0.03 * r)} ใช้ได้เมื่อถือขวาน` },
       { id: "knight_axe_execution", name: "ขวานประหารทะลวงฟ้า", kind: "active", max: 5, pos: [1, 2], req: [["knight_axe_crush", 5], ["knight_axe_fury", 1]], glyph: "skull", need: AXES,
         skill: { type: "cone", stat: "atk", mult: lin(5.4, 0.68), mp: 48, cd: 15, motion: "swing", reach: 200, arc: 40,
           combo: { after: ["knight_axe_crush"], within: 4, more: () => 0.4 }, color: "#ff8a60" },

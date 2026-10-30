@@ -114,7 +114,7 @@ export const V05_BOOK_TREES: Record<string, Tree> = {
         skill: { type: "cone", stat: "atk", mult: lin(1.4, 0.14), expose: lin(0.08, 0.01), debuff: 9, mp: 10, cd: 6, motion: "swing", reach: 160, arc: 40, color: "#ccbca4" },
         desc: (r) => `ทุบเกราะตัวข้างหน้าจนแตก ดาเมจ ${pct(lin(1.4, 0.14)(r))} ของพลังโจมตี มันรับดาเมจเพิ่ม ${pct(lin(0.08, 0.01)(r))} นาน 9 วิ (ต้องถือค้อน)` },
       { id: "iron_mace_weight", name: "น้ำหนักเหล็ก", kind: "passive", max: 10, pos: [0, 1], req: [["iron_mace_grip", 3]], glyph: "earth", need: MACE,
-        stats: (r) => ({ pierce: 0.01 * r, critDmg: 0.02 * r }), desc: (r) => `เจาะเกราะ +${pct(0.01 * r)} แรงคริติคอล +${pct(0.02 * r)} เมื่อถือค้อน` },
+        stats: (r) => ({ pierce: 0.01 * r, critDmg: 0.02 * r }), desc: (r) => `เจาะเกราะกายภาพ +${pct(0.01 * r)} แรงคริติคอล +${pct(0.02 * r)} เมื่อถือค้อน` },
       { id: "iron_mace_daze", name: "ทุบซ้ำมึนงง", kind: "active", max: 10, pos: [1, 1], req: [["iron_mace_skullcrack", 4]], glyph: "twin", need: MACE,
         skill: { type: "cone", stat: "atk", mult: lin(1.1, 0.11), hits: 2, stun: lin(1, 0.1), mp: 16, cd: 7, motion: "swing", reach: 160, arc: 40, color: "#e8e0d0" },
         desc: (r) => `ทุบตัวข้างหน้า 2 ครั้งรวด ครั้งละ ${pct(lin(1.1, 0.11)(r))} ของพลังโจมตี มึน ${lin(1, 0.1)(r).toFixed(1)} วิ (ต้องถือค้อน)` },
