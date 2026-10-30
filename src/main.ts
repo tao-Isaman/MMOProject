@@ -59,6 +59,7 @@ import { detectTouch, onTouchMode, goLandscape, Joystick, isTouch } from "./touc
 import type { Spell } from "./spell";
 import { Quests } from "./quests";
 import { BuffBar } from "./buffbar";
+import { rolledDrop } from "./sockets";
 import { TalkDialog, QuestLog, QuestTracker } from "./questui";
 import type { Speaker } from "./questui";
 import { nextHop, questDest } from "./guide";
@@ -658,7 +659,7 @@ async function boot(): Promise<void> {
       // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
       sound.play("coin", gold);
-      for (const id of rollDrops(m.variant, hero.stats.drop + hero.stats.luck / 200)) ground.drop(id, m);
+      for (const id of rollDrops(m.variant, hero.stats.drop + hero.stats.luck / 200)) ground.drop(rolledDrop(id, m.level), m);
       // what the quests count, and what they want dropped
       const kind = m.entry?.id ?? m.variant.id;
       quests.onKill(kind, m.variant.name);

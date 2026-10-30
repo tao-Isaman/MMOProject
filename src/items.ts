@@ -472,6 +472,13 @@ export function setSocketResolver(f: (sockets: string, item: Item) => SocketInfo
   socketInfo = f;
   derived.clear();
 }
+// Items made from their id alone (src/sockets.ts: a soul fragment or element stone carrying the
+// value it dropped with, "soul:atk:5", "elstone_fire:32").
+let madeItem: ((id: string) => Item | null) | null = null;
+export function setItemMaker(f: (id: string) => Item | null): void {
+  madeItem = f;
+  derived.clear();
+}
 // The stone that refines a piece of gear.
 export function stoneFor(id: string): "sky_stone" | "star_stone" | null {
   const item = ITEMS[id];
@@ -480,6 +487,11 @@ export function stoneFor(id: string): "sky_stone" | "star_stone" | null {
 }
 const derived = new Map<string, Item | null>();
 function derive(id: string): Item | undefined {
+  if (id.includes(":") && !id.includes("#")) {
+    let made = derived.get(id);
+    if (made === undefined) derived.set(id, (made = madeItem?.(id) ?? null));
+    return made ?? undefined;
+  }
   if (!id.includes("~") && !id.includes("^") && !id.includes("#")) return undefined;
   let item = derived.get(id);
   if (item === undefined) {

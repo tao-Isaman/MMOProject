@@ -2,12 +2,13 @@
 // after "#" (items.ts splitId), parts joined by "|":
 //   c:<core id>       one monster core (CORES), only in the kind of gear the core names; always
 //                     takes, and stays for good
-//   s:<stat>:<n>      up to four soul fragments, each a small stat rolled when it is set
-//                     (SOUL_STATS: n is the points, or thousandths for a percent)
+//   s:<stat>:<n>      up to four soul fragments, each a small stat (SOUL_STATS: n is the
+//                     points, or thousandths for a percent)
 //   e:<element>:<n>   up to four element stones, +10 to +50 in that element: attack on a weapon,
 //                     ring or trinket, defence on anything else
 // A soul fragment or an element stone can fail to take (SET_CHANCE: less for every one already
-// in), and is lost then; the piece stays as it was.
+// in), and is lost then; the piece stays as it was. Both are rolled when they drop and carry
+// their value in their id: "soul:<stat>:<n>" and "elstone_<element>:<n>" (rolledDrop).
 //
 // Every monster has its own core (core_<monster id>, drops.ts: one kill in a thousand). What it
 // gives is read from the monster itself (bestiary.ts): two stats from what it stands out at
@@ -15,7 +16,7 @@
 // one more thing from how it fights: a skill granted or raised, a mastery or element raised, or a
 // skill it casts by itself on a normal hit (a boss two of these). Its level and kind set how much.
 
-import { ITEMS, WEARABLE, splitId, joinId, setSocketResolver } from "./items";
+import { ITEMS, WEARABLE, splitId, joinId, setSocketResolver, setItemMaker } from "./items";
 import type { Item, ItemKind, Grants, SocketInfo } from "./items";
 import { MONSTERS, standouts, behaviour } from "./bestiary";
 import type { MonsterDef, MonsterKind, StatProfile } from "./bestiary";
@@ -175,7 +176,7 @@ export function coreLines(c: Core): string[] {
   const out = [`ใส่ได้กับ: ${SLOT_NAMES[c.slot]}`];
   const plain = statWords(c.stats);
   if (plain) out.push(plain);
-  for (const [id, r] of Object.entries(c.grants.ranks ?? {})) out.push(`สกิล ${ACTIVES[id].name} +${r} ระดับ (ยังไม่ได้เรียนก็ใช้ได้)`);
+  for (const [id, r] of Object.entries(c.grants.ranks ?? {})) out.push(`สกิล ${ACTIVES[id].name} +${r} ระดับ`);
   for (const [id, lv] of Object.entries(c.grants.mastery ?? {})) out.push(`ความเชี่ยวชาญ${MASTERIES[id].name} +${lv} ระดับ`);
   for (const [id, lv] of Object.entries(c.grants.elements ?? {})) out.push(`ธาตุ${ELEMENTS[id].name} +${lv} ระดับ`);
   for (const [id, r] of Object.entries(c.grants.auto ?? {}))
@@ -193,19 +194,18 @@ const ELEMENT_COLOR = (e: ElementId | undefined) => (e ? ELEMENTS[e].color : "#e
     ITEMS[c.id] = {
       kind: "material", socket: "core", name: c.name, stack: 99, sell: 200 + c.level * 10,
       icon: { glyph: "burst", color: ELEMENT_COLOR(def.element) },
-      note: `แกนพลังของ${def.name} ใส่ในอุปกรณ์ได้ 1 ชิ้นต่อ 1 อุปกรณ์ที่โรงช่าง ใส่แล้วติดถาวร<br>${coreLines(c).join("<br>")}`,
+      note: `แกนพลังของ${def.name}<br>${coreLines(c).join("<br>")}`,
     };
   }
 }
 
 // ---- soul fragments ----
 export const SOUL = "soul_fragment";
-ITEMS[SOUL] = {
-  kind: "material", socket: "soul", name: "ชิ้นส่วนวิญญาณ", stack: 99, sell: 30, icon: { glyph: "star", color: "#c8b8ff" },
-  note: `เศษวิญญาณจากมอนสเตอร์ ใส่ในอาวุธหรืออุปกรณ์ได้ถึง ${MAX_SOULS} ชิ้นที่โรงช่าง ได้ค่าสถานะเล็กน้อยแบบสุ่ม ยิ่งใส่หลายชิ้นยิ่งติดยาก (ไม่ติดก็หายไป)`,
-};
-// [stat, at tier 0 (points, or a fraction for a percent)]: rolled at 60-100% of it, more on
-// higher tier gear (x2 at tier 60, x4 at 180 for points; x3 at 180 for percents).
+// (the drop tables and the codex name this one; what drops is a rolled one, rolledDrop)
+const SOUL_ICON = { glyph: "star", color: "#c8b8ff" };
+ITEMS[SOUL] = { kind: "material", socket: "soul", name: "ชิ้นส่วนวิญญาณ", stack: 99, sell: 30, icon: SOUL_ICON, note: "เศษวิญญาณจากมอนสเตอร์" };
+// [stat, at level 0 (points, or a fraction for a percent)]: rolled at 60-100% of it, more from
+// higher level monsters (x2 at level 60, x4 at 180 for points; x3 at 180 for percents).
 export const SOUL_STATS: [string, number][] = [
   ["atk", 3], ["matk", 3], ["def", 2], ["mdef", 2], ["maxHp", 25], ["maxMp", 15], ["hit", 3], ["flee", 3], ["luck", 2], ["hpRegen", 1],
   ["crit", 0.008], ["critDmg", 0.02], ["aspd", 0.008], ["move", 0.01], ["atkPct", 0.01], ["matkPct", 0.01], ["maxHpPct", 0.012], ["defPct", 0.012],
@@ -216,10 +216,10 @@ export function soulText(part: string): string {
   const [, key, n] = part.split(":");
   return statWords({ [key]: soulValue(key, +n) });
 }
-export function rollSoul(gear: string): string {
+export function rollSoul(level: number): string {
   const [key, v] = SOUL_STATS[Math.floor(Math.random() * SOUL_STATS.length)];
-  const t = ITEMS[gear]?.tier ?? 0, roll = 0.6 + 0.4 * Math.random();
-  const n = isPct(key) ? Math.max(1, Math.round(1000 * v * roll * (1 + t / 90))) : Math.max(1, Math.round(v * roll * (1 + t / 60)));
+  const roll = 0.6 + 0.4 * Math.random();
+  const n = isPct(key) ? Math.max(1, Math.round(1000 * v * roll * (1 + level / 90))) : Math.max(1, Math.round(v * roll * (1 + level / 60)));
   return `s:${key}:${n}`;
 }
 
@@ -229,13 +229,45 @@ for (const e of ELEMENT_IDS) {
   ITEMS[stoneId(e)] = {
     kind: "material", socket: "stone", name: `ศิลาธาตุ${ELEMENTS[e].name}`, stack: 99, sell: 80,
     icon: { glyph: ELEMENTS[e].glyph, color: ELEMENTS[e].color },
-    note: `ใส่ในอาวุธหรืออุปกรณ์ได้ถึง ${MAX_STONES} ก้อนที่โรงช่าง ได้ +10 ถึง +50 แบบสุ่ม: ใส่อาวุธ แหวน หรือเครื่องประดับ เป็นพลังโจมตีธาตุ${ELEMENTS[e].name} ใส่อย่างอื่นเป็นป้องกันธาตุ${ELEMENTS[e].name} ยิ่งใส่หลายก้อนยิ่งติดยาก (ไม่ติดก็หายไป)`,
+    note: `หินที่มีพลังธาตุ${ELEMENTS[e].name}`,
   };
 }
 const ATTACK_GEAR = new Set<ItemKind>(["weapon", "ring", "trinket"]);
 export function rollStone(e: ElementId): string {
   return `e:${e}:${10 + Math.floor(Math.random() * 41)}`;
 }
+
+// ---- what drops: a soul fragment or a stone with its value rolled ----
+export function rolledDrop(id: string, level: number): string {
+  if (id === SOUL) return `soul:${rollSoul(level).slice(2)}`;
+  if (id.startsWith("elstone_") && !id.includes(":")) return `${id}:${rollStone(id.slice(8) as ElementId).split(":")[2]}`;
+  return id;
+}
+// The socket part an item sets ("s:atk:5", "e:fire:32"); null for anything else. The plain ones
+// (from before values were rolled on the drop) roll as they are set.
+export function partOf(id: string, level = 0): string | null {
+  if (id === SOUL) return rollSoul(level);
+  if (id.startsWith("soul:")) return `s:${id.slice(5)}`;
+  if (id.startsWith("elstone_")) {
+    const [el, n] = id.slice(8).split(":");
+    return n ? `e:${el}:${n}` : rollStone(el as ElementId);
+  }
+  return null;
+}
+setItemMaker((id) => {
+  if (id.startsWith("soul:")) {
+    const [key, n] = id.slice(5).split(":");
+    if (!SOUL_STATS.some(([k]) => k === key) || !(+n > 0)) return null;
+    const words = statWords({ [key]: soulValue(key, +n) });
+    return { kind: "material", socket: "soul", name: `ชิ้นส่วนวิญญาณ (${words})`, stack: 99, sell: 30, icon: SOUL_ICON, note: `เศษวิญญาณจากมอนสเตอร์<br>${words}` };
+  }
+  const m = /^elstone_([a-z]+):(\d+)$/.exec(id);
+  if (m && m[1] in ELEMENTS && +m[2] > 0) {
+    const e = m[1] as ElementId, base = ITEMS[stoneId(e)];
+    return { ...base, name: `${base.name} +${m[2]}`, note: `หินที่มีพลังธาตุ${ELEMENTS[e].name}<br>อาวุธ แหวน เครื่องประดับ: พลังโจมตีธาตุ${ELEMENTS[e].name} +${m[2]}<br>อุปกรณ์อื่น: ป้องกันธาตุ${ELEMENTS[e].name} +${m[2]}` };
+  }
+  return null;
+});
 
 // ---- reading and writing a piece's sockets ----
 export interface Sockets { core: string | null; souls: string[]; stones: string[] }
@@ -286,8 +318,8 @@ function resolve(raw: string, item: Item): SocketInfo | null {
     } else return null;
   }
   if (core) lines.push(`<b>${core.name}</b>: ${coreLines(core).slice(1).join(" · ")}`);
-  lines.push(`ชิ้นส่วนวิญญาณ ${souls}/${MAX_SOULS}${soulWords.length ? `: ${soulWords.join(" · ")}` : ""}`);
-  lines.push(`ศิลาธาตุ ${stones}/${MAX_STONES}${stoneWords.length ? `: ${stoneWords.join(" · ")}` : ""}`);
+  if (soulWords.length) lines.push(`ชิ้นส่วนวิญญาณ: ${soulWords.join(" · ")}`);
+  if (stoneWords.length) lines.push(`ศิลาธาตุ: ${stoneWords.join(" · ")}`);
   return { stats, grants: core?.grants, tag: core ? `[${core.name}]` : souls + stones ? `[${souls + stones}]` : undefined, text: lines.join("<br>") };
 }
 setSocketResolver(resolve);

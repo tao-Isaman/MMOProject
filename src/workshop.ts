@@ -7,7 +7,7 @@
 // brewing opens its tab the same way: the strong potions from materials.
 
 import { ITEMS, WEAPON_TYPES, GEAR_TIERS, TIER_NAMES, tierId, joinId, splitId, stoneFor, refineStats, REFINE_MAX, statText, EQUIP_SLOTS, stackLimit } from "./items";
-import { CORES, SOUL, MAX_SOULS, MAX_STONES, SET_CHANCE, SLOT_NAMES, socketsOf, withSockets, socketable, coreFits, rollSoul, rollStone, soulText, statWords } from "./sockets";
+import { CORES, MAX_SOULS, MAX_STONES, SET_CHANCE, SLOT_NAMES, socketsOf, withSockets, socketable, coreFits, partOf, statWords } from "./sockets";
 import type { EquipSlot, WeaponId } from "./items";
 import { CRAFT_TIER_AT, CRAFT_BONUS, CRAFT_REFINE, MASTERIES, BREW_AT, BREW_BONUS } from "./progression";
 import type { Progress } from "./progression";
@@ -297,8 +297,8 @@ export class WorkshopUI {
     const list = this.pieces((id) => socketable(id));
     if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่เสริมพลังได้";
     const bag = [...new Set(this.inv.slots.filter((x) => x && ITEMS[x.id]?.socket).map((x) => x!.id))];
-    const cores = bag.filter((x) => ITEMS[x].socket === "core"), stones = bag.filter((x) => ITEMS[x].socket === "stone");
-    const souls = this.inv.count(SOUL);
+    const of = (kind: string) => bag.filter((x) => ITEMS[x].socket === kind);
+    const cores = of("core"), souls = of("soul"), stones = of("stone");
     for (const { id, where } of list) {
       const s = socketsOf(id), row = this.row(id, `socket:${where}:${id}`);
       const info = el("div", "shop-info", row);
@@ -306,9 +306,10 @@ export class WorkshopUI {
       el("span", "sk-sub", info).textContent = `แกน: ${s.core ? CORES[s.core]?.name ?? "-" : "ว่าง"} · ชิ้นส่วนวิญญาณ ${s.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${s.stones.length}/${MAX_STONES}`;
       el("div", "ws-sock-btns", row);
       for (const c of cores) if (coreFits(c, id)) this.button(row, `ใส่${ITEMS[c].name}`, true, () => this.setCore(id, where, c));
-      if (s.souls.length < MAX_SOULS) this.button(row, `ใส่ชิ้นส่วนวิญญาณ (${pct(this.setChance(s.souls.length))}) มี ${souls}`, souls > 0, () => this.setSoul(id, where));
+      if (s.souls.length < MAX_SOULS)
+        for (const x of souls) this.button(row, `ใส่${ITEMS[x].name} (${pct(this.setChance(s.souls.length))})`, true, () => this.setPart(id, where, x, "souls"));
       if (s.stones.length < MAX_STONES)
-        for (const st of stones) this.button(row, `ใส่${ITEMS[st].name} (${pct(this.setChance(s.stones.length))})`, true, () => this.setStone(id, where, st));
+        for (const x of stones) this.button(row, `ใส่${ITEMS[x].name} (${pct(this.setChance(s.stones.length))})`, true, () => this.setPart(id, where, x, "stones"));
       this.detail(row, id);
     }
   }
@@ -325,29 +326,18 @@ export class WorkshopUI {
     this.say(`ใส่${ITEMS[core].name}แล้ว: ${statWords(CORES[core].stats) || SLOT_NAMES[CORES[core].slot]}`, true);
   }
 
-  setSoul(id: string, where: Where): void {
-    const s = socketsOf(id), chance = this.setChance(s.souls.length);
-    if (!this.still(id, where) || !chance || !this.inv.take(SOUL, 1)) return;
+  // Set a soul fragment or an element stone (what), with the value it carries.
+  setPart(id: string, where: Where, what: string, into: "souls" | "stones"): void {
+    const s = socketsOf(id), chance = this.setChance(s[into].length), name = ITEMS[what]?.name;
+    if (!this.still(id, where) || !chance || !this.inv.take(what, 1)) return;
     if (Math.random() >= chance) {
       this.inv.changed();
-      return this.say("ชิ้นส่วนวิญญาณไม่ติด หายไปแล้ว");
+      return this.say(`${name} ไม่ติด หายไปแล้ว`);
     }
-    const part = rollSoul(id);
-    this.put(where, withSockets(id, { ...s, souls: [...s.souls, part] }));
-    this.say(`ชิ้นส่วนวิญญาณติดแล้ว: ${soulText(part)}`, true);
-  }
-
-  setStone(id: string, where: Where, stone: string): void {
-    const s = socketsOf(id), chance = this.setChance(s.stones.length);
-    if (!this.still(id, where) || !chance || !this.inv.take(stone, 1)) return;
-    if (Math.random() >= chance) {
-      this.inv.changed();
-      return this.say(`${ITEMS[stone].name}ไม่ติด หายไปแล้ว`);
-    }
-    const part = rollStone(stone.slice("elstone_".length) as never);
-    const next = withSockets(id, { ...s, stones: [...s.stones, part] });
-    this.put(where, next);
-    this.say(`${ITEMS[stone].name}ติดแล้ว +${part.split(":")[2]}`, true);
+    const part = partOf(what, ITEMS[id].tier ?? 0);
+    if (!part) return;
+    this.put(where, withSockets(id, { ...s, [into]: [...s[into], part] }));
+    this.say(`${name} ติดแล้ว`, true);
   }
 
   // ---- crafting ----
