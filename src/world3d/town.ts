@@ -25,6 +25,9 @@ import type { MapLabel } from "../maps";
 // they felt too big next to the characters. The scenery takes the scale on its root; everything
 // the game reads (solids, bounds, places) is scaled to match on the way out.
 export const TOWN_SCALE = 0.85;
+// The side of the square the scenery is batched by (cm): small enough that the camera, which
+// sees about 20 m across, culls most of a map, big enough to keep the draw calls few.
+const BLOCK = Number(globalThis.localStorage?.getItem("dbg.block")) || 2000;
 
 // ---- the kits a town draws from (each town module adds its own) ----
 const KITS: Record<string, Kit> = { common: COMMON, flora: FLORA };
@@ -301,7 +304,8 @@ export class TownBuilder {
     labels: MapLabel[];
     spots?: { x: number; y: number }[];
   }): Town {
-    // ---- one instanced mesh per piece, material and 50 m block ----
+    // ---- one instanced mesh per piece, material and BLOCK square: the camera sees a few of them,
+    // and the rest are culled whole ----
     const root = new THREE.Group();
     root.add(o.ground.mesh);
     for (const s of o.scenery ?? []) root.add(s);
@@ -313,7 +317,7 @@ export class TownBuilder {
     }
     const groups = new Map<string, Placement[]>();
     for (const pl of this.puts) {
-      const key = `${pl.ref}|${pl.colours ?? ""}|${Math.floor(pl.x / 5000)},${Math.floor(pl.y / 5000)}`;
+      const key = `${pl.ref}|${pl.colours ?? ""}|${Math.floor(pl.x / BLOCK)},${Math.floor(pl.y / BLOCK)}`;
       const list = groups.get(key);
       if (list) list.push(pl);
       else groups.set(key, [pl]);

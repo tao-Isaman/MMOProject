@@ -98,7 +98,7 @@ export class World3D {
   shape: THREE.Mesh;     // the area a skill being aimed covers (setShape)
   shapeGrid: Float32Array; // that mesh's grid as it was built: -1..1 across, the points to lay out
   time = 0;
-  quality: { flowers: number; shadow: number };
+  quality: { flowers: number; shadow: number; light?: boolean };
   sun: THREE.DirectionalLight;
   level: THREE.Object3D | null = null;
   portals: THREE.Object3D[] = [];
@@ -107,14 +107,19 @@ export class World3D {
   groundSets = new Map<string, { mesh: THREE.Mesh; geo: THREE.BufferGeometry; cap: number }>();
   groundTex = new Map<object, THREE.Texture>();
 
-  constructor(canvas: HTMLCanvasElement, quality: { flowers: number; shadow: number }) {
+  // quality.light (phones and tablets): no antialiasing and plain (not soft) shadow edges, the two
+  // costs a phone's GPU feels most at its screen's size
+  constructor(canvas: HTMLCanvasElement, quality: { flowers: number; shadow: number; light?: boolean }) {
     this.quality = quality;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !quality.light, powerPreference: "high-performance" });
+    // (a shader's log is read only when building one goes wrong: asking for it on every build
+    // makes the driver finish compiling there and then, a hitch on every new material)
+    this.renderer.debug.checkShaderErrors = !(import.meta as unknown as { env?: { PROD?: boolean } }).env?.PROD;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = quality.light ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     // nothing in the scenery moves but leaves: the sun's shadows are drawn again only when the
     // view has moved far enough that the area they cover needs to follow it
     this.renderer.shadowMap.autoUpdate = false;
@@ -210,6 +215,8 @@ export class World3D {
       return p;
     });
     this.shadowAt.set(1e9, 0, 0);
+    // build the map's shaders now, behind the loading screen, not on the first frames it is seen
+    this.renderer.compile(this.scene, this.camera);
   }
 
   resize(w: number, h: number, dpr: number): void {

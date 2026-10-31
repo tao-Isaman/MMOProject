@@ -132,10 +132,11 @@ export interface Particle extends ParticleSpec {
 export class Particles {
   list: Particle[] = [];
   time = 0;
+  max = MAX_PARTICLES; // phones keep fewer (main.ts)
 
   add(spec: ParticleSpec): Particle | null {
     const p = spec as Particle;
-    if (this.list.length >= MAX_PARTICLES) return null;
+    if (this.list.length >= this.max) return null;
     p.age = p.age ?? 0;
     p.vx = p.vx ?? 0; p.vy = p.vy ?? 0; p.vz = p.vz ?? 0;
     p.az = p.az ?? 0;

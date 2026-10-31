@@ -78,6 +78,7 @@ export class MapUI {
   picked: Place | null = null;
   note: { text: string; t: number } | null = null; // a word after a click, over the usual text
   time = 0;
+  miniClock = 1; // s since the minimap was drawn
   onWalk: (to: Vec2, npc?: Npc) => string | null;
   onTravel: (id: string, byShip: boolean) => string | null;
   guide = false; // opened by a travel guide: a click on a town goes there
@@ -310,7 +311,11 @@ export class MapUI {
   frame(dt: number, st: MapState): void {
     this.time += dt;
     if (this.note && (this.note.t -= dt) <= 0) this.note = null;
-    this.drawMini(st);
+    // (the minimap 15 times a second is plenty, and a phone spares the redraws)
+    if ((this.miniClock += dt) >= 1 / 15) {
+      this.miniClock = 0;
+      this.drawMini(st);
+    }
     if (!this.open) return;
     if (this.view === "world") this.drawWorld(st);
     else this.drawLocal(st);

@@ -123,11 +123,12 @@ async function loading(text: string, progress: number): Promise<void> {
 }
 const loaded = () => loadingEl.classList.add("done");
 
-// far: a debug zoom-out (__game.zoomOut); user: the player's own zoom (the mouse wheel)
-const screen = { w: 0, h: 0, dpr: 1, zoom: 1, far: 1, user: 1 };
+// far: a debug zoom-out (__game.zoomOut); user: the player's own zoom (the mouse wheel); scale:
+// how much of the screen's own resolution is drawn (adapt below lowers it when frames run slow)
+const screen = { w: 0, h: 0, dpr: 1, zoom: 1, far: 1, user: 1, scale: 1 };
 function resize() {
-  // phones draw the 3D courtyard at up to 1.5 pixels per CSS pixel, to keep it smooth
-  screen.dpr = Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2);
+  // phones draw at up to 1.5 pixels per CSS pixel, to keep it smooth; slow frames draw fewer
+  screen.dpr = Math.max(0.6, Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2) * screen.scale);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.round(w * screen.dpr);
   canvas.height = Math.round(h * screen.dpr);
@@ -395,7 +396,7 @@ async function boot(): Promise<void> {
 
   // ---- the 3D courtyard (src/world3d), lighter on phones ----
   detectTouch();
-  const quality = isTouch() ? { flowers: 0.6, shadow: 2048 } : { flowers: 1, shadow: 4096 };
+  const quality = isTouch() ? { flowers: 0.6, shadow: 1024, light: true } : { flowers: 1, shadow: 4096 };
   world = new World3D(worldCanvas, quality);
   const w3d = world;
 
@@ -501,6 +502,7 @@ async function boot(): Promise<void> {
   let current: GameMap = await loadMap(startMap, quality);
   w3d.load(current.level);
   const fx = new Particles();
+  if (isTouch()) fx.max = 4000; // a phone draws fewer sparks at once
   const player = new Player(SPAWN.x, SPAWN.y, first.sheets, first.hands, glow("rgba(255, 110, 120, 1)"));
   // back on the spot, unless something now stands there
   if (left?.map === startMap && Number.isFinite(left.x) && Number.isFinite(left.y) && !blocked(left, RADIUS)) {
@@ -1854,6 +1856,27 @@ async function boot(): Promise<void> {
   };
   let last = performance.now();
   let fps = 60;
+  // Adaptive resolution: over each 2 s of frames, a slow average (under ~45 fps) draws 10% fewer
+  // pixels, down to half; three fast windows in a row (over ~70 fps) give 10% back. A gap of
+  // more than a quarter second (the tab hidden, a map loading) starts the window over.
+  const adaptive = { time: 0, frames: 0, fast: 0 };
+  function adapt(gap: number): void {
+    if (gap > 250) return void Object.assign(adaptive, { time: 0, frames: 0 });
+    adaptive.time += gap;
+    adaptive.frames++;
+    if (adaptive.time < 2000) return;
+    const avg = adaptive.time / adaptive.frames;
+    adaptive.time = adaptive.frames = 0;
+    if (avg > 22 && screen.scale > 0.5) {
+      screen.scale = Math.max(0.5, screen.scale - 0.1);
+      adaptive.fast = 0;
+      resize();
+    } else if (avg < 14 && screen.scale < 1 && ++adaptive.fast >= 3) {
+      screen.scale = Math.min(1, screen.scale + 0.1);
+      adaptive.fast = 0;
+      resize();
+    } else if (avg >= 14) adaptive.fast = 0;
+  }
   let footstepDistance = 0;
 
   function frame(now: number): void {
@@ -1862,9 +1885,10 @@ async function boot(): Promise<void> {
       requestAnimationFrame(frame);
       return;
     }
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const gap = now - last, dt = Math.min(0.05, gap / 1000);
     last = now;
     fps += (1 / Math.max(dt, 1e-3) - fps) * 0.05;
+    adapt(gap);
 
     // ---- update ----
     // keys move relative to the camera: W is always up the screen
