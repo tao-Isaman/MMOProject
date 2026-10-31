@@ -78,6 +78,10 @@ export class Emitter {
   }
 }
 
+// A baked pixel art effect (src/pixelfx.ts): frames of w x h in a grid of cols, played at fps,
+// standing on its pivot (px in the frame).
+export interface Sheet { img: Img; fps: number; frames: number; w: number; h: number; cols: number; pivot: [number, number] }
+
 // What callers pass to Particles.add; the motion fields default to zero.
 export interface ParticleSpec {
   x: number;
@@ -104,6 +108,9 @@ export interface ParticleSpec {
   rot?: number;
   spin?: number;
   squash?: number;
+  sheet?: Sheet;   // an animated pixel art effect: size is its width, drawn crisp on its pivot
+  rate?: number;   // the sheet's playback speed
+  flipX?: boolean; // the sheet mirrored (its effects face right)
 }
 
 export interface Particle extends ParticleSpec {
@@ -199,6 +206,19 @@ export class Particles {
       const reach = r * Math.max(1, p.squash);
       if (mx < -reach || my < -reach || mx > view.w + reach || my > view.h + reach) continue;
       ctx.globalAlpha = a > 1 ? 1 : a;
+
+      if (p.sheet) {
+        const sh = p.sheet, f = Math.min(sh.frames - 1, Math.floor(p.age * sh.fps * (p.rate ?? 1)));
+        // (bigger than its frames: a whole number of screen pixels to each of its own, so it stays crisp)
+        const w = r > sh.w ? sh.w * Math.round(r / sh.w) : r, h = (w * sh.h) / sh.w;
+        ctx.setTransform(p.flipX ? -1 : 1, 0, 0, 1, mx, my);
+        identity = false;
+        const smooth = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sh.img, (f % sh.cols) * sh.w, Math.floor(f / sh.cols) * sh.h, sh.w, sh.h, (-sh.pivot[0] / sh.w) * w, (-sh.pivot[1] / sh.h) * h, w, h);
+        ctx.imageSmoothingEnabled = smooth;
+        continue;
+      }
 
       if (p.baked || (p.rot === 0 && p.spin === 0)) {
         if (!identity) {

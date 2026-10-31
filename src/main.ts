@@ -60,6 +60,7 @@ import type { Spell } from "./spell";
 import { Quests } from "./quests";
 import { BuffBar } from "./buffbar";
 import { rolledDrop } from "./sockets";
+import { loadPixelFx, pixelFx } from "./pixelfx";
 import { TalkDialog, QuestLog, QuestTracker } from "./questui";
 import type { Speaker } from "./questui";
 import { nextHop, questDest } from "./guide";
@@ -655,6 +656,7 @@ async function boot(): Promise<void> {
       }
     },
     onKill(m) {
+      pixelFx(fx, "death", m.x, m.y, 0, Math.max(260, m.radius * 6)); // a puff where it fell (pixelfx)
       const gold = Math.round((1.5 + Math.random() * 2) * m.level * (1 + hero.stats.drop + hero.stats.goldPct + hero.stats.luck / 200)) + 1;
       // gold and experience go straight in, with no words over the body; loot falls round it
       inv.gold += gold;
@@ -754,6 +756,7 @@ async function boot(): Promise<void> {
   combat.onElement = (m, el, dmg) => skills.elementHit(m, el, dmg, 1);
   combat.onFalcon = (m) => skills.falconStrike(m);
   combat.onHeal = (got) => floaters.add(player.x, player.y, 130, `+${Math.round(got)}`, "heal");
+  void loadPixelFx(); // the pixel art effects (assets/fx): they play as soon as their sheets are in
   combat.onBasicHit = (m) => skills.autocast(m);
   // In a form (a druid's) she is the form skill's look and her normal attack is its formAttack:
   // the form she is in, and what she swings.

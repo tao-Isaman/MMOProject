@@ -934,6 +934,16 @@ Vercel build ด้วย `npm run build` แล้วเสิร์ฟ `dist/`
 
 บนมือถือดอกไม้ 60% และ shadow map 2048 (คอมพิวเตอร์ 4096)
 
+### เอฟเฟกต์ pixel art (pixelfx)
+
+เอฟเฟกต์สกิลและการตีใช้ sprite sheet จาก [pixelfx](https://github.com/patch-gg/pixelfx) (MIT, ต่อยอดจากเอฟเฟกต์ของ Hugo Duprez ที่ Sprite Fusion)
+bake ด้วย `node tools/pixelfx_bake.mjs` (ต้องมี pixelfx อยู่ข้าง ๆ โปรเจกต์ หรือชี้ด้วย `PIXELFX=<โฟลเดอร์>`) ได้ `public/assets/fx/<ชื่อ>.png` และ `pixelfx.json`
+`src/pixelfx.ts` โหลดและเล่นเป็น particle แบบมีเฟรม (`Particle.sheet`) วาดคมบนจุด pivot ของเอฟเฟกต์ ขยายเป็นจำนวนเต็มเท่าเพื่อให้พิกเซลคม เล่นพร้อมกันได้ 36 อัน
+- **ร่ายสกิลแบบพื้นที่** (nova storm heal buff ...): วงตามธาตุรอบตัว ไฟ (วงไฟ) น้ำแข็ง (frost nova) สายฟ้า (thunderclap) อาร์เคน แสง (heal-aoe) ดิน/โลหะ (ground slam) พืช (หนาม) มืด (implosion) พิษ น้ำ ลม/กายภาพ (ฟันหมุน)
+- **สกิลโดนมอน**: สกิลอาวุธได้รอยฟัน (ฟัน แทง ฟันหมุน ตามไอคอน) และธาตุได้ hit ของธาตุนั้น
+- **ตีปกติ**: ประกายเมื่อโดน คริติคอลเป็นระเบิดดาวใหญ่ · **มอนตาย**: ควันพุ่ง
+- อนุภาคเรืองแสงเดิมยังเล่นด้วยกัน skill ของ Claude Code อยู่ที่ `.claude/skills/pixelfx` (ทำเอฟเฟกต์ใหม่: render → ดู → แก้)
+
 ## ตัวละครและมอนสเตอร์จาก Oriverse
 
 - จอมเวท: `Ori.sprite.@taoisaman.mage_twintail` สร้างจากข้อความล้วน 8 ทิศ ช่อง 96 px

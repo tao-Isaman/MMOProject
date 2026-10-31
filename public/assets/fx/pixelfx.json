@@ -1,0 +1,302 @@
+{
+ "hit_physical": {
+  "id": "impacts/hit-spark",
+  "fps": 30,
+  "frames": 16,
+  "w": 136,
+  "h": 80,
+  "cols": 4,
+  "pivot": [
+   44,
+   64
+  ]
+ },
+ "hit_crit": {
+  "id": "impacts/crit-hit",
+  "fps": 30,
+  "frames": 28,
+  "w": 216,
+  "h": 136,
+  "cols": 5,
+  "pivot": [
+   84,
+   106
+  ]
+ },
+ "hit_fire": {
+  "id": "explosions/plasma-explosion",
+  "fps": 20,
+  "frames": 35,
+  "w": 224,
+  "h": 200,
+  "cols": 6,
+  "pivot": [
+   112,
+   100
+  ]
+ },
+ "hit_arcane": {
+  "id": "explosions/plasma-explosion",
+  "fps": 20,
+  "frames": 35,
+  "w": 224,
+  "h": 200,
+  "cols": 6,
+  "pivot": [
+   112,
+   100
+  ]
+ },
+ "hit_ice": {
+  "id": "ice/snowflake-burst",
+  "fps": 20,
+  "frames": 65,
+  "w": 140,
+  "h": 120,
+  "cols": 8,
+  "pivot": [
+   70,
+   106
+  ]
+ },
+ "hit_lightning": {
+  "id": "lightning/zap-hit",
+  "fps": 30,
+  "frames": 28,
+  "w": 144,
+  "h": 112,
+  "cols": 5,
+  "pivot": [
+   76,
+   56
+  ]
+ },
+ "hit_shadow": {
+  "id": "explosions/implosion",
+  "fps": 20,
+  "frames": 34,
+  "w": 208,
+  "h": 184,
+  "cols": 6,
+  "pivot": [
+   104,
+   92
+  ]
+ },
+ "hit_holy": {
+  "id": "impacts/hit-spark",
+  "fps": 30,
+  "frames": 16,
+  "w": 136,
+  "h": 80,
+  "cols": 4,
+  "pivot": [
+   44,
+   64
+  ]
+ },
+ "hit_plant": {
+  "id": "impacts/hit-spark",
+  "fps": 30,
+  "frames": 16,
+  "w": 136,
+  "h": 80,
+  "cols": 4,
+  "pivot": [
+   44,
+   64
+  ]
+ },
+ "hit_wind": {
+  "id": "impacts/hit-spark",
+  "fps": 30,
+  "frames": 16,
+  "w": 136,
+  "h": 80,
+  "cols": 4,
+  "pivot": [
+   44,
+   64
+  ]
+ },
+ "hit_poison": {
+  "id": "nature/acid-splash",
+  "fps": 20,
+  "frames": 57,
+  "w": 184,
+  "h": 116,
+  "cols": 6,
+  "pivot": [
+   92,
+   100
+  ]
+ },
+ "hit_water": {
+  "id": "water/splash",
+  "fps": 20,
+  "frames": 51,
+  "w": 176,
+  "h": 100,
+  "cols": 6,
+  "pivot": [
+   88,
+   78
+  ]
+ },
+ "hit_earth": {
+  "id": "impacts/blunt-hit",
+  "fps": 30,
+  "frames": 28,
+  "w": 128,
+  "h": 88,
+  "cols": 5,
+  "pivot": [
+   64,
+   72
+  ]
+ },
+ "hit_metal": {
+  "id": "impacts/parry",
+  "fps": 30,
+  "frames": 31,
+  "w": 200,
+  "h": 112,
+  "cols": 5,
+  "pivot": [
+   100,
+   96
+  ]
+ },
+ "slash": {
+  "id": "melee/sword-slash",
+  "fps": 30,
+  "frames": 24,
+  "w": 136,
+  "h": 104,
+  "cols": 5,
+  "pivot": [
+   44,
+   92
+  ]
+ },
+ "thrust": {
+  "id": "melee/thrust",
+  "fps": 30,
+  "frames": 24,
+  "w": 196,
+  "h": 76,
+  "cols": 4,
+  "pivot": [
+   34,
+   62
+  ]
+ },
+ "spin": {
+  "id": "melee/spin-slash",
+  "fps": 30,
+  "frames": 25,
+  "w": 208,
+  "h": 104,
+  "cols": 4,
+  "pivot": [
+   104,
+   84
+  ]
+ },
+ "cast_fire": {
+  "id": "fire/fire-ring",
+  "fps": 20,
+  "frames": 79,
+  "w": 224,
+  "h": 128,
+  "cols": 7,
+  "pivot": [
+   112,
+   92
+  ]
+ },
+ "cast_ice": {
+  "id": "ice/frost-nova",
+  "fps": 20,
+  "frames": 69,
+  "w": 288,
+  "h": 192,
+  "cols": 7,
+  "pivot": [
+   144,
+   150
+  ]
+ },
+ "cast_lightning": {
+  "id": "lightning/thunderclap",
+  "fps": 20,
+  "frames": 39,
+  "w": 288,
+  "h": 156,
+  "cols": 5,
+  "pivot": [
+   144,
+   124
+  ]
+ },
+ "cast_arcane": {
+  "id": "arcane/mana-burst",
+  "fps": 20,
+  "frames": 37,
+  "w": 208,
+  "h": 150,
+  "cols": 6,
+  "pivot": [
+   104,
+   124
+  ]
+ },
+ "cast_holy": {
+  "id": "holy/heal-aoe",
+  "fps": 20,
+  "frames": 59,
+  "w": 256,
+  "h": 136,
+  "cols": 6,
+  "pivot": [
+   128,
+   104
+  ]
+ },
+ "cast_earth": {
+  "id": "impacts/ground-slam",
+  "fps": 15,
+  "frames": 49,
+  "w": 288,
+  "h": 208,
+  "cols": 6,
+  "pivot": [
+   144,
+   164
+  ]
+ },
+ "cast_plant": {
+  "id": "nature/thorns",
+  "fps": 20,
+  "frames": 49,
+  "w": 232,
+  "h": 92,
+  "cols": 5,
+  "pivot": [
+   48,
+   78
+  ]
+ },
+ "death": {
+  "id": "spawn/poof",
+  "fps": 20,
+  "frames": 33,
+  "w": 112,
+  "h": 92,
+  "cols": 6,
+  "pivot": [
+   56,
+   80
+  ]
+ }
+}

@@ -76,6 +76,8 @@ import { CastCircle } from "./castfx";
 import type { CastTarget } from "./castfx";
 import { lookFor } from "./circles";
 import { skillVfxProfile, type SkillVfxTheme } from "./skillvfx";
+import { pixelFx, pixelFxWidth } from "./pixelfx";
+import { mapX } from "./projection";
 import { sound } from "./audio";
 import type { HitSoundCue } from "./audio";
 import { WEAPON_TYPES } from "./items";
@@ -1171,6 +1173,9 @@ export class Skills {
     const directional = ["bolt", "beam", "arrow", "pierce", "dash", "wing", "twin"].includes(glyph);
     if (["nova", "storm", "heal", "shield", "buff", "orb", "form", "summon", "decoy", "smoke", "trap"].includes(s.type)) {
       this.ring(p.x, p.y, color, size * 2.2, 0.52, true);
+      // the element's pixel art burst round her feet (pixelfx), as wide as the skill reaches
+      const cast = PIXEL_CAST[theme];
+      pixelFx(this.fx, cast, p.x, p.y, 0, Math.max(520, (s.radius ?? 150) * 3.6), { rate: cast.startsWith("cast_") ? 1.4 : 1.1 });
     }
     if (directional) {
       for (let i = 0; i < 7; i++) {
@@ -1224,6 +1229,18 @@ export class Skills {
     }
   }
 
+  // A skill's hit on a monster in pixel art (pixelfx): a weapon skill's cut, and the element's hit.
+  pixelImpact(theme: SkillVfxTheme, glyph: string, m: Monster, dir: Vec2, close: boolean): void {
+    const flip = mapX(m.x + dir.x * 10, m.y + dir.y * 10) < mapX(m.x, m.y), k = 1.8 * Math.max(0.9, Math.min(2.2, m.height / 90));
+    if (close) {
+      const cut = glyph === "pierce" || glyph === "arrow" ? "thrust" : glyph === "spin" || glyph === "storm" ? "spin" : "slash";
+      pixelFx(this.fx, cut, m.x, m.y, m.height * 0.1, pixelFxWidth(cut) * k, { flip });
+    }
+    if (close && theme === "physical") return;
+    const hit = PIXEL_HIT[theme], w = pixelFxWidth(hit);
+    pixelFx(this.fx, hit, m.x, m.y, m.height * 0.3, w * k * (w > 160 ? 0.65 : 1), { flip, rate: 1.3 });
+  }
+
   skillImpactVfx(id: string, s: SkillDef, m: Monster, dir: Vec2): void {
     const profile = this.vfxProfile(id, s), color = this.vfxColor(id, s), seed = profile.signature;
     const count = 2 + (seed % 3), base = Math.atan2(dir.y, dir.x), glow = this.tex.glowFor(color);
@@ -1240,6 +1257,7 @@ export class Skills {
     }
     const closeStrike = s.type === "cone" || s.type === "dash" || s.type === "falcon" ||
       ((s.type === "nova" || s.type === "storm") && s.stat === "atk");
+    this.pixelImpact(profile.theme, profile.glyph, m, dir, closeStrike);
     if (closeStrike) {
       // A weapon-like crescent follows the strike direction; its sweep and density belong to
       // this skill, while the tinted edge follows its element and icon theme.
@@ -1321,3 +1339,14 @@ export class Skills {
     }
   }
 }
+
+// Which baked pixelfx sheet (assets/fx) each theme plays: round the caster for an area skill, and
+// on a monster it hits.
+const PIXEL_CAST: Record<SkillVfxTheme, string> = {
+  fire: "cast_fire", ice: "cast_ice", lightning: "cast_lightning", arcane: "cast_arcane", holy: "cast_holy", earth: "cast_earth",
+  plant: "cast_plant", metal: "cast_earth", shadow: "hit_shadow", poison: "hit_poison", water: "hit_water", wind: "spin", physical: "spin",
+};
+const PIXEL_HIT: Record<SkillVfxTheme, string> = {
+  fire: "hit_fire", ice: "hit_ice", lightning: "hit_lightning", arcane: "hit_arcane", holy: "hit_holy", earth: "hit_earth",
+  plant: "hit_plant", metal: "hit_metal", shadow: "hit_shadow", poison: "hit_poison", water: "hit_water", wind: "hit_wind", physical: "hit_physical",
+};

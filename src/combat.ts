@@ -3,6 +3,7 @@
 // from stats.js.
 
 import { fromView, heightAt, mapX, mapY, S2, toView } from "./projection";
+import { pixelFx, pixelFxWidth } from "./pixelfx";
 import { sound } from "./audio";
 import type { HitSoundCue } from "./audio";
 import { WEAPON_TYPES, OFFHAND_DAMAGE, weaponType } from "./items";
@@ -478,6 +479,11 @@ export class Combat {
       if (got >= 1) this.onHeal?.(got);
     }
     this.floaters.add(m.x, m.y, m.height, String(r.dmg), r.crit ? "crit" : r.magic ? "magic" : "damage");
+    // a normal blow lands as a pixel art spark (pixelfx), a crit as a bigger burst
+    if (hitSound?.kind !== "skill" && !r.magic) {
+      const name = r.crit ? "hit_crit" : "hit_physical", k = 1.8 * Math.max(0.8, Math.min(1.8, m.height / 100));
+      pixelFx(this.fx, name, m.x, m.y, m.height * 0.3, pixelFxWidth(name) * k * (r.crit ? 0.8 : 1), { flip: mapX(m.x + dir.x * 10, m.y + dir.y * 10) < mapX(m.x, m.y) });
+    }
     this.fx.add({ x: m.x, y: m.y, z: m.height * 0.5, layer: AIR_GLOW, tex: this.tex.flash, life: 0.18,
       size: [[0, 24], [1, 60]], alpha: [[0, 0.8], [1, 0]] });
     // a spiked shell or a mirror sends part of a blow (not a spell) back
