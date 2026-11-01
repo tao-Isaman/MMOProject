@@ -104,6 +104,8 @@ export class WorkshopUI {
   list: HTMLElement;
   status: HTMLElement;
   shown = new Set<string>(); // rows opened to show what their item does
+  gear: { id: string; where: Where } | null = null; // the piece in the forge's left slot
+  mat: string | null = null;                         // what goes into it, in the right slot
 
   // stats(): the player's (luck); maker: the name made pieces carry
   constructor(inv: Inventory, progress: Progress, stats: () => { luck: number }, icons: (id: string) => Img | null, maker: string) {
@@ -123,6 +125,7 @@ export class WorkshopUI {
       b.textContent = name;
       b.addEventListener("click", () => {
         this.tab = id;
+        this.status.textContent = id === "socket" ? "เลือกอุปกรณ์ใส่ช่องซ้าย และวัตถุดิบใส่ช่องขวา แล้วกดเสริมพลัง" : "";
         this.render();
       });
     }
@@ -279,10 +282,11 @@ export class WorkshopUI {
     }
   }
 
-  // Put a piece back where it was (null: it is gone).
+  // Put a piece back where it was (null: it is gone); the one picked for sockets follows it.
   put(where: Where, id: string | null): void {
     if (typeof where === "string") this.inv.equipped[where] = id;
     else this.inv.slots[where] = id ? { id, count: 1 } : null;
+    if (this.gear && this.gear.where === where) this.gear = id ? { id, where } : null;
     this.inv.changed();
   }
 
@@ -292,26 +296,89 @@ export class WorkshopUI {
     return n >= SET_CHANCE.length ? 0 : Math.min(1, SET_CHANCE[n] * luckFactor(this.stats()));
   }
 
-  renderSockets(): void {
-    el("p", "wr-note", this.list).textContent = `แกนมอนสเตอร์ใส่ได้ 1 ชิ้นต่ออุปกรณ์ เฉพาะส่วนที่แกนระบุ ติดแน่นอนและติดถาวร · ชิ้นส่วนวิญญาณและศิลาธาตุใส่ได้อย่างละ ${MAX_SOULS} ชิ้น ยิ่งใส่มากยิ่งติดยาก ไม่ติดของที่ใส่จะหายไป`;
-    const list = this.pieces((id) => socketable(id));
-    if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่เสริมพลังได้";
-    const bag = [...new Set(this.inv.slots.filter((x) => x && ITEMS[x.id]?.socket).map((x) => x!.id))];
-    const of = (kind: string) => bag.filter((x) => ITEMS[x].socket === kind);
-    const cores = of("core"), souls = of("soul"), stones = of("stone");
-    for (const { id, where } of list) {
-      const s = socketsOf(id), row = this.row(id, `socket:${where}:${id}`);
-      const info = el("div", "shop-info", row);
-      el("strong", "", info).textContent = `${ITEMS[id].name}${typeof where === "string" ? " (สวมอยู่)" : ""}`;
-      el("span", "sk-sub", info).textContent = `แกน: ${s.core ? CORES[s.core]?.name ?? "-" : "ว่าง"} · ชิ้นส่วนวิญญาณ ${s.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${s.stones.length}/${MAX_STONES}`;
-      el("div", "ws-sock-btns", row);
-      for (const c of cores) if (coreFits(c, id)) this.button(row, `ใส่${ITEMS[c].name}`, true, () => this.setCore(id, where, c));
-      if (s.souls.length < MAX_SOULS)
-        for (const x of souls) this.button(row, `ใส่${ITEMS[x].name} (${pct(this.setChance(s.souls.length))})`, true, () => this.setPart(id, where, x, "souls"));
-      if (s.stones.length < MAX_STONES)
-        for (const x of stones) this.button(row, `ใส่${ITEMS[x].name} (${pct(this.setChance(s.stones.length))})`, true, () => this.setPart(id, where, x, "stones"));
-      this.detail(row, id);
+  // What setting `what` into `gear` would do now: the chance it takes (0: it can't go in), and why not.
+  socketTry(gear: string, what: string): { chance: number; why: string | null } {
+    const s = socketsOf(gear), kind = ITEMS[what]?.socket;
+    if (kind === "core") return coreFits(what, gear) ? { chance: 1, why: null }
+      : { chance: 0, why: s.core ? "อุปกรณ์นี้มีแกนแล้ว" : `แกนนี้ใส่ได้กับ${SLOT_NAMES[CORES[what].slot]}เท่านั้น` };
+    const into = kind === "soul" ? s.souls : s.stones, max = kind === "soul" ? MAX_SOULS : MAX_STONES;
+    return into.length >= max ? { chance: 0, why: `ใส่${kind === "soul" ? "ชิ้นส่วนวิญญาณ" : "ศิลาธาตุ"}ครบ ${max} แล้ว` } : { chance: this.setChance(into.length), why: null };
+  }
+
+  // One of the two slots: the picked item's icon and name, or what goes there.
+  slot(parent: HTMLElement, id: string | null, empty: string, clear: () => void): void {
+    const box = el("div", `ws-slot${id ? " full" : ""}`, parent);
+    const cell = el("span", "inv-cell ws-slot-cell", box);
+    const icon = id ? this.icons(id) : null;
+    if (icon) {
+      const c = icon.cloneNode(true) as Img;
+      if (c instanceof HTMLCanvasElement) c.getContext("2d")!.drawImage(icon, 0, 0);
+      c.classList.add("inv-icon");
+      cell.append(c);
     }
+    el("span", "ws-slot-name", box).textContent = id ? ITEMS[id].name : empty;
+    if (id) box.addEventListener("click", clear);
+  }
+
+  // Pick a piece of gear into the left slot and something to set into the right one, see the
+  // chance, then press เสริมพลัง (as at Yulgang's forge).
+  renderSockets(): void {
+    const list = this.pieces((id) => socketable(id));
+    if (this.gear && !this.still(this.gear.id, this.gear.where)) this.gear = null;
+    const bag = [...new Set(this.inv.slots.filter((x) => x && ITEMS[x.id]?.socket).map((x) => x!.id))];
+    if (this.mat && !bag.includes(this.mat)) this.mat = null;
+    const gear = this.gear, mat = this.mat;
+    // ---- the forge: two slots, the chance, the button ----
+    const box = el("div", "ws-forge-box", this.list); // (stays at the top while the lists scroll)
+    const forge = el("div", "ws-forge", box);
+    this.slot(forge, gear?.id ?? null, "เลือกอุปกรณ์", () => { this.gear = null; this.render(); });
+    el("span", "ws-forge-plus", forge).textContent = "+";
+    this.slot(forge, mat, "เลือกวัตถุดิบ", () => { this.mat = null; this.render(); });
+    const out = el("div", "ws-forge-out", box);
+    const trial = gear && mat ? this.socketTry(gear.id, mat) : null;
+    const now = gear ? socketsOf(gear.id) : null;
+    if (now) el("p", "ws-forge-has", out).textContent = `แกน: ${now.core ? CORES[now.core]?.name ?? "-" : "ว่าง"} · ชิ้นส่วนวิญญาณ ${now.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${now.stones.length}/${MAX_STONES}`;
+    const chance = el("p", "ws-forge-chance", out);
+    chance.textContent = !gear || !mat ? "เลือกอุปกรณ์ทางซ้ายและวัตถุดิบทางขวา" : trial!.why ?? `โอกาสสำเร็จ ${pct(trial!.chance)}`;
+    chance.classList.toggle("bad", !!trial?.why);
+    if (mat) el("p", "ws-forge-gives", out).innerHTML = ITEMS[mat].note ?? "";
+    const go = el("button", "shop-buy ws-forge-go", out);
+    go.type = "button";
+    go.textContent = "เสริมพลัง";
+    go.disabled = !trial || !!trial.why;
+    go.addEventListener("click", () => {
+      if (!gear || !mat) return;
+      const kind = ITEMS[mat].socket;
+      if (kind === "core") this.setCore(gear.id, gear.where, mat);
+      else this.setPart(gear.id, gear.where, mat, kind === "soul" ? "souls" : "stones");
+    });
+    // ---- what to pick from ----
+    el("h4", "ws-craft", this.list).textContent = "อุปกรณ์";
+    if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่เสริมพลังได้";
+    for (const { id, where } of list) {
+      const row = this.row(id, `socket:${where}:${id}`);
+      row.classList.toggle("on", gear?.where === where);
+      const info = el("div", "shop-info ws-pick", row);
+      el("strong", "", info).textContent = `${ITEMS[id].name}${typeof where === "string" ? " (สวมอยู่)" : ""}`;
+      const s = socketsOf(id);
+      el("span", "sk-sub", info).textContent = `แกน ${s.core ? 1 : 0}/1 · ชิ้นส่วนวิญญาณ ${s.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${s.stones.length}/${MAX_STONES}`;
+      this.button(row, gear?.where === where ? "เลือกอยู่" : "เลือก", gear?.where !== where, () => { this.gear = { id, where }; this.render(); });
+    }
+    el("h4", "ws-craft", this.list).textContent = "วัตถุดิบ";
+    if (!bag.length) el("p", "wr-note", this.list).textContent = "ไม่มีแกนมอนสเตอร์ ชิ้นส่วนวิญญาณ หรือศิลาธาตุในกระเป๋า";
+    // (with gear picked, what fits it first)
+    const fits = (x: string) => (gear ? (this.socketTry(gear.id, x).why ? 1 : 0) : 0);
+    for (const x of [...bag].sort((a, b) => fits(a) - fits(b))) {
+      const row = this.row(x, `mat:${x}`);
+      row.classList.toggle("on", mat === x);
+      row.classList.toggle("off", !!gear && fits(x) === 1);
+      const info = el("div", "shop-info ws-pick", row);
+      el("strong", "", info).textContent = `${ITEMS[x].name} ×${this.inv.count(x)}`;
+      const t = gear ? this.socketTry(gear.id, x) : null;
+      el("span", "sk-sub", info).textContent = t ? t.why ?? `โอกาส ${pct(t.chance)}` : "";
+      this.button(row, mat === x ? "เลือกอยู่" : "เลือก", mat !== x, () => { this.mat = x; this.render(); });
+    }
+    el("p", "wr-note", this.list).textContent = `แกนมอนสเตอร์ใส่ได้ 1 ชิ้นต่ออุปกรณ์ เฉพาะส่วนที่แกนระบุ ติดแน่นอนและติดถาวร · ชิ้นส่วนวิญญาณและศิลาธาตุใส่ได้อย่างละ ${MAX_SOULS} ชิ้น ยิ่งใส่มากยิ่งติดยาก ไม่ติดของที่ใส่จะหายไป`;
   }
 
   // Whether the piece is still where the row said (the bag may have moved).

@@ -589,6 +589,24 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 .shop-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
 .shop-row { flex-wrap: wrap; }
 .ws-sock-btns { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 5px; }
+/* the forge (เสริมพลัง): gear left, material right, the chance and the button under them */
+.ws-forge-box { position: sticky; top: -10px; z-index: 2; margin: 0 -2px 6px; border-radius: 12px; background: linear-gradient(var(--panel), var(--panel)), var(--ink, #14170f); border: 1px solid var(--rim); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+.ws-forge { display: flex; align-items: stretch; justify-content: center; gap: 10px; padding: 10px 6px 4px; }
+.ws-forge-plus { align-self: center; font-size: 22px; color: var(--gold); }
+.ws-slot { flex: 1; max-width: 180px; min-height: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px;
+  border: 1px dashed var(--rim); border-radius: 12px; background: rgba(0, 0, 0, 0.25); text-align: center; }
+.ws-slot.full { border-style: solid; border-color: var(--gold); cursor: pointer; }
+.ws-slot-cell { position: relative; width: 46px; height: 46px; }
+.ws-slot-name { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+.ws-slot.full .ws-slot-name { color: var(--text); font-weight: 600; }
+.ws-forge-out { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 6px 8px; text-align: center; }
+.ws-forge-out p { margin: 0; font-size: 12.5px; }
+.ws-forge-has, .ws-forge-gives { color: var(--muted); }
+.ws-forge-chance { font-size: 15px !important; font-weight: 700; color: var(--gold); }
+.ws-forge-chance.bad { color: #ff8f7a; }
+.ws-forge-go { min-width: 140px; margin-top: 4px; }
+.shop-row.on { outline: 1px solid var(--gold); }
+.shop-row.off { opacity: 0.5; }
 .ws-sock-btns:empty { display: none; }
 .ws-sock-btns .shop-buy { min-width: 0; padding: 4px 9px; font-size: 12px; }
 .shop-icon { flex: none; cursor: pointer; }
