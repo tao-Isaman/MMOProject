@@ -994,3 +994,9 @@ body.touch .qt-step { font-size: 11px; }
 body.touch .buffrow { top: calc(100% + 3px); gap: 2px; }
 body.touch .bf { width: 22px; height: 22px; border-radius: 4px; }
 body.touch .bf-t { font-size: 8px; line-height: 9px; }
+/* the skill window: ranks the gear adds, and the gear's own skills */
+.sk-tnode.geared .sk-rank { color: #ffd27a; }
+.sk-gearlist { display: flex; flex-direction: column; gap: 6px; }
+.sk-gearrow { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
+.sk-gearrow div { display: flex; flex-direction: column; }
+.sk-gearrow small { color: var(--muted); }

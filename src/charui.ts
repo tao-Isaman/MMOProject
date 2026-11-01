@@ -44,6 +44,9 @@ function roleIcon(p: Progress): string | null {
 
 // Tooltip text for an active skill at a rank (an invoke: its spells by their orbs, instead of
 // its own MP and cooldown).
+// The skill window's tab for what the gear grants from outside the trees she has.
+const GEAR_TAB = "@gear";
+
 export function skillTip(id: string, rank: number): string {
   const a = ACTIVES[id], s = a.skill;
   const r = Math.max(1, rank);
@@ -772,10 +775,16 @@ export class SkillUI {
 
   // ---- trees: a list of trees and the chosen one drawn with its links; a node's details in
   // its tooltip ----
+  // Skills the gear's cores grant from outside the trees she has (sockets.ts), with their ranks.
+  gearSkills(): [string, number][] {
+    const open = this.real.trees();
+    return Object.entries(this.real.gear.ranks).filter(([id]) => !NODES[id] || !open.includes(NODES[id].tree));
+  }
+
   renderTrees(): void {
     const p = this.progress;
-    const open = p.trees();
-    if (!this.tree || !open.includes(this.tree)) this.tree = open[0] ?? null;
+    const open = p.trees(), extra = this.gearSkills();
+    if (!this.tree || !(open.includes(this.tree) || (this.tree === GEAR_TAB && extra.length))) this.tree = open[0] ?? null;
     const view = el("div", "sk-treeview", this.body);
     const list = el("div", "sk-treelist", view);
     for (const treeId of open) {
@@ -792,6 +801,21 @@ export class SkillUI {
         this.render();
       });
     }
+    // what the gear's cores grant from trees she hasn't got: a tab of its own
+    if (extra.length) {
+      const b = el("button", `sk-treetab${this.tree === GEAR_TAB ? " on" : ""}`, list);
+      b.type = "button";
+      b.style.setProperty("--tree", "#f4d27a");
+      this.skillIcon(b, null, "burst", "#f4d27a", null, true);
+      const txt = el("span", "", b);
+      el("strong", "", txt).textContent = "สกิลจากอุปกรณ์";
+      el("small", "", txt).textContent = `${extra.length} สกิล`;
+      b.addEventListener("click", () => {
+        this.tree = GEAR_TAB;
+        this.render();
+      });
+    }
+    if (this.tree === GEAR_TAB) return this.renderGearSkills(view, extra);
     if (!this.tree) return;
     const tree = TREES[this.tree], treeId = this.tree;
 
@@ -840,22 +864,23 @@ export class SkillUI {
       }
     }
     for (const n of tree.nodes) {
-      const rank = p.ranks[n.id] ?? 0;
+      const rank = p.ranks[n.id] ?? 0, geared = this.real.gear.ranks[n.id] ?? 0;
       const why = p.blockNode(treeId, n);
       const reqOk = !p.missing(n).length;
       const more = this.planned("node", n.id);
-      const node = el("div", `sk-tnode${rank ? " learned" : ""}${rank >= n.max ? " max" : ""}${!why ? " can" : ""}${reqOk ? "" : " blocked"}${more ? " planned" : ""}`, stage);
+      const node = el("div", `sk-tnode${rank || geared ? " learned" : ""}${geared ? " geared" : ""}${rank >= n.max ? " max" : ""}${!why ? " can" : ""}${reqOk ? "" : " blocked"}${more ? " planned" : ""}`, stage);
       node.style.left = `${colX(n.pos[0], cols) * 100}%`;
       node.style.top = `${rowY(n.pos[1])}px`;
       node.tabIndex = 0;
       node.setAttribute("role", "button");
       node.setAttribute("aria-label", `${n.name} ระดับ ${rank}/${n.max}`);
       // only a skill it already knows goes on the skill bar, not one just planned
-      const known = (this.real.ranks[n.id] ?? 0) > 0;
-      const ic = this.skillIcon(node, n.id, n.glyph, tree.color, n.kind === "active" && known ? n.id : null, rank > 0);
+      const known = (this.real.ranks[n.id] ?? 0) > 0 || geared > 0;
+      const ic = this.skillIcon(node, n.id, n.glyph, tree.color, n.kind === "active" && known ? n.id : null, rank + geared > 0);
       if (!reqOk) el("span", "sk-lockmark", ic).textContent = "🔒";
       // the level under the icon, as in Ragnarok (green while points are reserved in it)
-      el("span", "sk-rank", node).textContent = `${rank}/${n.max}`;
+      // (the gear's cores add on top: "5+2/10")
+      el("span", "sk-rank", node).textContent = geared ? `${rank}+${geared}/${n.max}` : `${rank}/${n.max}`;
       el("span", "sk-tname", node).textContent = n.name;
       const kind = el("span", "sk-tkind", node);
       kind.textContent = n.kind === "active" ? "สกิล" : "ติดตัว";
@@ -884,17 +909,40 @@ export class SkillUI {
     }
   }
 
+  // The gear's own skills (from trees she hasn't got, or a mastery's): each with its rank, ready
+  // to drag onto the bar while the gear is worn.
+  renderGearSkills(view: HTMLElement, extra: [string, number][]): void {
+    const box = el("div", "sk-canvas sk-gearlist", view);
+    box.style.setProperty("--tree", "#f4d27a");
+    const head = el("div", "sk-canvas-head", box);
+    el("strong", "", head).textContent = "สกิลจากอุปกรณ์";
+    el("span", "", head).textContent = "ได้จากแกนมอนสเตอร์ที่ใส่ในอุปกรณ์ที่สวมอยู่ ใช้ได้ระหว่างสวมใส่ สกิลกดใช้ลากไปวางที่แถบสกิลได้";
+    for (const [id, r] of extra) {
+      const node = NODES[id]?.node, a = ACTIVES[id];
+      const name = node?.name ?? a?.name ?? id, glyph = node?.glyph ?? a?.glyph ?? "star";
+      const color = (NODES[id] && TREES[NODES[id].tree].color) ?? a?.color ?? "#f4d27a";
+      const active = !!a;
+      const row = el("div", "sk-gearrow", box);
+      this.skillIcon(row, id, glyph, color, active ? id : null, true);
+      const txt = el("div", "", row);
+      el("strong", "", txt).textContent = name;
+      el("small", "", txt).textContent = `${active ? "สกิลกดใช้" : "สกิลติดตัว"} · ระดับ ${r}${NODES[id] ? ` · จาก${TREES[NODES[id].tree].name}` : ""}`;
+      this.hoverTip(row, () => (node ? `<strong style="color:${color}">${name}</strong><span class="inv-tip-kind">ระดับ ${r} จากอุปกรณ์</span><span class="sk-tip-desc">${node.desc(r)}</span>` : skillTip(id, r)));
+    }
+  }
+
   // A tree node's tooltip: what it is, what it does now and at the next rank, its MP by rank,
   // cooldown and cast, what it needs and what is missing, what it opens, and what to do with it.
   nodeTip(treeId: string, n: TreeNode): string {
     const p = this.progress, tree = TREES[treeId];
-    const rank = p.ranks[n.id] ?? 0, more = this.planned("node", n.id);
+    const learnt = p.ranks[n.id] ?? 0, geared = this.real.gear.ranks[n.id] ?? 0, rank = learnt + geared, more = this.planned("node", n.id);
     const ok = (yes: boolean, text: string) => `<span class="${yes ? "sk-ok" : "sk-miss"}">${yes ? "✓" : "✗"} ${text}</span>`;
     const out: string[] = [];
     const hits = hitElement(n.skill);
     out.push(`<strong style="color:${tree.color}">${n.name}</strong><span class="inv-tip-kind">${n.kind === "active" ? "สกิลกดใช้" : "สกิลติดตัว (ได้ผลตลอด)"} · ระดับ ${rank}/${n.max}` +
       `${more ? ` (จองไว้ +${more})` : ""}${hits ? ` · <span style="color:${hits.color}">โจมตี${hits.text}</span>` : ""}</span>`);
     out.push(`<span class="sk-tip-desc">${rank ? "" : "<b>ระดับ 1:</b> "}${n.desc(Math.max(1, rank))}</span>`);
+    if (geared) out.push(`<span class="sk-ok">จากอุปกรณ์ +${geared} ระดับ (เรียนเอง ${learnt} รวมเป็น ${rank})</span>`);
     const parts = (r: number) => rankParts(n, r).filter((x) => !x.startsWith("MP ")).join(" · ");
     if (rank && rank < n.max) {
       const gain = rankGain(n, rank + 1);
