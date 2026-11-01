@@ -50,6 +50,7 @@ const BAKE = {
   cast_lightning: ["lightning/thunderclap", {}, 20],
   cast_arcane: ["arcane/mana-burst", {}, 20],
   cast_holy: ["holy/heal-aoe", {}, 20],
+  cast_light: ["explosions/plasma-explosion", { palette: PAL.holy, accent: ["#5a3e10", "#d8a428", "#ffd84a", "#fff09a", "#fffbe6"] }, 20],
   cast_earth: ["impacts/ground-slam", {}, 15],
   cast_plant: ["nature/thorns", {}, 20],
   // a monster falling

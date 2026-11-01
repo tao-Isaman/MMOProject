@@ -1171,11 +1171,16 @@ export class Skills {
     const size = Math.max(48, Math.min(150, s.radius ?? s.reach ?? 90));
     const origin = { x: p.x, y: p.y }, glow = this.tex.glowFor(color);
     const directional = ["bolt", "beam", "arrow", "pierce", "dash", "wing", "twin"].includes(glyph);
+    const helps = ["heal", "shield", "buff", "orb", "form", "summon", "decoy"].includes(s.type); // (no harm in it)
     if (["nova", "storm", "heal", "shield", "buff", "orb", "form", "summon", "decoy", "smoke", "trap"].includes(s.type)) {
       this.ring(p.x, p.y, color, size * 2.2, 0.52, true);
-      // the element's pixel art burst round her feet (pixelfx), as wide as the skill reaches
-      const cast = PIXEL_CAST[theme];
-      pixelFx(this.fx, cast, p.x, p.y, 0, Math.max(520, (s.radius ?? 150) * 3.6), { rate: cast.startsWith("cast_") ? 1.4 : 1.1 });
+      // the element's pixel art burst round her feet (pixelfx), as wide as the skill reaches; a
+      // light skill that strikes bursts in gold, the healing ring is for heals and blessings
+      if (theme === "holy" && !helps) pixelFx(this.fx, "cast_light", p.x, p.y, 70, Math.max(460, (s.radius ?? 150) * 3), { rate: 1.3 });
+      else {
+        const cast = PIXEL_CAST[theme];
+        pixelFx(this.fx, cast, p.x, p.y, 0, Math.max(520, (s.radius ?? 150) * 3.6), { rate: cast.startsWith("cast_") ? 1.4 : 1.1 });
+      }
     }
     if (directional) {
       for (let i = 0; i < 7; i++) {
@@ -1201,6 +1206,9 @@ export class Skills {
     } else if (["freeze", "drop", "wave", "eye"].includes(glyph) || theme === "ice" || theme === "water") {
       this.ring(p.x, p.y, color, size * 1.5, 0.45, true);
       this.sparkleUp(p.x, p.y, glow, 8);
+    } else if (theme === "holy" && !helps && s.type !== "bolt") {
+      // light that strikes: a gold burst, not the rising motes of a heal
+      this.burst(p.x, p.y, color, 70);
     } else if (["heal", "heart", "star", "up"].includes(glyph) || theme === "holy") {
       this.sparkleUp(p.x, p.y, this.tex.flash, 10);
       this.fx.add({ x: p.x, y: p.y, z: 55, layer: AIR_GLOW, tex: this.tex.flash, life: 0.4,

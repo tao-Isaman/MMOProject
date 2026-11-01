@@ -298,5 +298,17 @@
    56,
    80
   ]
+ },
+ "cast_light": {
+  "id": "explosions/plasma-explosion",
+  "fps": 20,
+  "frames": 35,
+  "w": 224,
+  "h": 200,
+  "cols": 6,
+  "pivot": [
+   112,
+   100
+  ]
  }
 }
