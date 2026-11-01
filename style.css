@@ -595,7 +595,13 @@ body:not(.touch) .window-fill .sk-treeview > * { min-height: 0; max-height: 100%
 .ws-forge-plus { align-self: center; font-size: 22px; color: var(--gold); }
 .ws-slot { flex: 1; max-width: 180px; min-height: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px;
   border: 1px dashed var(--rim); border-radius: 12px; background: rgba(0, 0, 0, 0.25); text-align: center; }
-.ws-slot.full { border-style: solid; border-color: var(--gold); cursor: pointer; }
+.ws-slot { cursor: pointer; }
+.ws-slot.full { border-style: solid; border-color: var(--gold); }
+.ws-slot.on { box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(244, 210, 122, 0.35); }
+.ws-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ws-filter .wr-choice { padding: 4px 10px; font-size: 12.5px; }
+.ws-fit { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.ws-find { flex: 1; min-width: 120px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--rim); background: rgba(0, 0, 0, 0.3); color: var(--text); font: inherit; font-size: 13px; }
 .ws-slot-cell { position: relative; width: 46px; height: 46px; }
 .ws-slot-name { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
 .ws-slot.full .ws-slot-name { color: var(--text); font-weight: 600; }

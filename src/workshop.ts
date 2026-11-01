@@ -106,6 +106,10 @@ export class WorkshopUI {
   shown = new Set<string>(); // rows opened to show what their item does
   gear: { id: string; where: Where } | null = null; // the piece in the forge's left slot
   mat: string | null = null;                         // what goes into it, in the right slot
+  picking: "gear" | "mat" = "gear";                  // which slot's list is open
+  matKind: "all" | "core" | "soul" | "stone" = "all"; // the materials' filter
+  fitOnly = true;
+  matText = "";
 
   // stats(): the player's (luck); maker: the name made pieces carry
   constructor(inv: Inventory, progress: Progress, stats: () => { luck: number }, icons: (id: string) => Img | null, maker: string) {
@@ -306,8 +310,8 @@ export class WorkshopUI {
   }
 
   // One of the two slots: the picked item's icon and name, or what goes there.
-  slot(parent: HTMLElement, id: string | null, empty: string, clear: () => void): void {
-    const box = el("div", `ws-slot${id ? " full" : ""}`, parent);
+  slot(parent: HTMLElement, id: string | null, empty: string, on: boolean, open: () => void): void {
+    const box = el("div", `ws-slot${id ? " full" : ""}${on ? " on" : ""}`, parent);
     const cell = el("span", "inv-cell ws-slot-cell", box);
     const icon = id ? this.icons(id) : null;
     if (icon) {
@@ -317,7 +321,7 @@ export class WorkshopUI {
       cell.append(c);
     }
     el("span", "ws-slot-name", box).textContent = id ? ITEMS[id].name : empty;
-    if (id) box.addEventListener("click", clear);
+    box.addEventListener("click", open);
   }
 
   // Pick a piece of gear into the left slot and something to set into the right one, see the
@@ -331,9 +335,9 @@ export class WorkshopUI {
     // ---- the forge: two slots, the chance, the button ----
     const box = el("div", "ws-forge-box", this.list); // (stays at the top while the lists scroll)
     const forge = el("div", "ws-forge", box);
-    this.slot(forge, gear?.id ?? null, "เลือกอุปกรณ์", () => { this.gear = null; this.render(); });
+    this.slot(forge, gear?.id ?? null, "แตะเพื่อเลือกอุปกรณ์", this.picking === "gear", () => { this.picking = "gear"; this.render(); });
     el("span", "ws-forge-plus", forge).textContent = "+";
-    this.slot(forge, mat, "เลือกวัตถุดิบ", () => { this.mat = null; this.render(); });
+    this.slot(forge, mat, "แตะเพื่อเลือกวัตถุดิบ", this.picking === "mat", () => { this.picking = "mat"; this.render(); });
     const out = el("div", "ws-forge-out", box);
     const trial = gear && mat ? this.socketTry(gear.id, mat) : null;
     const now = gear ? socketsOf(gear.id) : null;
@@ -352,31 +356,74 @@ export class WorkshopUI {
       if (kind === "core") this.setCore(gear.id, gear.where, mat);
       else this.setPart(gear.id, gear.where, mat, kind === "soul" ? "souls" : "stones");
     });
-    // ---- what to pick from ----
-    el("h4", "ws-craft", this.list).textContent = "อุปกรณ์";
-    if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่เสริมพลังได้";
-    for (const { id, where } of list) {
-      const row = this.row(id, `socket:${where}:${id}`);
-      row.classList.toggle("on", gear?.where === where);
-      const info = el("div", "shop-info ws-pick", row);
-      el("strong", "", info).textContent = `${ITEMS[id].name}${typeof where === "string" ? " (สวมอยู่)" : ""}`;
-      const s = socketsOf(id);
-      el("span", "sk-sub", info).textContent = `แกน ${s.core ? 1 : 0}/1 · ชิ้นส่วนวิญญาณ ${s.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${s.stones.length}/${MAX_STONES}`;
-      this.button(row, gear?.where === where ? "เลือกอยู่" : "เลือก", gear?.where !== where, () => { this.gear = { id, where }; this.render(); });
-    }
-    el("h4", "ws-craft", this.list).textContent = "วัตถุดิบ";
-    if (!bag.length) el("p", "wr-note", this.list).textContent = "ไม่มีแกนมอนสเตอร์ ชิ้นส่วนวิญญาณ หรือศิลาธาตุในกระเป๋า";
-    // (with gear picked, what fits it first)
-    const fits = (x: string) => (gear ? (this.socketTry(gear.id, x).why ? 1 : 0) : 0);
-    for (const x of [...bag].sort((a, b) => fits(a) - fits(b))) {
-      const row = this.row(x, `mat:${x}`);
-      row.classList.toggle("on", mat === x);
-      row.classList.toggle("off", !!gear && fits(x) === 1);
-      const info = el("div", "shop-info ws-pick", row);
-      el("strong", "", info).textContent = `${ITEMS[x].name} ×${this.inv.count(x)}`;
-      const t = gear ? this.socketTry(gear.id, x) : null;
-      el("span", "sk-sub", info).textContent = t ? t.why ?? `โอกาส ${pct(t.chance)}` : "";
-      this.button(row, mat === x ? "เลือกอยู่" : "เลือก", mat !== x, () => { this.mat = x; this.render(); });
+    // ---- what to pick from: the list of the slot tapped (gear first, then its materials) ----
+    if (this.picking === "gear") {
+      el("h4", "ws-craft", this.list).textContent = "เลือกอุปกรณ์";
+      if (!list.length) el("p", "wr-note", this.list).textContent = "ไม่มีอุปกรณ์ที่เสริมพลังได้";
+      for (const { id, where } of list) {
+        const row = this.row(id, `socket:${where}:${id}`);
+        row.classList.toggle("on", gear?.where === where);
+        const info = el("div", "shop-info ws-pick", row);
+        el("strong", "", info).textContent = `${ITEMS[id].name}${typeof where === "string" ? " (สวมอยู่)" : ""}`;
+        const s = socketsOf(id);
+        el("span", "sk-sub", info).textContent = `แกน ${s.core ? 1 : 0}/1 · ชิ้นส่วนวิญญาณ ${s.souls.length}/${MAX_SOULS} · ศิลาธาตุ ${s.stones.length}/${MAX_STONES}`;
+        this.button(row, "เลือก", true, () => {
+          this.gear = { id, where };
+          if (this.mat && this.socketTry(id, this.mat).why) this.mat = null;
+          this.picking = "mat";
+          this.render();
+        });
+      }
+    } else {
+      el("h4", "ws-craft", this.list).textContent = gear ? `เลือกวัตถุดิบสำหรับ ${ITEMS[gear.id].name}` : "เลือกวัตถุดิบ";
+      // the filter: by kind, only what fits the piece, and by name
+      const bar = el("div", "ws-filter", this.list);
+      for (const [k, name] of [["all", "ทั้งหมด"], ["core", "แกน"], ["soul", "ชิ้นส่วนวิญญาณ"], ["stone", "ศิลาธาตุ"]] as const) {
+        const b = el("button", `wr-choice${this.matKind === k ? " on" : ""}`, bar);
+        b.type = "button";
+        b.textContent = name;
+        b.addEventListener("click", () => { this.matKind = k; this.render(); });
+      }
+      if (gear) {
+        const fit = el("label", "ws-fit", bar), box = el("input", "", fit);
+        box.type = "checkbox";
+        box.checked = this.fitOnly;
+        box.addEventListener("change", () => { this.fitOnly = box.checked; this.render(); });
+        fit.append("ใส่ได้เท่านั้น");
+      }
+      const find = el("input", "ws-find", bar);
+      find.type = "search";
+      find.placeholder = "ค้นหาชื่อ";
+      find.value = this.matText;
+      const shown = bag.filter((x) => (this.matKind === "all" || ITEMS[x].socket === this.matKind) && !(gear && this.fitOnly && this.socketTry(gear.id, x).why));
+      // (with gear picked, what fits it first)
+      const fits = (x: string) => (gear ? (this.socketTry(gear.id, x).why ? 1 : 0) : 0);
+      const rows: [HTMLElement, string][] = [];
+      for (const x of shown.sort((a, b) => fits(a) - fits(b))) {
+        const row = this.row(x, `mat:${x}`);
+        row.classList.toggle("on", mat === x);
+        row.classList.toggle("off", fits(x) === 1);
+        const info = el("div", "shop-info ws-pick", row);
+        el("strong", "", info).textContent = `${ITEMS[x].name} ×${this.inv.count(x)}`;
+        const t = gear ? this.socketTry(gear.id, x) : null;
+        el("span", "sk-sub", info).textContent = t ? t.why ?? `โอกาส ${pct(t.chance)}` : "";
+        this.button(row, mat === x ? "เลือกอยู่" : "เลือก", mat !== x, () => { this.mat = x; this.render(); });
+        rows.push([row, ITEMS[x].name]);
+      }
+      const empty = el("p", "wr-note", this.list);
+      const filter = () => {
+        const q = find.value.trim();
+        let n = 0;
+        for (const [row, name] of rows) {
+          const hit = !q || name.includes(q);
+          row.style.display = hit ? "" : "none";
+          if (hit) n++;
+        }
+        empty.textContent = n ? "" : bag.length ? "ไม่มีวัตถุดิบที่ตรงกับตัวกรอง" : "ไม่มีแกนมอนสเตอร์ ชิ้นส่วนวิญญาณ หรือศิลาธาตุในกระเป๋า";
+      };
+      // (typing filters the rows in place, so the box keeps its focus)
+      find.addEventListener("input", () => { this.matText = find.value; filter(); });
+      filter();
     }
     el("p", "wr-note", this.list).textContent = `แกนมอนสเตอร์ใส่ได้ 1 ชิ้นต่ออุปกรณ์ เฉพาะส่วนที่แกนระบุ ติดแน่นอนและติดถาวร · ชิ้นส่วนวิญญาณและศิลาธาตุใส่ได้อย่างละ ${MAX_SOULS} ชิ้น ยิ่งใส่มากยิ่งติดยาก ไม่ติดของที่ใส่จะหายไป`;
   }
