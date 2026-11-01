@@ -1000,3 +1000,4 @@ body.touch .bf-t { font-size: 8px; line-height: 9px; }
 .sk-gearrow { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
 .sk-gearrow div { display: flex; flex-direction: column; }
 .sk-gearrow small { color: var(--muted); }
+.st-gear-sock { font-size: 11.5px; line-height: 1.35; }

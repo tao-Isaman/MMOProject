@@ -240,7 +240,9 @@ export interface Item {
   sockets?: string;                     // what is set in it (src/sockets.ts): its core, soul fragments and element stones
   grants?: Grants;                      // skill ranks and mastery / element levels its core gives while worn
   socket?: "core" | "soul" | "stone";   // a thing set into gear (src/sockets.ts)
-  socketText?: string;                  // what its sockets give, for its tip
+  socketText?: string;                  // what its sockets give, for its tip (coloured HTML)
+  socketLine?: string;                  // the same in one short line (the profile's gear rows)
+  plainStats?: Partial<Record<string, number>>; // its stats without what its sockets add
   icon: { weapon?: WeaponId; sheet?: string; glyph?: string; color?: string; art?: string; badge?: string };
 }
 
@@ -466,7 +468,7 @@ export function refineStats(item: Item, plus: number): Partial<Record<string, nu
 // What a piece's sockets give (set by src/sockets.ts, which knows the cores, souls and stones):
 // stats on top of the piece's, what it grants while worn, a word for its name and lines for its tip.
 export interface Grants { ranks?: Record<string, number>; mastery?: Record<string, number>; elements?: Record<string, number>; auto?: Record<string, number> }
-export interface SocketInfo { stats: Partial<Record<string, number>>; grants?: Grants; tag?: string; text: string }
+export interface SocketInfo { stats: Partial<Record<string, number>>; grants?: Grants; tag?: string; text: string; line: string }
 let socketInfo: ((sockets: string, item: Item) => SocketInfo | null) | null = null;
 export function setSocketResolver(f: (sockets: string, item: Item) => SocketInfo | null): void {
   socketInfo = f;
@@ -506,6 +508,8 @@ function derive(id: string): Item | undefined {
         price: Math.round((b.price ?? 0) * (1 + 0.25 * plus)),
         icon: { ...b.icon },
         socketText: sock?.text,
+        socketLine: sock?.line,
+        plainStats: sock ? addStats(b.stats, refineStats(b, plus)) : undefined,
       }
       : null;
     derived.set(id, item);
@@ -609,7 +613,8 @@ export function describe(id: string): string {
   const item = ITEMS[id];
   if (!item) return "";
   const extra = [item.lv ? `ต้องการเลเวล ${item.lv}` : "", item.maker ? `สร้างโดย ${item.maker}` : ""].filter(Boolean).join(" · ");
-  const text = describeBase(item) + (item.socketText ? `<br>${item.socketText}` : "");
+  // (what the sockets add shows once, in their own colours, under the piece's own stats)
+  const text = describeBase(item.plainStats ? { ...item, stats: item.plainStats } : item) + (item.socketText ? `<br>${item.socketText}` : "");
   return extra ? `${text}<br>${extra}` : text;
 }
 function describeBase(item: Item): string {
@@ -618,17 +623,17 @@ function describeBase(item: Item): string {
     const reach = w.projectile ? w.projectile.range : w.reach;
     const hits = w.hits ? ` × ${w.hits}` : "";
     const hands = w.twoHanded ? "อาวุธสองมือ (ใช้มือรองด้วย)" : "มือเดียว · ใส่มือรองได้ (ตีซ้ำ 50%, ค่าสถานะครึ่งหนึ่ง)";
-    const stats = item.stats && Object.keys(item.stats).length ? `<br>${statText(item.stats)}` : "";
+    const stats = item.stats && Object.keys(item.stats).length ? `<br>${statText(item.stats, "<br>")}` : "";
     return `ดาเมจ ${w.damage[0]}–${w.damage[1]}${hits} · ระยะ ${(reach / 100).toFixed(1)} ม. · ตีทุก ${w.interval} วิ${stats}<br>${w.note}<br>${hands}`;
   }
   if (item.kind === "book" || item.kind === "style") return `${item.note}<br>ดับเบิลคลิกเพื่ออ่าน`;
-  if (item.kind === "offhand") return `${item.note}<br>${statText(item.stats)}<br>ใส่มือรอง (ใช้กับอาวุธสองมือไม่ได้)`;
-  if (GEAR_WHERE[item.kind]) return `${item.note}<br>${statText(item.stats)}<br>${GEAR_WHERE[item.kind]}`;
+  if (item.kind === "offhand") return `${item.note}<br>${statText(item.stats, "<br>")}<br>ใส่มือรอง (ใช้กับอาวุธสองมือไม่ได้)`;
+  if (GEAR_WHERE[item.kind]) return `${item.note}<br>${statText(item.stats, "<br>")}<br>${GEAR_WHERE[item.kind]}`;
   if (item.kind === "potion") return `${item.note}<br>ดับเบิลคลิกเพื่อดื่ม (บอทดื่มเองได้)`;
   if (item.kind === "top" || item.kind === "bottom") {
     // armour: stats only, the outfit seen is the job's (src/outfits.ts)
     if (!item.tier) return `${SHAPES[item.kind][item.shape!].note}<br>ชุดแฟชั่น ยังใช้ไม่ได้`;
-    return `${statText(item.stats)}<br>${item.note ?? ""}<br>เพิ่มค่าสถานะอย่างเดียว ชุดที่เห็นเปลี่ยนตามอาชีพ`;
+    return `${statText(item.stats, "<br>")}<br>${item.note ?? ""}<br>เพิ่มค่าสถานะอย่างเดียว ชุดที่เห็นเปลี่ยนตามอาชีพ`;
   }
   return item.note ?? "";
 }
@@ -644,8 +649,8 @@ const STAT_WORDS: Record<string, string> = {
   statusRes: "ต้านสถานะ",
 };
 const STAT_PCT = new Set(["maxHpPct", "maxMpPct", "move", "potion", "matkPct", "cdr", "castRed", "crit", "critDmg", "drop", "dmgRed", "statusRes"]);
-export function statText(stats: Partial<Record<string, number>> | undefined): string {
-  return Object.entries(stats ?? {}).map(([k, v = 0]) => `${STAT_WORDS[k] ?? k} ${v < 0 ? "" : "+"}${STAT_PCT.has(k) ? `${Math.round(v * 100)}%` : v}`).join(" · ");
+export function statText(stats: Partial<Record<string, number>> | undefined, sep = " · "): string {
+  return Object.entries(stats ?? {}).map(([k, v = 0]) => `${STAT_WORDS[k] ?? k} ${v < 0 ? "" : "+"}${STAT_PCT.has(k) ? `${Math.round(v * 100)}%` : v}`).join(sep);
 }
 
 // What the shop pays for one.

@@ -331,8 +331,10 @@ export class ProfileUI {
       el("b", "", txt).textContent = item?.name ?? "—";
       const what = !item ? "" : item.kind === "weapon"
         ? `ดาเมจ ${WEAPON_TYPES[item.weapon!].damage.join("–")} · ตีทุก ${WEAPON_TYPES[item.weapon!].interval} วิ`
-        : statText(item.stats);
-      if (what) el("span", "", txt).textContent = what;
+        : statText(item.plainStats ?? item.stats, "<br>"); // (one stat a line)
+      if (what) el("span", "", txt).innerHTML = what;
+      // what is set into it, each in its own colour (sockets.ts)
+      if (item?.socketLine) el("span", "st-gear-sock", txt).innerHTML = item.socketLine;
       if (id) this.tips.set(row, () => itemTip(id));
       return row;
     }));

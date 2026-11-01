@@ -27,6 +27,12 @@ export type CoreSlot = "weapon" | "offhand" | "top" | "bottom" | "hat" | "shoes"
 export const SLOT_NAMES: Record<CoreSlot, string> = {
   weapon: "อาวุธ", offhand: "มือรอง", top: "เสื้อ", bottom: "กางเกง/กระโปรง", hat: "หมวก", shoes: "รองเท้า", ring: "แหวน", trinket: "เครื่องประดับ",
 };
+// The colours what is set into gear is written in: a core amber gold, a soul fragment royal blue
+// (apart from every element's colour: gold's is a duller gold, water's and ice's paler blues), a
+// stone its element's own colour.
+export const CORE_COLOR = "#ffb300";
+export const SOUL_COLOR = "#4d7dff";
+const tint = (color: string, html: string) => `<span style="color:${color}">${html}</span>`;
 export const MAX_SOULS = 4;
 export const MAX_STONES = 4;
 // The chance the 1st, 2nd, 3rd and 4th soul fragment or element stone takes (before luck).
@@ -39,9 +45,9 @@ const WORDS: Record<string, string> = {
   ...Object.fromEntries(RACES.map((r) => [`${r}Dmg`, `ดาเมจใส่${RACE_NAMES[r]}`])),
 };
 const isPct = (k: string) => k.endsWith("Pct") || (k.endsWith("Dmg") && k !== "critDmg") || PERCENT_STATS.has(k);
-export function statWords(stats: Partial<Record<string, number>>): string {
+export function statWords(stats: Partial<Record<string, number>>, sep = " · "): string {
   return Object.entries(stats).filter(([k]) => !k.startsWith(AUTOCAST)).map(([k, v = 0]) =>
-    `${WORDS[k] ?? k} +${isPct(k) ? `${+(v * 100).toFixed(1)}%` : +v.toFixed(1)}`).join(" · ");
+    `${WORDS[k] ?? k} +${isPct(k) ? `${+(v * 100).toFixed(1)}%` : +v.toFixed(1)}`).join(sep);
 }
 
 // ---- monster cores ----
@@ -174,7 +180,7 @@ const has = (def: { behave: string[] }, b: string) => behaviour(def, b) !== null
 // What a core gives, as tip lines.
 export function coreLines(c: Core): string[] {
   const out = [`ใส่ได้กับ: ${SLOT_NAMES[c.slot]}`];
-  const plain = statWords(c.stats);
+  const plain = statWords(c.stats, "<br>");
   if (plain) out.push(plain);
   for (const [id, r] of Object.entries(c.grants.ranks ?? {})) out.push(`สกิล ${ACTIVES[id].name} +${r} ระดับ`);
   for (const [id, lv] of Object.entries(c.grants.mastery ?? {})) out.push(`ความเชี่ยวชาญ${MASTERIES[id].name} +${lv} ระดับ`);
@@ -299,7 +305,7 @@ function resolve(raw: string, item: Item): SocketInfo | null {
   const add = (k: string, v: number) => (stats[k] = +((stats[k] ?? 0) + v).toFixed(4));
   let core: Core | null = null, souls = 0, stones = 0;
   const lines: string[] = [];
-  const stoneWords: string[] = [], soulWords: string[] = [];
+  const stoneWords: string[] = [], soulWords: string[] = [], stoneLine: string[] = [];
   for (const part of raw.split("|")) {
     const [kind, a, b] = part.split(":");
     if (kind === "c") {
@@ -309,18 +315,28 @@ function resolve(raw: string, item: Item): SocketInfo | null {
     } else if (kind === "s") {
       if (++souls > MAX_SOULS || !SOUL_STATS.some(([k]) => k === a) || !(+b > 0)) return null;
       add(a, soulValue(a, +b));
-      soulWords.push(statWords({ [a]: soulValue(a, +b) }));
+      soulWords.push(tint(SOUL_COLOR, statWords({ [a]: soulValue(a, +b) })));
     } else if (kind === "e") {
       if (++stones > MAX_STONES || !(a in ELEMENTS) || !(+b > 0)) return null;
       const key = `${a}${ATTACK_GEAR.has(item.kind) ? "Atk" : "Def"}`;
       add(key, +b);
-      stoneWords.push(statWords({ [key]: +b }));
+      stoneWords.push(tint(ELEMENTS[a as ElementId].color, statWords({ [key]: +b })));
+      stoneLine.push(tint(ELEMENTS[a as ElementId].color, `${ELEMENTS[a as ElementId].name} +${b}`));
     } else return null;
   }
-  if (core) lines.push(`<b>${core.name}</b>: ${coreLines(core).slice(1).join(" · ")}`);
-  if (soulWords.length) lines.push(`ชิ้นส่วนวิญญาณ: ${soulWords.join(" · ")}`);
-  if (stoneWords.length) lines.push(`ศิลาธาตุ: ${stoneWords.join(" · ")}`);
-  return { stats, grants: core?.grants, tag: core ? `[${core.name}]` : souls + stones ? `[${souls + stones}]` : undefined, text: lines.join("<br>") };
+  if (core) {
+    lines.push(tint(CORE_COLOR, `<b>${core.name}</b>`));
+    for (const l of coreLines(core).slice(1)) lines.push(tint(CORE_COLOR, l));
+  }
+  if (soulWords.length) lines.push(tint(SOUL_COLOR, "<b>ชิ้นส่วนวิญญาณ</b>"), ...soulWords);
+  if (stoneWords.length) lines.push("<b>ศิลาธาตุ</b>", ...stoneWords);
+  // the profile's lines: the core's stats one a line, each soul, each stone by element
+  const line = [
+    ...(core ? (statWords(core.stats, "\n") || core.name).split("\n").map((w) => tint(CORE_COLOR, w)) : []),
+    ...soulWords,
+    ...stoneLine,
+  ].join("<br>");
+  return { stats, grants: core?.grants, tag: core ? `[${core.name}]` : souls + stones ? `[${souls + stones}]` : undefined, text: lines.join("<br>"), line };
 }
 setSocketResolver(resolve);
 
